@@ -1,5 +1,15 @@
 # PBL progress
 
+## v30b UI (Nov 15 2026) — Sonnet: items 6b, 8, 18, 7
+- Note: the repo had no 6a entry. Box score already had MIN + +/-, but the play log had no on-court data, so a small engine hook was added here (not the full Opus 6a): pbp entry `[8]` = 10 on-court ids (home 5, away 5) when the lineup changed, `[9]` = seconds of the play; `pbpReplay(g, n)` (end of engine.js) rebuilds court, minutes, +/- up to n entries.
+- [x] E1/E2 `tools/t30b-ui.js` 17/17 (NBA + PBL: replayed minutes within 1s and +/- exact vs box, 10 on court, team minutes 240, home +/- = 5x margin). Log overhead ~0-15% on user games only.
+- [x] #6b Live play-by-play: on-court window per team (pts, PF, +/-), Min + +/- in the live box, on-court rows marked, Home/Away + record under team names (regular W-L, plus playoff W-L in playoffs; record going into that game), same on the final box score (`gameRec`, `recLine`)
+- [x] #8 Scouting report (`scoutDlg`, Scout button on Next up, Schedule, and undecided playoff series): comparison table (rating, W-L, away/home, playoff W-L, last 10, power rank, PPG, opp, ORtg, DRtg, pace, FG%, 3P%, REB, AST, TOV), 3 best players per team, position matchups, playstyle (systems + league-rank tags), what to watch, meetings this season. Wording is plain templates (Haiku 8t can improve)
+- [x] #18 One-window bracket (`bracketOne`): first conference left (West in NBA mode), second right, Finals in the center, play-in boxes outside, seeds 1-8 both sides, future slots TBD then fill as series end, champion under the Finals. "Round view" toggle keeps the old columns. Used in Standings and History
+- [x] #7 Ticker (`tickerItems`, `renderTicker`): News (league log), Stats (live leaders, best record, top offense/defense, last day's top score), Rumors (log rumors, trade requests, teams listening on offers). Filter, hide/show (remembered), pauses on hover, reduced-motion safe, rebuilt only when the league changes. Rumor/stat wording is plain (Haiku 7t later)
+- [x] Browser test `tools/browser-v30b.py.txt` 136/136 (NBA 30 + PBL 16, desktop 1300 + 390px). If your team misses the playoffs the playoff-record check prints a note and is skipped
+- [x] Existing tests, same as before: t27 71/71, t265 27/27, t287 11/11, t288 35/35, t257 29/29, t30a quick 21/21, t29 quick 18/19 (NCHF leader 34.4), auto 9/10, t266 23/24, t258 12/13, unit-v253, f5 9/9, m*, x28, browser-v30a 95/95, v30 44/44, v288 45/45. Not run: long harnesses (u8 timed out at 4 min, s20, k27, l27, n27, p27, s27, n8) and older browser tests.
+
 ## v30a logic (Nov 15 2026) — Opus, engine/data only
 - [x] #13 Two-way offers: free agents can refuse when they expect a standard contract (reason shown); drafted 2nd-rounders always accept; AI skips refusers + retries weekly — `twWillSign` (league.js)
 - [x] #22 Roster needs: no "Fix now" physical (athleticism) flag with 15 players — `rosterNeeds`

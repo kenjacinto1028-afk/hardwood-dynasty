@@ -695,3 +695,11 @@ All new code is one block just above `vNews` ("v29 Sonnet part"), plus small hoo
 - **S5 Call-ups**: club chip + league on free agents when `p.club.s === L.season`; "Call up" button (free agents list and player page) while `pipeCallable(L)` lists him; `callUpDialog` shows the buyout, calls `callUp`, shows `res.msg`. Finances: "International buyouts" row and history column `intlBuy`. Note for Opus: `seasonProjection` leaves `intlBuy` out of expenses / profit (the season-end books include it); the Finances view adds it to the projection itself.
 - **S6 News**: "Pipeline" filter chip (`x.k === 'pipe'`); feed posts of event `pipe` show a Pipeline pill + player link.
 - Tests: `tools/browser-v29.py.txt` (rename to `.py`, serve the folder, `python3 browser-v29.py PORT`; plays one autopilot season): 69 checks. Hooks for tests: `window.__pbl.pipeUi`. `node tools/t29.js` 37/37, `t288.js` 35/35, `auto.js` 10/10.
+
+
+## v30b Sonnet part (Nov 15 2026): live PBP window, scouting report, one-window bracket, ticker
+- **Live play-by-play** (your team's games): on-court window for each team (points, fouls, +/-), MIN and +/- in the live box score, on-court rows marked, Home / Away and record under each team name (regular season W-L; playoffs add playoff W-L). Records are the ones going into that game. The final box score shows the same under the team names. Needs the engine log fields `pbp[i][8]` (ten on-court ids when the lineup changed) and `[9]` (seconds); `pbpReplay(g, n)` rebuilds court, minutes and +/-. Older saves have no lineup data: their live view shows the starters and 0:00 minutes.
+- **Scouting report**: "Scout" button on Next up (Standings), upcoming days on Schedule, and undecided playoff series. Team vs team table, best players, position matchups, playstyles, what to watch, meetings this season.
+- **Playoff bracket in one window**: first conference left (West in NBA mode), second right, Finals in the center, play-in boxes outside, seeds 1-8 each side, TBD slots fill as series end. "Round view" switches to the old columns.
+- **Ticker** under the header: News, Stats, Rumors. Filter box, × to hide (Show ticker brings it back), pauses on hover. Rumors come from real sim state (trade requests, teams listening on offers) and league-log rumors.
+- Tests: `node tools/t30b-ui.js` (17/17), `tools/browser-v30b.py.txt` (136/136, desktop + 390px).

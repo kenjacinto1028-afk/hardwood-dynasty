@@ -1,3 +1,20 @@
+# TASK_STATE — v30b UI (items 6b, 8, 18, 7) — Sonnet
+
+Note: PROGRESS.md had no 6a entry. Box score already had MIN + pm (engine BX), but pbp entries carried no on-court 5s. Step E1 adds the minimal engine hook (lineup + seconds per play) so 6b can work.
+
+- [x] E1. Engine hook: pbp entry [8] = 10 on-court ids when lineup changed, [9] = seconds of the play (engine.js logE) + pbpReplay(g, n) at end of engine.js
+- [x] E2. tools/t30b-ui.js 17/17: replay gives min (<=1s) + pm (exact) matching final box; log overhead ~15% (12.9s vs 11.2s per 60 days NBA, user games only)
+- [x] B1. #6b live PBP: on-court window per team, MIN + +/- in live box, home/away labels, records (reg + playoff W-L)
+- [x] B2. #6b final box score: home/away + records under team names
+- [x] S1. #8 pre-game scouting report (team vs team, best players, matchups, W-L, playstyles)
+- [x] P1. #18 playoff bracket in one window (West left, East right, Finals center, play-in outside)
+- [x] T1. #7 ticker: news, stats, rumors
+- [x] Q1. tools/browser-v30b.py.txt 136/136 desktop 1300 + 390px (NBA 30 + PBL 16)
+- [x] Q2. Run all existing tests, compare to baseline
+- [x] D1. PROGRESS.md + README, commit, push
+
+---
+(previous section, v30a UI — done)
 # TASK_STATE — v30a UI (items 20, 16, 17, 12, 14, 15, 11, 4, 9 + 13 UI) — Sonnet
 
 - [x] U0. Clone, read v30-plan + PROGRESS, create this section

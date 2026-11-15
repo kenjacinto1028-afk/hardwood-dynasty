@@ -875,11 +875,12 @@ function scoutDlg(h, a) {
   const sty = t => { const c = t.coach, x = adv(t), tags = []; if (x) { const o = rk('ortg', t), d = rk('drtg', t, true), pc = rk('pace', t), tp = rk('tpar', t), tv = rk('tov', t, true); if (o <= 5) tags.push(`Top offense (${ord(o)})`); if (d <= 5) tags.push(`Top defense (${ord(d)})`); if (o >= L.teams.length - 4) tags.push('Struggling offense'); if (d >= L.teams.length - 4) tags.push('Struggling defense'); if (pc <= 5) tags.push('Plays fast'); if (pc >= L.teams.length - 4) tags.push('Plays slow'); if (tp <= 5) tags.push('Three-point heavy'); if (tv <= 4) tags.push('Takes care of the ball'); } return `<div class="row" style="flex-wrap:wrap;gap:6px"><span class="pill">${esc(OFF_SYS[c.off].name)}</span><span class="pill">${esc(DEF_SYS[c.def].name)}</span>${tags.map(g => `<span class="pill pos">${esc(g)}</span>`).join('')}</div><div class="muted" style="font-size:12px;margin-top:4px">Coach ${esc(c.name)} · ${c.ovr}</div>`; };
   // head to head this season + what to watch
   const hh = L.games.filter(g => g.season === L.season && ((g.home === h && g.away === a) || (g.home === a && g.away === h)));
-  const hhTxt = hh.length ? hh.map(g => `<a class="lk" data-game="${g.id}">${g.playoff ? esc(g.stage || 'Playoffs') + ' G' + g.gnum : dayTxt(g.day)}: ${L.teams[g.away].abbr} ${g.as}, ${L.teams[g.home].abbr} ${g.hs}</a>`).join(' · ') : 'No meetings yet this season.';
+  const sd = h * 31 + a + (L.day || 0) + (L.po ? L.po.day * 7 : 0);   // v30 8t: wording seed, stable for this game
+  const hhTxt = hh.length ? hh.map(g => `<a class="lk" data-game="${g.id}">${g.playoff ? esc(g.stage || 'Playoffs') + ' G' + g.gnum : dayTxt(g.day)}: ${L.teams[g.away].abbr} ${g.as}, ${L.teams[g.home].abbr} ${g.hs}</a>`).join(' · ') : esc(fl('sc.nomeet', {}, sd));
   const watch = [];
-  { const sa = str(ta), sh = str(th), d = sa - sh; watch.push(Math.abs(d) < 1 ? 'The rosters are rated about even.' : `${d > 0 ? ta.abbr : th.abbr} has the rating edge (${f1(Math.max(sa, sh))} to ${f1(Math.min(sa, sh))}).`); }
-  if (A && H) { watch.push(`${ta.abbr} offense (${f1(A.ortg)}, ${ord(rk('ortg', ta))}) meets the ${th.abbr} defense (${f1(H.drtg)}, ${ord(rk('drtg', th, true))}).`); watch.push(`${th.abbr} offense (${f1(H.ortg)}, ${ord(rk('ortg', th))}) meets the ${ta.abbr} defense (${f1(A.drtg)}, ${ord(rk('drtg', ta, true))}).`); }
-  for (const t of [ta, th]) { const out = rotationOf(L, t).concat(teamPlayers(t.id)).filter((p, i, arr) => arr.indexOf(p) === i && p.injury > 0).sort((p, q) => q.ovr - p.ovr).slice(0, 3); if (out.length) watch.push(`${t.abbr} injuries: ${out.map(p => `${p.last || p.name.split(' ').pop()} (${p.ovr}, out ${injGames(p)})`).join(', ')}.`); }
+  { const sa = str(ta), sh = str(th), d = sa - sh; watch.push(Math.abs(d) < 1 ? fl('sc.even', {}, sd) : fl('sc.edge', { abbr: d > 0 ? ta.abbr : th.abbr, hi: f1(Math.max(sa, sh)), lo: f1(Math.min(sa, sh)) }, sd)); }
+  if (A && H) { watch.push(fl('sc.matchup', { off: ta.abbr, ortg: f1(A.ortg), ork: ord(rk('ortg', ta)), def: th.abbr, drtg: f1(H.drtg), drk: ord(rk('drtg', th, true)) }, sd + 1)); watch.push(fl('sc.matchup', { off: th.abbr, ortg: f1(H.ortg), ork: ord(rk('ortg', th)), def: ta.abbr, drtg: f1(A.drtg), drk: ord(rk('drtg', ta, true)) }, sd + 2)); }
+  for (const t of [ta, th]) { const out = rotationOf(L, t).concat(teamPlayers(t.id)).filter((p, i, arr) => arr.indexOf(p) === i && p.injury > 0).sort((p, q) => q.ovr - p.ovr).slice(0, 3); if (out.length) watch.push(fl('sc.inj', { abbr: t.abbr, list: out.map(p => `${p.last || p.name.split(' ').pop()} (${p.ovr}, out ${injGames(p)})`).join(', ') }, sd + t.id)); }
   const hd = t => `<div class="sch-h">${logo(t.id, 44)}<div><strong>${esc(tname(t.id))}</strong><div class="muted" style="font-size:12px">${t.w}-${t.l}${L.po ? ' · playoffs ' + poWL(t.id) : ''}</div></div></div>`;
   dialog(`<h2>Scouting report</h2><p class="muted" style="margin-top:-6px">${L.phase === 'playoffs' ? 'Playoffs' : dayTxt(L.day)} · ${esc(ta.abbr)} at ${esc(th.abbr)}</p>
   <div class="sch-top">${hd(ta)}<span class="muted">Away</span><span class="muted">Home</span>${hd(th)}</div>
@@ -4191,26 +4192,28 @@ function tickerItems() {
   const ps = Object.values(L.players).filter(p => p.team != null && !p.retired && p.stats && p.stats[key] && p.stats[key].gp > 0 && isQual(p, key));
   const lead = (fn, txt) => { let b = null, bv = -1; for (const p of ps) { const v = fn(p); if (v > bv) { bv = v; b = p; } } if (b && bv > 0) items.push({ k: 'stat', t: txt(b, bv), pid: b.id }); };
   const pg = (p, k) => p.stats[key][k] / p.stats[key].gp;
-  lead(p => pg(p, 'pts'), (p, v) => `${nm(p)} (${ab(p.team)}) leads the league in scoring at ${f1(v)} points a game${key === 'po' ? ' in the playoffs' : ''}`);
-  lead(p => pg(p, 'orb') + pg(p, 'drb'), (p, v) => `${nm(p)} (${ab(p.team)}) leads in rebounds, ${f1(v)} a game`);
-  lead(p => pg(p, 'ast'), (p, v) => `${nm(p)} (${ab(p.team)}) leads in assists, ${f1(v)} a game`);
-  lead(p => pg(p, 'stl'), (p, v) => `${nm(p)} (${ab(p.team)}) leads in steals, ${f1(v)} a game`);
-  lead(p => pg(p, 'blk'), (p, v) => `${nm(p)} (${ab(p.team)}) leads in blocks, ${f1(v)} a game`);
-  lead(p => pg(p, 'tpm'), (p, v) => `${nm(p)} (${ab(p.team)}) leads in three-pointers, ${f1(v)} a game`);
+  const sd = L.season * 400 + (L.day || 0) + (L.po ? L.po.day * 3 : 0), T = (k, v, i) => fl(k, v, sd + (i || 0));   // v30 7t: wordings change each game day
+  const pv = (p, v) => ({ name: nm(p), abbr: ab(p.team), v: f1(v) });
+  lead(p => pg(p, 'pts'), (p, v) => T(key === 'po' ? 'tk.pts.po' : 'tk.pts', pv(p, v), 1));
+  lead(p => pg(p, 'orb') + pg(p, 'drb'), (p, v) => T('tk.reb', pv(p, v), 2));
+  lead(p => pg(p, 'ast'), (p, v) => T('tk.ast', pv(p, v), 3));
+  lead(p => pg(p, 'stl'), (p, v) => T('tk.stl', pv(p, v), 4));
+  lead(p => pg(p, 'blk'), (p, v) => T('tk.blk', pv(p, v), 5));
+  lead(p => pg(p, 'tpm'), (p, v) => T('tk.tpm', pv(p, v), 6));
   if (L.phase === 'regular') {
     const tm = L.teams.filter(t => t.w + t.l >= 5).sort((a, b) => b.w / (b.w + b.l) - a.w / (a.w + a.l) || b.w - a.w)[0];
-    if (tm) items.push({ k: 'stat', t: `${tname(tm.id)} have the league's best record at ${tm.w}-${tm.l}`, tid: tm.id });
+    if (tm) items.push({ k: 'stat', t: T('tk.record', { team: tname(tm.id), w: tm.w, l: tm.l }, 7), tid: tm.id });
     const o = L.teams.map(t => ({ t, a: teamAdv(t.trs) })).filter(x => x.a);
-    if (o.length) { const bo = o.slice().sort((a, b) => b.a.ortg - a.a.ortg)[0], bd = o.slice().sort((a, b) => a.a.drtg - b.a.drtg)[0]; items.push({ k: 'stat', t: `${bo.t.abbr} have the league's top offense (${f1(bo.a.ortg)} per 100 possessions); ${bd.t.abbr} the top defense (${f1(bd.a.drtg)})`, tid: bo.t.id }); }
+    if (o.length) { const bo = o.slice().sort((a, b) => b.a.ortg - a.a.ortg)[0], bd = o.slice().sort((a, b) => a.a.drtg - b.a.drtg)[0]; items.push({ k: 'stat', t: T('tk.offdef', { oabbr: bo.t.abbr, ortg: f1(bo.a.ortg), dabbr: bd.t.abbr, drtg: f1(bd.a.drtg) }, 8), tid: bo.t.id }); }
   }
   { const gs = L.phase === 'playoffs' && L.po && L.po.day > 0 ? L.games.filter(g => g.playoff && g.poDay === L.po.day - 1) : L.phase === 'regular' && L.day > 0 ? L.games.filter(g => g.day === L.day - 1 && !g.playoff) : [];
     let b = null; for (const g of gs) for (const r of g.box) if (!b || r[3] > b.pts) b = { pts: r[3], id: r[0], g, side: r[1] };
-    if (b && L.players[b.id]) { const g = b.g, opp = b.side === 0 ? g.away : g.home; items.push({ k: 'stat', t: `Last game day's top score: ${nm(L.players[b.id])} had ${b.pts} points against ${ab(opp)} (${g.hs > g.as === (b.side === 0) ? 'win' : 'loss'})`, pid: b.id }); } }
+    if (b && L.players[b.id]) { const g = b.g, opp = b.side === 0 ? g.away : g.home; items.push({ k: 'stat', t: T('tk.top', { name: nm(L.players[b.id]), pts: b.pts, opp: ab(opp), res: g.hs > g.as === (b.side === 0) ? 'win' : 'loss' }, 9), pid: b.id }); } }
   // rumors
   { let n = 0; for (const x of L.log) { if (n >= 3) break; if (x.cat === 'rumor') { items.push({ k: 'rumor', t: cap(x.text), tid: x.tid }); n++; } } }
   if (L.phase === 'regular' || L.phase === 'off-review' || L.phase.startsWith('off')) {
     const open = typeof inTradeWindow === 'function' && inTradeWindow(L), out = [];
-    for (const p of Object.values(L.players)) { if (p.team == null || p.retired || p.prospect || p.team === L.user) continue; if (p.tradeReq === L.season) out.push({ p, w: 2, t: `${nm(p)} (${ab(p.team)}, ${p.ovr}) is reported to want a trade` }); else if (open) { const st = (L.teams[p.team].tstat || {})[p.id]; if (st && st.k === 'block') out.push({ p, w: 1, t: `${tname(p.team)} are said to be listening on offers for ${nm(p)} (${p.ovr})` }); } }
+    for (const p of Object.values(L.players)) { if (p.team == null || p.retired || p.prospect || p.team === L.user) continue; if (p.tradeReq === L.season) out.push({ p, w: 2, t: T('tk.treq', { name: nm(p), abbr: ab(p.team), ovr: p.ovr }, p.id) }); else if (open) { const st = (L.teams[p.team].tstat || {})[p.id]; if (st && st.k === 'block') out.push({ p, w: 1, t: T('tk.block', { team: tname(p.team), name: nm(p), ovr: p.ovr }, p.id) }); } }
     out.sort((a, b) => b.w - a.w || b.p.ovr - a.p.ovr); for (const x of out.slice(0, 5)) items.push({ k: 'rumor', t: x.t, pid: x.p.id });
   }
   return items;

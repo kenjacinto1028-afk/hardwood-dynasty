@@ -1,5 +1,21 @@
 # PBL progress
 
+## v30 review round 2 (Nov 15 2026) — Opus (8t/7t done here too)
+- [x] 8t/7t: `sc.*` (5) + `tk.*` (12) keys, 4 wordings each, in src/league.js; scoutDlg + tickerItems (app.js) use fl() with a per-day seed; lint covers sc/tk (99 keys)
+- [x] Two-way drift fix: season-start FA cap ranks young two-way-eligible players by two-way value (was lowest OVR first). NBA start fill 42/60 (v29 40, round 1 34)
+- [x] faRound: in-season ask drops to the best offer or 20% a week. Unsigned FAs >= 13th man 22.4 (v29 21.6, round 1 28.6)
+- [x] #25 kept as is (2026 draft class = season-1 rookies), confirmed by Kenneth
+- [x] Tests: lint, t27, t30a, t30b-ui, t30c, browser v30a 95/95, v30b 135/135, v30c 126/126. Runs: tools/runs30/v30n-*.txt
+- Open: young players cut at the FA cap "retire" (could go to pipeline clubs instead)
+
+## v30 review (Nov 15 2026) — Opus QA
+- [x] Reviewed v30a/b/c against the plan. Full report: `V30-REVIEW.md` (also project doc claude/nba/v30-review.md)
+- [x] Fix: two-way rejections left slots empty (NBA S2 start 16/60, v29 48). `TW_REJ` in league.js: mval only counts 25%+ over the minimum, weekly cooling in season, post-FA factor 0.2. Now ~34/60 avg (v29 40), ~1/3 of asked players refuse once
+- [x] Fix: duplicate jersey numbers on a team (also in v29, 11-29 a season): `assignNumber` counts two-ways + compares as text, called in `addToTeam`, after 2/3-team trades, and a sweep in `startNewSeason`. 0 dups in 80 seasons
+- [x] Harness `tools/r30.js` (SRC, SEED, NBA, SIZE, MODE) + `tools/r30sum.py.txt`; 20 seasons x 4 leagues + v29 baseline in `tools/runs30/`
+- [x] Tests: lint PASS, t30a 29/29, t30b-ui 17/17, t30c 30/30, t27 71/71, browser v30a 95/95, v30b 136/136, v30c 118/118
+- Open: confirm #25 rookie class (2026 draftees tagged); 8t/7t need strings moved to keys; unsigned high-ask FAs (pre-existing)
+
 ## v30 text variants (Nov 15 2026) — Haiku: plan rows 5t, 21t, 23t
 - [x] 5t move write-up reasons: `mv.n.*` (13), `mv.t.*` (3), `mv.r.*` (5) in `src/league.js` FLAVOR, 4 wordings each (+3). Vars: `mv.n.depth` keeps `{pos}`
 - [x] 21t Hall of Fame speeches: `hof.speech.*` (9 keys) in `src/nba-text.js` story, +4 each (8 total): family (`fam`), coaches (`coach`, `coach2`), teammates (`mates`), city (`team`), humor (`open`, `titles`, `mvp`, `close`)

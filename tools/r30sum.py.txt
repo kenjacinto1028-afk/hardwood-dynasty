@@ -1,0 +1,43 @@
+# v30 review: summarize tools/r30.js output. Rename to .py: python3 r30sum.py file1.txt [file2.txt ...]
+import sys, json, statistics as st
+def load(f):
+    rows, sm = [], None
+    for l in open(f):
+        if l.startswith('S '): rows.append(json.loads(l[2:]))
+        elif l.startswith('SUM '): sm = json.loads(l[4:])
+    return rows, sm
+def avg(x): return round(st.mean(x), 1) if x else None
+for f in sys.argv[1:]:
+    rows, sm = load(f)
+    ok = [r for r in rows if 'err' not in r]
+    print('==', f, 'seasons', len(ok), 'errors', [r.get('err') for r in rows if 'err' in r])
+    if not ok: continue
+    # series lengths
+    lens = {}
+    for r in ok:
+        for stg, xs in r['series'].items():
+            for x in xs:
+                g, b = map(int, x.split('/')); lens.setdefault((stg, b), []).append(g)
+    for (stg, b), gs in lens.items():
+        need = (b + 1) // 2
+        dist = {k: gs.count(k) for k in range(need, b + 1)}
+        print(f'  series {stg} (best of {b}): n {len(gs)} avg {avg(gs)} dist {dist} sweep% {round(100*dist[need]/len(gs))} max% {round(100*dist[b]/len(gs))}')
+    print('  playoff games/season', avg([r['poGames'] for r in ok]))
+    inj = [r['injSeason'] for r in ok]
+    print('  injuries/season RS', avg([i['rs'] for i in inj]), 'games lost RS', avg([i['rsG'] for i in inj]), '| PO', avg([i['po'] for i in inj]), 'games lost PO', avg([i['poG'] for i in inj]))
+    print('  top-10 players minutes RS', avg([r['top10RsMin'] for r in ok]), 'PO', avg([r['top10PoMin'] for r in ok]), 'injured at season end', avg([r['injuredNow'] for r in ok]))
+    print('  two-way filled at season start', [r['start']['twFill'] for r in ok], 'end', [r.get('twFillEnd') for r in ok])
+    print('  two-way asks', sum(r.get('twCalls', 0) for r in ok), 'no', sum(r.get('twNo', 0) for r in ok))
+    print('  FA at season start', avg([r['start']['fa'] for r in ok]), 'rated >= bench line', avg([r['start']['faOverBench'] for r in ok]), 'within 3', avg([r['start']['faNear'] for r in ok]), 'two-way refusers still unsigned', avg([r['start']['twRejUnsigned'] for r in ok]))
+    print('  best unsigned FA by season', [r['start']['faTop'][0] if r['start']['faTop'] else '-' for r in ok])
+    print('  rosters outside 13-15 at start', sum(len(r['start']['rosterBad']) for r in ok), [x for r in ok for x in r['start']['rosterBad']][:8])
+    print('  ROTY', [(r['s'], r['roty']['n'], r['roty']['draft'], r['roty']['ovr']) if r['roty'] else (r['s'], None) for r in ok])
+    jd = [(r['s'], len(r['jerseyStart']['dup']), len(r['jerseyOff']['dup'])) for r in ok]
+    print('  jersey dups (season, start, after offseason)', [x for x in jd if x[1] or x[2]] or 'none', 'missing numbers', sum(r['jerseyStart']['none'] for r in ok))
+    ms = [r['ms'] for r in ok]
+    print('  ms/season avg', avg(ms), 'first', ms[0], 'last', ms[-1], 'save KB last', ok[-1]['kb'])
+    print('  weird', [w for r in ok for w in r['weird']][:10])
+    if sm:
+        t = sm['tw']
+        print('  SUM two-way: players asked', t.get('players'), 'refused at least once', t.get('noPlayers'), 'player-weeks', t.get('pw'), 'no', t.get('pwNo'), 'byPh', t.get('byPh'), 'why', t.get('byWhy'))
+        print('  SUM interviews', sm['iv'], 'errors', sm['err'][:3])

@@ -184,6 +184,7 @@ function addToTeam(L, p, tid) {
   if (p.team != null) removeFromTeam(L, p);
   L.fa = L.fa.filter(id => id !== p.id);
   p.team = tid; L.teams[tid].roster.push(p.id);
+  assignNumber(L, p, L.teams[tid]);   // v30 review: trades and every other move keep numbers unique on a team (he keeps his if it is free)
   famNews(L, p, tid);
 }
 function famNews(L, p, tid) {
@@ -467,9 +468,10 @@ function autoOption(p, yrs, amt) {
   return null;
 }
 function assignNumber(L, p, t) {
-  const taken = new Set([...t.roster.filter(id => id !== p.id).map(id => L.players[id].num), ...(t.retired || []).map(r => r.num)]);
-  if (p.num != null && !taken.has(p.num)) return;
-  const pool = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 30, 31, 32, 33, 34, 35, 40, 41, 42, 43, 44, 45, 50, 51, 52, 55, 77, 88, 99].filter(n => !taken.has(n));
+  // v30 review: two-way players count as taken too, and numbers compare as text ("00", 23 vs "23")
+  const taken = new Set([...t.roster, ...(t.twoWay || [])].filter(id => id !== p.id).map(id => L.players[id] && L.players[id].num).filter(n => n != null).map(String).concat((t.retired || []).map(r => String(r.num))));
+  if (p.num != null && p.num !== '' && !taken.has(String(p.num))) return;
+  const pool = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 30, 31, 32, 33, 34, 35, 40, 41, 42, 43, 44, 45, 50, 51, 52, 55, 77, 88, 99].filter(n => !taken.has(String(n)));
   p.num = pool.length ? pick(pool) : rint(60, 98);
 }
 function releaseBlock(L, p) {
@@ -1274,6 +1276,7 @@ function executeTrade(L, tr) {
   }
   const icons = [...aGive.players.map(id => [id, a]), ...bGive.players.map(id => [id, b])].filter(([id, from]) => iconTier(L, L.players[id], from) >= 1);   // v27 L2
   move(aGive.players, b, a); move(bGive.players, a, b);
+  for (const id of aGive.players) assignNumber(L, L.players[id], L.teams[b]); for (const id of bGive.players) assignNumber(L, L.players[id], L.teams[a]);   // v30 review: no two players with one number on a team
   for (const [id, from] of icons) { const p = L.players[id], T = L.teams[from], v = { name: p.name, team: T.name, city: T.city };
     hypeBump(T, -6); logNews(L, `${p.name}, ${(iconLabel(L, p, from) || 'face of the franchise').toLowerCase()} of the ${T.name}, has been traded.`, from, 'trade'); addPost(L, 'icon', 'fan', 'upset', v, { tid: from, pid: id, size: 1.6 }); addPost(L, 'icon', 'beat', 'calm', v, { tid: from, pid: id, size: 1.2 });
     if (T.owner && T.owner.trust != null) T.owner.trust = clamp(T.owner.trust - 5, 0, 100); }
@@ -1365,6 +1368,7 @@ function executeTrade3(L, tr) {
     else if (m.kind === 'cash') moveCash(L, L.teams[m.from], L.teams[m.to], m.amt);
     else { const k = L.picks.find(x => x.id === m.id); k.owner = m.to; const o = draftSlotOf(L, k); if (o && !o.pid) o.owner = k.owner; if (m.prot) applyProt(L, { prot: { [m.id]: m.prot } }); }
   }
+  for (const m of moves) if (m.kind === 'players') assignNumber(L, L.players[m.id], L.teams[m.to]);   // v30 review: unique numbers after the 3-team deal
   if (L.offers && L.offers.length) L.offers = L.offers.filter(o => offerValid(L, o));
   lblPicks();
   const [a, b, c] = teams, inOf = t => ({ players: S[t].get.players.slice(), picks: S[t].get.picks.map(id => pickLbl[id]), cash: S[t].get.cash || 0 });
@@ -4016,7 +4020,7 @@ function signTwoWay(L, p, tid, drafted) {
   p.tw = { tid, s: capSeason(L), games: 0, active: false }; p.ask = null; p.lastTeam = tid;
   if (dr) { p.tw.exp = L.season + 2; p.draftRights = null; }
   t.twoWay.push(p.id);
-  if (p.num == null || rosterOf(L, t).some(x => x.num === p.num)) assignNumber(L, p, t);
+  assignNumber(L, p, t);   // v30 review: checks roster + two-way slots
   p.tx.push({ s: L.season, t: `Two-way deal with ${t.abbr}` });
   if (tid === L.user) logNews(L, `${t.abbr} signed ${p.name} (${p.ovr}) to a two-way deal`, tid, 'tx');
   return null;
@@ -4024,7 +4028,7 @@ function signTwoWay(L, p, tid, drafted) {
 // v30a #13: a free agent can turn down a two-way deal when he expects a standard contract (market value above the minimum, or he rates
 // with the end of most benches). Drafted 2nd-rounders never decline (signTwoWay skips this). One answer per player per week in the season
 // (per phase in the offseason), from a fixed hash, so asking again the same day gives the same answer. The market cools as the season goes on.
-const TW_REJ = { mval: 0.8, over3: 0.7, over0: 0.4, near: 0.12, low: 0.03, late: 0.5, mid: 0.8, pre: 0.85 };
+const TW_REJ = { mval: 0.8, mvalMin: 1.25, over3: 0.7, over0: 0.4, near: 0.12, low: 0.03, late: 0.3, mid: 0.8, wk: 0.07, pre: 0.2 };   // v30 review: mval counts only 25%+ above the minimum; the market cools each week; after free agency (pre) most unsigned players accept
 let TW_BL = null;
 function twBenchLine(L) {   // median 13th-best overall on standard rosters (cached per day)
   const key = L.season + ':' + L.phase + ':' + L.day;
@@ -4035,10 +4039,10 @@ function twBenchLine(L) {   // median 13th-best overall on standard rosters (cac
 }
 function twHash(a, b, c) { let h = (a * 73856093) ^ (b * 19349663) ^ (c * 83492791); h = Math.imul(h ^ (h >>> 13), 0x5bd1e995); h ^= h >>> 15; return (h >>> 0) / 4294967296; }
 function twWillSign(L, p) {
-  const bench = twBenchLine(L), over = p.ovr - bench, hi = (p.mval || MINSAL) > MINSAL + 0.05;
+  const bench = twBenchLine(L), over = p.ovr - bench, hi = (p.mval || MINSAL) > MINSAL * TW_REJ.mvalMin;
   let ch = over >= 3 ? TW_REJ.over3 : over >= 0 ? TW_REJ.over0 : over >= -3 ? TW_REJ.near : TW_REJ.low, why = over >= 0 ? 'ovr' : 'hold';
   if (hi) { const m = Math.min(0.95, TW_REJ.mval + 0.15 * Math.min(1, ((p.mval || MINSAL) - MINSAL) / MINSAL)); if (m >= ch) { ch = m; why = 'mval'; } }
-  if (L.phase === 'regular') ch *= L.day > totalDays(L) * 0.5 ? TW_REJ.late : TW_REJ.mid;
+  if (L.phase === 'regular') ch *= L.day > totalDays(L) * 0.5 ? TW_REJ.late : Math.max(TW_REJ.late, TW_REJ.mid - TW_REJ.wk * Math.floor(L.day / 7));
   else if (L.phase === 'off-ready') ch *= TW_REJ.pre;
   const per = L.phase === 'regular' ? Math.floor(L.day / 7) : ['off-fa', 'off-ready'].indexOf(L.phase) + 1000;
   const ok = twHash(p.id, L.season, per) >= ch;
@@ -4970,7 +4974,11 @@ function faRound(L, lastCall, minOvr) {
         const why = best.amt >= uo.amt ? 'more money' : p.pers === 'Winner' ? 'wanted a contender' : p.pers === 'Mentor' ? 'wanted to lead a young team' : p.pers === 'Loyal' && best.tid === p.lastTeam ? 'went back to his old team' : 'a better fit';
         delete L.faOffers[p.id]; faEvent(L, p, 'lost', best.tid, why);
       } else if (!best) continue;
-    } else if (!best) continue;
+    } else if (!best) {
+      // v30 review: in season, an unsigned player with real offers below his ask comes down to the best one (or 20% a week), so a capped-out league doesn't leave him unsigned all year
+      if (L.phase === 'regular' && offers.length && p.ask > MINSAL) { const a = r1(Math.max(offers[0].sc, p.ask * 0.8)); p.ask = a < 1.5 ? MINSAL : Math.min(p.ask, a); }
+      continue;
+    }
     // pay what it takes to beat the next bidder (adjusted for how much he likes each team), at least the asking price
     const bk = Math.pow(best.ap, K);
     let price = best.amt <= MINSAL ? MINSAL : Math.min(best.amt, Math.max(lastCall ? 0 : p.ask / bk, second ? second.sc / bk + 0.5 : 0, p.mval * 0.6));
@@ -5109,6 +5117,7 @@ function tourNews(L, g) {
 }
 function startNewSeason(L) {
   processPending(L);
+  for (const t of L.teams) for (const id of [...t.roster, ...(t.twoWay || [])]) if (L.players[id]) assignNumber(L, L.players[id], t);   // v30 review: clears number clashes in older saves (first listed keeps his)
   autoFillScouts(L);
   if (active(L).some(p => p.unrev)) revealRookies(L);
   finalizeRosters(L);
@@ -5130,7 +5139,9 @@ function startNewSeason(L) {
   // trim the free-agent pool: older unsigned players drift into retirement
   for (const id of L.fa.slice()) { const p = L.players[id]; if (p.age >= 33 && !(NBA_ON && p.ovr >= 70) && R() < 0.5) {   // v27 U13: a good NBA player left unsigned waits for a deal instead of retiring
  const played = p.real || p.hist.some(h => h.rs && h.rs.gp > 0); retirePlayer(L, p, 'unsigned'); if (!played) delete L.players[p.id]; else honorRetired(L, p); } }   // v27 N8: unsigned retirees get HOF / jersey review too (Gobert, 4x DPOY, had legacy 0); real players are never deleted
-  while (L.fa.length > 60) { const p = L.fa.map(id => L.players[id]).sort((a, b) => a.ovr - b.ovr)[0]; const played = p.real || p.hist.some(h => h.rs && h.rs.gp > 0); retirePlayer(L, p, 'unsigned'); if (!played) delete L.players[p.id]; else honorRetired(L, p); }
+  // v30 review: the cap keeps young two-way prospects (ranked like aiFillTwoWay: 60% potential, 40% overall), so AI teams still have two-way candidates at season start
+  if (L.fa.length > 60) { const twV = p => { try { return twEligible(L, p) ? 0.6 * teamPotEst(L, 0, p).est + 0.4 * p.ovr : p.ovr; } catch (e) { return p.ovr; } };
+    for (const [p] of L.fa.map(id => L.players[id]).map(p => [p, twV(p)]).sort((a, b) => a[1] - b[1]).slice(0, L.fa.length - 60)) { const played = p.real || p.hist.some(h => h.rs && h.rs.gp > 0); retirePlayer(L, p, 'unsigned'); if (!played) delete L.players[p.id]; else honorRetired(L, p); } }
   L.picks = L.picks.filter(k => k.s >= L.season);
   ensurePicks(L);
   for (const t of L.teams) { if (!t.owner) initFinance(L, t); t.fin = newFin(L); t.hype = Math.round((t.hype + (50 - t.hype) * 0.35) * 10) / 10; }
@@ -8549,4 +8560,24 @@ Object.assign(FLAVOR, {
   'iv.a.dclass.0': ['It is a strong class with real depth.', 'There is good talent from the top down.', 'The depth in this class is what stands out to us.', 'Plenty of players here could help a team right away.'], 'iv.a.dclass.1': ['There are a few special players at the top.', 'The top of this class is as strong as I have seen.', 'A couple of prospects stand well above the rest.', 'The elite players here can change a franchise.'], 'iv.a.dclass.2': ['It is a thin class; patience will matter.', 'Good players are hard to find this year, so patience will matter.', 'The middle of this class is a question mark.', 'We will need some luck after the first handful of picks.'], 'iv.a.dclass.3': ['I will not rank the class publicly.', 'I would rather not rate the class out loud.', 'The rankings are for the draft room, not the press.', 'No public ranking from me.'],
   'iv.a.dneed.0': ['Talent first. We will fit them in.', 'We take the talent and find the roster spot later.', 'Good players find a place, so talent comes first.', 'We will make room for the best player available.'], 'iv.a.dneed.1': ['Need matters. We have specific holes to fill.', 'We are looking for players who fill real gaps.', 'Our roster has clear needs, and the draft will address some.', 'A hole on the roster matters as much as the talent.'], 'iv.a.dneed.2': ['A mix of both, depending on who falls.', 'It depends on who is left when we pick.', 'We balance need and talent, and the board decides.', 'The best value at the right moment wins out.'], 'iv.a.dneed.3': ['That stays in the draft room.', 'I will keep our needs to ourselves.', 'Our draft priorities are private.', 'The board is for us, not for you.'],
   'iv.a.dwork.0': ['They tell us a lot about character and fit.', 'Interviews and workouts show us what a player is like off the court.', 'Workouts help us see how a player fits our culture.', 'Character shows up in a workout, and we pay attention to it.'], 'iv.a.dwork.1': ['Film and games matter more to us.', 'We trust game film over a single workout.', 'Game tape tells us the most about a prospect.', 'Real games matter more than drills in the gym.'], 'iv.a.dwork.2': ['Workouts help, but they are one piece.', 'Workouts are one piece of a bigger picture.', 'A workout helps, but it does not decide anything alone.', 'We take workouts as a small part of the evaluation.'], 'iv.a.dwork.3': ['I keep that private.', 'Our evaluation process stays in-house.', 'I would rather not describe how we evaluate players.', 'We keep our process to ourselves.']
+});
+// v30 8t/7t: pre-game scouting report ("What to watch") and ticker stat / rumor lines, as keys so they can vary (app.js scoutDlg, tickerItems)
+Object.assign(FLAVOR, {
+  'sc.even': ['The rosters are rated about even.', 'On paper, there is little to separate these two rosters.', 'Neither team has a clear edge in talent tonight.', 'The ratings call this one a toss-up.'],
+  'sc.edge': ['{abbr} has the rating edge ({hi} to {lo}).', '{abbr} brings the stronger roster ({hi} to {lo}).', 'On paper, {abbr} is the better team ({hi} to {lo}).', 'The ratings favor {abbr} ({hi} to {lo}).'],
+  'sc.matchup': ['{off} offense ({ortg}, {ork}) meets the {def} defense ({drtg}, {drk}).', 'The {off} offense ({ortg}, {ork}) tests the {def} defense ({drtg}, {drk}).', 'Key matchup: {off} offense ({ortg}, {ork}) against the {def} defense ({drtg}, {drk}).', 'Can the {def} defense ({drtg}, {drk}) slow the {off} offense ({ortg}, {ork})?'],
+  'sc.inj': ['{abbr} injuries: {list}.', '{abbr} will be without {list}.', 'Out for {abbr}: {list}.', '{abbr} injury report: {list}.'],
+  'sc.nomeet': ['No meetings yet this season.', 'These teams have not met yet this season.', 'This is their first meeting this season.', 'No games between these two yet this season.'],
+  'tk.pts': ['{name} ({abbr}) leads the league in scoring at {v} points a game', 'Scoring leader: {name} ({abbr}) is averaging {v} points', '{name} ({abbr}) tops the scoring chart with {v} points a game', 'Nobody scores more than {name} ({abbr}): {v} points a game'],
+  'tk.pts.po': ['{name} ({abbr}) leads the league in scoring at {v} points a game in the playoffs', 'Playoff scoring leader: {name} ({abbr}) at {v} points a game', '{name} ({abbr}) tops the playoff scoring chart with {v} a game', 'Nobody has scored more this postseason than {name} ({abbr}): {v} a game'],
+  'tk.reb': ['{name} ({abbr}) leads in rebounds, {v} a game', 'Rebounding leader: {name} ({abbr}) with {v} a game', '{name} ({abbr}) is cleaning the glass: {v} rebounds a game', 'Nobody pulls down more boards than {name} ({abbr}): {v} a game'],
+  'tk.ast': ['{name} ({abbr}) leads in assists, {v} a game', 'Assists leader: {name} ({abbr}) with {v} a game', '{name} ({abbr}) is setting the table: {v} assists a game', 'Nobody passes like {name} ({abbr}) this season: {v} assists a game'],
+  'tk.stl': ['{name} ({abbr}) leads in steals, {v} a game', 'Steals leader: {name} ({abbr}) with {v} a game', '{name} ({abbr}) has the quickest hands: {v} steals a game', 'Nobody takes the ball away more than {name} ({abbr}): {v} a game'],
+  'tk.blk': ['{name} ({abbr}) leads in blocks, {v} a game', 'Blocks leader: {name} ({abbr}) with {v} a game', '{name} ({abbr}) is guarding the rim: {v} blocks a game', 'Nobody swats more shots than {name} ({abbr}): {v} a game'],
+  'tk.tpm': ['{name} ({abbr}) leads in three-pointers, {v} a game', 'Three-point leader: {name} ({abbr}) with {v} makes a game', '{name} ({abbr}) is raining threes: {v} a game', 'Nobody hits more threes than {name} ({abbr}): {v} a game'],
+  'tk.record': ["{team} have the league's best record at {w}-{l}", "Best in the league: the {team} at {w}-{l}", "{team} sit on top of the league at {w}-{l}", "Nobody has won more than the {team}, now {w}-{l}"],
+  'tk.offdef': ["{oabbr} have the league's top offense ({ortg} per 100 possessions); {dabbr} the top defense ({drtg})", "Best offense: {oabbr} ({ortg} per 100). Best defense: {dabbr} ({drtg} allowed)", "{oabbr} score the most per possession ({ortg}); {dabbr} allow the least ({drtg})", "Top attack: {oabbr} at {ortg} per 100 possessions. Top defense: {dabbr} at {drtg}"],
+  'tk.top': ["Last game day's top score: {name} had {pts} points against {opp} ({res})", "Top scorer last game day: {name}, {pts} points against {opp} ({res})", "{name} led all scorers last game day with {pts} against {opp} ({res})", "Big night: {name} poured in {pts} points against {opp} ({res})"],
+  'tk.treq': ['{name} ({abbr}, {ovr}) is reported to want a trade', 'Sources say {name} ({abbr}, {ovr}) has asked out', '{name} ({abbr}, {ovr}) wants a new team, according to reports', 'Word is {name} ({abbr}, {ovr}) would like to be traded'],
+  'tk.block': ['{team} are said to be listening on offers for {name} ({ovr})', 'Sources say the {team} would move {name} ({ovr}) for the right offer', '{name} ({ovr}) is on the trade block, and the {team} are taking calls', 'The {team} have made {name} ({ovr}) available, league sources say']
 });

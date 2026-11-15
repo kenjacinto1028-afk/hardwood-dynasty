@@ -1,3 +1,30 @@
+# TASK_STATE — v30 next steps in this session (prompts 1-3) — Nov 15 2026
+
+- [x] N1. 17 keys sc.* (5) + tk.* (12) at end of src/league.js; scoutDlg + tickerItems in src/app.js use fl() with a per-day seed (same text as before)
+- [x] N2. 4 wordings per sc.*/tk.* key (src/league.js end); tools/lint-v30-text.js checks sc/tk: 99 keys PASS
+- [x] N3. faRound (league.js): in season, unsigned player with offers below his ask drops to max(best offer, ask x0.8) weekly (was only x0.9 and capped-out teams only offer the minimum, so a $23.5M ask never reached it)
+- [x] N4. Drift cause: season-start FA cap (60) retired lowest-OVR first, deleting young two-way prospects (9-23 a year). league.js startNewSeason now ranks by two-way value. FA>=13th-man rise was mostly two-way refusers (cumulative count); bench line + league OVR climb same as v29
+- [x] N5. 20 seasons NBA commish + PBL team (30): tools/runs30/v30n-*.txt
+- [x] N6. lint 99 PASS, t27 71/71, t30a 29/29, t30b-ui 17/17, t30c 30/30, browser v30a 95/95, v30b 135/135 (2 sc.matchup wordings reworded to keep 'offense ('), v30c 126/126
+- [x] N7. Round 2 section in V30-REVIEW.md + project doc; PROGRESS.md; committed; zip of all changes since 6d6f2a6 sent
+
+---
+# TASK_STATE — v30 review + 20-season sims (Opus QA) — Nov 15 2026
+
+- [x] R0. Clone, read v30-plan + PROGRESS, lint PASS, t30a 29/29, t30c 30/30
+- [x] R1. v30a reviewed: #13 two-way too strict (fixed R4c), #10 jersey dups (fixed R4b), #22/#24 OK, #25 tags 2026 draft class (55, season 1 = 2026-27) — ask Kenneth if he meant Flagg's 2025 class. UI items covered by browser-v30a (rerun in R7)
+- [x] R2. v30b reviewed: pbpReplay +/- assumes 5 per side (edge: foul-outs); small-league best-of-5 text correct; 8t/7t still hard-coded strings
+- [x] R3. v30c reviewed: #5 write-ups hook sign/release/trade OK (re-sign shows no fit, by design); #23 periods + no-repeat OK; Haiku ivAnswers seed change OK
+- [x] R4. Long-sim harness tools/r30.js (done; SRC/SEED/NBA/SIZE/MODE env)
+- [x] R4c. Bug: two-way rejections left 16/60 slots filled at NBA S2 start (v29 48). league.js TW_REJ: mval counts only >25% over min, weekly cooling, post-FA factor 0.2. Now 42/60, ~1/3 of asked players refuse once
+- [x] R4b. Bug: jersey duplicates after trades / two-way signings. Fixed league.js assignNumber (two-ways + text compare), addToTeam, executeTrade/executeTrade3, startNewSeason sweep. 2 PBL seasons: 0 dups (was 8-14)
+- [x] R5. v29 baseline: commit 1253318, NBA commish 20 seasons (tools/runs30/v29-nba-commish.txt)
+- [x] R6. 20 seasons x 4: NBA commish, NBA team, PBL commish (16), PBL team (30). Raw in tools/runs30/, summary: python3 tools/r30sum.py.txt
+- [x] R7. Re-test: lint PASS, t30a 29/29, t30b-ui 17/17, t30c 30/30, t27 71/71, browser v30a 95/95, v30b 136/136, v30c 118/118. Speed v29 85-90 s vs v30 95-100 s per NBA season
+- [x] R8. Report V30-REVIEW.md + project claude/nba/v30-review.md
+- [x] R9. PROGRESS.md updated, committed on branch v30-review. Push blocked (GitHub not linked); patch + changed files sent
+
+---
 # TASK_STATE — v30 text variants (plan rows 5t, 21t, 23t) — Haiku — Nov 15 2026
 
 Note: 8t (scouting report) and 7t (ticker stats/rumors) are NOT keyed: the lines are inline templates in src/app.js (scoutDlg, tickerItems). Not touched here; needs a small refactor into keys first (see PROGRESS.md).

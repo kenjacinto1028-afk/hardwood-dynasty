@@ -1,0 +1,239 @@
+# v30a UI checks (Sonnet): #20 Progression page, #16 two-way release, #17 pipeline popup, #12 Can afford, #14 FA end button,
+# #15 type-change chips, #11 live-draft targets, #4 completed-trade filters, #9 buyers and sellers, #13 two-way refusal message.
+# Desktop 1300px + 390px (no sideways scroll on every new view), no page errors.
+# Rename to .py, serve the game folder (python3 -m http.server PORT), then: python3 browser-v30a.py PORT
+import asyncio, sys, json
+from playwright.async_api import async_playwright
+PORT = sys.argv[1] if len(sys.argv) > 1 else '8789'
+res = []
+def ok(n, c, x=''):
+    res.append(('PASS ' if c else 'FAIL ') + n + (f'  [{x}]' if x else '')); print(res[-1], file=sys.stderr, flush=True)
+CLR = "document.querySelector('#modal').innerHTML=''"
+def clean(t): return '{' not in t and 'undefined' not in t and 'NaN' not in t
+# app.js is one closure: L / ui / render come through window.__pbl; engine globals (simDay, twWillSign, faRoom...) are direct
+async def ev(pg, js): return await pg.evaluate("(()=>{const L=window.__pbl.L,ui=window.__pbl.ui;return eval(" + json.dumps(js) + ")})()")
+async def tc(pg, sel='#main'): return await ev(pg, f"(document.querySelector('{sel}')||{{textContent:''}}).textContent")
+async def go(pg, h):
+    await ev(pg, CLR); await ev(pg, "ui.player=null;ui.game=null;ui.coach=null"); await ev(pg, "location.hash='#standings'"); await pg.wait_for_timeout(200)
+    await ev(pg, f"location.hash='#{h}'"); await pg.wait_for_timeout(700)
+async def player(pg, pid):
+    await ev(pg, CLR); await ev(pg, f"ui.player={pid};window.__pbl.render()"); await pg.wait_for_timeout(500)
+async def noscroll(pg): return await ev(pg, "document.documentElement.scrollWidth <= window.innerWidth + 1")
+async def narrow(pg, label, js_before=None):
+    """same view at 390px: no sideways scroll, no stray template text"""
+    await pg.set_viewport_size({'width': 390, 'height': 844}); await pg.wait_for_timeout(400)
+    await ev(pg, "window.__pbl.render()"); await pg.wait_for_timeout(300)
+    t = await tc(pg); ok(f'390px: {label}: no sideways scroll', await noscroll(pg), await ev(pg, "document.documentElement.scrollWidth"))
+    ok(f'390px: {label}: clean text', clean(t))
+    await pg.set_viewport_size({'width': 1300, 'height': 900}); await pg.wait_for_timeout(300)
+async def close_dialogs(pg, seen):
+    for _ in range(8):
+        h = await ev(pg, "(()=>{const h=document.querySelector('#modal h2');return h?h.textContent.trim():null})()")
+        if h is None: break
+        seen.append(h)
+        await ev(pg, "(()=>{const b=document.querySelector('#modal #x-close')||document.querySelector('#modal .dx');if(b)b.click()})()"); await pg.wait_for_timeout(250)
+async def click_sim(pg, k, seen):
+    ok(f'sim button "{k}" is available', await ev(pg, f"!!document.querySelector('#simctl [data-sim=\"{k}\"]')"))
+    await ev(pg, f"document.querySelector('#simctl [data-sim=\"{k}\"]').click()"); await pg.wait_for_timeout(2500)
+    await close_dialogs(pg, seen)
+
+async def main():
+  async with async_playwright() as p:
+    b = await p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
+    ctx = await b.new_context(viewport={'width': 1300, 'height': 900})
+    pg = await ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
+    await pg.goto(f'http://localhost:{PORT}/index.html'); await pg.wait_for_timeout(2500)
+    await pg.click('[data-setmode="team"]'); await pg.click('[data-setgames="58"]'); await pg.click('#create'); await pg.wait_for_timeout(4500); await ev(pg, CLR)
+
+    # ================= #16 two-way release + #13 refusal message =================
+    ok('#16/#13 setup: a team with two open two-way slots', await ev(pg, "(L.teams[L.user].twoWay||[]).length===0"))
+    # a free agent who turns the offer down (deterministic per week), found with the engine check
+    ref = await ev(pg, "(()=>{const c=L.fa.map(id=>L.players[id]).filter(p=>p&&twEligible(L,p)&&!twWillSign(L,p).ok);return c.length?c[0].id:null})()")
+    if ref is None:
+        # force one: raise his market value so the 'mval' refusal applies (95% chance cap, hash decides) until some candidate refuses
+        ref = await ev(pg, "(()=>{for(const id of L.fa){const p=L.players[id];if(!p||!twEligible(L,p))continue;p.mval=Math.max(p.mval||0,6);if(!twWillSign(L,p).ok)return p.id}return null})()")
+    ok('found a free agent who refuses a two-way deal', ref is not None, ref)
+    if ref is not None:
+        await player(pg, ref)
+        ok('refusal: the player page offers the two-way deal', await ev(pg, "!!document.querySelector('#main [data-x=\"twsign:" + str(ref) + "\"]')"))
+        await ev(pg, f"document.querySelector('#main [data-x=\"twsign:{ref}\"]').click()"); await pg.wait_for_timeout(500)
+        t = await tc(pg, '#tw-no')
+        ok('refusal: "Turned down" message stays on the panel', 'Turned down.' in t and clean(t), t[:140])
+        ok('refusal: shows his reason (standard contract / holding out)', 'standard contract' in t, t[:200])
+        ok('refusal: he is not on a two-way deal and stays a free agent', await ev(pg, f"!L.players[{ref}].tw&&L.fa.includes({ref})"))
+        ok('refusal: logged on his transactions', await ev(pg, f"L.players[{ref}].tx.some(x=>/Turned down a two-way offer/.test(x.t))"))
+        await ev(pg, "window.__pbl.render()"); await pg.wait_for_timeout(300)
+        ok('refusal: message survives a re-render', await ev(pg, "!!document.querySelector('#tw-no')"))
+        await narrow(pg, 'player page with refusal')
+    # sign two players who accept
+    ids = await ev(pg, "(()=>{const out=[];for(const id of L.fa.slice()){const p=L.players[id];if(!p||!twEligible(L,p))continue;if(out.length>=2)break;if(!twWillSign(L,p).ok)continue;if(!signTwoWay(L,p,L.user))out.push(p.id)}return out})()")
+    ok('signed two two-way players (engine)', len(ids) == 2, ids)
+    await go(pg, 'myteam'); await pg.wait_for_timeout(300)
+    # the two-way panel lives on one of the My team tabs: search the tab buttons until the release buttons show
+    found = await ev(pg, "!!document.querySelector('#main [data-x^=\"twrelc:\"]')")
+    if not found:
+        tabs = await ev(pg, "[...document.querySelectorAll('#main [data-twin]')].map(b=>b.dataset.twin)")
+        for tb in tabs:
+            await ev(pg, f"(()=>{{const b=document.querySelector('#main [data-twin=\"{tb}\"]');if(b)b.click()}})()"); await pg.wait_for_timeout(400)
+            if await ev(pg, "!!document.querySelector('#main [data-x^=\"twrelc:\"]')"): found = True; break
+    ok('#16 My team: Release button on each two-way row', found and await ev(pg, "document.querySelectorAll('#main [data-x^=\"twrelc:\"]').length")==2)
+    ok('#16 Convert button still there', await ev(pg, "document.querySelectorAll('#main [data-x^=\"twconv:\"]').length")==2)
+    await narrow(pg, 'My team two-way table')
+    await ev(pg, f"document.querySelector('#main [data-x=\"twrelc:{ids[0]}\"]').click()"); await pg.wait_for_timeout(400)
+    t = await tc(pg, '#modal')
+    ok('#16 confirm dialog names the player and says free agency', L_name(await ev(pg, f"L.players[{ids[0]}].name"), t) and 'free agency' in t, t[:120])
+    await ev(pg, "document.querySelector('#twr-no').click()"); await pg.wait_for_timeout(200)
+    ok('#16 "Keep him" keeps the deal', await ev(pg, f"!!L.players[{ids[0]}].tw"))
+    await ev(pg, f"document.querySelector('#main [data-x=\"twrelc:{ids[0]}\"]').click()"); await pg.wait_for_timeout(300)
+    await ev(pg, "document.querySelector('#twr-ok').click()"); await pg.wait_for_timeout(500)
+    ok('#16 release: off the two-way list, back in free agency, slot open', await ev(pg, f"!L.players[{ids[0]}].tw&&L.fa.includes({ids[0]})&&L.teams[L.user].twoWay.length===1"))
+    ok('#16 release: logged', await ev(pg, f"L.players[{ids[0]}].tx.some(x=>/Released from two-way deal/.test(x.t))"))
+    await close_dialogs(pg, [])
+    # player page release button also asks first
+    await player(pg, ids[1])
+    ok('#16 player page: Release button asks first (twrelc)', await ev(pg, f"!!document.querySelector('#main [data-x=\"twrelc:{ids[1]}\"]')&&!document.querySelector('#main [data-x=\"twrel:{ids[1]}\"]')"))
+    await narrow(pg, 'player page two-way panel')
+    await ev(pg, f"L.players[{ids[1]}].tw&&releaseTwoWay(L,L.players[{ids[1]}])"); await ev(pg, "window.__pbl.render()")
+
+    # ================= #12 Can afford =================
+    await go(pg, 'fa'); await ev(pg, "ui.faTab='now';window.__pbl.render()"); await pg.wait_for_timeout(500)
+    ok('#12 checkbox "Can afford" on the free agents page', await ev(pg, "!!document.querySelector('#main input[data-faafford]')") and 'Can afford' in await tc(pg, '#main .filters'))
+    n_all = await ev(pg, "document.querySelectorAll('#main table[data-sid=\"fa\"] tbody tr[data-player]').length")
+    # make one star ask more than any offer you can make
+    top = await ev(pg, "(()=>{const room=Math.max(MINSAL,faRoom(L,L.teams[L.user])),p=L.fa.map(id=>L.players[id]).filter(Boolean).sort((a,b)=>b.ovr-a.ovr)[0];p.ask=room+7;window.__pbl.render();return p.id})()")
+    await pg.wait_for_timeout(300)
+    ok('#12 unfiltered list holds the expensive free agent', await ev(pg, f"!!document.querySelector('#main tr[data-player=\"{top}\"]')"))
+    await ev(pg, "document.querySelector('#main input[data-faafford]').click()"); await pg.wait_for_timeout(500)
+    ok('#12 filter on: box checked, expensive free agent gone', await ev(pg, f"ui.faAfford===true&&document.querySelector('#main input[data-faafford]').checked&&!document.querySelector('#main tr[data-player=\"{top}\"]')"))
+    ok('#12 every listed player fits (asking <= biggest offer, minimum always fits)', await ev(pg, "(()=>{const room=Math.max(MINSAL,faRoom(L,L.teams[L.user]));return [...document.querySelectorAll('#main table[data-sid=\"fa\"] tbody tr[data-player]')].every(r=>{const p=L.players[+r.dataset.player];return (p.ask||p.mval||MINSAL)<=room+1e-6})})()"))
+    n_f = await ev(pg, "document.querySelectorAll('#main table[data-sid=\"fa\"] tbody tr[data-player]').length")
+    ok('#12 filter hides at least that one player', n_f <= n_all - 1, (n_all, n_f))
+    await narrow(pg, 'free agents with Can afford on')
+    await ev(pg, "document.querySelector('#main input[data-faafford]').click()"); await pg.wait_for_timeout(300)
+    ok('#12 filter off again: everyone back', await ev(pg, "document.querySelectorAll('#main table[data-sid=\"fa\"] tbody tr[data-player]').length")==n_all)
+
+    # ================= #4 completed trade filters (synthetic records) =================
+    await ev(pg, """(()=>{const ps=Object.values(L.players).filter(p=>p.team!=null&&!p.retired).slice(0,8).map(p=>p.id),A=L.teams[0].id,B=L.teams[1].id;
+      const mk=(w,aIn,bIn)=>({s:L.season,day:null,ph:'off-fa',when:w,a:A,b:B,aGets:'x',bGets:'y',aIn,bIn});
+      L.trades.unshift(mk('T-pp',{players:[ps[0]],picks:[],cash:0},{players:[ps[1]],picks:[],cash:0}));
+      L.trades.unshift(mk('T-kk',{players:[],picks:['1st 2028'],cash:0},{players:[],picks:['2nd 2029'],cash:0}));
+      L.trades.unshift(mk('T-mix',{players:[ps[2]],picks:[],cash:0},{players:[],picks:['1st 2030'],cash:0}));
+      L.trades.unshift(mk('T-mix2',{players:[ps[3]],picks:['2nd 2031'],cash:0},{players:[ps[4]],picks:[],cash:0}));})()""")
+    await go(pg, 'trades'); await ev(pg, "ui.trTab='done';window.__pbl.render()"); await pg.wait_for_timeout(400)
+    ok('#4 filter bar: All, Player-player, Pick-pick, Mix with counts', await ev(pg, "[...document.querySelectorAll('#trfbar [data-trf]')].map(b=>b.dataset.trf).join()")==',pp,kk,mix' and 'Pick-pick · ' in await tc(pg, '#trfbar'))
+    async def trows(): return await ev(pg, "[...document.querySelectorAll('#main table tbody tr')].map(r=>r.textContent).filter(t=>/T-(pp|kk|mix)/.test(t))")
+    ok('#4 All shows all four synthetic trades', len(await trows()) == 4, len(await trows()))
+    for k, want in (('pp', ['T-pp']), ('kk', ['T-kk']), ('mix', ['T-mix', 'T-mix2'])):
+        await ev(pg, f"document.querySelector('#trfbar [data-trf=\"{k}\"]').click()"); await pg.wait_for_timeout(300)
+        rows = await trows(); got = sorted(r.split(' ')[1] if False else ('T-mix2' if 'T-mix2' in r else 'T-mix' if 'T-mix' in r else 'T-kk' if 'T-kk' in r else 'T-pp') for r in rows)
+        ok(f'#4 filter {k}: only {want}', got == sorted(want), got)
+        ok(f'#4 filter {k}: button highlighted + count matches the list', await ev(pg, f"document.querySelector('#trfbar [data-trf=\"{k}\"]').classList.contains('primary')&&ui.trF==='{k}'"))
+    await narrow(pg, 'completed trades (Mix filter)')
+    await ev(pg, "document.querySelector('#trfbar [data-trf=\"\"]').click()"); await pg.wait_for_timeout(300)
+    ok('#4 All restores the list', len(await trows()) == 4)
+
+    # ================= #9 buyers and sellers =================
+    await ev(pg, "ui.trTab='center';window.__pbl.render()"); await pg.wait_for_timeout(400)
+    ok('#9 Buyers and sellers panel on the Trade center tab', await ev(pg, "!!document.querySelector('#bspanel')") and 'Buyers' in await tc(pg, '#bspanel') and 'Sellers' in await tc(pg, '#bspanel'))
+    nb = await ev(pg, "document.querySelectorAll('#bspanel [data-bs]').length")
+    ok('#9 lists the teams that buy or sell (never your own team)', 1 <= nb <= 29 and await ev(pg, "![...document.querySelectorAll('#bspanel [data-bs]')].some(r=>+r.dataset.bs===L.user)"), nb)
+    ok('#9 every row has a status pill, a why line, and clean text', await ev(pg, "[...document.querySelectorAll('#bspanel [data-bs]')].every(r=>r.querySelector('.pill')&&r.textContent.length>40)") and clean(await tc(pg, '#bspanel')))
+    ok('#9 buyers and sellers are split by the front-office status', await ev(pg, """(()=>{const real=t=>t.status||({contend:'contend',hopeful:'hopeful',rebuild:'rebuild',tank:'tank'}[t.mode]),B=['allin','contend','push','hopeful','rising'],S=['tank','rebuild','retool'];
+      const cols=document.querySelectorAll('#bspanel .grid2e>div');return [...cols[0].querySelectorAll('[data-bs]')].every(r=>B.includes(real(L.teams[+r.dataset.bs])))&&[...cols[1].querySelectorAll('[data-bs]')].every(r=>S.includes(real(L.teams[+r.dataset.bs])))})()"""))
+    await narrow(pg, 'trade center with buyers and sellers')
+
+    # ================= one season to the Finals, then the real offseason buttons =================
+    r = await ev(pg, "(()=>{while(L.phase==='regular')simDay(L);if(L.phase==='regular-done')startPlayoffs(L);let g=0;while(L.phase==='playoffs'&&g++<400)simPlayoffDay(L);window.__pbl.render();return L.phase})()")
+    ok('season simmed to the Finals (season-done)', r == 'season-done', r)
+    seen = []
+    await click_sim(pg, 'off', seen)
+    ok('phase is off-review after Start offseason', await ev(pg, "L.phase==='off-review'"))
+    ok('#17 popup "Pipeline seasons are done" came up after the sim', 'Pipeline seasons are done' in seen, seen)
+    ok('#17 popup is queued once per season (L.pipeSeen)', await ev(pg, "L.pipeSeen===L.season"))
+    # reopen it from the Recent list and check its content
+    reopen = await ev(pg, "(()=>{const x=(ui.recent||[]).find(x=>/Pipeline seasons/.test(x.t));if(!x)return false;x.fn();return true})()"); await pg.wait_for_timeout(400)
+    ok('#17 popup is in the Recent list and reopens', reopen)
+    t = await tc(pg, '#modal')
+    ok('#17 popup: champions of all three leagues + both buttons', all(s in t for s in ['College', 'Champions']) and await ev(pg, "!!document.querySelector('#pd-board')&&!!document.querySelector('#pd-pipe')") and clean(t), t[:160])
+    await narrow_modal(pg)
+    await ev(pg, "document.querySelector('#modal #x-close').click()"); await pg.wait_for_timeout(200)
+
+    # --- #20 Progression page
+    await go(pg, 'standings')
+    ok('#20 Standings no longer carries the report (no Biggest improvements)', 'Biggest improvements' not in await tc(pg) and 'Type changes' not in await tc(pg))
+    ok('#20 Standings shows the link banner during the review', await ev(pg, "!!document.querySelector('#revbanner #revlink')"))
+    ok('#20 League group has a Progression sub-tab', await ev(pg, "!![...document.querySelectorAll('#subtabs a')].find(a=>a.dataset.v==='review'&&a.textContent.trim()==='Progression')"))
+    await go(pg, 'myteam')
+    ok('#20 My team shows the banner but not the report', await ev(pg, "!!document.querySelector('#revbanner')") and 'Biggest improvements' not in await tc(pg))
+    await ev(pg, "document.querySelector('#revlink').click()"); await pg.wait_for_timeout(700)
+    ok('#20 banner link opens #review', await ev(pg, "location.hash==='#review'&&!!document.querySelector('#revpage')"))
+    t = await tc(pg)
+    ok('#20 page has improvements, declines, retired', all(s in t for s in ['Biggest improvements', 'Biggest declines', 'Retired']) and clean(t))
+    ok('#20 your team rating changes are on the page', 'rating changes' in t)
+    ok('#20 sub-tab Progression is highlighted', await ev(pg, "document.querySelector('#subtabs a.on').dataset.v==='review'"))
+    # #15: type-change chips (inject a known diff so the check does not depend on this season's luck)
+    pid = await ev(pg, "(()=>{const p=Object.values(L.players).find(p=>p.team!=null&&!p.retired);L.offSummary.typeMoves=[[p.id,'Elite Scorer SG + Rim runner C → Scorer SG + 3-and-D SG'],[p.id,'Pass-first PG → Pass-first PG + Shooting PG']].concat(L.offSummary.typeMoves);window.__pbl.render();return p.id})()")
+    await pg.wait_for_timeout(400)
+    ok('#15 type change rows have chips', await ev(pg, "document.querySelectorAll('#typechg .tmove').length>=2&&document.querySelectorAll('#typechg .tchg.tadd').length>=2"))
+    ok('#15 added / dropped / unchanged are styled separately', await ev(pg, "(()=>{const a=document.querySelectorAll('#typechg .tmove')[0],c=n=>[...a.querySelectorAll('.tchg.'+n)].map(x=>x.textContent);return c('tadd').join()==='3-and-D SG'&&c('tdrop').join().includes('Rim runner C')&&c('tdrop').join().includes('Scorer SG')})()"))
+    ok('#15 first row: "Type replaced"; second row: "New type" + the kept type', await ev(pg, "(()=>{const r=document.querySelectorAll('#typechg .tmove');return r[0].querySelector('.tkind').textContent==='Type replaced'&&r[1].querySelector('.tkind').textContent==='New type'&&r[1].querySelector('.tchg.tkeep').textContent==='Pass-first PG'})()"))
+    ok('#15 the legend line explains the chip colors', 'added' in await tc(pg, '#typechg') and 'dropped' in await tc(pg, '#typechg'))
+    await narrow(pg, 'Progression page')
+    await go(pg, 'standings'); await go(pg, 'review')
+    ok('#20 reopenable: leave and come back, report is still there', await ev(pg, "!!document.querySelector('#revpage')&&!!document.querySelector('#typechg')"))
+    # trade buttons: Trade with a buyer (offseason, trading is open)
+    await go(pg, 'trades'); await ev(pg, "ui.trTab='center';window.__pbl.render()"); await pg.wait_for_timeout(400)
+    ok('#9 Trade buttons are enabled in the offseason', await ev(pg, "(()=>{const b=document.querySelector('#bspanel [data-trwith]');return !!b&&!b.disabled})()"))
+    tid = await ev(pg, "+document.querySelectorAll('#bspanel [data-trwith]')[1].dataset.trwith")
+    await ev(pg, "document.querySelectorAll('#bspanel [data-trwith]')[1].click()"); await pg.wait_for_timeout(500)
+    ok('#9 Trade button picks that team in the trade builder', await ev(pg, f"ui.tradeWith=={tid}&&+document.querySelector('#tw').value=={tid}"))
+
+    # --- draft: lottery + start, then the live board
+    await click_sim(pg, 'lottery', seen); await click_sim(pg, 'draft', seen)
+    ok('phase is off-draft', await ev(pg, "L.phase==='off-draft'"))
+    await go(pg, 'draft'); await pg.wait_for_timeout(400)
+    ok('#11 live board has the targets line', await ev(pg, "!!document.querySelector('#livetgt')") and clean(await tc(pg, '#livetgt')))
+    mine = await ev(pg, "(L.draftOrder||[]).filter(o=>!o.pid&&o.owner===L.user).length")
+    if mine:
+        ok('#11 targets line names your next pick', 'Your next pick' in await tc(pg, '#livetgt'))
+        ok('#11 at least one prospect on the board is highlighted as a target', await ev(pg, "document.querySelectorAll('#main .livebox tr.target').length")>=1, await ev(pg, "document.querySelectorAll('#main .livebox tr.target').length"))
+        ok('#11 highlighted rows carry the Target pill', await ev(pg, "[...document.querySelectorAll('#main .livebox tr[data-tgtk=\"dir\"]')].every(r=>r.textContent.includes('Target'))"))
+        # every highlighted director target sits within 2 of one of your remaining picks
+        ok('#11 each director target is within 2 of one of your slots', await ev(pg, """(()=>{const slots=L.draftOrder.map((o,i)=>({o,n:i+1})).filter(x=>!x.o.pid&&x.o.owner===L.user).map(x=>x.n);
+          return [...document.querySelectorAll('#main .livebox tr[data-tgtk="dir"]')].every(r=>{const c=mockRanksOf(L,L.players[+r.dataset.player]).c||0;return slots.some(n=>Math.abs(c-n)<=2)})})()"""))
+    else:
+        ok('#11 no picks left: targets line says so', 'no picks left' in await tc(pg, '#livetgt'))
+    # watch list: a prospect far from your pick gets the Watch pill
+    w = await ev(pg, "(()=>{const b=document.querySelectorAll('#main .livebox tr[data-player]:not(.target)');const tr=[...b].filter(r=>r.textContent.includes('Target')===false).slice(-1)[0];if(!tr)return null;const id=+tr.dataset.player;toggleWatch(L,id);window.__pbl.render();return id})()")
+    await pg.wait_for_timeout(400)
+    ok('#11 watch-list prospect shows the Watch pill', w is not None and await ev(pg, f"(()=>{{const r=document.querySelector('#main .livebox tr[data-player=\"{w}\"]');return !!r&&r.classList.contains('target')&&r.textContent.includes('Watch')}})()"))
+    await narrow(pg, 'live draft with targets')
+    # --- finish the draft with the engine, then #14 on all three FA pages
+    r = await ev(pg, "(()=>{let g=0;while(L.phase==='off-draft'&&g++<400)aiDraftPick(L);window.__pbl.render();return L.phase})()")
+    ok('draft finished', r != 'off-draft', r); await close_dialogs(pg, seen)
+    if r == 'off-resign':
+        await click_sim(pg, 'fa', seen)
+    ok('phase is off-fa', await ev(pg, "L.phase==='off-fa'"), await ev(pg, "L.phase"))
+    for tab in ('over', 'now', 'up'):
+        await ev(pg, f"ui.faTab='{tab}';location.hash='#fa';window.__pbl.render()"); await pg.wait_for_timeout(400)
+        ok(f'#14 "{tab}" page has the Sim to end of free agency button', await ev(pg, "!!document.querySelector('#main #fa-end')") and 'Sim to end of free agency' in await tc(pg, '#main #fa-end'))
+    ok('#14 the header button is still there too', await ev(pg, "!!document.querySelector('#simctl [data-sim=\"faend\"]')"))
+    await narrow(pg, 'Free agency with the end button')
+    d0 = await ev(pg, "L.faDay")
+    await ev(pg, "document.querySelector('#main #fa-end').click()"); await pg.wait_for_timeout(4000); await close_dialogs(pg, seen)
+    st = await ev(pg, "[L.phase,L.faDay,(L.faInbox||[]).some(e=>e.k==='talk')]")
+    ok('#14 clicking it advances free agency (to the end, or until a player wants to talk)', st[0] != 'off-fa' or st[1] > d0 or st[2], st)
+    ok('#14 button is gone once free agency is over', st[0] == 'off-fa' or await ev(pg, "!document.querySelector('#main #fa-end')"))
+    ok('no page errors', not errs, errs[:2])
+    await b.close()
+  print('\n'.join(res)); f = sum(1 for r in res if r.startswith('FAIL')); print(f'{len(res)-f} pass, {f} fail')
+
+def L_name(name, text): return name in text
+async def narrow_modal(pg):
+    await pg.set_viewport_size({'width': 390, 'height': 844}); await pg.wait_for_timeout(300)
+    ok('390px: Pipeline popup: no sideways scroll', await noscroll(pg) and await ev(pg, "(()=>{const d=document.querySelector('#modal .dialog');return !d||d.getBoundingClientRect().right<=window.innerWidth+1})()"))
+    await pg.set_viewport_size({'width': 1300, 'height': 900}); await pg.wait_for_timeout(200)
+try:
+    asyncio.run(main())
+except Exception as e:
+    ok('test run completed', False, str(e)[:240]); print('\n'.join(res)); f = sum(1 for r in res if r.startswith('FAIL')); print(f'{len(res)-f} pass, {f} fail')

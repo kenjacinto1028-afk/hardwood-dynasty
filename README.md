@@ -11,7 +11,18 @@ The game is split into small files so a change rewrites one file, not 1.3 MB.
 | `src/league.js` | Archetypes, contracts, free agency, trades, awards, history, offseason (starts at the "League layer" comment) |
 | `src/app.js` | UI: views, dialogs, click handlers, saves |
 | `src/nba-2026.js` | v27 NBA mode: real 2026-27 rosters (`NBA26`) + real history (`NBA_HIST`) + converter. Built from project docs `claude/nba/nba-compact.json`, `claude/nba/hist.txt` + `claude/nba/conv.js`; edit those, then rebuild |
+| `src/nba-setup.js` | v30a NBA setup extras: real rookies (`nbaRookies`) + real jersey numbers (`NBA_JERSEY_CSV`, `nbaJerseys`) |
 | `src/index.template.html` | Page shell with markers `/*CSS*/ /*VENDOR*/ /*ENGINE*/ /*LEAGUE*/ /*APP*/` for the single-file build |
+
+## v30a logic (Opus, Nov 15 2026): two-way refusals, roster flag, best of 7, real rookies, real jersey numbers
+
+Engine / data only (no UI polish). Test: `node tools/t30a.js [quick]` (SEED, GAMES env).
+- **#13 Two-way refusals** (`league.js`, just above `dropTwoWay`): `twWillSign(L, p)` → `{ ok, why, ch, k }`. A free agent can turn down a two-way deal when he expects a standard contract: market value above the minimum (`k: 'mval'`, ~80-95%), rating at or above the league bench line (`twBenchLine` = median 13th-best OVR; `'ovr'`, 40-70%), or just holding out (`'hold'`, 3-12%). The market cools: x0.8 in the first half of the season, x0.5 in the second half, x0.85 in preseason. One answer per player per week in season (per phase in the offseason), from a fixed hash, so asking twice gives the same answer. Reason text is returned by `signTwoWay` (your Two-way button shows it). Drafted 2nd-rounders never refuse (draft path, and their drafting team in free agency before they play). `aiFillTwoWay` skips refusers and tries the next player; AI teams also retry open slots weekly (`twoWayDay`, until 80% of the season). Tunables: `TW_REJ`.
+- **#22 Roster needs** (`rosterNeeds`): with 15 players the physical need (`RN_PHYS = ['ath']`) is never "Fix now" (capped at "Fix this summer").
+- **#24 Best of 7** (`engine.js` `PO_BIG_BEST = 7`): 30-team leagues play every round best of 7 (home games 1, 2, 5, 7); play-in unchanged; 16-team leagues unchanged (best of 5, Finals 7). Preseason odds (`seasonOdds`), bracket labels and the How it works text updated. Series already started in an old save keep their length.
+- **#25 Real rookies** (`src/nba-setup.js` `nbaRookies`): new NBA league: real players with 0 years of service (the 2026 draft class, undrafted first-years, Markovic) get `rookieSeason = 1`, so ROTY and All-Rookie are awarded after season 1 (55 players).
+- **#10 Jersey numbers** (`src/nba-setup.js` `nbaJerseys`, CSV from project doc `claude/nba/jersey-numbers.csv.txt` embedded as `NBA_JERSEY_CSV`): matched by team + name (accents, punctuation, case ignored); blank = random free number; a duplicate on a team (MEM #1 Clayton / Pippen) keeps the first row, the second gets a random free number; real players cut to free agency at the start keep their listed number if it is free where they sign; `"00"` is its own number (string `'00'`; the name/number editor accepts it). Two-way players are included. Stats of the last run: `NBA_JERSEY_LAST` (481/500 matched, 423 set, 57 blank, 1 duplicate, 19 not on that team at start).
+- **Loading:** `src/nba-setup.js` is a new file (kept out of `nba-2026.js` so `build.py` rebuilds don't drop it). Called from `newLeague` right after `nbaPopulate` (`nbaSetupV30a`). `index.html` and `tools/load.js` load it.
 
 ## v30 T (Sonnet, Nov 13 2026): season to-do list + Knicks logo
 

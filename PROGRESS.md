@@ -1,5 +1,14 @@
 # PBL progress
 
+## v30a logic (Nov 15 2026) — Opus, engine/data only
+- [x] #13 Two-way offers: free agents can refuse when they expect a standard contract (reason shown); drafted 2nd-rounders always accept; AI skips refusers + retries weekly — `twWillSign` (league.js)
+- [x] #22 Roster needs: no "Fix now" physical (athleticism) flag with 15 players — `rosterNeeds`
+- [x] #24 NBA-size (30 teams): every round best of 7; play-in and 16-team format unchanged; odds, bracket labels, How it works updated — `PO_BIG_BEST` (engine.js)
+- [x] #25 New NBA league: real first-year players (0 service: 2026 class + undrafted) tagged rookies → ROTY / All-Rookie after season 1 — `nbaRookies` (src/nba-setup.js)
+- [x] #10 Real jersey numbers from claude/nba/jersey-numbers.csv.txt (team + name; blank/duplicate → random free; "00" kept) — `nbaJerseys` (src/nba-setup.js, new file)
+- [x] Tests: `tools/t30a.js` 29/29 (quick 21/21). Existing: t27 71/71, t265 27/27, t287 11/11, t288 35/35, m265 7/7, unit-v253 26/26, t257 29/29, x28, t255/t256/t258b, m1-m6, u7, u8, f1, f4 38/38, f5 9/9 OK. Same as before v30a: t266 23/24 (R5), t257s 21/22, t258 12/13 (baseline 11/13). New noise: t29 quick 18/19 (NCHF leader 34.4 ppg vs 34 cap; baseline 32.8), auto.js seed 1 9/10 (user roster 12 at off-ready, filled at season start; seeds 2-5 10/10). Not run: browser *.py.txt, long harnesses (u9, s20, k27, l27, n27, p27, s27, n8), an*/h* analysis scripts.
+- [ ] v30a UI items (20, 16, 17, 12, 14, 15, 11, 4, 9) — Sonnet
+
 ## v28.7 (Nov 13 2026) — done
 - [x] Multi-season autopilot + fast mode — Opus
 - [x] Engine cache speedup (same results, ~15% faster games) — Opus

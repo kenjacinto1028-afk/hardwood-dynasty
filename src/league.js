@@ -4002,6 +4002,8 @@ function signTwoWay(L, p, tid, drafted) {
   if (!dr && !twEligible(L, p)) return 'Only free agents 27 or younger with fewer than 3 seasons of service (a season counts at 10+ regular-season games) can sign two-way deals.';
   t.twoWay = t.twoWay || [];
   if (t.twoWay.length >= TW_MAX) return 'Both two-way slots are full.';
+  const own2 = p.draft && p.draft.rd === 2 && p.draft.tid === tid && p.draft.s >= L.season - 1 && !(p.hist || []).some(h => h.rs && h.rs.gp);   // his drafting team, before he has played: always yes
+  if (!dr && !own2) { const w = twWillSign(L, p); if (!w.ok) { if (tid === L.user) p.tx.push({ s: L.season, t: `Turned down a two-way offer from ${t.abbr}` }); return w.why; } }   // v30a #13
   if (!dr) L.fa = L.fa.filter(id => id !== p.id);
   p.tw = { tid, s: capSeason(L), games: 0, active: false }; p.ask = null; p.lastTeam = tid;
   if (dr) { p.tw.exp = L.season + 2; p.draftRights = null; }
@@ -4010,6 +4012,33 @@ function signTwoWay(L, p, tid, drafted) {
   p.tx.push({ s: L.season, t: `Two-way deal with ${t.abbr}` });
   if (tid === L.user) logNews(L, `${t.abbr} signed ${p.name} (${p.ovr}) to a two-way deal`, tid, 'tx');
   return null;
+}
+// v30a #13: a free agent can turn down a two-way deal when he expects a standard contract (market value above the minimum, or he rates
+// with the end of most benches). Drafted 2nd-rounders never decline (signTwoWay skips this). One answer per player per week in the season
+// (per phase in the offseason), from a fixed hash, so asking again the same day gives the same answer. The market cools as the season goes on.
+const TW_REJ = { mval: 0.8, over3: 0.7, over0: 0.4, near: 0.12, low: 0.03, late: 0.5, mid: 0.8, pre: 0.85 };
+let TW_BL = null;
+function twBenchLine(L) {   // median 13th-best overall on standard rosters (cached per day)
+  const key = L.season + ':' + L.phase + ':' + L.day;
+  if (TW_BL && TW_BL.L === L && TW_BL.key === key) return TW_BL.v;
+  const v13 = L.teams.map(t => t.roster.map(id => L.players[id]).filter(Boolean).map(p => p.ovr).sort((a, b) => b - a)[12]).filter(x => x != null).sort((a, b) => a - b);
+  const v = v13.length ? v13[Math.floor(v13.length / 2)] : 45;
+  TW_BL = { L, key, v }; return v;
+}
+function twHash(a, b, c) { let h = (a * 73856093) ^ (b * 19349663) ^ (c * 83492791); h = Math.imul(h ^ (h >>> 13), 0x5bd1e995); h ^= h >>> 15; return (h >>> 0) / 4294967296; }
+function twWillSign(L, p) {
+  const bench = twBenchLine(L), over = p.ovr - bench, hi = (p.mval || MINSAL) > MINSAL + 0.05;
+  let ch = over >= 3 ? TW_REJ.over3 : over >= 0 ? TW_REJ.over0 : over >= -3 ? TW_REJ.near : TW_REJ.low, why = over >= 0 ? 'ovr' : 'hold';
+  if (hi) { const m = Math.min(0.95, TW_REJ.mval + 0.15 * Math.min(1, ((p.mval || MINSAL) - MINSAL) / MINSAL)); if (m >= ch) { ch = m; why = 'mval'; } }
+  if (L.phase === 'regular') ch *= L.day > totalDays(L) * 0.5 ? TW_REJ.late : TW_REJ.mid;
+  else if (L.phase === 'off-ready') ch *= TW_REJ.pre;
+  const per = L.phase === 'regular' ? Math.floor(L.day / 7) : ['off-fa', 'off-ready'].indexOf(L.phase) + 1000;
+  const ok = twHash(p.id, L.season, per) >= ch;
+  if (ok) return { ok: true, why: null, ch };
+  const txt = why === 'mval' ? `${p.name} turned down the two-way deal: he expects a standard contract (his market value is ${money(p.mval)}, above the minimum).`
+    : why === 'ovr' ? `${p.name} turned down the two-way deal: at ${p.ovr} OVR he rates with the end of most benches (${bench}) and expects a standard contract.`
+    : `${p.name} turned down the two-way deal: he wants to wait for a standard contract offer. Try again next week.`;
+  return { ok: false, why: txt, ch, k: why };
 }
 function dropTwoWay(L, p, toFa) {
   if (!p.tw) return; const t = L.teams[p.tw.tid];
@@ -4035,10 +4064,10 @@ function expireTwoWays(L) { for (const t of L.teams) for (const p of twOf(L, t))
 function aiFillTwoWay(L) {
   for (const t of L.teams) {
     if (t.id === L.user) continue; t.twoWay = t.twoWay || [];
-    while (t.twoWay.length < TW_MAX) {
-      const c = L.fa.map(id => L.players[id]).filter(p => twEligible(L, p)).map(p => ({ p, v: 0.6 * teamPotEst(L, t.id, p).est + 0.4 * p.ovr })).filter(x => x.v >= 48).sort((a, b) => b.v - a.v)[0];
-      if (!c || signTwoWay(L, c.p, t.id)) break;
-    }
+    if (t.twoWay.length >= TW_MAX) continue;
+    // v30a #13: a player who turns the team down is skipped; the next one on the list is asked
+    const cs = L.fa.map(id => L.players[id]).filter(p => twEligible(L, p)).map(p => ({ p, v: 0.6 * teamPotEst(L, t.id, p).est + 0.4 * p.ovr })).filter(x => x.v >= 48).sort((a, b) => b.v - a.v);
+    for (const c of cs) { if (t.twoWay.length >= TW_MAX) break; if (twEligible(L, c.p)) signTwoWay(L, c.p, t.id); }
   }
 }
 // AI conversions: a two-way who has used his games and is better than the end of the bench, or who beats the free agents when a roster spot opens
@@ -4093,6 +4122,7 @@ function dlEligible(L, p) {
   return ((p.svc || 0) <= 2 && p.age <= 24) || (tg >= 5 && mpg < 8);
 }
 function twoWayDay(L, games) {
+  if (L.phase === 'regular' && L.day % 7 === 3 && L.day < totalDays(L) * 0.8) aiFillTwoWay(L);   // v30a #13: AI teams retry open two-way slots weekly (players can say no)
   const played = new Map();
   for (const g of games) { if (g.playoff) continue; for (const tid of [g.home, g.away]) played.set(tid, g); }
   for (const [tid, g] of played) {
@@ -6157,6 +6187,7 @@ function coachFitList(L, t, cands) {
 // an unhappy top player, a roster that doesn't fit the coach, tax, roster count.
 const RN_GRP = { play: ['pas', 'hnd'], shoot: ['tp', 'mid'], reb: ['orb', 'drb'], rimD: ['blk', 'pdf'], perD: ['per', 'stl'], ath: ['spd', 'agi', 'vrt'], inside: ['fin', 'pst'] };
 const RN_W = [1, 1, 1, 1, 1, 0.7, 0.5, 0.4];
+const RN_PHYS = ['ath'];   // v30a #22: the physical-tools need (speed, agility, vertical)
 let RN_C = null;
 function rnTeamVals(L, t) {
   const rot = rotationOf(L, t).filter(p => !p.prospect).slice(0, 8), v = {};
@@ -6180,7 +6211,8 @@ function rosterNeeds(L, t) {
   const out = [], st = rnLeague(L), v = rnTeamVals(L, t), seed = t.id * 31 + L.season;
   const add = (k, cat, sev, vars, urg) => { out.push({ k, cat, sev, urg: urg || rnUrg(t, sev), key: 'rn.' + k, vars: vars || {} }); };
   // style
-  for (const g in RN_GRP) { const z = (v[g] - st[g][0]) / st[g][1]; if (z <= -0.5) add(g, 'style', clamp((-z - 0.5) / 1.2 + 0.2, 0, 1), { z: z.toFixed(1) }); }
+  const full = t.roster.length >= 15;   // v30a #22: with 15 players a physical need can't be fixed today (no roster spot): never "Fix now"
+  for (const g in RN_GRP) { const z = (v[g] - st[g][0]) / st[g][1]; if (z <= -0.5) { const sev = clamp((-z - 0.5) / 1.2 + 0.2, 0, 1); let u = rnUrg(t, sev); if (full && RN_PHYS.includes(g) && u === 'now') u = 'summer'; add(g, 'style', sev, { z: z.toFixed(1) }, u); } }
   for (const g of ['off', 'def']) if (st[g]) { const z = (st[g][2](t) - st[g][0]) / st[g][1]; if (z <= -0.8) add(g, 'style', clamp((-z - 0.8) / 1.2 + 0.45, 0, 1), { z: z.toFixed(1), rank: L.teams.map(st[g][2]).filter(x => x > st[g][2](t)).length + 1 }); }
   // youth
   const cut = tierCuts(L), young = rosterOf(L, t).filter(p => p.age <= 24 && !p.retired);
@@ -6247,7 +6279,7 @@ Object.assign(FLAVOR, {
 // ---------- preseason (and live) odds ----------
 // Monte Carlo with a private RNG (game randomness is untouched). Calibrated on simulated seasons: game win chance = logistic(0.2 × strength gap
 // + 0.12 home), and a team's real strength drifts from its preseason number by about 1.6 over a season. Records so far count; the rest is simulated.
-// Playoffs follow the real format (big: 6 direct + play-in 7-10, best of 5 rounds, best-of-7 Finals; small: 3 + 4/5 play-in).
+// Playoffs follow the real format (big: 6 direct + play-in 7-10, every round best of 7 (v30a); small: 3 + 4/5 play-in, best of 5 rounds, best-of-7 Finals).
 // Awards are projections from ratings (with season noise and injury risk), not the vote formula: MVP (rating + team record), DPOY (defensive
 // ratings + motor), ROY (rookies, rating + a starting spot), 6MOY (6th-8th best on his team in that sim), MIP (24 and under, room to grow), COY
 // (team beating its preseason projection, plus coach rating).
@@ -6289,9 +6321,9 @@ function seasonOdds(L, force) {
       let bracket;
       if (big) {
         const w78 = one(seeds[6], seeds[7], s), l78 = w78 === seeds[6] ? seeds[7] : seeds[6], w910 = one(seeds[8], seeds[9], s), eight = one(l78, w910, s);
-        const r1 = [[seeds[0], eight], [seeds[3], seeds[4]], [seeds[1], w78], [seeds[2], seeds[5]]].map(([a, b]) => series(a, b, 3, s));
-        const r2 = [series(r1[0], r1[1], 3, s), series(r1[2], r1[3], 3, s)];
-        bracket = series(r2[0], r2[1], 3, s);
+        const r1 = [[seeds[0], eight], [seeds[3], seeds[4]], [seeds[1], w78], [seeds[2], seeds[5]]].map(([a, b]) => series(a, b, 4, s));   // v30a #24: best of 7
+        const r2 = [series(r1[0], r1[1], 4, s), series(r1[2], r1[3], 4, s)];
+        bracket = series(r2[0], r2[1], 4, s);
       } else {
         const q = pGame(s[seeds[4]], s[seeds[3]], false), four = rnd() < q * q ? seeds[4] : seeds[3];
         bracket = series(series(seeds[0], four, 3, s), series(seeds[1], seeds[2], 3, s), 3, s);

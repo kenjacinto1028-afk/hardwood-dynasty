@@ -1023,7 +1023,7 @@ function newLeague(opts) {
   const league = { version: 4, v246: true, season: 1, day: 0, phase: 'regular', mode: opts.mode || 'commish', user: opts.mode === 'team' ? opts.userTeam : null,
     teams: [], players: {}, games: [], schedule: [], log: [], nextId: 0, history: [], records: { game: {} }, picks: [], pending: [], trades: [], fa: [], awards: {},
     offers: [], coachPool: [], hof: [], h2h: {}, classes: {}, coachNext: 0 };
-  if (opts.nba && typeof nbaPopulate === 'function') { league.nba = 1; setEconomy(league); nbaPopulate(league, used); }   // v27: real NBA 2026-27
+  if (opts.nba && typeof nbaPopulate === 'function') { league.nba = 1; setEconomy(league); nbaPopulate(league, used); if (typeof nbaSetupV30a === 'function') nbaSetupV30a(league); }   // v27: real NBA 2026-27 (v30a: rookies + real jersey numbers, src/nba-setup.js)
   else { if (typeof setEconomy === 'function') setEconomy(league);
   leagueDefs(opts.size === 16 ? 16 : 30).forEach((d, i) => {
     const coach = genCoach(used);
@@ -2103,8 +2103,9 @@ function simDay(league) {
 // Conference semis 1 v 4/5 winner and 2 v 3 (best of 5), conference finals (best of 5), Finals between conference champions (best of 7).
 const PO_STAGES = ['Play-in', 'Conference semifinals', 'Conference finals', 'Finals'];
 // v21 (30 teams): top 6 per conference qualify. Play-in: 7 vs 8 (winner is the 7 seed), 9 vs 10; then the 7/8 loser hosts the 9/10 winner for the 8 seed.
-// First round 1v8, 4v5, 2v7, 3v6 (best of 5), conference semis (best of 5), conference finals (best of 5), Finals (best of 7).
+// First round 1v8, 4v5, 2v7, 3v6, conference semis, conference finals and Finals: all best of 7 (v30a; was best of 5 before the Finals).
 const PO_STAGES_BIG = ['Play-in', 'Play-in: last spot', 'First round', 'Conference semifinals', 'Conference finals', 'Finals'];
+const PO_BIG_BEST = 7;   // v30a #24: first round, conference semis and conference finals are best of 7 in 30-team leagues (was 5); the Finals were already 7
 const poStages = L => (L.po && L.po.big) || (L.teams && L.teams.length > 16) ? PO_STAGES_BIG : PO_STAGES;
 const isPlayin = (L, i) => /Play-in/.test(poStages(L)[i] || '');
 // Result label from the last stage a team reached (works for both formats and old saves)
@@ -2170,9 +2171,10 @@ function nextRound(league) {
   if (po.big) {
     const L_ = (sr) => sr.winner === sr.hi ? sr.lo : sr.hi;
     if (po.stage === 0) { po.seven = {}; next = CONFS.map((c, i) => { const a = r[i * 2], b = r[i * 2 + 1]; po.seven[c] = a.winner; return mkSeries(L_(a), b.winner, 8, b.winner === b.hi ? 9 : 10, 1, 1, 1, c); }); }
-    else if (po.stage === 1) { next = []; CONFS.forEach((c, i) => { const s = po.seeds[c], eight = r[i].winner; next.push(pair({ id: s[0], seed: 1 }, { id: eight, seed: 8 }, 5, c), pair({ id: s[3], seed: 4 }, { id: s[4], seed: 5 }, 5, c), pair({ id: s[1], seed: 2 }, { id: po.seven[c], seed: 7 }, 5, c), pair({ id: s[2], seed: 3 }, { id: s[5], seed: 6 }, 5, c)); }); }
-    else if (po.stage === 2) next = [0, 1, 2, 3].map(k => pair(W(r[k * 2]), W(r[k * 2 + 1]), 5, r[k * 2].conf));
-    else if (po.stage === 3) next = [pair(W(r[0]), W(r[1]), 5, 'North'), pair(W(r[2]), W(r[3]), 5, 'South')];
+    const B = PO_BIG_BEST;   // v30a #24: every round best of 7 in 30-team leagues
+    if (po.stage === 1) { next = []; CONFS.forEach((c, i) => { const s = po.seeds[c], eight = r[i].winner; next.push(pair({ id: s[0], seed: 1 }, { id: eight, seed: 8 }, B, c), pair({ id: s[3], seed: 4 }, { id: s[4], seed: 5 }, B, c), pair({ id: s[1], seed: 2 }, { id: po.seven[c], seed: 7 }, B, c), pair({ id: s[2], seed: 3 }, { id: s[5], seed: 6 }, B, c)); }); }
+    else if (po.stage === 2) next = [0, 1, 2, 3].map(k => pair(W(r[k * 2]), W(r[k * 2 + 1]), B, r[k * 2].conf));
+    else if (po.stage === 3) next = [pair(W(r[0]), W(r[1]), B, 'North'), pair(W(r[2]), W(r[3]), B, 'South')];
     else if (po.stage === 4) { const a = { id: r[0].winner, seed: 1 }, b = { id: r[1].winner, seed: 1 }; next = [pair(a, b, 7, null)]; }
   } else if (po.stage === 0) {
     next = [];

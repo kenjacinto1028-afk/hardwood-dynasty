@@ -6,7 +6,18 @@ const N=+process.argv[2]||20, NBA=(process.env.NBA||'1')==='1', MODE=process.env
 run(`var R30={inj:{rs:0,po:0,rsG:0,poG:0},tw:{calls:0,no:0,pw:new Map(),noP:new Set(),askP:new Set(),byPh:{},byWhy:{}},err:[]};
 (function(){const ai=addInjury;addInjury=function(p,med){const n=ai(p,med);const po=LCUR&&LCUR.phase==='playoffs';R30.inj[po?'po':'rs']++;R30.inj[po?'poG':'rsG']+=n;return n;};
 if(typeof twWillSign==='function'){const tw=twWillSign;twWillSign=function(L,p){const r=tw(L,p);const k=L.phase+(L.phase==='regular'?(L.day>totalDays(L)*0.5?'-late':'-early'):'');const b=R30.tw.byPh[k]=R30.tw.byPh[k]||[0,0];b[0]++;R30.tw.calls++;R30.tw.askP.add(p.id);R30.tw.pw.set(p.id+':'+L.season+':'+L.phase+':'+Math.floor((L.day||0)/7),r.ok?1:0);if(!r.ok){b[1]++;R30.tw.no++;R30.tw.noP.add(p.id);R30.tw.byWhy[r.k]=(R30.tw.byWhy[r.k]||0)+1;}return r;};}
-})();var LCUR=null;`);
+})();var LCUR=null;
+// v32e: market report hooks (asks at FA start, re-sign rate, pay-cut signings, expiring / dump trades). Generic, so they also run on older code
+var V32E={asks:null,exp:[],sign:[]};
+(function(){
+ const band=o=>o<=55?'<=55':o<=59?'56-59':o<=64?'60-64':o<=69?'65-69':'70+', ag=a=>a<=25?'<=25':a<=30?'26-30':'31+';
+ V32E.askRep=function(L){const out={},bad=[];for(const id of L.fa||[]){const p=L.players[id];if(!p||p.retired||p.prospect||p.ask==null)continue;const k=band(p.ovr)+'|'+ag(p.age);const o=out[k]=out[k]||{n:0,min:0,x2:0,m10:0,a:[]};o.n++;if(p.ask<=MINSAL+1e-6)o.min++;if(p.ask<=2*MINSAL+1e-6)o.x2++;if(p.ask>=10)o.m10++;o.a.push(p.ask);if(p.ovr<60&&p.ask>=10)bad.push(p.name+' '+p.ovr+' a'+p.age+' $'+p.ask);}
+  for(const k in out){const a=out[k].a.sort((x,y)=>x-y);out[k].med=a[Math.floor(a.length/2)];out[k].max=a[a.length-1];delete out[k].a;}return {bands:out,under60ask10:bad.slice(0,8),under60ask10N:bad.length};};
+ const sr=startResign;startResign=function(L){const S=L.season;V32E.exp=[];for(const t of L.teams)for(const p of rosterOf(L,t))if(p.contract&&p.contract.exp<=S&&!(p.ext))V32E.exp.push({pid:p.id,tid:t.id,ovr:p.ovr,age:p.age});return sr(L);};
+ const sf=startFA;startFA=function(L){const r=sf(L);try{V32E.asks=V32E.askRep(L);}catch(e){V32E.asks={err:e.message};}return r;};
+ const sc=signContract;signContract=function(L,p,tid,amt,yrs,type,opt,extra){const t=L.teams[tid];if((type==='signing'||type==='re-sign')&&L.phase!=='regular')(V32E.con=V32E.con||[]).push({o:p.ovr,a:p.age,amt,type});if(type==='signing'&&p.team==null)V32E.sign.push({pid:p.id,tid,amt,mval:p.mval,ask:p.ask,ovr:p.ovr,age:p.age,ring:(p.awards||[]).filter(a=>a.a==='Champion').length,st:t.status||t.mode,ph:L.phase});return sc.apply(this,arguments);};
+})();
+`);
 const out=run(`(function(N){
 const L=${process.env.SNAP?'SL':`newLeague({mode:'${MODE}',size:${+process.env.SIZE||30},userTeam:${MODE==='team'?5:'undefined'},games:82${NBA?",nba:true":""}})`};LCUR=L;
 const U=L.user, rows=[], t00=Date.now();
@@ -55,6 +66,15 @@ for(let y=1;y<=N;y++){const t0=Date.now();R30.inj={rs:0,po:0,rsG:0,poG:0};const 
  if(L.ivUsed){const ks=L.ivUsed.ks;const d=ks.length-new Set(ks).size;iv.dupKeys+=d;iv.seasons.push(ks.length);}
  if(L.ivDone)for(const k in L.ivDone)if(k.startsWith(L.season+':')){const st=k.split(':')[1];iv.stages[st]=(iv.stages[st]||0)+(L.ivDone[k]>0?1:0);}
  row.jerseyOff=jersey();
+ try{const S=L.season-0;const ex=V32E.exp.filter(x=>L.teams[x.tid]&&x.tid!==U);const kept=ex.filter(x=>{const p=L.players[x.pid];return p&&p.team===x.tid;});const g60=ex.filter(x=>x.ovr>=60),k60=g60.filter(x=>{const p=L.players[x.pid];return p&&p.team===x.tid;});
+  const pc=V32E.sign.filter(x=>x.ovr>=70&&x.age>=29&&x.amt<=0.8*(x.mval||0)&&['allin','contend','push'].includes(x.st));
+  const tr=(L.trades||[]).filter(r=>r.s===L.season);
+  row.v32e={asks:V32E.asks,resign:{n:ex.length,kept:kept.length,rate:ex.length?+(kept.length/ex.length).toFixed(2):null,n60:g60.length,rate60:g60.length?+(k60.length/g60.length).toFixed(2):null},
+   payCut:{wf:L.winFirst&&L.winFirst.s===L.season?{n:L.winFirst.n,cands:L.winFirst.cands||0}:null,n:pc.length,news:(L.log||[]).filter(e=>e.k==='paycut'&&e.season>=L.season-1).length,who:pc.map(x=>L.players[x.pid].name+' '+x.ovr+' a'+x.age+' r'+x.ring+' '+L.teams[x.tid].abbr+' $'+x.amt+'/'+x.mval)},
+   contracts:(()=>{const by={};for(const c of V32E.con||[]){const k=c.o<=55?'<=55':c.o<=59?'56-59':c.o<=64?'60-64':c.o<=69?'65-69':c.o<=74?'70-74':'75+';(by[k]=by[k]||[]).push(c.amt);}const o={};for(const k in by){const a=by[k].sort((x,y)=>x-y);o[k]={n:a.length,p25:a[Math.floor((a.length-1)*.25)],med:a[Math.floor(a.length/2)],p75:a[Math.floor((a.length-1)*.75)],max:a[a.length-1]};}V32E.con=[];return o;})(),
+   payroll:(()=>{const v=L.teams.map(t=>payroll(L,t,L.season+1));return {avg:+(v.reduce((a,b)=>a+b,0)/v.length).toFixed(1),min:+Math.min(...v).toFixed(1),max:+Math.max(...v).toFixed(1),overTax:v.filter(x=>x>TAXLINE).length};})(),
+   why:L.resignLog&&L.resignLog.s===L.season?L.resignLog.out:null,why60:L.resignLog&&L.resignLog.s===L.season?L.resignLog.o60:null,
+   trades:{all:tr.length,dump:tr.filter(r=>r.kind==='dump').length,exp:tr.filter(r=>r.kind==='exp').length,wk:tr.reduce((o,r)=>{if(r.wk)o[r.wk]=(o[r.wk]||0)+1;return o;},{})}};V32E.sign=[];}catch(e){row.v32e={err:String(e.message)};}
  startNewSeason(L);
  row.twCalls=R30.tw.calls-tw0.calls;row.twNo=R30.tw.no-tw0.no;
  row.weird=weird();

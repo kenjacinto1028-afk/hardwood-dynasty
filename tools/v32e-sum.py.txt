@@ -1,0 +1,26 @@
+# v32e report: python3 v32e-sum.py tools/runs32/v32e-nba-commish.txt [more files]
+import json,sys
+for f in sys.argv[1:]:
+  print('==',f)
+  for l in open(f):
+    if not l.startswith('S '): continue
+    r=json.loads(l[2:]); v=r.get('v32e') or {}
+    a=v.get('asks') or {}; b=a.get('bands',{})
+    def g(k,f2): x=b.get(k); return '-' if not x else f2(x)
+    y55=g('<=55|<=25',lambda x:'%d/%d min'%(x['min'],x['n'])); y59=g('56-59|<=25',lambda x:'%d/%d <=2x max %.1f'%(x['x2'],x['n'],x['max']))
+    o59=sum(b.get(k,{}).get('x2',0) for k in ('56-59|26-30','56-59|31+')); o59n=sum(b.get(k,{}).get('n',0) for k in ('56-59|26-30','56-59|31+'))
+    o55=sum(b.get(k,{}).get('min',0) for k in ('<=55|26-30','<=55|31+')); o55n=sum(b.get(k,{}).get('n',0) for k in ('<=55|26-30','<=55|31+'))
+    rs=v.get('resign',{}); pc=v.get('payCut',{}); tr=v.get('trades',{})
+    print('S%-2s asks: y<=55 %s | y56-59 %s | old<=55 %d/%d min | old56-59 %d/%d <=2x | <60 at 10M+: %s | resign %s (60+: %s) of %s | paycut wf %s, all %s | trades %s exp %s dump %s %s | err %s' % (
+      r['s'],y55,y59,o55,o55n,o59,o59n,a.get('under60ask10N'),rs.get('rate'),rs.get('rate60'),rs.get('n'),
+      (pc.get('wf') or {}).get('n'), pc.get('n'), tr.get('all'),tr.get('exp'),tr.get('dump'),pc.get('who'),r.get('err')))
+# v32e2: contracts signed by OVR band (offseason signings + re-signs), payroll next season, why players left (p: player, t: team)
+print()
+for f in sys.argv[1:]:
+  print('== contracts / payroll / leave reasons:', f)
+  for l in open(f):
+    if not l.startswith('S '): continue
+    r=json.loads(l[2:]); v=r.get('v32e') or {}
+    c=v.get('contracts') or {}
+    cs=' '.join('%s:%s/%s/%s(n%d)'%(k,c[k]['p25'],c[k]['med'],c[k]['p75'],c[k]['n']) for k in ['<=55','56-59','60-64','65-69','70-74','75+'] if k in c)
+    print('S%-2s %s | pay %s | why %s' % (r['s'], cs, v.get('payroll'), v.get('why')))

@@ -1,3 +1,27 @@
+# TASK_STATE — v32e2 (Opus): smooth asks, realistic re-signing, de-tune — Nov 15 2026
+
+- [x] F0. Measure real salaries vs market value by OVR (new NBA league) — real NBA salaries by OVR: 60-61 med $10.9M, 62-63 $19.3M, 64-65 $16.1M; market value had a cliff 59 $2.3M -> 60 $8.7M
+- [x] F1. Ask ramp 56-69 (no cliff at 60), per-player variation, vet minimum — ASK_RAMP + rampAmt: hard to 59, soft 60-64 (40% above), jitter 0.88-1.12; asks med 58 1.9, 59 2.5, 60 4.5, 61 6.3, 62 7.6, 63 10.7, 64 13.0, 65 16.6
+- [x] F2. Re-signing: probabilistic, several leave reasons — resignWantP/resignLeave/resignDecide/resignLog, RESIGN_WHY, news.leave (replaces news.walk); team pays 70-95% of ask per case
+- [x] F3. De-tune: win-first per-candidate chance (WIN_FIRST.p 0.8 x score, no quota), picks among top 3 contenders; EXP_TR max 8 (safety only); ramp soft share grows 15%->55%
+- [x] F4. Update t32e + report (contracts by OVR, leave reasons) — t32e 21/21; r30 row v32e: contracts by OVR band, payroll, why
+- [x] F5. Tests: check, lint 104, t30a 21/21, t30c 30/30, t32e 21/21, 10 seasons commish + franchise (tools/runs32/v32e2-nba-*.txt): 0 errors
+- [x] F6. PROGRESS + README, commit, zip (push blocked: GitHub not linked)
+
+---
+# TASK_STATE — v32e S5 (Opus): market logic — Nov 15 2026
+
+- [x] E0. Read code (ask/computeMarket, AI re-sign, faRound, AI signing, trade AI, write-up keys, news FLAVOR) — done
+- [x] E1. Asks: young <=25 OVR<=55 min, 56-59 <=~2x min; cap young <60; check older low-rated; before/after counts — league.js lowAskCap/capAsk (computeMarket mval, setAsk, re-sign ask, negotiate needR, faRound W, demand/insult bumps); new NBA league: 175/175 young <=55 ask min, 56-59 ask 1.6-2.6M
+- [x] E2. AI re-signing more often + random walk-aways — league.js RESIGN consts (rank 10/ovr 58 wanted, pay 0.9 of ask, leave 0.22, walk 0.06), news.walk
+- [x] E3. Win-first stars: 1-2 pay-cut signings per offseason to contenders + news key — league.js WIN_FIRST, winFirstFA (faDay days 1-2), news.paycut
+- [x] E4. Trades: AI buys expirings with low picks / dumps long contracts; write-up reason keys — league.js expiringTrade/runExpiringTrades (in runSalaryDumps), rec.kind 'exp', rec.wk, mv.t.expiring/absorb/longfit/dump
+- [x] E5. Per-season report tool (asks by OVR band/age, re-sign rate, pay-cuts, dump trades) — tools/r30.js row.v32e; baseline tools/runs32/v32e-base.txt (3 seasons)
+- [x] E6. tools/t32e.js — 19/19 (asks, AI bids, re-sign rate + walk-aways, win-first, expiring trades, text keys)
+- [x] E7. Tests: node --check, lint 104 PASS, t30a 21/21, t30c 30/30, t32e 19/19; 10 seasons commish + franchise SEED=21 (tools/runs32/v32e-nba-*.txt): 0 errors, 0 roster problems
+- [x] E8. PROGRESS.md + README, committed (820d2d8); push blocked (GitHub not linked), zip of changed files sent
+
+---
 # TASK_STATE — v32d S4 (Sonnet): UI pass — Nov 15 2026
 
 - [x] D0. Read code (game page, starting window, rotChart/tl API, roles UI, offer popup, MLE/cap box, coaching targets, draft tab)

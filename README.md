@@ -14,6 +14,24 @@ The game is split into small files so a change rewrites one file, not 1.3 MB.
 | `src/nba-setup.js` | v30a NBA setup extras: real rookies (`nbaRookies`) + real jersey numbers (`NBA_JERSEY_CSV`, `nbaJerseys`) |
 | `src/index.template.html` | Page shell with markers `/*CSS*/ /*VENDOR*/ /*ENGINE*/ /*LEAGUE*/ /*APP*/` for the single-file build |
 
+## v32e round 2 (Opus, Nov 16 2026): smooth asks, realistic re-signing
+
+Code: `src/league.js`.
+- **Ask ramp** `ASK_RAMP`, `lowAskCap(L,p)` -> `{ cap, hard, soft }` or null (65+), `rampAmt(L,p,v)` (hard cap to 59, soft from 60), `capAsk`. Used by `computeMarket`, `setAsk`, `negotiate`, `faRound`.
+- **Market budget** `MKT_RAMP_LIFT` (1.2): `computeMarket` fits the scale with and without the ramp and uses the smaller of (with ramp) and (without x 1.2).
+- **Re-signing** `resignWantP` (team wants him, chance), `resignLeave` (player reasons: money, win, role, mood, coach, fresh), `resignDecide`, `resignLog` (`L.resignLog = { s, n, kept, out, o60 }`), `RESIGN_WHY`. News `news.leave`.
+- **Win-first** no quota: `p.wfAsk = { s, yes }` decided once per summer; `WIN_FIRST = { ovr 66, age 30, leave 0.7, days 3, p 0.8, cut, floor }`.
+- Tests: `node tools/t32e.js` (21).
+
+## v32e S5 (Opus, Nov 15 2026): market logic
+
+Code: `src/league.js` (blocks marked v32e). No UI change (news lines, trade write-ups and `rec.why` show through existing screens).
+- **Low-rated asks** `lowAskCap(L,p)` (null at 60+; MINSAL at 55 and under; MINSAL x (1 + (ovr-55)/4) for 56-59), `capAsk(L,p)`. Hooked into `computeMarket` (mval), `setAsk`, `startResign`, `negotiate` (`needR`), `faRound` (AI bid `W`), `faDay` demand bump, insult bump.
+- **Re-signing** `RESIGN = { rank, ovr, pay, leave, walk }` in `startResign`: who is wanted, share of his ask the team must reach, money-chase chance, surprise walk-away (`news.walk`).
+- **Win-first** `WIN_FIRST`, `winFirstScore`, `winFirstCands`, `winFirstTeams`, `winFirstFA(L)` (from `faDay`, days 1-3; state `L.winFirst = { s, n, goal, cands, who }`), `wfLeave` in `startResign`. News `news.paycut` (kind `paycut`), tx line on the player, `p.winFirst = season`.
+- **Expiring trades** `EXP_TR`, `expLowPicks`, `expUnwanted`, `expiringTrade(L)`, `runExpiringTrades(L)` (from `runSalaryDumps`; counter `L.expTr`). Trade object `exp: true, wkA, wkB`; record `rec.kind = 'exp'`, `rec.wk`. `mvTradePre` takes `s.wk` for the reason key; keys `mv.t.expiring | absorb | longfit | dump` in `MV_TRADE_K`.
+- Tests: `node tools/t32e.js` (19). Report: `tools/r30.js` (row `v32e`) + `python3 tools/v32e-sum.py.txt <runs>`.
+
 ## v32d S4 (Sonnet, Nov 15 2026): UI pass
 
 Code: `src/app.js` (blocks marked v32d), `src/league.js` (`mleStatus`, `extra.mle`, `coachTargets` cap fit), `src/styles.css` (`.rc-*`).

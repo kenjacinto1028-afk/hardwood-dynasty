@@ -1,5 +1,44 @@
 # PBL progress
 
+## v32e round 2 (Opus, Nov 16 2026): smooth asks, realistic re-signing, de-tuned
+- [x] Ask ramp (`ASK_RAMP`, `lowAskCap` -> `{cap, hard, soft}`, `rampAmt`): 55 and under = minimum; ceiling grows ~38% a point from 56 (~1x) to 59 (~2x) to 64 (~10x), times a stable per-player factor 0.88-1.12. Hard to 59; from 60 soft (the part above the ceiling kept at 15% at 60 ... 55% at 64); 65+ open market. Removes the cliff at 60
+- [x] Market budget: the ramp is counted in `computeMarket`; part of the money not paid to low-rated players moves up (scale may rise up to 20%, `MKT_RAMP_LIFT`), the rest stays as team room. Without it, average payroll fell to ~$146M by season 4; moving all of it up made 65s ask ~$35M
+- [x] Re-signing rewritten (`resignWantP`, `resignLeave`, `resignDecide`, `resignLog`, `RESIGN_WHY`): team side = a chance it wants him (rotation 92%, top-10 75%, young 60%, fringe 30%, end of bench 15%; less for vets on tank/rebuild teams, 33+, over the tax) and how far below his ask it goes (70-95% per case). Player side = separate chances to leave: money, winning (losing team), role (under 18 mpg), mood, coach fit, fresh start, win-first; loyalty cuts them; icons can leave too (rarely). Reason in his transactions; news `news.leave` for 68+ (replaces `news.walk`)
+- [x] De-tuned: win-first has no quota (each candidate decides once, chance 0.8 x score, signs with one of the top 3 contenders); bar 66+ / 30+ (69+ stars almost never reach free agency); expiring-trade max 5 -> 8 (safety cap only)
+- [x] Report: `tools/r30.js` row `v32e` adds contracts signed by OVR band, payroll next season, leave reasons (all / 60+). `python3 tools/v32e-sum.py.txt <runs>`
+- [x] Tests: node --check, lint 104 PASS, t30a quick 21/21, t30c 30/30, t32e 21/21 (adds: smooth ramp, per-player variation, 4+ leave reasons, no quota)
+- [x] 10 seasons NBA SEED=21 (`tools/runs32/v32e2-nba-commish.txt`, `-team.txt`; old-code payroll baseline `tools/runs32/v32e2-base-old.txt`, 4 seasons):
+  - Asks at FA start (new league): median 58 $1.9M, 59 $2.5M, 60 $3.8M, 61 $5.5M, 62 $7.8M, 63 $11.4M, 64 $14.7M, 65 $20.0M, 67 $29.4M (real NBA salaries at these ratings: 64-65 $16M, 66-67 $23M, 68-69 $28M). Under 60 at $10M+: 0 in 20 seasons
+  - Contracts signed (median of season medians), commish / franchise: 55- $1.3M, 56-59 $1.3M, 60-64 $5.6 / 5.7M, 65-69 $18.1 / 21.1M, 70-74 $30.2 / 32.0M, 75+ $48.1 / 47.0M. Old code: 56-59 ~$6M, 60-64 ~$9M, 65-69 ~$17M
+  - Payroll next season avg: commish 173 (163-186), franchise 173 (163-183); old code 180-188. Lowest team avg $106M / $113M (old 118-136); teams under the $148.5M floor pay the difference
+  - Re-sign rate 60+: commish 0.47-0.73 (avg 0.64), franchise 0.61-0.75 (0.69); all: 0.46 / 0.50. Old code 0.56-0.70 / 0.34. Why 60+ players left (10 seasons, commish): team didn't want 137, wants to win 61, price 40, cap 38, money 35, fresh start 21, mood 7
+  - Win-first per summer: commish 1,0,0,0,2,2,1,1,1,2 (avg 1.0); franchise 0,2,1,1,0,1,0,3,4,1 (avg 1.3). E.g. Towns 35 (MIL $6.4M of $13.1M), Amen Thompson 32 (PHI $12.4M of $27.1M), Randle 33 (TOR)
+  - Expiring trades per season avg 3.4 / 3.3 (0-8); salary dumps 2.1 / 2.3
+  - 0 errors, 0 roster problems, save 17,517 / 17,480 KB
+- Open / caveats:
+  - Payroll ~5% under the old code (bench players are cheaper); a few low-payroll teams sit near $90M some seasons (they pay the floor difference)
+  - "Wants to win" is now the top player reason (losing teams lose good veterans more). Watch it in longer runs
+  - Leave chances and the 20% budget lift are hand-set; checked against one seed only
+
+## v32e S5 (Opus, Nov 15 2026): market logic
+- [x] Asks (`lowAskCap` / `capAsk`, league.js above `computeMarket`): OVR 55 and under = the minimum, 56-59 = 1.25x-2x the minimum (56 1.25x ... 59 2x), any age. Applied to market value, `setAsk`, re-sign asks, `negotiate` quotes, AI bids in `faRound`, daily demand bumps. Hidden rookies use the lower of read and real rating
+- [x] AI re-signing (`RESIGN` in startResign): wanted = rotation, young prospect, top-10 on the roster at 58+, or 26 and under at 58+; signs when the team's offer is 75% of his ask (was 97%); 65+ "chase money" chance 0.15 (was 0.35); 6% surprise walk-away for a wanted 60+ player (news `news.walk`, kind `walk`)
+- [x] Win-first stars (`WIN_FIRST`, `winFirstFA` on FA days 1-3): goal 0-3 a summer (avg 1.46), picks weighted to ringless older stars (one-ring 0.1x, 2+ rings at 32+ 0.3x). Signs with the best contender where he'd play, at 45-75% of value (not under 30%), 1-2 years. Skips players you made an offer to. Pool: an older ringless star on a non-contender may skip re-signing (`wfLeave`, tx "Wants to join a contender"). News `news.paycut` (1 wording, kind `paycut`)
+- [x] Expiring trades (`expiringTrade` / `runExpiringTrades`, called in `runSalaryDumps`, in season only, max 5 a season): a non-contender with next-year payroll near the cap sends a long contract it doesn't want (overpaid, aging on a rebuild, out of the top 7) for a partner's expiring deal (salary within 30%); pays the gap with late 1sts / 2nds (max 2) or none when a contender wants the longer deal. AI teams only. `rec.kind = 'exp'`, `rec.wk` ('expiring' / 'dump'). Write-up keys `mv.t.expiring`, `mv.t.absorb`, `mv.t.longfit`, `mv.t.dump` (4 wordings each); salary dumps now use dump / absorb too
+- [x] Report: `tools/r30.js` row `v32e` (asks by OVR band x age, re-sign rate, win-first goal/signed/pool, pay-cut signings, trades by kind). Summary: `python3 tools/v32e-sum.py.txt tools/runs32/v32e-nba-*.txt`
+- [x] Tests: node --check all, lint 104 PASS, t30a quick 21/21, t30c 30/30, new `tools/t32e.js` 19/19
+- [x] 10 seasons NBA SEED=21 (`tools/runs32/v32e-nba-commish.txt`, `-team.txt`; before: `tools/runs32/v32e-base.txt`, 3 seasons, commish)
+  - Asks at FA start, young <=55 at the minimum: before 17-24 of 101-122 (median $2.6M, max $14.4M); now all, every season (92-149). Young 56-59: before median $8.6M, max $16.4M; now max $2.6M. Older <=55: before 22-50 of 71-103 at min (max $8.9M); now all. Under 60 asking $10M+: before 5 (S1); now 0 in all 20 seasons
+  - Re-sign rate (AI expiring, same team at season start), all / OVR 60+: before 0.29-0.40 / 0.56-0.70 (avg 0.34 / 0.64); now commish avg 0.49 / 0.73 (0.67-0.82), franchise 0.48 / 0.71 (0.63-0.80)
+  - Win-first pay cuts per summer: commish 0,1,2,1,1,0,1,2,0,3; franchise 0,2,2,1,0,1,1,1,2,1 (avg 1.1). Before: 0-1 (generic). Mostly ringless 30-33-year-olds (Randle, Fox, Ingram, Banchero); Jaylen Brown (1 ring) twice; a 3-ring Christian Anderson Jr. once
+  - Expiring trades per season: commish 5,1,4,3,5,4,4,1,5,2 (avg 3.4); franchise avg 3.0. Salary dumps 0-6. All trades 33-50 (before 34-57)
+  - 0 errors, 0 roster problems, save at S10 17,551 / 17,626 KB (v32c 17,798 / 17,737). FA left at season start fell (commish 12-28 vs v32c 22-29): more players re-sign
+- Open / caveats:
+  - Cliff at 60: a 59 asks at most $2.6M, a 60-64 can still ask ~$9-14M (young median ~$10M). Not changed (outside the brief); a ramp for 60-64 would smooth it
+  - Win-first summers with 0: when no older star reaches free agency (2-3 of 10). The goal is a target, not forced
+  - Expiring trades run in season only (not on draft night / summer)
+  - Fewer free agents left at season start (9-21): fine for AI rosters, thinner bargain pool for you
+
 ## v32d S4 (Sonnet, Nov 15 2026): UI pass
 - [x] Rotation chart on the game page (both teams, from `game.tl`), "Planned subs" in the live starting-lineup window
 - [x] Chart editor (My Team > Rotation chart): toggle grid, Save / Undo / Reset to coach pattern, 5-per-block and injury checks, role-minutes warnings

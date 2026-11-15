@@ -548,6 +548,79 @@ function nbaRookies(L) {
   return n;
 }
 function nbaSetupV30a(L) {
+  let v32 = null; try { v32 = nbaSetupV32(L); } catch (e) { v32 = { error: String(e && e.message || e) }; }   // v32a: ratings, roster fixes (before rookies + jerseys so they see the final rosters)
   const rk = nbaRookies(L), js = nbaJerseys(L);
-  return { rookies: rk, jersey: js };
+  return { rookies: rk, jersey: js, v32 };
+}
+// ===== v32a (S1): rating changes, roster setup, rivalry. Lives here (not in nba-2026.js / conv.js) so a build.sh rebuild keeps it. =====
+// Attribute groups: scoring = fin, mid, tp, pst; rebounding = orb, drb; passing = pas. Unnumbered = 3 points. Each entry is added to the attribute, then the overall is recomputed.
+const SC3 = { fin: -3, mid: -3, tp: -3, pst: -3 }, RB = n => ({ orb: n, drb: n }), PS3 = { pas: -3 }, BLK3 = { blk: 3 };
+const NBA_ADJ = {
+  'Kawhi Leonard': Object.assign({}, SC3, RB(-3), PS3),
+  'Jaylen Brown': SC3, 'Kyrie Irving': SC3, 'Kon Knueppel': SC3,
+  'Jamal Murray': Object.assign({}, SC3, PS3),
+  "Kel'el Ware": RB(-7), 'Chet Holmgren': RB(-7), 'Evan Mobley': RB(-7),
+  'Paolo Banchero': RB(-3), 'Jalen Johnson': RB(-3), 'Deni Avdija': RB(-3), 'Pascal Siakam': RB(-3), 'Michael Porter Jr.': RB(-3),
+  'Anthony Edwards': Object.assign({}, RB(-3), PS3),
+  'Stephon Castle': PS3, 'Shai Gilgeous-Alexander': PS3, 'Derrick White': PS3,
+  'Anthony Davis': BLK3, 'Nic Claxton': BLK3, 'Rudy Gobert': BLK3,
+  'Ivica Zubac': { fin: 2, orb: 3, drb: 3, pdf: 3 },                                              // a bit better: finishing, rebounding, defense (not overboard)
+  'Walker Kessler': { blk: 3, pdf: 3, fin: -3, mid: -3, tp: -3, pst: -3, drw: -3, pas: -3, hnd: -3 }  // better defensive big (rim + defense up), offense attributes down
+};
+const NBA_OVR_ADJ = { 'Joel Embiid': -5 };                                                         // exactly -5 overall
+const NBA_PRONE = { 'Kawhi Leonard': 1, 'Joel Embiid': 1 };                                       // injury prone: at least "Fragile" (ipt 2, dur 40-ish); ipt 3 = very fragile
+const NBA_PERM_GRUDGE = { 'Luka Doncic': 'DAL' };                                                  // permanent revenge + rivalry vs this team while he plays, whatever team he is on
+function nbaApplyRatings(L) {
+  const rep = [];
+  for (const p of Object.values(L.players)) {
+    if (!p.real) continue; const a = NBA_ADJ[p.name], o = NBA_OVR_ADJ[p.name], pr = NBA_PRONE[p.name]; if (!a && o == null && !pr) continue;
+    const before = p.ovr;
+    if (a) for (const k in a) p[k] = r99(p[k] + a[k]);
+    p.ovr = ovr(p);
+    if (o != null) { const want = before + o, K = [...OFF, ...DEF, 'iq'].filter(k => k !== 'ft' && k !== 'fdc'); for (let i = 0; i < 400 && ovr(p) !== want; i++) { const k = K[i % K.length]; p[k] = r99(p[k] + (ovr(p) > want ? -1 : 1)); } p.ovr = ovr(p); }
+    if (pr && (p.ipt == null || p.ipt < 2)) { p.ipt = 2; p.dur = r99(IPT_DUR[2] + gauss(0, 2)); }
+    else if (pr) p.dur = Math.min(p.dur, IPT_DUR[2]);
+    if (p.ovr !== before) { p.pot = Math.round(Math.max(p.ovr, p.pot + (p.ovr - before))); p.scout = p.pot; }   // potential moves with the overall (never below it)
+    try { setCeil(p); p.arch = archetypes(p); } catch (e) { }
+    rep.push({ name: p.name, before, after: p.ovr, ipt: p.ipt });
+  }
+  return rep;
+}
+// real minutes role (p.rmb): only for players still on the team whose minutes he played, with a full-season sample, and small (a tie-break, not a demotion).
+// The old rule compared his minutes last season with his rank on his NEW team and capped at +-10 (LaMelo Ball -3.6 on MIN vs a 24-game Dosunmu +9.8 started over him).
+const RMB_CAP = 4, RMB_MIN_GP = 40;
+function nbaFixRmb(L) {
+  const EXP = [33, 32, 30, 28, 26, 22, 18, 14, 10, 7, 4, 3, 2, 2, 2]; let kept = 0, dropped = 0;
+  for (const p of Object.values(L.players)) if (p.real && p.rmb != null) delete p.rmb;
+  for (const t of L.teams) rosterOf(L, t).slice().sort((a, b) => b.ovr - a.ovr).forEach((p, i) => {
+    const x = nbaRowOf(p.name), s = x && x[1][11];
+    if (!s || s[2] == null || (s[0] || 0) < RMB_MIN_GP || (typeof NBA_PREV !== 'undefined' && NBA_PREV[p.name] && NBA_PREV[p.name] !== t.abbr)) { dropped++; return; }
+    const d = Math.max(-RMB_CAP, Math.min(RMB_CAP, (s[2] - EXP[i]) * 0.9)); if (Math.abs(d) >= 1) { p.rmb = Math.round(d * 10) / 10; kept++; }
+  });
+  return { kept, dropped };
+}
+function nbaSetupV32(L) {
+  const out = { ratings: nbaApplyRatings(L) }, byName = n => Object.values(L.players).find(p => p.real && p.name === n), tAb = ab => L.teams.find(t => t.abbr === ab);
+  // Porzingis: retired at league start (his real career rows stay: they are looked up by name), GSW sign the best free big at the minimum
+  { const p = byName('Kristaps Porzingis'), gs = tAb('GSW');
+    if (p && gs && !p.retired) {
+      retirePlayer(L, p, 'retired before the season'); out.porz = true;
+      const fa = L.fa.map(id => L.players[id]).filter(q => q && !q.retired && q.pos >= 3 && !(q.injury > 0)).sort((a, b) => (b.real ? 1 : 0) - (a.real ? 1 : 0) || b.ovr - a.ovr)[0];   // a real free-agent big first (Kevin Love)
+      if (fa && gs.roster.length < 15) { addToTeam(L, fa, gs.id); fa.contract = { amt: MINSAL, exp: L.season, hg: false, type: 'initial', len: 1, opt: null }; fa.contracts = fa.contracts || []; fa.contracts.push({ s: L.season, tid: gs.id, amt: MINSAL, yrs: 1, type: 'initial', hg: false }); fa.tx.push({ s: L.season, t: `On the ${gs.abbr} opening-night roster (2026-27)` }); out.porzFill = fa.name; }
+    } }
+  // Lakers: Dalton Knecht starts as a free agent, Adou Thiero (cut by the roster limit) makes the team
+  { const lal = tAb('LAL'), kn = byName('Dalton Knecht'), th = byName('Adou Thiero');
+    if (lal && kn && th) {
+      if (kn.team === lal.id) { removeFromTeam(L, kn); kn.contract = null; kn.contracts = []; kn.lastTeam = lal.id; if (!L.fa.includes(kn.id)) L.fa.push(kn.id); try { setAsk(L, kn); } catch (e) { } out.lal = 'knecht-fa'; }
+      if (th.team !== lal.id && !th.tw && lal.roster.length < 15) {
+        addToTeam(L, th, lal.id); const x = nbaRowOf('Adou Thiero'), amt = x ? x[1][9] : [2.151, 2.526];
+        th.contract = { amt: amt[0], exp: L.season + amt.length - 1, hg: false, type: 'rookie', len: amt.length, opt: x && x[1][10] ? String(x[1][10]).slice(0, 2) : null, sched: amt.length > 1 ? amt.slice() : undefined, s0: L.season };
+        th.contracts = th.contracts || []; th.contracts.push({ s: L.season, tid: lal.id, amt: amt[0], yrs: amt.length, type: 'rookie', hg: false }); th.tx.push({ s: L.season, t: `On the ${lal.abbr} opening-night roster (2026-27)` });
+      }
+      th.rookieSeason = L.season;
+    } }
+  // Luka Doncic vs Dallas: permanent grudge (revenge boost + rivalry tag) while he plays
+  for (const n in NBA_PERM_GRUDGE) { const p = byName(n), t = tAb(NBA_PERM_GRUDGE[n]); if (p && t) { p.grudge = (p.grudge || []).filter(g => g.tid !== t.id); p.grudge.push({ tid: t.id, until: 9999, perm: 1, why: 'Dallas traded him away', s: L.season }); out.grudge = (out.grudge || 0) + 1; } }
+  out.rmb = nbaFixRmb(L);
+  return out;
 }

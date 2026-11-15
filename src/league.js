@@ -784,7 +784,9 @@ function computeModes(L, label) {
 
 // ---------- Trade valuation ----------
 const baseV = o => Math.pow(3, (o - 50) / 10);
-function yrsLeft(L, p) { return p.contract ? Math.max(0, p.contract.exp - capSeason(L) + 1) : 0; }
+// v32a: a signed extension (p.ext, starts next season) counts: years left = this deal + the extension years (a 4-year extension on an expiring deal = 5)
+function contractEnd(p) { return p.contract ? p.contract.exp + (p.ext ? p.ext.yrs : 0) : null; }
+function yrsLeft(L, p, cs) { return p.contract ? Math.max(0, contractEnd(p) - (cs == null ? capSeason(L) : cs) + 1) : 0; }
 // v24.3: how much an AI team marks a player down for injury risk (0 to 0.35): a current layoff, serious injuries in his history, the injury-prone label, and his hidden proneness tier as far as it has been revealed in the league
 // v24.4: what anyone can see of his injury history: major (25+ game) injuries and games missed in the last 3 seasons
 // v24.5.1: games he still has to miss, counting the summer's healing when it is still ahead (offseason)
@@ -1735,7 +1737,13 @@ function processOffers(L) {
 function acceptOffer(L, id) {
   const o = L.offers.find(x => x.id === id); if (!o) return 'That offer is gone.';
   if (!offerValid(L, o)) { L.offers = L.offers.filter(x => x.id !== id); return 'That offer is no longer valid.'; }
-  executeTrade(L, o); L.offers = L.offers.filter(x => x.id !== id); return null;
+  executeTrade(L, o); L.offers = L.offers.filter(x => x.id !== id && !offerOverlaps(o, x)); return null;
+}
+// v32a: once one offer for a pick (or player) is accepted, the other offers that ask for the same assets or the same draft slot are removed
+function offerOverlaps(a, b) {
+  if (a.draft && b.draft && a.slotIdx != null && a.slotIdx === b.slotIdx) return true;
+  const pk = new Set((a.bGive.picks || [])), pl = new Set((a.bGive.players || []));
+  return (b.bGive.picks || []).some(x => pk.has(x)) || (b.bGive.players || []).some(x => pl.has(x));
 }
 function declineOffer(L, id) { const o = L.offers.find(x => x.id === id); L.offers = L.offers.filter(x => x.id !== id); if (o) logNews(L, `You declined ${L.teams[o.a].abbr}'s trade offer`, o.a, 'trade');
 }
@@ -2234,7 +2242,7 @@ function specialNews(L, g) {
     const row = g.box.find(r => r[0] === p.id); if (!row) continue;
     const tid = row[1] === 0 ? g.home : g.away, opp = row[1] === 0 ? g.away : g.home, won = row[1] === 0 ? g.hs > g.as : g.as > g.hs;
     const line = `${row[2 + IX.pts]} pts, ${row[2 + IX.orb] + row[2 + IX.drb]} reb, ${row[2 + IX.ast]} ast`;
-    if (x.grudge) { const gr = (p.grudge || []).find(q => q.tid === opp && q.until >= L.season); if (gr && gr.hit !== L.season && !g.playoff) { gr.hit = L.season; const st = standout(p, row); if (st) logNews(L, `Revenge game: ${p.name} vs his old team ${L.teams[opp].abbr}: ${st}${won ? ', and won' : ''} (first meeting since ${gr.why})`, tid, 'game'); } }
+    if (x.grudge) { const gr = (p.grudge || []).find(q => q.tid === opp && q.until >= L.season); if (gr && (gr.perm ? gr.hit !== L.season * 1000 + (L.day || 0) : gr.hit !== L.season) && !g.playoff) { gr.hit = gr.perm ? L.season * 1000 + (L.day || 0) : L.season; const st = standout(p, row); if (st) logNews(L, gr.perm ? `Rivalry game: ${p.name} vs ${L.teams[opp].abbr}: ${st}${won ? ', and won' : ''} (${gr.why})` : `Revenge game: ${p.name} vs his old team ${L.teams[opp].abbr}: ${st}${won ? ', and won' : ''} (first meeting since ${gr.why})`, tid, 'game'); } }
     if (x.rival != null && p.id < x.rival) {   // count each rivalry meeting once
       const r = (L.rivals || []).find(q => q.until >= L.season && ((q.a === p.id && q.b === x.rival) || (q.b === p.id && q.a === x.rival))); if (!r) continue;
       const oRow = g.box.find(rr => rr[0] === x.rival); if (!oRow) continue;
@@ -3002,7 +3010,7 @@ function demandFor(L, t, price, playoff, rival) {
 function financeGame(L, g) {
   const home = L.teams[g.home], away = L.teams[g.away];
   if (!home.fin) return;
-  const rk = rivalKind(L, g.home, g.away), rival = rk ? { arch: 0.09, po: 0.08, conf: 0.06 }[rk] : 0;   // v24.3: rivalry games draw 6-9% more
+  const rk = rivalKind(L, g.home, g.away), rival = rk ? { arch: 0.09, po: 0.08, conf: 0.06 }[rk] : permGrudgeGame(L, g.home, g.away) ? 0.08 : 0;   // v24.3: rivalry games draw 6-9% more (v32a: a permanent player rivalry counts)
   const price = ticketPrice(L, home) * (g.playoff ? 1.5 : 1);
   const att = Math.round(Math.min(home.arena.cap, home.arena.cap * demandFor(L, home, price, g.playoff, rival)));
   const rev = att * price / 1e6 * (g.playoff ? 1 : 58 / SEASON_GAMES);   // v26.6: the same season gate at any season length
@@ -4725,9 +4733,12 @@ function frictionRival(L, p, from) {
 }
 function addGrudge(L, p, tid, why) {
   if (!p || tid == null || p.retired) return;
+  if ((p.grudge || []).some(g => g.tid === tid && g.perm)) return;   // v32a: a permanent grudge (Luka vs DAL) is never replaced by a 2-season one
   p.grudge = (p.grudge || []).filter(g => g.tid !== tid && g.until >= L.season);
   p.grudge.push({ tid, until: gameSeason(L) + 1, why, s: L.season });   // lasts at most 2 seasons
 }
+// v32a: a player on either roster holds a permanent grudge against the other team (Luka vs DAL): the game is tagged a rivalry game
+function permGrudgeGame(L, a, b) { const has = (x, y) => rosterOf(L, L.teams[x]).some(p => (p.grudge || []).some(g => g.perm && g.tid === y)); return has(a, b) || has(b, a); }
 function grudgeVs(L, p, tid) { return (p.grudge || []).find(g => g.tid === tid && g.until >= gameSeason(L)); }
 // v19: draft-class rivals are their own kind, with their own cap; the regular cap is 8
 const RIVAL_MAX = 8, DRAFT_RIVAL_MAX = 4;
@@ -4858,12 +4869,11 @@ function negotiate(L, pid, amt, yrs, tid, type, opt, extra) {
     // v24.5.1: the owner is asked only once the player would accept, and a promise counts only when he signs
     let promise = false;
     if (type === 'signing' && tid === L.user && !extra.noOwner) { const oc = ownerCheck(L, amt, 0); if (!oc.ok) { if (oc.ask && extra.ownerPromise) promise = true; else return { ok: false, owner: oc, msg: oc.msg }; } }
-    const disc = amt < 0.8 * p.mval && p.mval > MINSAL;
-    const yy = disc ? 1 : yrs, oo = disc ? null : opt;
+    const yy = yrs, oo = opt;   // v32a: he accepts exactly the years offered (before, a deal under 80% of his value was silently cut to 1 year: 4-yr rookie extension, 2-yr minimum). He accepts, counters or refuses; never shortens
     const ex = { inc: inc || 0, incK: extra.incK || 'gp', ntc: !!extra.ntc, incs: extra.incs || null, kick: extra.kick || 0, eto: extra.eto || null, gtd: extra.gtd != null ? extra.gtd : null, role: extra.role || null };
     if (type === 'extension') { p.ext = { amt, yrs: yy, hg, opt: oo, x: ex }; p.ask = null; p.tx.push({ s: L.season, t: `Signed an extension with ${t.abbr}: ${yy} yr, ${money(amt)}/yr from next season` }); logNews(L, `${t.abbr} extended ${p.name}: ${yy} yr, ${money(amt)}/yr`, tid, 'tx'); }
     else { signContract(L, p, tid, amt, yy, type, oo, ex); if (type === 're-sign') L.resign = L.resign.filter(id => id !== pid); if (promise) acceptOwnerGoal(L); }
-    return { ok: true, promised: promise, accepted: { pid, tid, amt, yrs: yy, opt: oo, type }, msg: `${p.name} agreed: ${yy} yr, ${money(amt)}/yr${oo ? ' with a ' + (oo === 'PO' ? 'player' : 'team') + ' option' : ''}${yy !== yrs ? ' (he took a discount, so he only wants 1 year)' : ''}.` };
+    return { ok: true, promised: promise, accepted: { pid, tid, amt, yrs: yy, opt: oo, type }, msg: `${p.name} agreed: ${yy} yr, ${money(amt)}/yr${oo ? ' with a ' + (oo === 'PO' ? 'player' : 'team') + ' option' : ''}.` };
   }
   // v15: a lowball offer (under 85% of what he needs) annoys him a little: +3%, at most twice per negotiation window
   if (race) p.bet = { s: L.season, race };

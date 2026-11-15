@@ -1,3 +1,13 @@
+# TASK_STATE — v32a S1 (Sonnet): data + quick fixes — Nov 15 2026
+
+- [x] A0. Read code: nba-setup.js hook (nbaSetupV30a), rmb in engine buildSide, negotiate() 'disc' rule, p.ext (pending extension), offers panel
+- [x] A1. src/nba-setup.js: NBA_ADJ ratings, Embiid -5, Kawhi/Embiid fragile, Porzingis retired + GSW fill, Lakers Knecht FA / Thiero rookie, Luka perm grudge, nbaFixRmb
+- [x] A2. engine.js rmb cap +-4; league.js addGrudge perm, yrsLeft/contractEnd (ext counts), negotiate no silent shortening, acceptOffer clears overlapping offers, rivalry bump + news; app.js years left, Negotiate -> trade center, perm grudge labels
+- [x] A3. tools/t32a.js
+- [x] A4. node --check, lint, t30a quick, t30c, browser check (extension + draft offers)
+- [x] A5. PROGRESS.md + README, OVR before/after report, commit, zip
+
+---
 # TASK_STATE — merge v31 overseas (Sonnet) into v30-review — Nov 15 2026
 
 - [x] M1. git apply --3way v31-abroad.patch: code clean (same base as round 2); PROGRESS.md + TASK_STATE.md conflicts kept both

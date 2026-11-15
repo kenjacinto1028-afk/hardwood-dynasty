@@ -258,3 +258,12 @@ Suggested order: T (quick win) → R → G (PBL + pipeline emblems) → F, then 
 - [x] Stats › Players (v28.7 S1): team + age min/max filters, also in the Defense view (it had no team filter). Browser `tools/browser-s28.py.txt`.
 - [x] Extension / re-sign deadlock fix (v28.7 X, league.js `negotiate`): (1) the max is rounded to $0.1M (e.g. $57.75M → $57.7M), so it can be typed and accepted; (2) his need is capped at the legal max (agent / clause multipliers and the award-race rule could push it above the max, so even a max offer was refused); (3) the counter now includes the award-race "only at the max" rule, so offering the counter he names is accepted. `tools/x28.js` (stars on forced extension windows: original 32/57 stuck, now 0/57 and 0/55 on seed 5).
 - [x] Stats › Players: team select labelled "Team · All teams".
+
+## v32a S1 (Sonnet): NBA ratings, roster setup, extension/draft-offer fixes
+- Ratings: `NBA_ADJ`, `NBA_OVR_ADJ` (Embiid -5), `NBA_PRONE` (Kawhi, Embiid ipt>=2) in `src/nba-setup.js`; full before/after: `tools/runs32/ovr-before-after.csv`.
+- Porzingis retired at start (career rows kept); GSW fills with a real FA big. Lakers: Knecht FA, Thiero on roster as rookie.
+- Lineups: `rmb` ignored for players who changed teams or have <40 GP, capped at +-4 (`nbaFixRmb`, engine `buildSide`). LaMelo starts.
+- Luka: permanent grudge vs DAL (`perm`), rivalry tag + revenge boost on every Luka-DAL game, any team.
+- Contracts: `yrsLeft` / `contractEnd` include `p.ext` everywhere; `negotiate` no longer shortens years (2-yr minimum, rookie 4-yr extension).
+- Draft offers: Negotiate opens trade center; accepting an offer removes other offers for the same slot or assets.
+- Tests: `tools/t32a.js` (38/38), `tools/browser-v32a.py.txt` (8/8), t30a 21/21, t30c 30/30, lint, node --check.

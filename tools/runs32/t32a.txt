@@ -1,0 +1,38 @@
+PASS every attribute delta in the table is applied exactly (22 players) :: 
+PASS Embiid overall exactly -5 :: 79->74
+PASS Kawhi + Embiid injury prone (ipt >= 2) :: 2,2
+PASS Kawhi scoring + rebounding + passing all down 3
+PASS Ware / Holmgren / Mobley rebounding -7
+PASS Zubac: finishing / rebounding / defense up 2-3, overall up :: 63->65
+PASS Kessler: blk/pdf +3, offense attributes -3 :: 72->72
+PASS nobody outside the table changes overall (no random drift) :: 
+PASS seed 3: Porzingis retired, off GSW, real career rows kept, GSW has 15 + unique numbers :: {"ret":true,"team":null,"onGSW":false,"rows":12,"gsw":15,"gswNums":15}
+PASS seed 3: Lakers: 15 players, Thiero on roster + rookie + number, Knecht free agent :: {"n":15,"th":true,"rk":true,"thC":2,"kn":true,"thNum":true}
+PASS seed 3: LaMelo starts for MIN
+PASS seed 3: rmb capped at 4; players who changed teams have none :: 4 0,0,0
+PASS seed 3: top-2 healthy players benched across the league <= 6 (before the fix 12-16) :: 5
+PASS seed 3: Luka: permanent grudge vs DAL, rivalry tag on LAL-DAL, not on LAL-BOS :: {"perm":true,"vs":true,"tag":true,"tagOther":false,"later":true,"moved":true,"special":true}
+PASS seed 3: Luka grudge survives later seasons + addGrudge, follows him to a new team, boosts him in the game :: {"perm":true,"vs":true,"tag":true,"tagOther":false,"later":true,"moved":true,"special":true}
+PASS seed 4: Porzingis retired, off GSW, real career rows kept, GSW has 15 + unique numbers :: {"ret":true,"team":null,"onGSW":false,"rows":12,"gsw":15,"gswNums":15}
+PASS seed 4: Lakers: 15 players, Thiero on roster + rookie + number, Knecht free agent :: {"n":15,"th":true,"rk":true,"thC":2,"kn":true,"thNum":true}
+PASS seed 4: LaMelo starts for MIN
+PASS seed 4: rmb capped at 4; players who changed teams have none :: 4 0,0,0
+PASS seed 4: top-2 healthy players benched across the league <= 6 (before the fix 12-16) :: 1
+PASS seed 4: Luka: permanent grudge vs DAL, rivalry tag on LAL-DAL, not on LAL-BOS :: {"perm":true,"vs":true,"tag":true,"tagOther":false,"later":true,"moved":true,"special":true}
+PASS seed 4: Luka grudge survives later seasons + addGrudge, follows him to a new team, boosts him in the game :: {"perm":true,"vs":true,"tag":true,"tagOther":false,"later":true,"moved":true,"special":true}
+PASS seed 5: Porzingis retired, off GSW, real career rows kept, GSW has 15 + unique numbers :: {"ret":true,"team":null,"onGSW":false,"rows":12,"gsw":15,"gswNums":15}
+PASS seed 5: Lakers: 15 players, Thiero on roster + rookie + number, Knecht free agent :: {"n":15,"th":true,"rk":true,"thC":2,"kn":true,"thNum":true}
+PASS seed 5: LaMelo starts for MIN
+PASS seed 5: rmb capped at 4; players who changed teams have none :: 4 0,0,0
+PASS seed 5: top-2 healthy players benched across the league <= 6 (before the fix 12-16) :: 4
+PASS seed 5: Luka: permanent grudge vs DAL, rivalry tag on LAL-DAL, not on LAL-BOS :: {"perm":true,"vs":true,"tag":true,"tagOther":false,"later":true,"moved":true,"special":true}
+PASS seed 5: Luka grudge survives later seasons + addGrudge, follows him to a new team, boosts him in the game :: {"perm":true,"vs":true,"tag":true,"tagOther":false,"later":true,"moved":true,"special":true}
+PASS Luka 4-yr extension accepted as 4 :: {"ok":true,"msg":"Luka Doncic agreed: 4 yr, $43.0M/yr.","yrs":4,"ext":4,"before":1,"left":5,"end":5,"cap5":5}
+PASS Luka years left 1 -> 5 (yrsLeft, contractEnd, cap projection shows 5 seasons) :: {"ok":true,"msg":"Luka Doncic agreed: 4 yr, $43.0M/yr.","yrs":4,"ext":4,"before":1,"left":5,"end":5,"cap5":5}
+PASS rookie 4-yr extensions keep 4 years (8 tested, 0 below 80% of value) :: [{"n":"Asa Newell","ok":true,"yrs":4,"ext":4,"mval":1.8,"amt":2,"disc":false,"msg":""},{"n":"Kingston Flemings","ok":true,"yrs":4,"ext":4,"mval":24.8,"amt":28.1,"disc":false,"msg":""},{"n":"Zuby Ejiofor","ok":true,"yrs":4,"ext":4,"mval":10.3,"amt":11.2,"disc":false,"msg":""},{"n":"Mikel Brown Jr.","ok":true,"yrs":4,"ext":4,"mval":26.5,"amt":28.5,"disc":false,"msg":""},{"n":"Egor Demin","ok":true,"yrs":4,"ext":4,"mval":18.5,"amt":22.3,"disc":false,"msg":""}]
+PASS 2-year minimum deals keep 2 years (3 tested) :: [{"n":"RayJ Dennis","ok":true,"yrs":2,"len":2,"msg":""},{"n":"Grant Nelson","ok":true,"yrs":2,"len":2,"msg":""},{"n":"Pat Connaughton","ok":true,"yrs":2,"len":2,"msg":""}]
+PASS Negotiate on an offer opens the Trade center tab
+PASS contractCell uses yrsLeft (extension counts)
+PASS no silent 1-year shortening left in negotiate()
+PASS draft: two offers for the user pick exist and are valid :: {"phase":"off-draft","before":3,"valid":true,"err":null,"ids":["o3"]}
+PASS draft: accepting one offer removes every other offer for that pick, unrelated offers stay :: {"phase":"off-draft","before":3,"valid":true,"err":null,"ids":["o3"]}

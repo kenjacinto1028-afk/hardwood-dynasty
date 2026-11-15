@@ -1209,7 +1209,7 @@ function buildSide(league, tid, isHome, playoff) {
   if (manual) manual.starters.forEach((id, s) => { const p = avail.find(x => x.id === id); if (p && !usedP.has(p.id)) { g.court[s] = p; usedP.add(p.id); } });
   const pairs = [];
   const yb = (!manual && t.yb) || {};   // v20: young teams give their rookies a bigger role early
-  const NBm = !manual && typeof NBA_ON !== 'undefined' && NBA_ON, rmb = p => NBm ? p.rmb || 0 : 0;   // v27.13 U7: NBA mode, real minutes role (p.rmb, fades 25% a season)
+  const NBm = !manual && typeof NBA_ON !== 'undefined' && NBA_ON, rmb = p => NBm ? Math.max(-4, Math.min(4, p.rmb || 0)) : 0;   // v27.13 U7: NBA mode, real minutes role (p.rmb, fades 25% a season); v32a: capped at +-4 so it only breaks near-ties
   for (const p of avail) for (let s = 0; s < 5; s++) pairs.push([playerValue(p, coach, s) + (yb[p.id] || 0) + rmb(p), p, s]);
   pairs.sort((a, b) => b[0] - a[0]);
   for (const [v, p, s] of pairs) { if (g.court[s] || usedP.has(p.id)) continue; g.court[s] = p; usedP.add(p.id); }

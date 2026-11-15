@@ -570,3 +570,13 @@ button.drc strong, button.drc span { white-space: normal; overflow-wrap: anywher
 .fa-top table.posread { font-size: 12px; }
 .fa-top table.posread th:nth-child(6), .fa-top table.posread td:nth-child(6) { display: none; }   /* position read: playstyles live on the My Team copy */
 .fa-top td.wrapt { max-width: none !important; min-width: 180px; }
+
+/* v30a #15: type changes */
+.tmove { padding: 6px 0; border-bottom: 1px solid var(--line); } .tmove:last-child { border-bottom: 0; }
+.tmove.mine { background: rgba(0,0,0,.03); }
+.tchgs { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.tchg { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 12px; border: 1px solid var(--line); }
+.tchg.tadd { color: var(--win); border-color: var(--win); font-weight: 600; } .tchg.tadd::before { content: '+ '; }
+.tchg.tdrop { color: var(--loss); border-color: var(--loss); text-decoration: line-through; } .tchg.tdrop::before { content: '\2212 '; text-decoration: none; display: inline-block; }
+.tchg.tkeep { color: var(--muted, #777); }
+.pill.tkind { font-size: 11px; }

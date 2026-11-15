@@ -415,6 +415,7 @@ function yrsFor(p, amt) {
 function signContract(L, p, tid, amt, yrs, type, opt, extra) {
   if (p.club) try { pipeLeave(L, p, tid); } catch (e) { }   // v29 P8: in-season signing from an international club (EABL buyout)
   if (extra && extra.callUp) extra = null;
+  let mvS = null; try { mvS = mvSignPre(L, p, tid, type, amt); } catch (e) { }   // v30c #5
   const aiMade = !extra && tid !== L.user;   // v26.1 review: AI deals get clauses too (aiClauses)
   amt = Math.max(MINSAL, r1(amt));
   if (amt > maxFor(p) + 1e-6) { p.superUsed = L.season; logNews(L, `${p.name} signed a supermax with ${L.teams[tid].abbr}: ${money(amt)}/yr`, tid, 'tx'); }   // v16: one per career
@@ -452,6 +453,7 @@ function signContract(L, p, tid, amt, yrs, type, opt, extra) {
   const t = L.teams[tid];
   const txt = type === 're-sign' ? `Re-signed with ${t.abbr}` : type === 'rookie' ? `Rookie deal with ${t.abbr}` : type === 'hardship' ? `Hardship signing with ${t.abbr}` : type === 'payroll' ? `Signed with ${t.abbr} (payroll-floor deal)` : `Signed with ${t.abbr}`;
   const os = opt ? ` with a ${opt === 'PO' ? 'player' : 'team'} option` : '';
+  try { mvSignPost(L, p, tid, mvS, amt, yrs); } catch (e) { }   // v30c #5
   p.tx.push({ s: L.season, t: `${txt}: ${yrs} yr, ${money(amt)}/yr${os}${hg ? ' (90% cap hit)' : ''}` });
   if (p.tx.length > 60) p.tx.splice(0, p.tx.length - 60);
   if (type === 'signing' || type === 're-sign' || type === 'extension') try { feedSign(L, p, tid, type, amt, yrs); } catch (e) { }   // v26.5
@@ -490,6 +492,7 @@ function waiveDead(L, t, giveIds, ex) { const cs = capSeason(L); return ex > 0 ?
 function rosterFits(L, a, b, aGive, bGive) { return [[L.teams[a], aGive, bGive], [L.teams[b], bGive, aGive]].every(([T, give, get]) => T.id === L.user || (() => { const ex = T.roster.length - give.players.length + get.players.length - Math.max(15, T.roster.length); return ex <= 0 || waivable(L, T, give.players).length >= ex; })()); }
 function release(L, p) {
   const t = L.teams[p.team]; if (!t) return;
+  let mvR = null; try { mvR = { why: mvWhyRelease(L, t, p), s0: mvSnap(L, t.id) }; } catch (e) { }   // v30c #5
   if (p.ovr >= 65 && p.morale != null && p.morale < 40) addGrudge(L, p, t.id, 'being released');   // v17
   const cs = capSeason(L);
   // Non-minimum deals stay on the cap as dead money until the deal ends, unless another team signs him
@@ -499,6 +502,7 @@ function release(L, p) {
   p.tx.push({ s: L.season, t: `Released by ${t.abbr}` });
   logNews(L, flL(L, 'news.release', { team: t.abbr, name: p.name }), t.id, 'tx');
   toFA(L, p);
+  try { if (mvR) mvRec(L, { kind: 'release', tids: [t.id], pid: p.id, name: p.name, wu: [mvWU(L, t.id, 'release', mvR.why, mvR.s0, mvSnap(L, t.id), false)] }); } catch (e) { }   // v30c #5
 }
 
 // ---------- Initial finances ----------
@@ -1260,6 +1264,7 @@ function tradeGrades(L, a, b, aGive, bGive) {
 function executeTrade(L, tr) {
   const { a, b, aGive, bGive } = tr;
   let grades = null; try { grades = tradeGrades(L, a, b, aGive, bGive); } catch (err) { grades = null; }
+  let mvP = null; try { mvP = mvTradePre(L, [{ tid: a, ins: bGive.players, outs: aGive.players, inPicks: bGive.picks.length }, { tid: b, ins: aGive.players, outs: bGive.players, inPicks: aGive.picks.length }]); } catch (err) { }   // v30c #5
   const move = (ids, to, from) => ids.forEach(id => { const p = L.players[id]; removeFromTeam(L, p); p.team = to; L.teams[to].roster.push(id); p.exT = { tid: from, s: L.season }; famNews(L, p, to); p.tx.push({ s: L.season, t: `Traded from ${L.teams[from].abbr} to ${L.teams[to].abbr}` }); applyKicker(L, p); });
   // v24.2: an AI team that would end over 15 waives its worst minimum-contract players first, so its roster is legal the same day
   for (const [T, give, inN] of [[L.teams[a], aGive.players, bGive.players.length], [L.teams[b], bGive.players, aGive.players.length]]) {
@@ -1289,6 +1294,7 @@ function executeTrade(L, tr) {
   for (const [ids, from] of [[aGive.players, a], [bGive.players, b]]) for (const id of ids) { const p = L.players[id]; const yrs = p.hist.filter(h => h.tid === from).length; if (yrs >= 4 && p.ovr >= 72 && L.teams[from].hype != null) { hypeBump(L.teams[from], -5); } }
   const rec = { s: L.season, day: L.phase === 'regular' ? L.day : null, ph: L.phase, when: seasonLabel(L), a, b, aGets: describe(L, bGive), bGets: describe(L, aGive), aIn: { players: bGive.players.slice(), picks: bGive.picks.map(pk => pickLabel(L, L.picks.find(k => k.id === pk))), cash: bGive.cash || 0 }, bIn: { players: aGive.players.slice(), picks: aGive.picks.map(pk => pickLabel(L, L.picks.find(k => k.id === pk))), cash: aGive.cash || 0 } };
   rec.why = tr.why || ''; if (tr.yc) rec.yc = tr.yc; rec.grades = grades; rec.top = Math.max(0, ...[...aGive.players, ...bGive.players].map(id => L.players[id].ovr)); rec.kind = /^swap-/.test(String(tr.id)) ? 'swap' : tr.dump ? 'dump' : /^buy-/.test(String(tr.id)) ? 'buy' : /^sat|sign-and-trade/i.test(String(tr.id) + rec.why) ? 'sign-and-trade' : (!aGive.players.length && !bGive.players.length) ? 'picks' : 'trade';
+  try { if (mvP) mvTradePost(L, mvP, rec); } catch (err) { }   // v30c #5
   L.trades.unshift(rec); if (L.trades.length > 200) L.trades.length = 200;
   logNews(L, flL(L, 'news.trade', { a: L.teams[a].abbr, b: L.teams[b].abbr, aGets: rec.aGets, bGets: rec.bGets, grades: grades ? ` (grades: ${L.teams[a].abbr} ${grades.a}, ${L.teams[b].abbr} ${grades.b})` : '' }), a, 'trade');
   try { feedTrade(L, rec, aGive, bGive, grades); } catch (e) { }   // v26.5
@@ -1348,6 +1354,7 @@ function executeTrade3(L, tr) {
   const { teams, moves } = tr, S = sides3(L, teams, moves);
   const g = (gotV, gaveV) => { const r = gotV / Math.max(0.3, gaveV); return r >= 1.3 ? 'A' : r >= 1.08 ? 'B' : r >= 0.92 ? 'C' : r >= 0.75 ? 'D' : 'F'; };
   let grades = null; try { grades = {}; for (const t of teams) grades[t] = g(assetsValue(L, L.teams[t], S[t].get, false), assetsValue(L, L.teams[t], S[t].give, true)); } catch (e) { grades = null; }
+  let mvP = null; try { mvP = mvTradePre(L, teams.map(t => ({ tid: t, ins: S[t].get.players, outs: S[t].give.players, inPicks: S[t].get.picks.length }))); } catch (err) { }   // v30c #5
   const desc = {}; for (const t of teams) desc[t] = describe(L, S[t].get);
   const pickLbl = {}; const lblPicks = () => { for (const m of moves) if (m.kind === 'picks') pickLbl[m.id] = pickLabel(L, L.picks.find(k => k.id === m.id)); }; lblPicks();
   for (const t of teams) { if (t === L.user) continue; const T = L.teams[t], x = S[t], ex = T.roster.length - x.give.players.length + x.get.players.length - Math.max(15, T.roster.length); if (ex > 0) for (const p of waivable(L, T, x.give.players).slice(0, ex)) release(L, p); }
@@ -1363,6 +1370,7 @@ function executeTrade3(L, tr) {
   const [a, b, c] = teams, inOf = t => ({ players: S[t].get.players.slice(), picks: S[t].get.picks.map(id => pickLbl[id]), cash: S[t].get.cash || 0 });
   const rec = { s: L.season, day: L.phase === 'regular' ? L.day : null, ph: L.phase, when: seasonLabel(L), multi: true, a, b, c, aGets: desc[a], bGets: desc[b], cGets: desc[c], aIn: inOf(a), bIn: inOf(b), cIn: inOf(c),
     why: '3-team trade', grades: grades ? { a: grades[a], b: grades[b], c: grades[c] } : null, top: Math.max(0, ...moves.filter(m => m.kind === 'players').map(m => L.players[m.id].ovr)), kind: 'multi' };
+  try { if (mvP) mvTradePost(L, mvP, rec); } catch (err) { }   // v30c #5
   L.trades.unshift(rec); if (L.trades.length > 200) L.trades.length = 200;
   logNews(L, `3-team trade: ${teams.map(t => `${L.teams[t].abbr} get ${desc[t]}`).join('; ')}${grades ? ` (grades: ${teams.map(t => `${L.teams[t].abbr} ${grades[t]}`).join(', ')})` : ''}`, a, 'trade');
   return rec;
@@ -4593,7 +4601,7 @@ function finishDraft(L) {
   for (const id of L.fa) { const p = L.players[id]; if (p.ask == null || isNaN(p.ask)) setAsk(L, p); }
   startResign(L);
 }
-function startDraft(L) { processPending(L); L.phase = 'off-draft'; L.mockRank = {}; const ms = mockSet(L, L.season); ms.cons.forEach((id, i) => L.mockRank[id] = i + 1); L.mockRanks = ms.ranks.map(r => Object.assign({}, r)); }
+function startDraft(L) { processPending(L); L.phase = 'off-draft'; try { ivTrigger(L, 'draft'); } catch (e) { } L.mockRank = {}; const ms = mockSet(L, L.season); ms.cons.forEach((id, i) => L.mockRank[id] = i + 1); L.mockRanks = ms.ranks.map(r => Object.assign({}, r)); }
 function signSecondRounder(L, p, tid) { p.draftRights = null; if (p.draft && p.draft.rd === 1) signContract(L, p, tid, rookieScale(1, p.draft.no, L.teams.length), 3, 'rookie', null); else signContract(L, p, tid, MINSAL, 2, 'rookie', 'TO'); }
 function decideSecondRounder(L, pid, sign) {
   const p = L.players[pid]; if (!p) return 'Player not found.';
@@ -7752,7 +7760,7 @@ function drSuspGames(ev) { return ev.k === 'conduct' ? ev.sev || 2 : ev.k === 'c
 
 // ---- media interviews (team mode, your GM): 2-3 a season (opening week, before the deadline, first playoff game) ----
 const IV_OUTLETS = [{ k: 'pod', name: 'The Full-Court Pod', host: 'Dana Whitlock', kind: 'podcast' }, { k: 'col', name: 'Pacific Hoops Weekly', host: 'Marcus Ilagan', kind: 'writer' }, { k: 'rad', name: 'Baseline Radio', host: 'Tess Romero', kind: 'radio' }, { k: 'web', name: 'The Paint Report', host: 'Owen Castillo', kind: 'writer' }];
-const IV_STAGES = ['open', 'deadline', 'playoffs'];
+const IV_STAGES = ['open', 'deadline', 'playoffs', 'draft'];
 // questions: when (stage, context) and 4 answers with effects: hype, trust (owner), rep (media), h (harmony), sm (subject morale), all (rotation morale), claim
 const IV_Q = {
   goal: { st: ['open'], w: 3, a: [{ hype: 4, claim: 'title' }, { hype: 2, claim: 'playoffs' }, { hype: 0, trust: 1, rep: 1 }, { rep: -1 }] },
@@ -7766,14 +7774,15 @@ const IV_Q = {
   series: { st: ['playoffs'], w: 6, a: [{ hype: 4, all: 2, claim: 'series' }, { hype: 1, rep: 1 }, { all: 1, h: 2 }, { rep: -1 }] },
   fans: { st: ['open', 'deadline', 'playoffs'], w: 1, a: [{ hype: 3 }, { hype: 1, rep: 1 }, { hype: 2, trust: -1 }, { rep: -1 }] }
 };
-function ivCtx(L, t) {
+function ivCtx(L, t, stage0) {
   const rot = rotationOf(L, t).slice(0, 9), star = rot.slice().sort((a, b) => b.ovr - a.ovr)[0];
   const unhappy = rot.filter(p => (p.morale != null ? p.morale : 60) < 42).sort((a, b) => b.ovr - a.ovr)[0];
   const young = rot.filter(p => p.age <= 23).sort((a, b) => b.pot - a.pot)[0];
   const g = t.w + t.l, hot = (t.streak || 0) <= -4 || (g >= 10 && t.w / g < 0.4) || (() => { try { return hotSeat(L, t).v >= 45; } catch (e) { return false; } })();
   let tax = false; try { tax = payroll(L, t, L.season) > TAXLINE; } catch (e) { }
   let opp = null; if (L.phase === 'playoffs' && L.po && L.po.rounds) { const r = L.po.rounds[L.po.stage] || [], s = r.find(x => (x.hi === t.id || x.lo === t.id) && x.winner == null); if (s) opp = L.teams[s.hi === t.id ? s.lo : s.hi]; }
-  return { rot, star, unhappy, young, hot, tax, locker: lrOf(t).v < 45 || (L.drama || []).some(e => e.tid === t.id && !e.pos && L.day - e.day <= 14 && e.s === L.season), opp };
+  let pick = null; if (stage0 === 'draft' && L.draftOrder) { const sl = L.draftOrder.find(x => x.owner === t.id && !x.pid); if (sl) pick = sl.rd === 1 ? '#' + sl.no : 'a second-rounder (#' + (L.teams.length + sl.no) + ' overall)'; }
+  return { pick, rot, star, unhappy, young, hot, tax, locker: lrOf(t).v < 45 || (L.drama || []).some(e => e.tid === t.id && !e.pos && L.day - e.day <= 14 && e.s === L.season), opp };
 }
 function ivOpen(L) { const I = L.iv; if (!I || I.done) return null; if (I.s !== L.season || (I.ph !== L.phase && !(I.ph === 'regular' && L.phase === 'regular-done')) || (L.phase === 'regular' && L.day - I.day > LR2_FX.ivOpenDays)) { ivExpire(L); return null; } return I; }
 function ivExpire(L) { const I = L.iv; if (!I || I.done) return; I.done = true; I.expired = true; if (I.qs.some(q => q.ans == null)) { L.media = L.media || { rep: 50 }; L.media.rep = clamp(mediaRep(L) - 2, 0, 100); } }
@@ -7782,11 +7791,14 @@ function ivTrigger(L, stage) {
   L.ivDone = L.ivDone || {}; const key = L.season + ':' + stage; if (L.ivDone[key]) return null;
   if (ivOpen(L)) ivExpire(L);
   const t = L.teams[L.user]; if (!t) return null;
-  const C = ivCtx(L, t), out = IV_OUTLETS[(L.season * 3 + IV_STAGES.indexOf(stage)) % IV_OUTLETS.length];
-  const cands = Object.keys(IV_Q).filter(k => IV_Q[k].st.includes(stage) && (!IV_Q[k].need || C[IV_Q[k].need]) && !(k === 'series' && !C.opp) && !(k === 'star' && !C.star));
+  const C = ivCtx(L, t, stage), out = IV_OUTLETS[(L.season * 3 + IV_STAGES.indexOf(stage)) % IV_OUTLETS.length];
+  L.ivUsed = L.ivUsed && L.ivUsed.s === L.season ? L.ivUsed : { s: L.season, ks: [] };   // v30c #23: no repeat question in a season
+  const cands = Object.keys(IV_Q).filter(k => IV_Q[k].st.includes(stage) && !L.ivUsed.ks.includes(k) && (!IV_Q[k].need || C[IV_Q[k].need]) && !(k === 'series' && !C.opp) && !(k === 'star' && !C.star));
   const qs = [];
   while (qs.length < 3 && cands.length) { let r = R() * cands.reduce((a, k) => a + IV_Q[k].w, 0), pick = cands[0]; for (const k of cands) { r -= IV_Q[k].w; if (r <= 0) { pick = k; break; } } cands.splice(cands.indexOf(pick), 1); qs.push(pick); }
-  const v = { team: t.name, abbr: t.abbr, city: t.city, coach: t.coach ? t.coach.name : 'the coach', w: t.w, l: t.l, outlet: out.name, host: out.host, opp: C.opp ? C.opp.name : 'them' };
+  if (!qs.length) { L.ivDone[key] = -1; return null; }
+  L.ivUsed.ks.push(...qs);
+  const v = { pick: C.pick || 'your picks', team: t.name, abbr: t.abbr, city: t.city, coach: t.coach ? t.coach.name : 'the coach', w: t.w, l: t.l, outlet: out.name, host: out.host, opp: C.opp ? C.opp.name : 'them' };
   const subj = { star: C.star, unhappy: C.unhappy, young: C.young };
   L.iv = { id: (L.ivN = (L.ivN || 0) + 1), s: L.season, day: L.phase === 'regular' ? L.day : 0, ph: L.phase, stage, tid: t.id, outlet: out.k, qs: qs.map((k, i) => { const p = subj[k]; return { k, n: L.ivN * 3 + i, pid: p ? p.id : undefined, v: Object.assign({}, v, { name: p ? p.name : '' }) }; }), done: false };
   L.ivDone[key] = L.iv.id; LR2_CNT.iv++;
@@ -8415,3 +8427,126 @@ Object.assign(FLAVOR, {
   'fd.pipe.award': ['{award} goes to {name} of the {team}. Keep an eye on him.', '{award} goes to {name} of the {team} ({lg}).', 'The {team}\'s {name} wins the {award} in the {lg}.', 'Honor: {name} of the {team} is the {award}. Keep an eye on him.']
 });
 if (typeof module !== 'undefined') module.exports = { PIPE_LGS, PIPE_LG, PIPE_CONF, PIPE_TEAMS, PIPE_AW, PIPE_ACH, PIPE_FX, PIPE_CNT, PIPE_YR_LABEL, pipeTeam, pipeTeamName, pipeLabel, pipeYear, pipeAssignClass, pipeBuild, pipeSeason, pipeStock, pipeRosters, pipeBuyout, pipeOnClub, pipeLeave, pipeCallable, callUp, pipeDay, pipeHofPts, preHonors, pipeAfterDraft, pipeMigrate, pipeBytes, finePlayer, fineAmt, fineStr, suspend, suspendPlayer, isSusp, suspGames, discOf, temperOf, lr2Game, posWeek, POS_KINDS, POS_FX, conductPick, drChoicesFor, drSuspGames, IV_OUTLETS, IV_Q, IV_STAGES, ivOpen, ivTrigger, ivText, ivAnswers, ivAnswer, ivExpire, claimsSettle, MTG_OPTS, meetPlayer, mtgOpen, mtgOptions, mtgAnswer, mtgRequests, mtgExpire, mkPromise, hasPromise, promiseLabel, promiseList, checkGmPromises, gmTrustOf, lr2Day, lr2SeasonEnd, lr2Auto, lr2Morale, discLeaders, LR2_FX, LR2_FINE, LR2_CNT, dramaWeek, answerDrama, dramaOpen, dramaList, drMorale, lrOf, lrLabel, DR_FX, DR_CNT, DR_CHOICES, DR_HINT, dynSeasons, dynasties, dynCore, dynWatch, dynEras, autoBegin, autoStep, autoEnd, autoDone, autoRestore, autoRow, AUTO_FX, coachEvolve, coachTree, coachNew, caExQueue, CA_FX, CA_CNT, gmOffseason, gmCareer, gmTakeOver, gmLeave, findGM, GM_FX, GM_CNT, dayDate, MON, NBA_CAL, setSeasonLen, devRole, devRoleBoost, devUsage, sysFocus, SKILL_FOCUS, faLeak, faReason, faDecision, noteNearDeal, RUMOR_REAL, RUMOR_CNT, repAppeal, repTrustWeek, publicUnhappy, pubStar, pubReady, hotSeat, hotSeatWeek, storyGame, raceWeek, retireTribute, jerseyTribute, fanMood, fanMoodWeek, realismWeek, gmReset, foPersona, foTraits, foSummary, FO_TRAIT, planYears, blendStatus, RISE_CNT, RISING_MAX, statusNews, risingOK, risingKeepsPick, statusMinBoost, FEED_MAX, FEED_AUTH, addPost, postText, feedList, feedKey, playerTone, mediaRep, mediaTone, gameReactions, bigGame, rxText, rxWho, mediaGame, feedTrade, feedSign, feedInjury, feedAward, feedMilestone, feedPromise, feedHoldout, mediaSeries, PRESS_CHOICES, PRESS_LABEL, PRESS_GOOD, PRESS_CNT, pressOpen, pressTrigger, pressText, pressChoices, pressEffects, answerPress, rumorWeek, beatReport, prBlurbs, prBlurb, featureWeek, mediaDay, migrateV265, isWatched, ptagOf, watchList, toggleWatch, setPtag, watchScan, WATCH_MAX, PTAGS, rivalsOf, activeRivals, isRivalry, rivalKind, rivalKinds, rivalOpps, rivalPairs, setupRivals, refreshPoRivals, RIV_LABEL, tradeTempo, payIncentives, holdoutCheck, resolveHoldout, holdoutTerms, agentOf, AGENT_STYLE, NTC_ELIGIBLE, incLikely, INC_LABEL, storyStart, storyEnd, storyTitle, storyStatus, familyTies, relatives, teamDuos, updateDuos, gameAch, seasonAch, ACH_P, ACH_T, ACH_C, scoutRecs, scoutReport, interview, interviewsLeft, setAssign, assignReady, signTwoWay, decideSecondRounder, convertTwoWay, releaseTwoWay, twPoDay, twCutCands, decideTeamOption, releaseBlock, twEligible, twOf, coachDevReport, SC_BIAS, TW_GAMES, ASSIGN_MAX, INTERVIEW_MAX, tradeGrades, treadmillCheck, ACH, ownerSales, yearbookStart, updateFame, runAllStar, allStarVotes, jerseysFor, recentWinner, dirFlags, contenderBuy, genClass, CLASS_TYPES, mockSet, mockRanksOf, OUTLETS, coachTargets, positionRead, foOf, FO_STYLE, dealView, sideValue, withCtx, tradeSides, afterTradeOK, CASH_MAX, CASH_PTS, cashRoom, cashTV, cashCheck, coreOf, setCore, keptSpots, CORE_MAX, TARGET_TABS, pickProj, pickRange, pickPtsNow, pickTier, bundleSum, PICK_PTS, protOpts, protN, protEv, pickKV, protCheck, resolveProtections, aiProt, manageMoods, dirSd, sponsorValue, staffRoom, canAffordStaff, makeInterim, fireCoach, starPower, closeSeasonFinance, ownerReview, seasonProjection, taxFor, faRoom, salaryDump, takeJob, gmRep, marketPrice, updateMorale, moraleParts, teamPotEst, draftBoard, sntOffers, doSignAndTrade, tradeRestricted, tradeUpOffer, raceInfo, buyoutTerms, buyout, buyoutDeadlineDay, seasonH2H, proposalsFor, tradeStatus, refreshTradeStatus, capProjection, canFireCoach, computeBPM, powerRankings, featList, renameEverywhere, signConcerns, migrateLeague, awardLadder, coachValue, inTradeWindow, deadlineDay, release, hireCoach, newLeague, simDay, startPlayoffs, simPlayoffDay, startOffseason, runLottery, aiDraftPick, draftPlayer, startResign, startFA, faDay, startNewSeason, finalizeRosters, payroll, capHit, archLabel, posLabel, MODE_LABEL, CAP, money, evaluateUserTrade, DEAL_CNT, addWhy, executeTrade, negotiate, userRosterProblem, autoFillUser, seedOrder };
+
+// ---------- v30c #5: per-team write-ups for trades, signings and releases ----------
+// L.mv = recent moves, newest first: { n, s, ph, day, kind: 'trade'|'sign'|'resign'|'release', tids, pid?, name?, amt?, yrs?, wu: [ { tid, k, text, fit: [before, after] | null, ovr: [before, after] | null } ] }
+// Trades also carry rec.wu on the L.trades record. Reason text: one key per reason (mv.n.*, mv.t.*, mv.r.*); Haiku adds variants.
+const MV_MAX = 300;
+function mvSnap(L, tid) {
+  const t = L.teams[tid]; if (!t) return null; let fit = null, ovr = null;
+  try { if (t.coach) fit = Math.round(coachFitScore(L, t, t.coach)); } catch (e) { }
+  try { ovr = Math.round(teamStrength(L, t)); } catch (e) { }
+  return { fit, ovr };
+}
+const mvAvg = (p, g) => RN_GRP[g].reduce((a, k) => a + (p[k] || 0), 0) / RN_GRP[g].length;
+// the need an incoming player fills for a team (called before he joins)
+function mvNeed(L, t, ins) {
+  const ps = ins.map(x => typeof x === 'object' ? x : L.players[x]).filter(Boolean).sort((a, b) => b.ovr - a.ovr), b = ps[0];
+  if (!b) return { k: 'future', v: {} };
+  let rot = []; try { rot = rotationOf(L, t).filter(p => !p.prospect).slice(0, 8); } catch (e) { }
+  if (rot.length >= 6 && rot.filter(p => p.pos === b.pos || p.pos2 === b.pos).length < 2) return { k: 'depth', v: { pos: POS[b.pos] } };
+  if (b.pos >= 3 && (b.tp || 0) >= 62 && !rot.some(p => p.pos >= 3 && (p.tp || 0) >= 55)) return { k: 'stretch', v: {} };
+  try {
+    const st = rnLeague(L), v = rnTeamVals(L, t); let top = null, ts = 0;
+    for (const g in RN_GRP) { const z = (v[g] - st[g][0]) / st[g][1], d = mvAvg(b, g) - v[g]; if (z <= -0.3 && d >= 3 && -z + d / 10 > ts) { ts = -z + d / 10; top = g; } }
+    if (top) return { k: top, v: {} };
+  } catch (e) { }
+  const fifth = rot[4] ? rot[4].ovr : 50;
+  return { k: b.ovr >= fifth + 2 ? 'upgrade' : 'depthpiece', v: {} };
+}
+function mvWhyRelease(L, t, p) {
+  let f = 99; try { f = fit(p, t.coach); } catch (e) { }
+  if (p.injury >= 40) return { k: 'injury', v: {} };
+  if (f < 48 && p.ovr < 62) return { k: 'fit', v: {} };
+  if (p.contract && p.contract.amt >= 5 && payroll(L, t) > TAXLINE) return { k: 'cap', v: {} };
+  const rank = t.roster.map(id => L.players[id]).sort((a, b) => b.ovr - a.ovr).findIndex(x => x.id === p.id);
+  return { k: rank >= 10 ? 'bench' : 'spot', v: {} };
+}
+const mvPre = x => (x[0] != null && x[1] != null) ? [x[0], x[1]] : null;
+function mvWU(L, tid, kind, why, s0, s1, withOvr) {
+  const t = L.teams[tid], pre = kind === 'release' ? 'mv.r.' : why.k in MV_TRADE_K ? 'mv.t.' : 'mv.n.';
+  const fit = s0 && s1 && s0.fit != null && s1.fit != null ? [s0.fit, s1.fit] : null, ovr = withOvr && s0 && s1 && s0.ovr != null && s1.ovr != null ? [s0.ovr, s1.ovr] : null;
+  const why0 = fl(pre + why.k, why.v || {}, (L.mvN || 0) + tid);
+  return { tid, k: why.k, text: mvLine(t.abbr, why0, fit, ovr), fit, ovr };
+}
+const MV_TRADE_K = { cap: 1, youth: 1, future: 1 };
+function mvLine(abbr, why, fit, ovr) { return `${abbr}: ${why}.` + (fit ? ` Coach fit ${fit[0]} > ${fit[1]}.` : '') + (ovr ? ` Team overall ${ovr[0]} > ${ovr[1]}.` : ''); }
+function mvRec(L, e) {
+  L.mv = L.mv || []; e.n = L.mvN = (L.mvN || 0) + 1; e.s = L.season; e.ph = L.phase; e.day = L.phase === 'regular' ? L.day : null;
+  L.mv.unshift(e); if (L.mv.length > MV_MAX) L.mv.length = MV_MAX; return e;
+}
+// trades: sides = [{ tid, ins: [pids], outs: [pids], inPicks, outPicks }]; call before the players move, then mvTradePost
+function mvTradePre(L, sides) {
+  return sides.map(s => {
+    const t = L.teams[s.tid]; let why;
+    try {
+      const inSal = s.ins.reduce((a, id) => a + (L.players[id].contract ? L.players[id].contract.amt : 0), 0), outSal = s.outs.reduce((a, id) => a + (L.players[id].contract ? L.players[id].contract.amt : 0), 0);
+      const best = s.ins.map(id => L.players[id]).sort((a, b) => b.ovr - a.ovr)[0];
+      if (payroll(L, t) > TAXLINE && outSal - inSal >= 4) why = { k: 'cap', v: {} };
+      else if (!s.ins.length) why = { k: 'future', v: {} };
+      else if (best && best.age <= 23 && ['rebuild', 'tank', 'rising'].includes(t.mode)) why = { k: 'youth', v: {} };
+      else why = mvNeed(L, t, s.ins);
+    } catch (e) { why = { k: 'depthpiece', v: {} }; }
+    return { tid: s.tid, why, s0: mvSnap(L, s.tid) };
+  });
+}
+function mvTradePost(L, pre, rec) {
+  const wu = pre.map(x => mvWU(L, x.tid, 'trade', x.why, x.s0, mvSnap(L, x.tid), true));
+  if (rec) rec.wu = wu;
+  mvRec(L, { kind: 'trade', tids: pre.map(x => x.tid), gets: rec ? [rec.aGets, rec.bGets, rec.cGets].filter(x => x != null) : [], wu });
+  return wu;
+}
+// signings: mvSignPre before the contract is set / he joins, mvSignPost after addToTeam
+function mvSignPre(L, p, tid, type, amt) {
+  if (type !== 'signing' && type !== 're-sign') return null;
+  if (type === 're-sign') return { type, why: { k: 'resign', v: {} } };
+  const t = L.teams[tid]; let why;
+  try { why = amt <= MINSAL + 1e-9 && p.ovr < 55 ? { k: 'min', v: {} } : mvNeed(L, t, [p]); } catch (e) { why = { k: 'depthpiece', v: {} }; }
+  return { type, why, s0: mvSnap(L, tid) };
+}
+function mvSignPost(L, p, tid, pre, amt, yrs) {
+  if (!pre) return;
+  const wu = [mvWU(L, tid, 'sign', pre.why, pre.s0, pre.type === 're-sign' ? null : mvSnap(L, tid), false)];
+  mvRec(L, { kind: pre.type === 're-sign' ? 'resign' : 'sign', tids: [tid], pid: p.id, name: p.name, amt, yrs, wu });
+}
+function mvList(L, tid, kind) { return (L.mv || []).filter(e => (tid == null || e.tids.includes(tid)) && (!kind || e.kind === kind)); }
+Object.assign(FLAVOR, {
+  'mv.n.play': ['needed a playmaker'], 'mv.n.shoot': ['needed shooting'], 'mv.n.reb': ['needed a rebounder'], 'mv.n.rimD': ['needed a rim protector'], 'mv.n.perD': ['needed a perimeter defender'], 'mv.n.ath': ['needed more athleticism'], 'mv.n.inside': ['needed an inside scorer'],
+  'mv.n.stretch': ['needed a stretch big'], 'mv.n.depth': ['needed a backup {pos}'], 'mv.n.upgrade': ['wanted a better rotation player'], 'mv.n.depthpiece': ['added a rotation depth piece'], 'mv.n.resign': ['kept a core player'], 'mv.n.min': ['added depth on a minimum deal'],
+  'mv.t.cap': ['needed to cut salary'], 'mv.t.youth': ['wanted young talent'], 'mv.t.future': ['wanted picks for the future'],
+  'mv.r.fit': ['he did not fit the coach\'s systems'], 'mv.r.cap': ['cleared salary'], 'mv.r.injury': ['he was out for a long time'], 'mv.r.bench': ['he had fallen out of the rotation'], 'mv.r.spot': ['needed the roster spot']
+});
+
+// ---------- v30c #23: interviews only in set periods (opening week, before the deadline, first playoff game, draft), question pools, no repeats in a season ----------
+// Pools: each IV_Q key lists the periods it can be asked in (st). L.ivUsed = { s, ks } keeps the questions already asked this season; a pool that runs dry gives a shorter interview, never a repeat.
+function ivPoolLeft(L, stage) { const used = L.ivUsed && L.ivUsed.s === L.season ? L.ivUsed.ks : []; return Object.keys(IV_Q).filter(k => IV_Q[k].st.includes(stage) && !used.includes(k)); }
+const IV_PERIOD = { open: 'Opening week', deadline: 'Trade deadline', playoffs: 'First playoff game', draft: 'Draft week' };
+Object.assign(IV_Q, {
+  bench: { st: ['open', 'deadline'], w: 2, a: [{ all: 1, hype: 1 }, { sm: -2, rep: 1 }, { h: 1, trust: 1 }, { rep: -1 }] },
+  future: { st: ['open', 'deadline'], w: 2, a: [{ hype: 2, trust: -1 }, { trust: 1 }, { hype: -1, rep: 1 }, { rep: -1 }] },
+  rotation: { st: ['playoffs'], w: 3, a: [{ all: 2, hype: 1 }, { rep: 1, h: 1 }, { all: -1, rep: 1 }, { rep: -1 }] },
+  pressure: { st: ['playoffs'], w: 3, a: [{ h: 2, hype: 1 }, { rep: 1, all: 1 }, { hype: 2, all: -1 }, { rep: -1 }] },
+  rest: { st: ['playoffs'], w: 2, a: [{ all: 1, rep: 1 }, { h: 1 }, { hype: 1, trust: 1 }, { rep: -1 }] },
+  dpick: { st: ['draft'], w: 6, need: 'pick', a: [{ hype: 3, trust: 1 }, { hype: 1, rep: 1 }, { trust: 1, h: 1 }, { rep: -1 }] },
+  dtrade: { st: ['draft'], w: 4, a: [{ hype: 2, trust: -1 }, { trust: 1, rep: 1 }, { hype: 1 }, { rep: -1 }] },
+  dclass: { st: ['draft'], w: 3, a: [{ hype: 2 }, { rep: 1 }, { hype: -1, trust: 1 }, { rep: -1 }] },
+  dneed: { st: ['draft'], w: 3, a: [{ trust: 1, rep: 1 }, { hype: 2 }, { h: 1 }, { rep: -1 }] },
+  dwork: { st: ['draft'], w: 2, a: [{ rep: 1, trust: 1 }, { hype: 1 }, { rep: 1 }, { rep: -1 }] }
+});
+Object.assign(FLAVOR, {
+  'iv.intro.draft': ['{host} of {outlet} catches you ahead of the draft.', '{host} from {outlet} wants a word as draft night nears.', 'Draft week: {host} of {outlet} has a few questions for you.'],
+  'iv.news.draft': ['The {abbr} GM spoke with {outlet} ahead of the draft.', 'The {abbr} GM sat down with {outlet} in draft week.'],
+  'iv.q.bench': ['Is the {team} bench deep enough to hold up over a full season?', 'How much can you count on the {team} reserves this season?'], 'iv.q.future': ['How much are you thinking about the long-term plan for the {team}?', 'Are the {team} built for this year or for the future?'],
+  'iv.q.rotation': ['Will {coach} shorten the rotation in the playoffs?', 'How many players will {coach} trust in this series?'], 'iv.q.pressure': ['How do the {team} handle the playoff pressure?', 'Is this group ready for the pressure of the postseason?'], 'iv.q.rest': ['Are the {team} rested and healthy for the playoffs?', 'How healthy are the {team} heading into the postseason?'],
+  'iv.q.dpick': ['With pick {pick}, what kind of player are you looking for?', 'You pick at {pick}. Who are you hoping is there?'], 'iv.q.dtrade': ['Will the {team} move up or down on draft night?', 'Are you taking calls on your picks before the draft?'], 'iv.q.dclass': ['How deep is this draft class?', 'What do you think of the quality of this draft?'], 'iv.q.dneed': ['How much will the {team} draft for need and how much for talent?', 'Do you take the best player or fill a hole in the draft?'], 'iv.q.dwork': ['How much do pre-draft workouts matter to you?', 'What do you learn from the workouts before the draft?'],
+  'iv.a.bench.0': ['We have real depth. Anyone can step in.'], 'iv.a.bench.1': ['The top players carry us; the bench needs to hold on.'], 'iv.a.bench.2': ['We will find out. Everyone is working for minutes.'], 'iv.a.bench.3': ['I will keep my rotation thoughts private.'],
+  'iv.a.future.0': ['We are building for the next few years.'], 'iv.a.future.1': ['We want to win now and the future will follow.'], 'iv.a.future.2': ['We keep both in mind, one move at a time.'], 'iv.a.future.3': ['I will not get into the long-term plan.'],
+  'iv.a.rotation.0': ['Our top players will play heavy minutes.'], 'iv.a.rotation.1': ['We trust everyone on the roster.'], 'iv.a.rotation.2': ['The coach will do what each game needs.'], 'iv.a.rotation.3': ['That is for the coach to decide.'],
+  'iv.a.pressure.0': ['This group has been here before and it is ready.'], 'iv.a.pressure.1': ['Pressure is a privilege. We are excited.'], 'iv.a.pressure.2': ['We are going to be loud and enjoy it.'], 'iv.a.pressure.3': ['No comment on pressure.'],
+  'iv.a.rest.0': ['We are in good shape and rested.'], 'iv.a.rest.1': ['A few bumps, but the group is ready.'], 'iv.a.rest.2': ['We will take it day by day with the medical staff.'], 'iv.a.rest.3': ['I will not talk about injuries.'],
+  'iv.a.dpick.0': ['The best talent available, whatever the position.'], 'iv.a.dpick.1': ['Someone who fits what we need now.'], 'iv.a.dpick.2': ['A player we can develop and trust.'], 'iv.a.dpick.3': ['I will not tip my hand.'],
+  'iv.a.dtrade.0': ['If someone wants to move up, we will listen.'], 'iv.a.dtrade.1': ['We like where we are. No plans to move.'], 'iv.a.dtrade.2': ['We are always open to the right deal.'], 'iv.a.dtrade.3': ['I do not talk about trade calls.'],
+  'iv.a.dclass.0': ['It is a strong class with real depth.'], 'iv.a.dclass.1': ['There are a few special players at the top.'], 'iv.a.dclass.2': ['It is a thin class; patience will matter.'], 'iv.a.dclass.3': ['I will not rank the class publicly.'],
+  'iv.a.dneed.0': ['Talent first. We will fit them in.'], 'iv.a.dneed.1': ['Need matters. We have specific holes to fill.'], 'iv.a.dneed.2': ['A mix of both, depending on who falls.'], 'iv.a.dneed.3': ['That stays in the draft room.'],
+  'iv.a.dwork.0': ['They tell us a lot about character and fit.'], 'iv.a.dwork.1': ['Film and games matter more to us.'], 'iv.a.dwork.2': ['Workouts help, but they are one piece.'], 'iv.a.dwork.3': ['I keep that private.']
+});

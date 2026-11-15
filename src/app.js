@@ -608,9 +608,9 @@ function ivDialog() {
   const qi = shown != null ? shown : I.qs.findIndex(q => q.ans == null); if (qi < 0) { ui.ivShow = null; closeDialog(); return; }
   const q = I.qs[qi], answered = q.ans != null, out = IV_OUTLETS.find(o => o.k === I.outlet) || IV_OUTLETS[0];
   const intro = fl('iv.intro.' + I.stage, { host: out.host, outlet: out.name }, I.id);
-  dialog(`<h2>Media interview</h2><p class="muted">${esc(out.name)} · question ${qi + 1} of ${I.qs.length} · media reputation ${mediaRep(L)}</p><p>${esc(intro)}</p><div class="panel" style="margin:8px 0"><strong>${esc(ivText(L, q))}</strong></div>${answered
+  dialog(`<h2>Media interview</h2><p class="muted" id="iv-meta">${esc(out.name)} · <strong>${esc(IV_PERIOD[I.stage] || I.stage)}</strong> · question ${qi + 1} of ${I.qs.length} · media reputation ${mediaRep(L)}</p>${I.stage === 'draft' ? '<p class="muted" id="iv-draftnote" style="margin:0 0 6px">Draft week: every question is about the draft.</p>' : ''}<p>${esc(intro)}</p><div class="panel" style="margin:8px 0"><strong>${esc(ivText(L, q))}</strong></div>${answered
     ? `<div class="rx-q" style="margin:8px 0">You: “${esc(ivAnswers(L, q)[q.ans])}”</div>${ivFxHtml(q.fx)}<div class="row" style="margin-top:10px"><button class="primary" id="iv-next">${I.qs.every(x => x.ans != null) ? 'Done' : 'Next question'}</button></div>`
-    : `<div class="stack" style="gap:6px">${ivAnswers(L, q).map((a, i) => `<button class="drc" data-iva="${i}">${esc(a)}</button>`).join('')}</div><p class="muted" style="font-size:12px;margin-top:8px">Unanswered for 7 days the interview expires (media reputation -2). <label><input type="checkbox" id="iv-nopause" ${L.pauseIv === false ? 'checked' : ''}> Don't stop the sim for interviews</label></p><div class="row"><button id="x-close">Later</button></div>`}`);
+    : `<div class="stack" style="gap:6px">${ivAnswers(L, q).map((a, i) => `<button class="drc" data-iva="${i}">${esc(a)}</button>`).join('')}</div><p class="muted" style="font-size:12px;margin-top:8px">No question repeats in a season (${ivPoolLeft(L, I.stage).length} left in this period's pool). ${I.stage === 'draft' ? 'Unanswered, the interview expires when the draft phase ends (media reputation -2).' : 'Unanswered for 7 days the interview expires (media reputation -2).'} <label><input type="checkbox" id="iv-nopause" ${L.pauseIv === false ? 'checked' : ''}> Don't stop the sim for interviews</label></p><div class="row"><button id="x-close">Later</button></div>`}`);
   const xc = $('#x-close'); if (xc) xc.onclick = closeDialog;
   const np = $('#iv-nopause'); if (np) np.onchange = e => { L.pauseIv = e.target.checked ? false : true; save(); };
   document.querySelectorAll('[data-iva]').forEach(b => b.onclick = () => {
@@ -641,11 +641,110 @@ function mtgDialog() {
     ui.mtgShow = M.id; save(); render(); mtgDialog();
   });
 }
-function promisesPanel(t) {
-  const list = promiseList(L, t.id).slice(0, 12), PL = { open: ['Open', ''], kept: ['Kept', 'pos'], broken: ['Broken', 'long'], void: ['Void', ''] };
-  const due = pr => pr.due.g != null ? `team game ${pr.due.g} (${t.w + t.l} played)` : pr.due.day != null ? `trade deadline (${dayTxt(pr.due.day, pr.due.s)})` : `before his deal ends (${seasonName(pr.due.s)})`;
-  return `<div class="panel" style="margin-bottom:16px"><h3>Promises</h3>${list.length ? `<div class="tblwrap"><table id="promtbl"><thead><tr><th class="l">Player</th><th class="l">Promise</th><th class="l">Made</th><th class="l">Due</th><th>Status</th></tr></thead><tbody>${list.map(pr => { const p = L.players[pr.pid]; return `<tr><td class="l">${p ? plink(p) : 'Former player'}</td><td class="l">${esc(promiseLabel(pr))}</td><td class="l">${esc(dayTxt(pr.day, pr.s))}</td><td class="l">${esc(due(pr))}</td><td><span class="pill ${PL[pr.st][1]}">${PL[pr.st][0]}</span></td></tr>`; }).join('')}</tbody></table></div>` : '<p class="muted">No promises yet. Meet a player from his page to make one.</p>'}<p class="muted" style="font-size:12px;margin:6px 0 0">Kept: morale +5, trust in you +10, harmony +1. Broken: morale -12, trust -20, harmony -3, media reputation -1. Promises are judged weekly and at season's end.</p></div>`;
+// ---------- v30c UI: Roster moves overview (#1), Negotiate popup (#2), move write-ups (#5), Promises tabs (#19), Hall of Fame ceremony (#21) ----------
+const wuHtml = wu => (wu || []).length ? `<div class="wu">${wu.map(w => `<div class="wul">${esc(w.text)}</div>`).join('')}</div>` : '';
+const MV_KIND = { trade: 'Trade', sign: 'Signing', resign: 'Re-signed', release: 'Release' };
+const plinkId = (id, nm) => L.players[id] ? plink(L.players[id]) : esc(nm || 'Former player');
+function mvDesc(e) {
+  if (e.kind === 'trade') return e.tids.map((t, i) => `${tlink(t)} get ${esc(e.gets && e.gets[i] != null ? e.gets[i] : '')}`).join('<br>');
+  const t = tlink(e.tids[0]);
+  if (e.kind === 'release') return `${t} released ${plinkId(e.pid, e.name)}`;
+  return `${t} ${e.kind === 'resign' ? 're-signed' : 'signed'} ${plinkId(e.pid, e.name)} <span class="muted">${e.yrs} yr, ${money(e.amt)}/yr</span>`;
 }
+function mvTable(list) {
+  if (!list.length) return '<p class="muted">Nothing yet. Trades, signings and releases show here with the reason each team gave.</p>';
+  return `<div class="tblwrap"><table class="mvtbl"><thead><tr><th class="l">When</th><th class="l">Type</th><th class="l">Move</th><th class="l">Why</th></tr></thead><tbody>${list.map(e => `<tr data-mv="${e.n}"><td class="l nw">${esc(postWhen(e))}</td><td class="l"><span class="pill mvk-${e.kind}">${MV_KIND[e.kind]}</span></td><td class="l wrap">${mvDesc(e)}</td><td class="l wrap">${wuHtml(e.wu) || '<span class="muted">—</span>'}</td></tr>`).join('')}</tbody></table></div>`;
+}
+const RM_F = [['', 'All'], ['trade', 'Trades'], ['sign', 'Signings'], ['release', 'Releases']];
+const rmKindOK = (e, f) => !f || (f === 'sign' ? e.kind === 'sign' || e.kind === 'resign' : e.kind === f);
+function vRMoves() {
+  if (L.user == null) ui.rmTab = 'league'; else if (ui.rmTab !== 'league') ui.rmTab = 'mine';
+  if (!RM_F.some(x => x[0] === ui.rmF)) ui.rmF = '';
+  const sub = `<div class="subtabs" id="rmtabs" style="margin-bottom:12px">${(L.user != null ? [['mine', 'My team']] : []).concat([['league', 'League']]).map(([k, n]) => `<button class="sm ${ui.rmTab === k ? 'primary' : ''}" data-rmtab="${k}">${n}</button>`).join('')}</div>`;
+  const all = L.mv || [], mine = ui.rmTab === 'mine', base = mine ? all.filter(e => e.tids.includes(L.user)) : all;
+  const cnt = k => base.filter(e => rmKindOK(e, k)).length;
+  const bar = `<div class="row" id="rmfbar" style="margin-bottom:10px">${RM_F.map(([k, n]) => `<button class="sm chipbtn ${ui.rmF === k ? 'primary' : ''}" data-rmf="${k}">${n} (${cnt(k)})</button>`).join('')}</div>`;
+  const list = base.filter(e => rmKindOK(e, ui.rmF)).slice(0, 60);
+  let head = '';
+  if (mine) {
+    const t = L.teams[L.user], pay = payroll(L, t), room = faRoom(L, t), tw = (t.twoWay || []).length;
+    head = `<section class="panel" id="rmsum" style="margin-bottom:12px"><h2>${tlabel(t.id, true)} · roster moves</h2><div class="rmstats"><div><div class="k">Roster</div><div class="v">${t.roster.length}/15</div></div><div><div class="k">Payroll</div><div class="v">${money(pay)}</div></div><div><div class="k">Cap room</div><div class="v">${money(Math.max(0, CAP - pay))}</div></div><div><div class="k">Can offer a free agent</div><div class="v">${room > 0 ? money(room) : 'Minimum only'}</div></div><div><div class="k">Two-way</div><div class="v">${tw}</div></div></div><p style="margin:8px 0 0"><a class="lk" href="#trades">Trades</a> · <a class="lk" href="#fa">Free agents</a> · <a class="lk" href="#draft">Draft</a></p></section>`;
+  }
+  return `<h2>Roster moves</h2>${sub}${head}<section class="panel"><h3>${mine ? 'Your team\'s moves' : 'League moves'}</h3>${bar}${mvTable(list)}<p class="muted" style="font-size:12px;margin:8px 0 0">Coach fit is the average fit of the top 8 players with the head coach's systems. Team overall is roster strength (best 8 by overall). Trades show both; signings and releases show coach fit.</p></section>`;
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-rmtab],[data-rmf]'); if (!b || !L || !$('#main').contains(b)) return;
+  if (b.dataset.rmtab) ui.rmTab = b.dataset.rmtab; else ui.rmF = b.dataset.rmf; render();
+});
+// ----- #2 Negotiate popup -----
+function negoSig(p) { const resign = L.phase === 'off-resign' && (L.resign || []).includes(p.id), ext = isUser(p.team) && canExtend(L, p); return { ext, resign, type: ext ? 'extension' : resign ? 're-sign' : 'signing' }; }
+function negoBar(p) {
+  const t = L.teams[L.user], s = negoSig(p), cc = signConcerns(L, p, t, s.type);
+  if (p.ask == null) setAsk(L, p);
+  const lab = s.ext ? 'Extension (starts next season)' : s.resign ? 'Re-sign' : 'Free agent';
+  if (cc.refuse) return `<section class="panel" id="negbar" style="margin-bottom:16px"><h3>${lab}</h3><div class="msg no"><strong>Not interested.</strong> ${esc(cc.refuse)}</div></section>`;
+  return `<section class="panel" id="negbar" style="margin-bottom:16px"><div class="row" style="align-items:center;gap:10px"><button class="primary" data-nego="${p.id}">Negotiate</button><span class="muted">${lab} · asking about ${money(p.ask || MINSAL)} · ${esc(t.abbr)} payroll ${money(s.ext ? payroll(L, t, L.season + 1) : payroll(L, t))} of ${money(CAP)}</span></div></section>`;
+}
+// cap numbers for the offer in the popup (they follow the amount and years in the form)
+function negoCapBox(p) {
+  const t = L.teams[L.user], s = negoSig(p), nl = ui.negLast && ui.negLast.pid === p.id ? ui.negLast : null;
+  const amt = nl && isFinite(nl.amt) ? Math.max(nl.amt, MINSAL) : (p.ask || MINSAL), yrs = nl ? nl.yrs : p.prefY;
+  const now = s.ext ? payroll(L, t, L.season + 1) : payroll(L, t), hit = contractHit(amt, false), after = now + hit;
+  const room = (line, nm) => { const d = line - after; return `<div><div class="k">${nm}</div><div class="v ${d < -1e-6 ? 'neg' : ''}">${d < -1e-6 ? 'Over by ' + money(-d) : money(d) + ' left'}</div><div class="muted" style="font-size:11px">line ${money(line)}</div></div>`; };
+  let verdict, vc = 'ok';
+  if (hit === 0) verdict = 'Minimum deal: always fits.';
+  else if (after > APRON + 1e-6 || (!s.ext && !canFit(L, t, amt, false, s.type))) { verdict = `Over the ${money(APRON)} hard cap: this offer is not allowed.`; vc = 'no'; }
+  else if (after <= CAP + 1e-6) verdict = 'Fits under the cap.';
+  else if (after <= TAXLINE + 1e-6) verdict = 'Over the cap, under the tax line.';
+  else { let tx = 0; try { tx = taxCostOf(L, t, now, hit); } catch (e) { } verdict = `Over the tax line: about ${money(tx)} more in luxury tax.`; vc = 'warn'; }
+  return `<div class="capbox" id="negdlg"><div class="capgrid"><div><div class="k">${esc(t.abbr)} payroll${s.ext ? ' next season' : ''}</div><div class="v">${money(now)}</div></div><div><div class="k">This offer</div><div class="v">${money(amt)} × ${yrs || '?'} yr</div><div class="muted" style="font-size:11px">cap hit ${money(hit)}</div></div><div><div class="k">Payroll after</div><div class="v">${money(after)}</div></div>${room(CAP, 'Cap')}${room(TAXLINE, 'Tax line')}${room(APRON, 'Hard cap')}</div><div class="capv ${vc}">${esc(verdict)}</div></div>`;
+}
+function negoDlg(pid) {
+  const p = L.players[pid]; if (!p || L.user == null) { ui.negOpen = null; closeDialog(); return; }
+  ui.negOpen = pid;
+  const panel = negotiatePanel(p);   // sets ui.negLast
+  dialog(`<h2>Negotiate · ${esc(p.name)}</h2><p class="muted" style="margin:0 0 8px">${posLabel(p)} · age ${p.age} · overall ${p.ovr}</p>${negoCapBox(p)}${panel}<div class="row" style="margin-top:8px"><button id="x-close">Close</button></div>`, 'wide');
+  $('#x-close').onclick = () => { ui.negOpen = null; closeDialog(); };
+  document.querySelectorAll('#modal [data-negf]').forEach(el => el.addEventListener('change', () => { ui.neg[pid] = Object.assign(readNeg(pid), { msg: '', ok: false }); negoDlg(pid); }));
+}
+document.addEventListener('click', e => { const b = e.target.closest('[data-nego]'); if (!b || !L) return; negoDlg(+b.dataset.nego); });
+// after any render, an open Negotiate popup follows the new state (cap numbers, answer message)
+function negoAfterRender() { if (ui.negOpen == null) return; if (document.getElementById('negdlg')) negoDlg(ui.negOpen); else ui.negOpen = null; }
+// ----- #19 Promises: Current / Former players -----
+function promisesPanel(t) {
+  const all = promiseList(L, t.id), PL = { open: ['Open', ''], kept: ['Kept', 'pos'], broken: ['Broken', 'long'], void: ['Void', ''] };
+  const cur = pr => { const p = L.players[pr.pid]; return !!p && p.team === t.id && !p.retired; };
+  const nCur = all.filter(cur).length, nOld = all.length - nCur, tab = ui.prmTab === 'old' ? 'old' : 'cur', list = all.filter(pr => cur(pr) === (tab === 'cur')).slice(0, 40);
+  const due = pr => pr.due.g != null ? `team game ${pr.due.g} (${t.w + t.l} played)` : pr.due.day != null ? `trade deadline (${dayTxt(pr.due.day, pr.due.s)})` : `before his deal ends (${seasonName(pr.due.s)})`;
+  const where = pr => { const p = L.players[pr.pid]; return !p ? '—' : p.retired ? 'Retired' : p.team != null ? tlabel(p.team) : p.tw ? 'Two-way' : 'Free agent'; };
+  const tabs = `<div class="subtabs" id="prmtabs" style="margin-bottom:8px"><button class="sm ${tab === 'cur' ? 'primary' : ''}" data-prmtab="cur">Current players (${nCur})</button><button class="sm ${tab === 'old' ? 'primary' : ''}" data-prmtab="old">Former players (${nOld})</button></div>`;
+  const rows = list.map(pr => { const p = L.players[pr.pid]; return `<tr><td class="l">${p ? plink(p) : 'Former player'}</td><td class="l">${esc(promiseLabel(pr))}</td><td class="l">${esc(dayTxt(pr.day, pr.s))}</td><td class="l">${esc(due(pr))}</td>${tab === 'old' ? `<td class="l">${where(pr)}</td>` : ''}<td><span class="pill ${PL[pr.st][1]}">${PL[pr.st][0]}</span></td></tr>`; }).join('');
+  return `<div class="panel" style="margin-bottom:16px" id="promisespanel"><h3>Promises</h3>${tabs}${list.length ? `<div class="tblwrap"><table id="promtbl"><thead><tr><th class="l">Player</th><th class="l">Promise</th><th class="l">Made</th><th class="l">Due</th>${tab === 'old' ? '<th class="l">Now</th>' : ''}<th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<p class="muted">${tab === 'cur' ? 'No promises to current players. Meet a player from his page to make one.' : 'No promises to former players.'}</p>`}<p class="muted" style="font-size:12px;margin:6px 0 0">Kept: morale +5, trust in you +10, harmony +1. Broken: morale -12, trust -20, harmony -3, media reputation -1. Promises are judged weekly and at season's end.</p></div>`;
+}
+document.addEventListener('click', e => { const b = e.target.closest('[data-prmtab]'); if (!b || !L || !$('#main').contains(b)) return; ui.prmTab = b.dataset.prmtab; render(); });
+// ----- #21 Hall of Fame ceremony: one page per class, one speech per inductee -----
+function hofCareer(p) {
+  let f = null; try { f = hofSpeechFacts(L, p); } catch (e) { }
+  const n = k => (p.awards || []).filter(a => a.a === k).length, bits = [];
+  if (f && f.seasons) bits.push(f.seasons + ' seasons');
+  if (f && f.titles) bits.push(f.titles + ' title' + (f.titles > 1 ? 's' : ''));
+  if (n('MVP')) bits.push(n('MVP') + ' MVP' + (n('MVP') > 1 ? 's' : ''));
+  if (n('Finals MVP')) bits.push(n('Finals MVP') + ' Finals MVP');
+  if (n('All-Star')) bits.push(n('All-Star') + ' All-Star' + (n('All-Star') > 1 ? 's' : ''));
+  return bits.join(' · ');
+}
+function vHofCeremony() {
+  const hof = L.hof || [], yrs = [...new Set(hof.map(h => h.s))].sort((a, b) => b - a);
+  if (!yrs.length) return `<h2>Hall of Fame ceremony</h2><section class="panel"><p class="muted">No inductees yet. Players are considered when they retire, based on their production, awards and titles. Each class gets a ceremony here, with a speech from every inductee.</p></section>`;
+  if (!yrs.includes(ui.hofYr)) ui.hofYr = yrs[0];
+  const cls = hof.filter(h => h.s === ui.hofYr);
+  const bar = yrs.length > 1 ? `<div class="row" id="hofyrs" style="margin-bottom:10px">${yrs.map(y => `<button class="sm chipbtn ${y === ui.hofYr ? 'primary' : ''}" data-hofyr="${y}">${draftLabel(y)} (${hof.filter(h => h.s === y).length})</button>`).join('')}</div>` : '';
+  const card = h => { const p = L.players[h.pid]; let sp = ''; if (p) try { sp = hofSpeech(L, p); } catch (e) { }
+    const tm = (h.teams || []).filter(id => L.teams[id]).map(id => L.teams[id].abbr).join(', ');
+    return `<section class="panel hofcard" data-hofp="${h.pid}"><div class="bio" style="align-items:center">${p ? portrait('p', p.id, p.nat, p.team) : ''}<div style="min-width:0"><h3 style="margin:0">${p ? plink(p) : esc(h.name)}</h3><div class="muted">${esc(tm)}${p ? ' · ' + posLabel(p) : ''}</div><div style="font-size:13px">${p ? esc(hofCareer(p)) : ''}</div></div></div>${sp ? `<blockquote class="hofspeech">${esc(sp)}</blockquote>` : '<p class="muted">No speech on file.</p>'}</section>`; };
+  return `<h2>Hall of Fame ceremony · class of ${draftLabel(ui.hofYr)}</h2><p class="muted" style="margin:-4px 0 10px">${cls.length} inductee${cls.length === 1 ? '' : 's'} this year. Each speech comes from the player's own career: team, coaches, teammates, family and titles.</p>${bar}<div class="stack">${cls.map(card).join('')}</div>`;
+}
+document.addEventListener('click', e => { const b = e.target.closest('[data-hofyr]'); if (!b || !L || !$('#main').contains(b)) return; ui.hofYr = +b.dataset.hofyr; render(); });
 const DISC_OFF = { tech: 'Technical foul', eject: 'Ejection', flag: 'Flagrant foul', fight: 'Fight', late: 'Late / skipped practice', conduct: 'Conduct', discipline: 'Discipline' };
 function vDiscipline() {
   const lead = (k, title, unit, fmt) => { const r = discLeaders(L, k, 15); return `<section class="panel"><h3>${title}</h3>${r.length ? `<div class="tblwrap"><table><thead><tr><th class="l">Player</th><th class="l">Team</th><th>${unit}</th></tr></thead><tbody>${r.map(x => `<tr class="click ${isUser(x.tid) ? 'mine' : ''}" data-player="${x.pid}"><td class="l">${esc(x.name)}</td><td class="l">${x.tid != null && L.teams[x.tid] ? tlabel(x.tid) : '<span class="muted">FA</span>'}</td><td>${fmt(x.v)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">Nobody yet this season.</p>'}</section>`; };
@@ -695,13 +794,13 @@ function renderHeader() {
     $('#simctl').innerHTML = btns.map(([k, t], i) => `<button data-sim="${k}" title="${esc(SIM_TIP[k] || '')}" class="${i === 0 ? 'primary' : ''}${k === 'multi' ? ' multi' : ''}" ${ui.busy && k !== 'autostop' ? 'disabled' : ''}>${t}</button>`).join('');
   }
   // v24: tabs are grouped. The top row has five groups; the row under it lists the views in the group you are in.
-  const NAME = { feed: 'Feed', myteam: 'My team', coaches: 'Staff & GMs', preview: 'Season preview', weekly: 'Weekly report', standings: 'Standings', review: 'Progression', schedule: 'Schedule', stats: 'Stats', players: 'Players', awards: 'Awards', teams: 'Teams', trades: 'Trades', fa: 'Free agency', draft: 'Draft', news: 'News & events', injuries: 'Injuries', discipline: 'Discipline', pipeline: 'Pipeline', history: 'History', rules: 'How it works' };
+  const NAME = { rmoves: 'Overview', hofc: 'Hall of Fame', feed: 'Feed', myteam: 'My team', coaches: 'Staff & GMs', preview: 'Season preview', weekly: 'Weekly report', standings: 'Standings', review: 'Progression', schedule: 'Schedule', stats: 'Stats', players: 'Players', awards: 'Awards', teams: 'Teams', trades: 'Trades', fa: 'Free agency', draft: 'Draft', news: 'News & events', injuries: 'Injuries', discipline: 'Discipline', pipeline: 'Pipeline', history: 'History', rules: 'How it works' };
   const showPre = L.phase === 'regular' && L.day <= 7 || ui.view === 'preview';
   const groups = [
     L.user != null ? { k: 'team', t: 'My team', v: ['myteam', 'coaches'] } : { k: 'team', t: 'Staff & GMs', v: ['coaches'] },
     { k: 'league', t: 'League', v: ['standings', ...(L.offSummary ? ['review'] : []), 'schedule', 'teams', 'stats', 'players', 'injuries', 'discipline', 'awards', 'pipeline'] },
-    { k: 'moves', t: 'Roster moves', v: ['trades', 'fa', 'draft'] },
-    { k: 'story', t: 'News & history', v: [...(showPre ? ['preview'] : []), 'weekly', 'news', 'feed', 'history'] },
+    { k: 'moves', t: 'Roster moves', v: ['rmoves', 'trades', 'fa', 'draft'] },
+    { k: 'story', t: 'News & history', v: [...(showPre ? ['preview'] : []), 'weekly', 'news', 'feed', 'history', 'hofc'] },
     { k: 'help', t: 'How it works', v: ['rules'] }
   ];
   const badge = v => v === 'trades' ? ((L.pending || []).length + (L.offers || []).length) : 0;
@@ -1829,7 +1928,7 @@ function vPlayer(p) {
   ${sumCard(p)}${tiesLine(p)}
   <p class="muted" style="margin:12px 0 0">${!p.prospect ? `Fame: <span class="tipword" title="Built mostly from awards and All-Star selections (fading over time), plus scoring. Drives jersey sales, sponsors and where free agents want to play.">${fameLabel(p.fame || 0)} (${p.fame || 0})</span>. ` : ''}Personality: ${hideIntangibles(p) ? (() => { const iv = myInterview(p); return iv ? `<span class="tipword" title="Your interview's read; it can be wrong. ${esc(PERS[iv.pers] || '')}">${esc(persShort({ pers: iv.pers }))} (interview)</span>` : '<span class="muted">unknown until you interview him</span>'; })() : `<span class="tipword" title="${esc(PERS[p.pers] || '')}">${esc(persShort(p))}</span>${(() => { const r = trView(p).off.filter(x => x.k !== 'wrk' && x.v != null).sort((a, b) => b.v - a.v)[0]; return r ? ` <span class="muted">(top pull: ${esc(r.n.toLowerCase())} ${r.lv >= 2 ? r.v : '~' + r.v})</span>` : ''; })()}`}.${commish() && p.traj ? ` Career type: ${TRAJ[p.traj]}${p.gen ? ', generational talent' : ''}.` : ''}${commish() ? ` Career stage: <span class="tipword" title="Peak age ${p.peak}, decline from ${p.regStart}, decline speed ${p.regrLabel.toLowerCase()}${p.noGrow ? ', will not develop' : ''}. Scouts' potential estimate: ${p.scout}.">${stage}</span>.` : ''}${p.prospect ? (() => { const c = compFor(L, p); const mk = mockOrder(L, p.draftYear).findIndex(x => x.id === p.id) + 1; return ` Mock draft: #${mk} in the ${draftLabel(p.draftYear)} class.${c ? ' Player comparison: ' + plink(c) + ' (' + archLabel(c) + ', ' + c.ovr + ').' : ''}`; })() : ''} Years of service: ${p.svc}. Rating at each spot: ${POS.map((x, i) => `${x} ${slotRating(p, i)}`).join(' · ')}.</p>
   <p style="margin:6px 0 0">${agentLine(p)}Contract: ${c ? `${c.ntc ? '<span class="pill prot" title="No-trade clause: he must approve any trade">No-trade</span> ' : ''}${money(c.amt)}/yr through ${seasonName(c.exp)} (${c.type}${c.len ? ', ' + c.len + ' yr deal' : ''})${c.opt ? ` · ${c.opt === 'PO' ? 'player' : 'team'} option on the final year` : ''}${schedParts(p).length ? ` · <span class="muted">${schedParts(p).join(' · ')}</span>` : ''}${capHit(L, p) !== c.amt && c.exp >= capSeason(L) ? ' · cap hit ' + money(capHit(L, p)) : ''}` : 'none'}${p.ext ? ` · Extension from next season: ${p.ext.yrs} yr, ${money(p.ext.amt)}/yr` : ''} · Market value ${money(p.mval || MINSAL)}${p.accPrem ? ` <span class="tipword" title="Past awards and honors raise his market value. Recent honors count most; older ones fade but never fully disappear.">(includes +${p.accPrem}% for accolades)</span>` : ''} · Max allowed ${money(maxFor(p))}${p.team == null && p.ask ? ` · Asking ${money(p.ask)}` : ''}</p>${(() => { const ce = contractExtras(p); return ce.length ? `<ul class="cx" style="margin:4px 0 0 18px;padding:0">${ce.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''; })()}</section>
-  ${optDecision}${negotiable ? negotiatePanel(p) : ''}${scoutPanel(p)}${moralePanel(p)}${twin('pdev', [['D-league', twoWayPanel(p)], ['Training focus', trainPanel(p)], ['Development report', devPanel(p)]], null, 1)}${scoutBox(p)}
+  ${optDecision}${negotiable ? negoBar(p) : ''}${scoutPanel(p)}${moralePanel(p)}${twin('pdev', [['D-league', twoWayPanel(p)], ['Training focus', trainPanel(p)], ['Development report', devPanel(p)]], null, 1)}${scoutBox(p)}
   <section class="panel" style="margin-bottom:16px"><div class="row" style="justify-content:space-between;margin-bottom:6px"><h3 style="margin:0">Attributes <span class="tipword" style="font-size:12px;text-transform:none;letter-spacing:0" title="Playoff consistency is set when a player enters the league and never changes. Low means his playoff games swing more and tend to dip; high means he holds steady or rises a little.">· playoff consistency?</span></h3><div class="legend"><span><span class="an ag">&nbsp;</span>Well above ${POS[p.pos]} avg</span><span><span class="an ay">&nbsp;</span>Above</span><span><span class="an">&nbsp;</span>Average range</span><span><span class="an ao">&nbsp;</span>Below</span><span><span class="an ar">&nbsp;</span>Well below</span></div></div><div class="subtabs" style="margin-bottom:8px"><button class="sm ${ui.attrTab !== 'off' ? 'primary' : ''}" data-attrtab="on">On court</button><button class="sm ${ui.attrTab === 'off' ? 'primary' : ''}" data-attrtab="off">Off court</button></div>${ui.attrTab === 'off' ? trOffTab(p) : `<div class="attrs on">${onTraitsCol(p)}${groups.map(([g, ks]) => `<div><h3 style="font-size:14px">${g}</h3>${ks.map(k => (k === 'wrk' || k === 'dur') && !(k === 'wrk' && hideIntangibles(p) && myInterview(p)) ? traitRow(k, p) : k === 'wrk' && hideIntangibles(p) ? `<div class="arow2"><span>${LABELS[k]}</span><span class="muted" title="Hidden for prospects until you interview them">${myInterview(p) ? esc(workLabel(myInterview(p).work)) + ' (interview)' : '?'}</span></div>` : attrRow(k, attrNum(p, k), p, /tendencies/.test(g))).join('')}</div>`).join('')}${L.user != null && hiddenFor(L, p) ? `<p class="muted" style="font-size:12px;margin:8px 0 0">These are your scouting director's reads${L.teams[L.user].scout ? ` (${esc(L.teams[L.user].scout.name)}, rating ${L.teams[L.user].scout.rating})` : ''}, not his real ratings. Height, weight, wingspan and age are measured and exact. Real ratings are revealed after summer league.</p>` : ''}</div>`}</section>
   ${ovrChart(p)}
   ${statPanel(p, 'rs')}
@@ -2355,6 +2454,7 @@ function negotiatePanel(p) {
   const q0 = cannotQuote(type) ? null : negotiate(L, p.id, MINSAL, p.prefY, L.user, type, null, { quote: true });
   const n = ui.neg[p.id] || { amt: q0 && q0.quote ? q0.quote : p.ask || MINSAL, yrs: q0 && q0.pref ? q0.pref : p.prefY, opt: '' };
   const q = cannotQuote(type) ? null : negotiate(L, p.id, Math.max(n.amt || MINSAL, MINSAL), n.yrs || p.prefY, L.user, type, null, Object.assign({ quote: true }, extrasOf(n)));
+  ui.negLast = { pid: p.id, amt: n.amt, yrs: n.yrs, type };
   const labs = negLabels(p, t, type);
   const payNow = ext ? payroll(L, t, L.season + 1) : payroll(L, t);
   const cc = signConcerns(L, p, t, type);
@@ -2627,7 +2727,7 @@ function vTrades() {
   if (ui.trTab === 'offers') return trSub + offers;
   if (ui.trTab === 'block') return trSub + tradingBlockPanel();
   if (ui.trTab === 'center') return trSub + `${builder}${L.user != null ? trade3Panel() : ''}${L.user != null && open ? targetsPanel('trade') : ''}${buyersSellersPanel()}${pend}` + (L.user == null && !pend ? '<p class="muted">Trades between AI teams show in Completed trades.</p>' : '');
-  return trSub + `<section class="panel"><h2>Completed trades</h2>${trFbar}${hist.length ? `<div class="tblwrap"><table><thead><tr><th class="l">When</th><th class="l">Team</th><th class="l">Got</th><th class="l">Team</th><th class="l">Got</th></tr></thead><tbody>${hist.map(t => `<tr><td class="l">${seasonName(t.s)} ${esc(t.when)}</td><td class="l">${tlink(t.a)}</td><td class="l wrap">${t.aIn ? giveLinks(t.aIn, t.aIn.picks) : esc(t.aGets)}</td><td class="l">${tlink(t.b)}</td><td class="l wrap">${t.bIn ? giveLinks(t.bIn, t.bIn.picks) : esc(t.bGets)}</td></tr>${t.multi ? `<tr><td class="l muted">3-team</td><td class="l">${tlink(t.c)}</td><td class="l wrap" colspan="3">${t.cIn ? giveLinks(t.cIn, t.cIn.picks) : esc(t.cGets)}</td></tr>` : ''}${t.why || t.grades ? `<tr><td></td><td class="l muted" colspan="4" style="font-size:12px">${t.grades ? `How each side saw it: ${L.teams[t.a].abbr} ${t.grades.a}, ${L.teams[t.b].abbr} ${t.grades.b}${t.multi ? `, ${L.teams[t.c].abbr} ${t.grades.c}` : ''}. ` : ''}${esc(t.why || '')}</td></tr>` : ''}`).join('')}</tbody></table></div>` : `<p class="muted">${ui.trF ? 'No trades of this kind yet.' : 'No trades yet.'}</p>`}</section>`;
+  return trSub + `<section class="panel"><h2>Completed trades</h2>${trFbar}${hist.length ? `<div class="tblwrap"><table><thead><tr><th class="l">When</th><th class="l">Team</th><th class="l">Got</th><th class="l">Team</th><th class="l">Got</th></tr></thead><tbody>${hist.map(t => `<tr><td class="l">${seasonName(t.s)} ${esc(t.when)}</td><td class="l">${tlink(t.a)}</td><td class="l wrap">${t.aIn ? giveLinks(t.aIn, t.aIn.picks) : esc(t.aGets)}</td><td class="l">${tlink(t.b)}</td><td class="l wrap">${t.bIn ? giveLinks(t.bIn, t.bIn.picks) : esc(t.bGets)}</td></tr>${t.multi ? `<tr><td class="l muted">3-team</td><td class="l">${tlink(t.c)}</td><td class="l wrap" colspan="3">${t.cIn ? giveLinks(t.cIn, t.cIn.picks) : esc(t.cGets)}</td></tr>` : ''}${t.why || t.grades || t.wu ? `<tr><td></td><td class="l muted" colspan="4" style="font-size:12px">${wuHtml(t.wu)}${t.grades ? `How each side saw it: ${L.teams[t.a].abbr} ${t.grades.a}, ${L.teams[t.b].abbr} ${t.grades.b}${t.multi ? `, ${L.teams[t.c].abbr} ${t.grades.c}` : ''}. ` : ''}${esc(t.why || '')}</td></tr>` : ''}`).join('')}</tbody></table></div>` : `<p class="muted">${ui.trF ? 'No trades of this kind yet.' : 'No trades yet.'}</p>`}</section>`;
 }
 
 // ---------- free agency ----------
@@ -2914,7 +3014,7 @@ function vHistory() {
   const titles = L.teams.slice().sort((a, b) => ttl(b) - ttl(a)).filter(t => ttl(t));
   const hof = (L.hof || []).slice().reverse();
   const rivals = rivalPairs(L).map(q => Object.assign({ kinds: q.kinds }, h2h(L, q.lo, q.hi))).sort((a, b) => b.heat - a.heat).slice(0, 8);
-  const extra = `<div class="grid2e" style="margin-top:16px"><section class="panel"><h2>Hall of Fame</h2>${hof.length ? hof.map(h => `<div class="leader" style="grid-template-columns:minmax(0,1fr) auto"><span>${L.players[h.pid] ? plink(L.players[h.pid]) : esc(h.name)} <span class="muted">${h.teams.map(id => L.teams[id].abbr).join(', ')}</span>${hofPre(h.pid)}</span><span class="muted">class of ${draftLabel(h.s)}</span></div>${hofSpeechHtml(h)}`).join('') : '<p class="muted">No inductees yet. Players are considered when they retire, based on their production, awards and titles.</p>'}</section>
+  const extra = `<div class="grid2e" style="margin-top:16px"><section class="panel"><h2>Hall of Fame${hof.length ? ' <a class="lk" href="#hofc" style="font-weight:400;font-size:13px">Ceremony →</a>' : ''}</h2>${hof.length ? hof.map(h => `<div class="leader" style="grid-template-columns:minmax(0,1fr) auto"><span>${L.players[h.pid] ? plink(L.players[h.pid]) : esc(h.name)} <span class="muted">${h.teams.map(id => L.teams[id].abbr).join(', ')}</span>${hofPre(h.pid)}</span><span class="muted">class of ${draftLabel(h.s)}</span></div>${hofSpeechHtml(h)}`).join('') : '<p class="muted">No inductees yet. Players are considered when they retire, based on their production, awards and titles.</p>'}</section>
   <section class="panel"><h2>Top rivalries</h2>${rivals.length ? rivals.map(r => `<div class="leader" style="grid-template-columns:minmax(0,1fr) auto"><span>${tlabel(r.lo)} vs ${tlabel(r.hi)} <span class="muted">${r.kinds.map(k => RIV_LABEL[k]).join(' · ')}</span></span><span class="muted">${r.wLo}-${r.wHi}${r.poLo + r.poHi ? ' · playoffs ' + r.poLo + '-' + r.poHi : ''}</span></div>`).join('') : '<p class="muted">None yet.</p>'}</section></div>`;
   const htab = ['seasons', 'dyn', 'book', 'awards', 'greats', 'records', 'ach', ...(nbaHistOn(L) ? ['nba', 'legends'] : [])].includes(ui.histTab) ? ui.histTab : 'seasons';
   const hsub = `<div class="subtabs" style="margin-bottom:12px">${[['seasons', 'Seasons'], ['dyn', 'Dynasties & eras'], ...(nbaHistOn(L) ? [['nba', 'Real NBA history'], ['legends', 'Legends']] : []), ['book', 'History book'], ['awards', 'Awards and Hall of Fame'], ['greats', 'All-time greats'], ['records', 'League records'], ['ach', 'Achievements']].map(([k, n]) => `<button class="sm ${htab === k ? 'primary' : ''}" data-histtab="${k}">${n}</button>`).join('')}</div>`;
@@ -4148,7 +4248,7 @@ function render() {
   else {
     const v = ui.view;
     if (v === 'myteam' && L.user != null) html = vTeam(L.teams[L.user]);
-    else html = ({ preview: vPreview, weekly: vWeekly, standings: vStandings, review: vReviewPage, schedule: vSchedule, stats: vStats, players: vPlayerDir, awards: vAwards, teams: vTeams, trades: vTrades, fa: vFA, draft: vDraft, coaches: vCoaches, history: vHistory, news: vNews, feed: vFeed, injuries: vInjuries, discipline: vDiscipline, pipeline: vPipeline, rules: vRules }[v] || vStandings)();
+    else html = ({ preview: vPreview, weekly: vWeekly, standings: vStandings, review: vReviewPage, schedule: vSchedule, stats: vStats, players: vPlayerDir, awards: vAwards, teams: vTeams, rmoves: vRMoves, hofc: vHofCeremony, trades: vTrades, fa: vFA, draft: vDraft, coaches: vCoaches, history: vHistory, news: vNews, feed: vFeed, injuries: vInjuries, discipline: vDiscipline, pipeline: vPipeline, rules: vRules }[v] || vStandings)();
     if (L.phase === 'off-review' && L.offSummary && (v === 'standings' || v === 'myteam')) html = reviewBanner() + html;   // v30a #20: the report has its own page
   }
   html = undoBar() + html;
@@ -4160,6 +4260,7 @@ function render() {
   bindView();
   renderNote();
   try { renderTicker(); } catch (e) { console.error(e); }
+  try { negoAfterRender(); } catch (e) { console.error(e); }   // v30c #2
 }
 // v25.1: pinned notes. One plain-text note per save (L.note), in a box in a screen corner on every screen;
 // minimize to a tab, expand again (remembered in the save). Saved as you type. Sits under popups (z-index below .overlay).
@@ -4519,7 +4620,7 @@ document.addEventListener('click', e => {
   render(); window.scrollTo(0, 0);
 });
 
-const VIEWS = ['preview', 'weekly', 'myteam', 'standings', 'review', 'schedule', 'stats', 'players', 'injuries', 'discipline', 'awards', 'pipeline', 'teams', 'trades', 'fa', 'draft', 'coaches', 'history', 'news', 'feed', 'rules'];
+const VIEWS = ['rmoves', 'hofc', 'preview', 'weekly', 'myteam', 'standings', 'review', 'schedule', 'stats', 'players', 'injuries', 'discipline', 'awards', 'pipeline', 'teams', 'trades', 'fa', 'draft', 'coaches', 'history', 'news', 'feed', 'rules'];
 // old tab names still work as links
 const VIEW_ALIAS = { leaders: ['stats', 'leaders'], tstats: ['stats', 'teams'], playoffs: ['standings', null] };
 function route() {
@@ -4711,7 +4812,7 @@ $('#simctl').addEventListener('click', e => {
   else if (k === 'pend') { snapStart(); runSteps(() => { simPlayoffDay(L); return L.phase === 'playoffs'; }); }
   else if (k === 'off') runSteps(() => { startOffseason(L); return false; }, () => { location.hash = L.user != null ? '#myteam' : '#standings'; });
   else if (k === 'lottery') { runLottery(L); save(); location.hash = '#draft'; render(); }
-  else if (k === 'draft') { startDraft(L); if (L.user == null) { } save(); location.hash = '#draft'; render(); }
+  else if (k === 'draft') { startDraft(L); if (L.user == null) { } save(); location.hash = '#draft'; render(); if (L.user != null && L.pauseIv !== false && ivOpen(L)) { ui.ivSeen = ivOpen(L).id; queueDialog(ivDialog); } }
   else if (k === 'pick1') runSteps(() => { aiDraftPick(L); return false; });
   else if (k === 'draftend') runSteps(() => { if (L.phase !== 'off-draft') return false; const s = L.draftOrder[L.draftIdx]; if (s && isUser(s.owner)) return false; aiDraftPick(L); return L.phase === 'off-draft'; });
   else if (k === 'tomypick') runSteps(() => { if (L.phase !== 'off-draft') return false; const s = L.draftOrder[L.draftIdx]; if (!s || isUser(s.owner)) return false; aiDraftPick(L); return L.phase === 'off-draft' && !isUser(L.draftOrder[L.draftIdx]?.owner); });

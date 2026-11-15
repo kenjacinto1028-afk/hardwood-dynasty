@@ -1,3 +1,22 @@
+# TASK_STATE — v30c UI (items 1, 2, 5, 19, 21, 23) — Sonnet
+
+Note: repo had NO v30c logic (no 6a/5/23 entries). Kenneth chose: build minimal logic for 5 + 23 here. GitHub not linked -> commit locally, send files + patch.
+
+- [x] S0. Explore code: negotiatePanel (app.js), L.trades, signContract/release, promisesPanel, hofSpeech, ivTrigger/IV_Q
+- [x] L5. Logic #5 in league.js (end): L.mv + rec.wu via mvTradePre/Post, mvSignPre/Post, release hook; keys mv.n.*/mv.t.*/mv.r.*
+- [x] L23. Logic #23: stage 'draft' (startDraft), 5 draft-only Qs + 5 new regular/playoff Qs, L.ivUsed no repeats, ivPoolLeft; tools/t30c.js 30/30
+- [x] U1. #1 Roster Moves overview: My team / League sub tabs
+- [x] U2. #2 Player page Negotiate button + popup with live cap numbers
+- [x] U5. #5 write-ups shown on completed trades, signings, releases
+- [x] U19. #19 Promises: Current / Former players sub tabs
+- [x] U21. #21 Hall of Fame ceremony page, one speech per inductee
+- [x] U23. #23 Interview dialog uses periods + pools
+- [x] Q1. tools/t30c.js 30/30 + tools/browser-v30c.py.txt 126/126 (NBA 30 + PBL 16, desktop 1300 + 390px)
+- [x] Q2. Existing tests: same as baseline (see PROGRESS.md)
+- [x] D1. PROGRESS.md + README updated, committed locally, patch + changed files sent (no push: GitHub not linked)
+
+---
+(previous section, v30b UI — done)
 # TASK_STATE — v30b UI (items 6b, 8, 18, 7) — Sonnet
 
 Note: PROGRESS.md had no 6a entry. Box score already had MIN + pm (engine BX), but pbp entries carried no on-court 5s. Step E1 adds the minimal engine hook (lineup + seconds per play) so 6b can work.

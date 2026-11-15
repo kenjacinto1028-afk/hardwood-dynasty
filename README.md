@@ -14,6 +14,16 @@ The game is split into small files so a change rewrites one file, not 1.3 MB.
 | `src/nba-setup.js` | v30a NBA setup extras: real rookies (`nbaRookies`) + real jersey numbers (`NBA_JERSEY_CSV`, `nbaJerseys`) |
 | `src/index.template.html` | Page shell with markers `/*CSS*/ /*VENDOR*/ /*ENGINE*/ /*LEAGUE*/ /*APP*/` for the single-file build |
 
+## v30c (Sonnet, Nov 15 2026): Roster moves overview, Negotiate popup, move write-ups, Promises tabs, Hall of Fame ceremony, interview periods
+
+Logic at the end of `src/league.js`, UI in `src/app.js` (+ `src/styles.css`). Tests: `node tools/t30c.js` (logic) and `tools/browser-v30c.py.txt` (rename to `.py`, serve the folder, `python3 browser-v30c.py PORT`; 126 checks at 1300px and 390px).
+- **#5 write-ups:** `L.mv` (all trades, signings, re-signings, releases, newest first) and `rec.wu` on `L.trades`. Entry: `{ n, s, ph, day, kind, tids, pid?, name?, amt?, yrs?, gets?, wu: [{ tid, k, text, fit, ovr }] }`. Built by `mvTradePre` / `mvTradePost` (called in `executeTrade` and `executeTrade3`), `mvSignPre` / `mvSignPost` (in `signContract`), and a hook in `release`. Text: `mv.n.*` (need), `mv.t.*` (trade: cap, youth, future), `mv.r.*` (release). `mvLine` builds "DAL: needed a rebounder. Coach fit 65 > 67. Team overall 78 > 79." (team overall on trades only). Old saves have no `L.mv`; completed trades from before just show no write-up.
+- **#1 Overview:** view `rmoves` first in Roster moves (`vRMoves`, `ui.rmTab` mine / league, `ui.rmF` filter).
+- **#2 Negotiate:** `negoBar(p)` on the player page; `negoDlg(pid)` popup (`ui.negOpen`); the form and handlers are the same as before (`negotiatePanel`, `data-offer`, `readNeg`), now inside the popup. `negoAfterRender` (end of `render()`) redraws the popup after every state change. `negoCapBox` reads `ui.negLast` (amount, years, type) written by `negotiatePanel`. Older browser tests that fill `#neg-amt` on the page itself no longer find it there.
+- **#19 Promises:** `promisesPanel` tabs `ui.prmTab` cur / old (current = player still on your roster).
+- **#21 Hall of Fame:** view `hofc` (`vHofCeremony`, `ui.hofYr`), under News & history.
+- **#23 Interviews:** `IV_STAGES` + `draft`, `IV_PERIOD` labels, `IV_Q` pools (`st` = periods), `L.ivUsed`, `ivPoolLeft`; the draft interview is triggered by `startDraft` and opened by the Draft button in the header.
+
 ## v30a UI (Sonnet, Nov 15 2026): Progression page, two-way release + refusal message, pipeline popup, FA filter, type-change chips, live-draft targets, trade filters, buyers and sellers
 
 UI only: `src/app.js` + `src/styles.css`. Test: `tools/browser-v30a.py.txt` (rename to `.py`, serve the folder, `python3 browser-v30a.py PORT`; 95 checks at 1300px and 390px, plays a season and clicks through the offseason).

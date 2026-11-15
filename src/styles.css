@@ -641,3 +641,17 @@ button.drc strong, button.drc span { white-space: normal; overflow-wrap: anywher
 .lv-board { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
 .lv-board > *, .lv-team > div { min-width: 0; }
 @media (max-width: 700px) { .lv-board { gap: 6px; } .lv-team { gap: 6px; } .lv-team svg, .lv-team img { width: 26px; height: 26px; } .lv-name { font-size: 15px; } .lv-board .muted { overflow-wrap: anywhere; } }
+/* v30c UI */
+.wu { margin: 0; font-size: 12.5px; color: var(--muted); }
+.wul { margin: 1px 0; }
+.mvtbl td.nw { white-space: nowrap; }
+.mvk-trade { background: #e8f0fe; } .mvk-sign, .mvk-resign { background: #e6f4ea; } .mvk-release { background: #fce8e6; }
+.rmstats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px 14px; }
+.rmstats .v { font-size: 18px; font-weight: 600; }
+.capbox { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin: 0 0 12px; }
+.capgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 12px; }
+.capgrid .v { font-size: 15px; font-weight: 600; } .capgrid .v.neg { color: #b3261e; }
+.capv { margin-top: 8px; font-size: 13px; font-weight: 600; } .capv.ok { color: #1e7a3c; } .capv.warn { color: #9a6700; } .capv.no { color: #b3261e; }
+.hofcard .bio { gap: 12px; }
+.hofspeech { margin: 10px 0 0; padding: 8px 12px; border-left: 3px solid var(--line); font-size: 14px; line-height: 1.5; }
+@media (max-width: 700px) { .capgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .mvtbl td.nw { white-space: normal; } }

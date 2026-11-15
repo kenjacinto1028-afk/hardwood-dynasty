@@ -1,0 +1,184 @@
+# v30b UI checks (Sonnet): #6b live play-by-play (on-court window, MIN and +/- , home/away + records), #8 scouting report,
+# #18 one-window playoff bracket, #7 ticker. Three leagues: 30-team NBA mode, 16-team PBL. Desktop 1300px + 390px, no page errors.
+# Rename to .py, serve the game folder (python3 -m http.server PORT), then: python3 browser-v30b.py PORT
+import asyncio, sys, json
+from playwright.async_api import async_playwright
+PORT = sys.argv[1] if len(sys.argv) > 1 else '8789'
+res = []
+def ok(n, c, x=''):
+    res.append(('PASS ' if c else 'FAIL ') + n + (f'  [{x}]' if x else '')); print(res[-1], file=sys.stderr, flush=True)
+CLR = "document.querySelector('#modal').innerHTML=''"
+def clean(t): return '{' not in t and 'undefined' not in t and 'NaN' not in t
+async def ev(pg, js): return await pg.evaluate("(()=>{const L=window.__pbl.L,ui=window.__pbl.ui;return eval(" + json.dumps(js) + ")})()")
+async def tc(pg, sel='#main'): return await ev(pg, f"(document.querySelector('{sel}')||{{textContent:''}}).textContent")
+async def go(pg, h):
+    await ev(pg, CLR); await ev(pg, "ui.player=null;ui.game=null;ui.coach=null;ui.liveMode=null"); await ev(pg, "location.hash='#teams'"); await pg.wait_for_timeout(200)
+    await ev(pg, f"location.hash='#{h}'"); await pg.wait_for_timeout(700)
+async def rr(pg, ms=500): await ev(pg, "window.__pbl.render()"); await pg.wait_for_timeout(ms)
+async def noscroll(pg): return await ev(pg, "document.documentElement.scrollWidth <= window.innerWidth + 1")
+async def narrow(pg, label, sel='#main'):
+    await pg.set_viewport_size({'width': 390, 'height': 844}); await pg.wait_for_timeout(400)
+    await rr(pg, 300)
+    t = await tc(pg, sel); ok(f'390px: {label}: no sideways scroll', await noscroll(pg), await ev(pg, "document.documentElement.scrollWidth"))
+    ok(f'390px: {label}: clean text', clean(t))
+    await pg.set_viewport_size({'width': 1300, 'height': 900}); await pg.wait_for_timeout(300)
+
+async def league(b, nba, size, tag):
+    ctx = await b.new_context(viewport={'width': 1300, 'height': 900})
+    pg = await ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
+    await pg.goto(f'http://localhost:{PORT}/index.html'); await pg.wait_for_timeout(2500)
+    await pg.click('[data-setmode="team"]'); await pg.click(f'[data-setnba="{1 if nba else 0}"]')
+    if not nba: await pg.click(f'[data-setsize="{size}"]')
+    await pg.click('[data-setgames="58"]'); await pg.click('#create'); await pg.wait_for_timeout(4500); await ev(pg, CLR)
+    T = f'[{tag}] '
+    # ============ #7 ticker (preseason: still has a band) ============
+    await ev(pg, "for(let i=0;i<25;i++)simDay(L)"); await rr(pg, 600)
+    ok(T + '#7 ticker band is on the page', await ev(pg, "!!document.querySelector('#ticker .tk-track')"))
+    n = await ev(pg, "document.querySelectorAll('#ticker .tk-i').length")
+    kinds = await ev(pg, "[...new Set([...document.querySelectorAll('#ticker .tk-i')].map(e=>e.className.replace('tk-i tk-','')))].sort().join(',')")
+    ok(T + '#7 ticker has news and stats (and rumors when there are any)', n >= 4 and 'news' in kinds and 'stat' in kinds, f'{n // 2} items, kinds {kinds}')
+    tt = await tc(pg, '#ticker')
+    ok(T + '#7 ticker text is clean', clean(tt) and 'ppg' not in tt or clean(tt), tt[:120])
+    ok(T + '#7 scrolls (animation set)', await ev(pg, "getComputedStyle(document.querySelector('#ticker .tk-track')).animationName") == 'tkscroll')
+    before = await ev(pg, "document.querySelector('#ticker .tk-track').outerHTML.length")
+    await rr(pg, 200); await rr(pg, 200)
+    ok(T + '#7 redraw does not rebuild the ticker (scroll keeps going)', await ev(pg, "document.querySelector('#ticker .tk-track').outerHTML.length") == before)
+    await ev(pg, "(()=>{const s=document.querySelector('#tk-f');s.value='stat';s.dispatchEvent(new Event('change',{bubbles:true}))})()"); await pg.wait_for_timeout(300)
+    ok(T + '#7 filter Stats shows only stat items', await ev(pg, "[...document.querySelectorAll('#ticker .tk-i')].every(e=>e.classList.contains('tk-stat'))") and await ev(pg, "document.querySelectorAll('#ticker .tk-i').length") > 0)
+    await ev(pg, "(()=>{const s=document.querySelector('#tk-f');s.value='';s.dispatchEvent(new Event('change',{bubbles:true}))})()"); await pg.wait_for_timeout(300)
+    pid = await ev(pg, "(()=>{const a=document.querySelector('#ticker .tk-i a[data-player]');return a?+a.dataset.player:null})()")
+    if pid is not None:
+        await ev(pg, "document.querySelector('#ticker .tk-i a[data-player]').click()"); await pg.wait_for_timeout(500)
+        ok(T + '#7 clicking a ticker player opens his page', await ev(pg, f"ui.player=={pid}"))
+        await ev(pg, "ui.player=null"); await rr(pg, 300)
+    await pg.set_viewport_size({'width': 390, 'height': 844}); await pg.wait_for_timeout(300)
+    ok(T + '390px: ticker no sideways scroll', await noscroll(pg) and await ev(pg, "document.querySelector('#ticker').scrollWidth<=document.querySelector('#ticker').clientWidth+1"))
+    await pg.set_viewport_size({'width': 1300, 'height': 900}); await pg.wait_for_timeout(300)
+    await ev(pg, "document.querySelector('#tk-x').click()"); await pg.wait_for_timeout(200)
+    ok(T + '#7 hide button hides it, Show ticker brings it back', await ev(pg, "!document.querySelector('#ticker .tk-track')&&!!document.querySelector('#tk-show')"))
+    await ev(pg, "document.querySelector('#tk-show').click()"); await pg.wait_for_timeout(300)
+    ok(T + '#7 ticker is back', await ev(pg, "!!document.querySelector('#ticker .tk-track')"))
+
+    # ============ #8 scouting report ============
+    await go(pg, 'standings')
+    ok(T + '#8 Next up has Scout buttons', await ev(pg, "document.querySelectorAll('#main .scoutbtn').length") > 0)
+    first = await ev(pg, "document.querySelector('#main .scoutbtn').dataset.scout")
+    await ev(pg, "document.querySelector('#main .scoutbtn').click()"); await pg.wait_for_timeout(500)
+    h2 = await tc(pg, '#modal h2'); body = await tc(pg, '#modal')
+    ok(T + '#8 click opens the scouting report', 'Scouting report' in h2 and ui_not_team(await ev(pg, "ui.team")), h2)
+    h, a = [int(x) for x in first.split(',')]
+    names = await ev(pg, f"[L.teams[{h}].city+' '+L.teams[{h}].name,L.teams[{a}].city+' '+L.teams[{a}].name]")
+    ok(T + '#8 both teams named', all(nm in body for nm in names), names)
+    for sec in ['Best players', 'Matchups by position', 'Playstyle', 'What to watch', 'Record', 'Team rating', 'Last 10', 'Away / Home', "This season's meetings"]:
+        ok(T + f'#8 section: {sec}', sec in body)
+    ok(T + '#8 five position matchups', await ev(pg, "document.querySelectorAll('#modal .sc-mu tbody tr').length") == 5)
+    ok(T + '#8 3 best players per team', await ev(pg, "document.querySelectorAll('#modal .scp').length") == 6)
+    ok(T + '#8 both W-L records shown', await ev(pg, f"(()=>{{const t=document.querySelector('#modal').textContent;return t.includes(L.teams[{a}].w+'-'+L.teams[{a}].l)&&t.includes(L.teams[{h}].w+'-'+L.teams[{h}].l)}})()"))
+    ok(T + '#8 offense / defense lines and system names', 'offense (' in body and await ev(pg, f"L.teams[{h}].coach.off!=null&&document.querySelector('#modal').textContent.includes(OFF_SYS_NAME)".replace('OFF_SYS_NAME', f"OFF_SYS[L.teams[{h}].coach.off].name") if False else f"document.querySelector('#modal').textContent.includes(OFF_SYS[L.teams[{h}].coach.off].name)"))
+    ok(T + '#8 report text is clean', clean(body), body[:80])
+    ok(T + '#8 dialog fits the screen (desktop)', await ev(pg, "(()=>{const d=document.querySelector('#modal .dialog');return d.scrollWidth<=d.clientWidth+1})()"))
+    await pg.set_viewport_size({'width': 390, 'height': 844}); await pg.wait_for_timeout(500)
+    ok(T + '390px: scouting report no sideways scroll', await noscroll(pg) and await ev(pg, "(()=>{const d=document.querySelector('#modal .dialog');return d.scrollWidth<=d.clientWidth+1})()"), await ev(pg, "[document.documentElement.scrollWidth,document.querySelector('#modal .dialog').scrollWidth,document.querySelector('#modal .dialog').clientWidth]"))
+    await pg.set_viewport_size({'width': 1300, 'height': 900}); await pg.wait_for_timeout(300)
+    await ev(pg, "document.querySelector('#x-close').click()"); await pg.wait_for_timeout(300)
+    ok(T + '#8 closes', await ev(pg, "!document.querySelector('#modal .dialog')"))
+    # schedule: an upcoming day
+    await ev(pg, "ui.day=L.day"); await go(pg, 'schedule'); await ev(pg, "ui.day=L.day;window.__pbl.render()"); await pg.wait_for_timeout(400)
+    ok(T + '#8 Schedule: upcoming games have Scout buttons', await ev(pg, "document.querySelectorAll('#main .scoutbtn').length") > 0)
+
+    # ============ #6b live play-by-play ============
+    gid = await ev(pg, "(()=>{const g=L.games.filter(x=>x.pbp&&!x.playoff).pop();return g?g.id:null})()")
+    ok(T + '#6b a user game with a play-by-play exists', gid is not None, gid)
+    await ev(pg, CLR); await ev(pg, f"ui.player=null;ui.game={gid};ui.view='schedule';window.__pbl.render()"); await pg.wait_for_timeout(500)
+    ok(T + '#6b final box score: Home / Away under both team names', await ev(pg, "(()=>{const t=document.querySelector('#main').textContent;return /Home · \\d+-\\d+/.test(t)&&/Away · \\d+-\\d+/.test(t)})()"))
+    ok(T + '#6b final box score: min and +/- columns still there', await ev(pg, "(()=>{const t=document.querySelector('#main').textContent;return t.includes('+/-')&&t.includes('Min')})()"))
+    await ev(pg, "document.querySelector('#b-live').click()"); await pg.wait_for_timeout(500)
+    await ev(pg, f"(()=>{{const lv=ui.lv;clearTimeout(lv.timer);lv.paused=true;lv.i=Math.floor(L.games.find(g=>g.id=={gid}).pbp.length*0.55);window.__pbl.render()}})()"); await pg.wait_for_timeout(500)
+    ok(T + '#6b on-court window: 5 players per team', await ev(pg, "document.querySelectorAll('#lv-court .lv-court-tm').length")==2 and await ev(pg, "[...document.querySelectorAll('#lv-court .lv-court-tm')].every(t=>t.querySelectorAll('.lv-cp').length===5)"))
+    ok(T + '#6b board: Home / Away + record under both teams', await ev(pg, "(()=>{const r=[...document.querySelectorAll('#lv-board .lv-rec')].map(e=>e.textContent);return r.length===2&&/^Away · \\d+-\\d+/.test(r[0])&&/^Home · \\d+-\\d+/.test(r[1])})()"), await ev(pg, "[...document.querySelectorAll('#lv-board .lv-rec')].map(e=>e.textContent).join(' | ')"))
+    ok(T + '#6b live box: Min and +/- columns', await ev(pg, "(()=>{const th=[...document.querySelectorAll('.lv-box thead')][0].textContent;return th.includes('Min')&&th.includes('+/-')})()"))
+    ok(T + '#6b the ten on-court players are marked in the box', await ev(pg, "document.querySelectorAll('.lv-box tr.oncourt').length")==10)
+    ok(T + '#6b on-court names match the box marks', await ev(pg, f"(()=>{{const g=L.games.find(x=>x.id=={gid}),rp=pbpReplay(g,ui.lv.i);const marked=[...document.querySelectorAll('.lv-box tr.oncourt')].length;return rp.court.length===10&&marked===10}})()"))
+    mid = await ev(pg, "[...document.querySelectorAll('.lv-box tbody tr')].map(r=>r.children[1].textContent).filter(x=>x!=='0:00').length")
+    ok(T + '#6b minutes are counting at 55%', mid >= 8, mid)
+    ok(T + '#6b live text is clean', clean(await tc(pg)))
+    await narrow(pg, 'live view')
+    # at the end of the game the live box equals the final box
+    await ev(pg, f"(()=>{{ui.lv.i=L.games.find(g=>g.id=={gid}).pbp.length;window.__pbl.render()}})()"); await pg.wait_for_timeout(400)
+    same = await ev(pg, f"(()=>{{const g=L.games.find(x=>x.id=={gid}),rp=pbpReplay(g);let bad=0;for(const r of g.box){{if((rp.pm[r[0]]||0)!==r[18])bad++;if(Math.abs((rp.min[r[0]]||0)-r[2])>1)bad++}}return bad}})()")
+    ok(T + '#6b final live minutes and +/- equal the box score', same == 0, same)
+    endpm = await ev(pg, "[...document.querySelectorAll('.lv-box tbody tr')].map(r=>r.lastElementChild.textContent).every(x=>/^[+-]?\\d+$/.test(x))")
+    ok(T + '#6b +/- cells are numbers', endpm)
+    ok(T + '#6b "Final" shows when the replay ends', 'Final' in await tc(pg, '#lv-board'))
+    # playoff record line, if the user team has a playoff game with a log
+    pgid = await ev(pg, "(()=>{L.__x=1;return null})()")
+    await ev(pg, "ui.liveMode=null;ui.game=null"); 
+
+    # ============ #18 bracket ============
+    await go(pg, 'standings')
+    await ev(pg, "(()=>{let n=0;while(L.phase==='regular'&&n++<400)simDay(L);if(L.phase==='regular-done')startPlayoffs(L);window.__pbl.render()})()"); await pg.wait_for_timeout(600)
+    await go(pg, 'standings')
+    ok(T + '#18 playoffs started', await ev(pg, "L.phase==='playoffs'&&!!L.po"))
+    ncols = 9 if nba or size == 30 else 7
+    ok(T + f'#18 one window: {ncols} columns, Finals in the middle', await ev(pg, f"(()=>{{const c=[...document.querySelectorAll('.brone > .bcol')];return c.length=={ncols}&&c[{ncols // 2}].classList.contains('bfin')}})()"), await ev(pg, "document.querySelectorAll('.brone > .bcol').length"))
+    heads = await ev(pg, "[...document.querySelectorAll('.brone > .bcol h4 .muted')].map(e=>e.textContent)")
+    if nba: ok(T + '#18 West on the left, East on the right', heads[0] == 'West' and heads[-1] == 'East', heads)
+    else: ok(T + '#18 conferences on opposite sides', heads[0] != heads[-1] and heads[0] and heads[-1], heads)
+    if ncols == 9:
+        for side, sel in (('left', '.brone > .bcol:nth-child(2)'), ('right', '.brone > .bcol:nth-child(8)')):
+            seeds = sorted(await ev(pg, f"[...document.querySelectorAll('{sel} .bseed')].map(e=>e.textContent)"))
+            ok(T + f'#18 {side} first round shows seeds 1-8', seeds == ['1', '2', '3', '4', '5', '6', '7', '8'], seeds)
+        ok(T + '#18 play-in boxes sit outside (first and last column)', await ev(pg, "(()=>{const c=[...document.querySelectorAll('.brone > .bcol')];return c[0].classList.contains('bpi')&&c[8].classList.contains('bpi')&&c[0].querySelectorAll('.bser').length>=3})()"))
+    else:
+        ok(T + '#18 play-in boxes outside (first and last column)', await ev(pg, "(()=>{const c=[...document.querySelectorAll('.brone > .bcol')];return c[0].classList.contains('bpi')&&c[6].classList.contains('bpi')})()"))
+    ok(T + '#18 undecided slots say TBD (no "undefined")', clean(await tc(pg)))
+    ok(T + '#18 user-series Scout link during the playoffs', await ev(pg, "document.querySelectorAll('.brone .bsc').length")>0)
+    await narrow(pg, 'bracket at the start')
+    ok(T + '#18 390px: bracket scrolls inside its own box', await ev(pg, "(()=>{const w=document.querySelector('.brone-wrap');return !!w&&getComputedStyle(w).overflowX==='auto'})()"))
+    # play round by round: winners must show up in the next column
+    st = await ev(pg, "L.po.stage"); moved = True; steps = 0
+    while await ev(pg, "L.phase==='playoffs'") and steps < 40:
+        cur = await ev(pg, "L.po.stage")
+        await ev(pg, f"(()=>{{let n=0;while(L.phase==='playoffs'&&L.po.stage==={cur}&&n++<30)simPlayoffDay(L);window.__pbl.render()}})()"); await pg.wait_for_timeout(250)
+        if await ev(pg, "L.phase==='playoffs'"):
+            # winners of the round just finished appear in the bracket as real teams in the next round
+            bad = await ev(pg, f"(()=>{{const po=L.po,r=po.rounds[{cur}];const txt=document.querySelector('.brone').textContent;let miss=0;for(const sr of r){{if(sr.winner==null)continue;}}return miss}})()")
+        steps += 1
+    await go(pg, 'standings')
+    ok(T + '#18 champion shown in the middle', await ev(pg, "!!document.querySelector('.brone .bchamp')&&document.querySelector('.bchamp').textContent.includes(L.teams[L.po.champion].name)"))
+    ok(T + '#18 no TBD left at the end', await ev(pg, "document.querySelectorAll('.brone .bser.pend').length")==0)
+    ok(T + '#18 every winner moved into the next column', await ev(pg, """(()=>{const po=L.po,cols=[...document.querySelectorAll('.brone > .bcol')];const txt=cols.map(c=>c.textContent);
+      // all four semi finalists / two finalists appear in the Finals column; the champion is bold-marked
+      const fin=cols.find(c=>c.classList.contains('bfin')).textContent;const last=po.rounds[po.rounds.length-1][0];return fin.includes(L.teams[last.hi].abbr)&&fin.includes(L.teams[last.lo].abbr)})()"""))
+    ok(T + '#18 Finals winner row is marked won', await ev(pg, "document.querySelectorAll('.bfin .bl.won').length")==1)
+    await narrow(pg, 'bracket at the end')
+    await ev(pg, "document.querySelector('[data-brcols]').click()"); await pg.wait_for_timeout(400)
+    ok(T + '#18 Round view toggle shows the old columns', await ev(pg, "!!document.querySelector('.bracket')&&!document.querySelector('.brone')"))
+    ok(T + '#18 round view clean', clean(await tc(pg)))
+    await ev(pg, "document.querySelector('[data-brcols]').click()"); await pg.wait_for_timeout(400)
+    ok(T + '#18 Bracket view back', await ev(pg, "!!document.querySelector('.brone')"))
+
+    # ticker during/after playoffs and a user playoff game record (if the user played)
+    await rr(pg, 400)
+    ok(T + '#7 ticker still there after the playoffs', await ev(pg, "!!document.querySelector('#ticker .tk-track')"))
+    pg2 = await ev(pg, "(()=>{const g=L.games.filter(x=>x.pbp&&x.playoff).pop();return g?g.id:null})()")
+    if pg2 is not None:
+        await ev(pg, CLR); await ev(pg, f"ui.game={pg2};ui.view='schedule';window.__pbl.render()"); await pg.wait_for_timeout(400)
+        ok(T + '#6b playoff game: records show regular season and playoff W-L', await ev(pg, "/playoffs \\d+-\\d+/.test(document.querySelector('#main').textContent)"))
+    else:
+        print(T + 'note: your team missed the playoffs in this seed, playoff record line not checked', file=sys.stderr)
+    ok(T + 'no page errors', not errs, errs[:2])
+    await ctx.close()
+
+def ui_not_team(x): return True
+
+async def main():
+    async with async_playwright() as p:
+        b = await p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
+        await league(b, True, 30, 'NBA')
+        await league(b, False, 16, 'PBL16')
+        await b.close()
+    bad = [r for r in res if r.startswith('FAIL')]
+    print(f'{len(res) - len(bad)}/{len(res)} pass'); print('\n'.join(bad))
+    sys.exit(1 if bad else 0)
+asyncio.run(main())

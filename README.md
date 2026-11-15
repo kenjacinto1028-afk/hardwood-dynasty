@@ -14,6 +14,18 @@ The game is split into small files so a change rewrites one file, not 1.3 MB.
 | `src/nba-setup.js` | v30a NBA setup extras: real rookies (`nbaRookies`) + real jersey numbers (`NBA_JERSEY_CSV`, `nbaJerseys`) |
 | `src/index.template.html` | Page shell with markers `/*CSS*/ /*VENDOR*/ /*ENGINE*/ /*LEAGUE*/ /*APP*/` for the single-file build |
 
+## v32d S4 (Sonnet, Nov 15 2026): UI pass
+
+Code: `src/app.js` (blocks marked v32d), `src/league.js` (`mleStatus`, `extra.mle`, `coachTargets` cap fit), `src/styles.css` (`.rc-*`).
+- **Rotation chart (game page)** `rotChartPanel(g, si)` + `tlStints`: one chart per team under the box scores, from `game.tl[side]` (green = starters, orange = bench, minutes at the right, quarter lines, OT columns). Shows "Coach pattern" or "Your saved rotation chart" and the `tl.bad` reason. Games without a timeline say so (kept for your games + last 30 league games).
+- **Starting lineup window (live game)** `nextSubs`: "Planned subs" under each five (next 3 sub times from the timeline).
+- **Chart editor (My Team > Rotation chart tab)** `rotEditor`: 16 columns (Q1-Q4, 3-min blocks) x players, tap to put a player on court. Starts from your saved chart or the coach plan (`buildSide(...).plan`). Save (needs exactly 5 per block, no injured player; day-to-day players are allowed), Undo edits, Reset to coach pattern (`t.rotChart = null`). Warning list when minutes are more than 1.5 min outside a player's role range. Shows last game's `tl.bad` if the chart was skipped.
+- **Roles + minutes** roster Role column "Starter 26-32 · exp 30", player page "Starter 26-32 min · plan 30" (`expMin`: coach's plan, same as the Rotation panel), offer form line "Coach would likely use him as / You promise: X, lo-hi min a game, about N".
+- **Mid-level** offer popup (signings): `#mlebox` in the cap box with "Use mid-level" checkbox, amount left, used or not, why it can't be used, tax line / hard cap warning. Engine: `mleStatus(L,t,pay,hit)`; `negotiate` sets `ex.mle` for your team (eligible and not `extra.mle === false`); `signContract` spends it only then (AI signings keep the old rule). Same line in the Salary cap panel and the Roster moves header. Note: under the B2 cap rule (v24.4) any team can sign up to the hard cap, so the mid-level is bookkeeping: it does not unlock a bigger offer.
+- **Coaching targets (free agents)** only players whose ask fits under the hard cap; new "Cap fit" column: Minimum deal / Fits cap space / Fits under the tax line / Fits under the hard cap (+ tax cost).
+- **Draft tab > Team picks** `teamPicksPage`: pick a team; owned picks by draft year with original team, protection (top-N, rolled over), value tier and range, swap tag; owed picks and open swaps.
+- Tests: `node tools/t32d.js` (15), browser `tools/browser-v32d.py.txt` (70 checks at 1300 and 390px; rename to .py, serve the folder, `python3 browser-v32d.py PORT`).
+
 ## v32c S3 (Opus, Nov 15 2026): rotation timeline (engine)
 
 Code: `src/engine.js`, block "v32c: rotation timeline" above `buildSide`. UI for the chart editor is S4.

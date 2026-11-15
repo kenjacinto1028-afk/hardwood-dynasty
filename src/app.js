@@ -668,7 +668,7 @@ function vRMoves() {
   let head = '';
   if (mine) {
     const t = L.teams[L.user], pay = payroll(L, t), room = faRoom(L, t), tw = (t.twoWay || []).length;
-    head = `<section class="panel" id="rmsum" style="margin-bottom:12px"><h2>${tlabel(t.id, true)} · roster moves</h2><div class="rmstats"><div><div class="k">Roster</div><div class="v">${t.roster.length}/15</div></div><div><div class="k">Payroll</div><div class="v">${money(pay)}</div></div><div><div class="k">Cap room</div><div class="v">${money(Math.max(0, CAP - pay))}</div></div><div><div class="k">Can offer a free agent</div><div class="v">${room > 0 ? money(room) : 'Minimum only'}</div></div><div><div class="k">Two-way</div><div class="v">${tw}</div></div></div><p style="margin:8px 0 0"><a class="lk" href="#trades">Trades</a> · <a class="lk" href="#fa">Free agents</a> · <a class="lk" href="#draft">Draft</a></p></section>`;
+    head = `<section class="panel" id="rmsum" style="margin-bottom:12px"><h2>${tlabel(t.id, true)} · roster moves</h2><div class="rmstats"><div><div class="k">Roster</div><div class="v">${t.roster.length}/15</div></div><div><div class="k">Payroll</div><div class="v">${money(pay)}</div></div><div><div class="k">Cap room</div><div class="v">${money(Math.max(0, CAP - pay))}</div></div><div><div class="k">Can offer a free agent</div><div class="v">${room > 0 ? money(room) : 'Minimum only'}</div></div><div><div class="k">Mid-level</div><div class="v">${mleOpen(L, t) ? money(MLE) + ' left' : 'Used'}</div></div><div><div class="k">Two-way</div><div class="v">${tw}</div></div></div><p style="margin:8px 0 0"><a class="lk" href="#trades">Trades</a> · <a class="lk" href="#fa">Free agents</a> · <a class="lk" href="#draft">Draft</a></p></section>`;
   }
   return `<h2>Roster moves</h2>${sub}${head}<section class="panel"><h3>${mine ? 'Your team\'s moves' : 'League moves'}</h3>${bar}${mvTable(list)}<p class="muted" style="font-size:12px;margin:8px 0 0">Coach fit is the average fit of the top 8 players with the head coach's systems. Team overall is roster strength (best 8 by overall). Trades show both; signings and releases show coach fit.</p></section>`;
 }
@@ -697,7 +697,14 @@ function negoCapBox(p) {
   else if (after <= CAP + 1e-6) verdict = 'Fits under the cap.';
   else if (after <= TAXLINE + 1e-6) verdict = 'Over the cap, under the tax line.';
   else { let tx = 0; try { tx = taxCostOf(L, t, now, hit); } catch (e) { } verdict = `Over the tax line: about ${money(tx)} more in luxury tax.`; vc = 'warn'; }
-  return `<div class="capbox" id="negdlg"><div class="capgrid"><div><div class="k">${esc(t.abbr)} payroll${s.ext ? ' next season' : ''}</div><div class="v">${money(now)}</div></div><div><div class="k">This offer</div><div class="v">${money(amt)} × ${yrs || '?'} yr</div><div class="muted" style="font-size:11px">cap hit ${money(hit)}</div></div><div><div class="k">Payroll after</div><div class="v">${money(after)}</div></div>${room(CAP, 'Cap')}${room(TAXLINE, 'Tax line')}${room(APRON, 'Hard cap')}</div><div class="capv ${vc}">${esc(verdict)}</div></div>`;
+  let mleBox = '';
+  if (s.type === 'signing') {
+    const ms = mleStatus(L, t, now, hit), n = ui.neg[p.id] || {}, use = ms.eligible && n.mle !== false;
+    const warn = [];
+    if (use || (ms.open && hit > 0)) { if (after > APRON + 1e-6) warn.push(`This deal puts payroll at ${money(after)}, over the ${money(APRON)} hard cap: not allowed.`); else if (after > TAXLINE + 1e-6) { let tx = 0; try { tx = taxCostOf(L, t, now, hit); } catch (e) { } warn.push(`Payroll after ${money(after)} crosses the ${money(TAXLINE)} tax line: about ${money(tx)} in luxury tax.`); } }
+    mleBox = `<div class="mlebox" id="mlebox" style="margin-top:8px;font-size:13px"><div class="row" style="align-items:center;gap:10px;flex-wrap:wrap"><label class="check" style="margin:0" title="Spend your once-a-season mid-level exception on this deal. Up to ${money(MLE)}, only while payroll is under the tax line before the deal."><input type="checkbox" id="neg-mle" data-negf="1" ${use ? 'checked' : ''} ${ms.eligible ? '' : 'disabled'}> Use mid-level</label><span><strong>Mid-level exception:</strong> ${ms.open ? `${money(ms.left)} left · not used yet this season` : `${money(0)} left · used this season`}</span></div>${!ms.eligible && ms.open && hit > 0 ? `<div class="muted" style="font-size:12px">Can't use it on this offer: ${esc(ms.why)}.</div>` : ''}${warn.map(w => `<div class="${after > APRON + 1e-6 ? 'lo' : 'warn'}" style="font-size:12px">${esc(w)}</div>`).join('')}</div>`;
+  }
+  return `<div class="capbox" id="negdlg"><div class="capgrid"><div><div class="k">${esc(t.abbr)} payroll${s.ext ? ' next season' : ''}</div><div class="v">${money(now)}</div></div><div><div class="k">This offer</div><div class="v">${money(amt)} × ${yrs || '?'} yr</div><div class="muted" style="font-size:11px">cap hit ${money(hit)}</div></div><div><div class="k">Payroll after</div><div class="v">${money(after)}</div></div>${room(CAP, 'Cap')}${room(TAXLINE, 'Tax line')}${room(APRON, 'Hard cap')}</div><div class="capv ${vc}">${esc(verdict)}</div>${mleBox}</div>`;
 }
 function negoDlg(pid) {
   const p = L.players[pid]; if (!p || L.user == null) { ui.negOpen = null; closeDialog(); return; }
@@ -1226,7 +1233,7 @@ function capBlock(t) {
   return `<div class="panel" style="margin-bottom:16px"><h3>Salary cap · ${cs === L.season ? 'this season' : 'next season'} and 5-year outlook</h3><div class="row" style="justify-content:space-between"><strong>${money(pay)}</strong><span class="muted">cap ${money(CAP)} · room ${money(Math.max(0, CAP - pay))} · floor ${money(MINPAY)}</span></div><div class="capbar"><i class="${pay > CAP ? 'over' : ''}" style="width:${Math.min(100, pay / CAP * 100)}%"></i></div>
   <div class="tblwrap"><table class="sortable" data-sid="capproj"><thead><tr><th class="l">Player</th><th class="l">Pos</th><th>Age</th><th>Ovr</th>${pr.years.map(y => `<th>${seasonName(y)}</th>`).join('')}</tr></thead><tbody>${rows}
   ${tot('Player salaries (cap hits)', x => money(x.sal))}${pr.totals.some(x => x.dead) ? tot('Dead money', x => x.dead ? money(x.dead) : '—') : ''}${pr.totals.some(x => x.floor) ? tot('Payroll-floor charge', x => x.floor ? money(x.floor) : '—') : ''}${tot('Total payroll', x => `<strong>${money(x.total)}</strong>`, x => x.total > TAXLINE ? 'over' : '')}${tot(`vs tax line (${money(TAXLINE)})`, x => x.total > TAXLINE ? `over by ${money(x.total - TAXLINE)}` : `${money(TAXLINE - x.total)} under`, x => x.total > TAXLINE ? 'over' : '')}${tot('Cap room', x => money(x.room), x => x.room < 0 ? 'lo' : x.room > 30 ? 'w' : '')}${tot('Players under contract', x => x.n)}</tbody></table></div>
-  <p class="muted" style="margin:6px 0 0;font-size:12px">Cap ${money(CAP)} · tax line ${money(TAXLINE)} · hard cap ${money(APRON)} · mid-level exception ${mleOpen(L, t) ? 'available' : 'used'}${payroll(L, t) > TAXLINE ? ' · <span class="lo">over the tax line: trades must match salaries, and free agents only at the minimum</span>' : payroll(L, t) > CAP ? ' · over the cap: trades can take back up to 125% of outgoing salary' : ''}</p>
+  <p class="muted" style="margin:6px 0 0;font-size:12px">Cap ${money(CAP)} · tax line ${money(TAXLINE)} · hard cap ${money(APRON)} · mid-level exception ${mleOpen(L, t) ? `${money(MLE)} left, not used this season` : `${money(0)} left, used this season`}${payroll(L, t) > TAXLINE ? ' · <span class="lo">over the tax line: trades must match salaries, and free agents only at the minimum</span>' : payroll(L, t) > CAP ? ' · over the cap: trades can take back up to 125% of outgoing salary' : ''}</p>
   <details class="about"><summary>How this works</summary><p>Each column is a season. Option years are marked PO (player) or TO (team): a declined option comes off the books. Extensions start the season after the current deal ends. Minimum contracts (${money(MINSAL)}) don't count. Re-signed draftees on ${money(10)}+ deals count 90%, and players out for the season on ${money(10)}+ deals count 50%. A team that finishes under the ${money(MINPAY)} floor pays the difference, and that charge counts on its payroll for the season.${pay > CAP ? ' This team is over the cap because of rookie-scale deals and can only make moves that lower its payroll.' : ''}</p></details>
   ${dead.length ? `<p style="margin:8px 0 0">Dead money: ${dead.map(d => `${esc(d.name)} ${money(d.amt)} through ${seasonName(d.exp)}`).join(', ')} <span class="muted">(comes off if another team signs him)</span></p>` : ''}</div>`;
 }
@@ -1398,7 +1405,7 @@ function teamOverview(t) {
   if (mt === 'shoot') return mtabs + (teamShootingPanel(t) || '<p class="muted">No shot data yet this season.</p>');
   return mtabs + (mine ? storyBox() + feedBox(3) + needsPanel(t) + positionReadPanel(t) : '') + lockerPanel(t, mine) + (mine ? promisesPanel(t) : '') + `<div class="panel" style="margin-bottom:16px"><h3>Roster · ${ps.length} players · ${sorted ? 'sorted (click a column again to flip, or <a class="lk" data-unsort="roster">reset</a>)' : 'ordered by coach\'s preference · click a column to sort'}</h3>${fbar('roster', { sortHint: false })}<div class="tblwrap"><table class="sortable" data-sid="roster" data-flist="roster"><thead><tr><th class="l">Player</th><th class="l">Pos</th><th class="l" title="The coach's role for him and the minutes it comes with">Role</th><th class="l">Type</th><th>Age</th><th>Ovr</th><th>${potHead()}</th><th title="How well he fits the coach's systems">Fit</th><th title="Per year, years left. PO/TO = player or team option on the final year. R = rookie deal. Extensions show under the contract.">Contract</th><th>GP</th><th>Min</th><th>Pts</th><th>Reb</th><th>Ast</th><th title="Usage rate: share of team possessions used while on the floor">USG%</th><th title="Morale: minutes vs role, winning, pay, loyalty, coach fit">Mood</th>${canRel || mine ? '<th class="nosort"></th>' : ''}</tr></thead><tbody>${rows}</tbody></table></div><div id="relmsg"></div>${chemWindow(t)}${twoWayTeamPanel(t)}</div>
   <div class="grid2"><section class="stack">
-  ${twin('rot', [['Rotation & roles', rotationPanel(t)], ['Lineup & rotation', mine ? lineupEditor(t) : '']])}
+  ${twin('rot', [['Rotation & roles', rotationPanel(t)], ['Lineup & rotation', mine ? lineupEditor(t) : ''], ['Rotation chart', mine ? rotEditor(t) : '']])}
   <div class="panel"><h3>Recent games</h3>${recent.length ? `<div class="grid3">${recent.map(gameCard).join('')}</div>` : '<p class="muted">No games this season yet.</p>'}</div></section>
   <section class="stack">${teamStatsBlock(t)}
   ${rivalBlock(t)}
@@ -1459,6 +1466,53 @@ function teamHistoryBase(t) {
   ${t.retired.length ? `<div class="panel"><h3>Retired numbers</h3>${t.retired.map(r => `<div class="leader" style="grid-template-columns:44px minmax(0,1fr) auto"><span class="v">#${r.num}</span><span>${L.players[r.pid] ? plink(L.players[r.pid]) : esc(r.name)}</span><span class="muted">${seasonName(r.s)}</span></div>`).join('')}</div>` : ''}
   ${hofs.length ? `<div class="panel"><h3>Hall of Famers</h3>${hofs.map(h => `<div>${L.players[h.pid] ? plink(L.players[h.pid]) : esc(h.name)} <span class="muted">class of ${draftLabel(h.s)}</span></div>`).join('')}</div>` : ''}</section></div>`;
 }
+// ===== v32d: rotation chart editor (your team). t.rotChart = { q: [4 quarters][4 blocks of 3 min][5 player ids] }; null = the coach's pattern =====
+const RC_BLK = 16;
+function rcFromPlan(plan) { return Array.from({ length: RC_BLK }, (_, i) => { const m = Math.min(47, Math.floor(i / 4) * 12 + (i % 4) * 3 + 1); return plan[m].filter(Boolean).map(p => p.id); }); }
+function rcSaved(t) { const c = t.rotChart; if (!c || !Array.isArray(c.q)) return null; const out = []; for (let q = 0; q < 4; q++) for (let b = 0; b < 4; b++) out.push(((c.q[q] || [])[b] || []).filter(x => x != null)); return out; }
+function rcDraft(t) {
+  if (!ui.rcDraft || ui.rcDraft.tid !== t.id) { let blocks = rcSaved(t), src = 'chart'; if (!blocks) { try { blocks = rcFromPlan(buildSide(L, t.id, true).plan); } catch (e) { blocks = Array.from({ length: RC_BLK }, () => []); } src = 'coach'; } ui.rcDraft = { tid: t.id, blocks, src, dirty: false }; }
+  return ui.rcDraft;
+}
+function rcMinutes(d) { const m = {}; for (const b of d.blocks) for (const id of b) m[id] = (m[id] || 0) + 3; return m; }
+function rcProblems(t, d) {
+  const bad = [], pl = id => L.players[id];
+  d.blocks.forEach((b, i) => { if (new Set(b).size !== 5) bad.push(`Q${Math.floor(i / 4) + 1} block ${i % 4 + 1} has ${new Set(b).size} players (needs 5)`); });
+  const ids = new Set(d.blocks.flat()); for (const id of ids) { const p = pl(id); if (p && ((p.injury > 0 && !isDTD(p)) || isSusp(p))) bad.push(`${p.name} is out (${p.injury > 0 ? 'injured' : 'suspended'})`); }   // day-to-day players can be in the chart: if one sits that night the coach pattern runs
+  return bad;
+}
+function rcWarnings(t, mins) {
+  const out = [];
+  for (const id of t.roster) { const p = L.players[id], rk = p ? roleOf(L, p) : null, r = rk ? ROLE_BY[rk] : null; if (!r || p.injury > 0) continue; const m = mins[id] || 0; if (m < r.lo - 1.5) out.push([id, `${m} min is under his ${r.n} target (${r.lo}-${r.hi})`]); else if (m > r.hi + 1.5) out.push([id, `${m} min is over his ${r.n} target (${r.lo}-${r.hi})`]); }
+  return out;
+}
+function rotEditor(t) {
+  const d = rcDraft(t), mins = rcMinutes(d), probs = rcProblems(t, d), warns = rcWarnings(t, mins), wmap = new Map(warns);
+  const sel = t.roster.map(id => L.players[id]).filter(Boolean).sort((a, b) => (mins[b.id] || 0) - (mins[a.id] || 0) || b.ovr - a.ovr);
+  const heads = [0, 1, 2, 3].map(q => `<th colspan="4" class="rc-qh">Q${q + 1}</th>`).join('');
+  const blk = Array.from({ length: RC_BLK }, (_, i) => `<th class="rc-bh ${i % 4 === 0 ? 'rc-bq' : ''}" title="Minutes ${(i % 4) * 3}-${(i % 4) * 3 + 3} of Q${Math.floor(i / 4) + 1}">${(i % 4) * 3 + 3}</th>`).join('');
+  const rows = sel.map(p => { const out = (p.injury > 0 && !isDTD(p)) || isSusp(p), rk = roleOf(L, p), w = wmap.get(p.id), m = mins[p.id] || 0;
+    return `<tr class="${out ? 'rc-out' : ''}"><td class="l rc-pn"><a class="lk" data-player="${p.id}">${esc(shortName(p))}</a> <span class="muted">${esc(posLabel(p))}</span></td>${Array.from({ length: RC_BLK }, (_, i) => { const on = d.blocks[i].includes(p.id); return `<td class="rc-c ${i % 4 === 0 ? 'rc-bq' : ''}"><button class="rc-b ${on ? 'on' : ''}" data-rcb="${p.id}|${i}" aria-pressed="${on}" aria-label="${esc(shortName(p))} Q${Math.floor(i / 4) + 1} block ${i % 4 + 1}" ${out ? 'disabled' : ''}></button></td>`; }).join('')}<td class="${w ? 'lo' : ''}" title="${w ? esc(w) : ''}"><strong>${m}</strong></td><td class="muted" style="white-space:nowrap">${rk ? roleRange(rk) : '—'}</td></tr>`; }).join('');
+  const cnt = `<tr class="nosort"><td class="l"><strong>On court</strong></td>${d.blocks.map((b, i) => { const n = new Set(b).size; return `<td class="rc-c ${i % 4 === 0 ? 'rc-bq' : ''} ${n === 5 ? 'w' : 'lo'}"><strong>${n}</strong></td>`; }).join('')}<td></td><td></td></tr>`;
+  const using = t.rotChart && !d.dirty ? 'Using your saved chart.' : t.rotChart ? 'Editing (not saved yet).' : d.dirty ? 'Editing (not saved yet). The coach pattern is used until you save.' : 'Showing the coach pattern. Save it as your chart to start editing from it.';
+  const lastBad = (() => { const g = [...L.games].reverse().find(x => (x.home === t.id || x.away === t.id) && x.tl); const tl = g && g.tl[g.home === t.id ? 0 : 1]; return tl && tl.bad ? tl.bad : null; })();
+  return `<div class="panel"><h3>Rotation chart · Q1-Q4 in 3-minute blocks</h3><p class="muted" style="margin:-4px 0 8px;font-size:12px">${using} Tap a square to put a player on the court for that block; each block needs exactly 5. Starters of Q1 and Q3 open the halves. Blowouts, close finishes, foul trouble and injuries still change who plays.</p>
+  <div class="tblwrap"><table class="rc-edit"><thead><tr><th class="l" rowspan="2">Player</th>${heads}<th rowspan="2">Min</th><th rowspan="2" title="His role's minutes range">Role</th></tr><tr>${blk}</tr></thead><tbody>${rows}${cnt}</tbody></table></div>
+  ${probs.length ? `<div class="msg no" style="margin-top:8px"><strong>Can't save yet.</strong> ${probs.slice(0, 4).map(esc).join(' · ')}${probs.length > 4 ? ' · …' : ''}</div>` : ''}
+  ${warns.length ? `<div class="msg" style="margin-top:8px;border-left:3px solid var(--warn)"><strong>Minutes vs role targets</strong> (more than half a block outside the range; players may get unhappy)<br>${warns.slice(0, 8).map(([id, tx]) => `${esc(shortName(L.players[id]))}: ${esc(tx)}`).join('<br>')}${warns.length > 8 ? `<br>+ ${warns.length - 8} more` : ''}</div>` : ''}
+  ${lastBad ? `<div class="msg no" style="margin-top:8px">Your last game did not use your chart: ${esc(lastBad)}.</div>` : ''}
+  <div class="row" style="margin-top:10px;flex-wrap:wrap"><button class="primary" data-rcact="save" ${probs.length ? 'disabled' : ''}>Save chart</button><button data-rcact="revert" ${d.dirty ? '' : 'disabled'}>Undo edits</button><button data-rcact="reset" ${t.rotChart || d.dirty ? '' : 'disabled'}>Reset to coach pattern</button></div></div>`;
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-rcb],[data-rcact]'); if (!b || !L || L.user == null) return;
+  const t = L.teams[L.user], d = rcDraft(t);
+  if (b.dataset.rcb) { const [pid, i] = b.dataset.rcb.split('|').map(Number), blk = d.blocks[i], k = blk.indexOf(pid); if (k >= 0) blk.splice(k, 1); else blk.push(pid); d.dirty = true; }
+  else { const a = b.dataset.rcact;
+    if (a === 'save') { if (rcProblems(t, d).length) return; t.rotChart = { q: [0, 1, 2, 3].map(q => [0, 1, 2, 3].map(bk => d.blocks[q * 4 + bk].slice())) }; d.dirty = false; d.src = 'chart'; save(); }
+    else if (a === 'reset') { t.rotChart = null; ui.rcDraft = null; save(); }
+    else if (a === 'revert') ui.rcDraft = null; }
+  const y = window.scrollY; render(); window.scrollTo(0, y);
+});
 function rotationPanel(t) {
   const g = buildSide(L, t.id, true);
   const order = [...g.court.filter(Boolean)];
@@ -2056,15 +2110,25 @@ function tiesLine(p) {
   return bits.length ? `<p class="muted" style="margin:8px 0 0">${bits.join(' · ')}</p>` : '';
 }
 // v32b: role cell for roster tables
-function roleCell(p) { const rk = p.team != null ? roleOf(L, p) : null; return rk ? `${roleName(rk)} <span class="muted">${roleRange(rk)}</span>` : '<span class="muted">—</span>'; }
+// v32d: expected minutes = the coach's plan for a normal game (same numbers as the Rotation & roles panel), cached per team and day
+let EXPMIN = { k: '', m: {} };
+function expMin(p) {
+  if (p.team == null || !L) return null;
+  const t = L.teams[p.team]; if (!t) return null;
+  const k = `${L.season}|${L.phase}|${L.day}|${t.roster.length}|${t.rotChart ? 1 : 0}|${t.manual ? 1 : 0}`; if (EXPMIN.k !== k) EXPMIN = { k, m: {} };
+  if (!EXPMIN.m[t.id]) { try { const g = buildSide(L, t.id, true), o = {}; for (const q of g.players) o[q.id] = Math.round((g.target[q.id] || 0) / 60); EXPMIN.m[t.id] = o; } catch (e) { EXPMIN.m[t.id] = {}; } }
+  const v = EXPMIN.m[t.id][p.id]; return v == null ? null : v;
+}
+const roleMinTxt = k => { const r = ROLE_BY[k]; return r ? `${r.lo}-${r.hi} min a game, about ${Math.round((r.lo + r.hi) / 2)}` : ''; };
+function roleCell(p) { const rk = p.team != null ? roleOf(L, p) : null, em = rk ? expMin(p) : null; return rk ? `${roleName(rk)} <span class="muted">${roleRange(rk)}${em != null ? ' · exp ' + em : ''}</span>` : '<span class="muted">—</span>'; }
 function roleSortV(p) { const rk = p.team != null ? roleOf(L, p) : null; return rk ? 9 - roleRank(rk) : 0; }
-function roleTip(p) { const rk = p.team != null ? roleOf(L, p) : null; if (!rk) return ''; const s = p.stats.rs, mpg = s && s.gp ? s.min / s.gp / 60 : null; return `${roleName(rk)}: expects ${roleRange(rk)} min${mpg != null ? `, playing ${f1(mpg)}` : ''}${p.contract && p.contract.role && ROLE_BY[p.contract.role.k] ? ` · promised ${roleName(p.contract.role.k)}` : ''}`; }
+function roleTip(p) { const rk = p.team != null ? roleOf(L, p) : null; if (!rk) return ''; const s = p.stats.rs, mpg = s && s.gp ? s.min / s.gp / 60 : null; const em = expMin(p); return `${roleName(rk)}: expects ${roleRange(rk)} min${em != null ? `, coach plans ${em}` : ''}${mpg != null ? `, playing ${f1(mpg)}` : ''}${p.contract && p.contract.role && ROLE_BY[p.contract.role.k] ? ` · promised ${roleName(p.contract.role.k)}` : ''}`; }
 function sumCard(p) {
   if (p.prospect || p.retired) return '';
   const tid = p.team != null ? p.team : p.tw ? p.tw.tid : null, t = tid != null ? L.teams[tid] : null;
   let role = p.abroad ? 'Overseas' : 'Free agent';
   if (p.tw) role = 'Two-way';
-  else if (t) { const rk = roleOf(L, p); if (rk) role = `${roleName(rk)} <span class="muted">${roleRange(rk)} min</span>`; else { const rot = rotationOf(L, t), i = rot.findIndex(x => x.id === p.id); role = i < 0 ? 'End of bench' : i < 5 ? 'Starter' : i < 8 ? 'Rotation' : 'Bench'; } }   // v32b: the coach's role
+  else if (t) { const rk = roleOf(L, p); if (rk) { const em = expMin(p); role = `${roleName(rk)} <span class="muted">${roleRange(rk)} min${em != null ? ' · plan ' + em : ''}</span>`; } else { const rot = rotationOf(L, t), i = rot.findIndex(x => x.id === p.id); role = i < 0 ? 'End of bench' : i < 5 ? 'Starter' : i < 8 ? 'Rotation' : 'Bench'; } }   // v32b: the coach's role
   const c = p.contract, last = p.hist.filter(h => h.ovr != null).slice(-1)[0], tr = last ? p.ovr - last.ovr : null;
   const s = p.stats.rs && p.stats.rs.gp ? p.stats.rs : null, h = !s ? p.hist.filter(x => x.rs && x.rs.gp).slice(-1)[0] : null, ss = s || (h && h.rs);
   const line = ss ? `${f1(ss.pts / ss.gp)} / ${f1((ss.orb + ss.drb) / ss.gp)} / ${f1(ss.ast / ss.gp)}` : '—';
@@ -2331,12 +2395,14 @@ function readNeg(pid) {
   const rows = [...document.querySelectorAll('[data-incrow]')]; if (document.getElementById('neg-amt')) n.incs = rows.map(r => ({ k: r.querySelector('.neg-ik').value, amt: parseFloat(r.querySelector('.neg-ia').value) || 0 }));
   if (v('neg-kick') != null) n.kick = +v('neg-kick'); if (v('neg-eto') != null) n.eto = +v('neg-eto') || 0; if (v('neg-gtd') != null) n.gtd = +v('neg-gtd'); if (v('neg-role') != null) n.role = v('neg-role');
   const c = document.getElementById('neg-ntc'); if (c) n.ntc = c.checked;
+  const mc = document.getElementById('neg-mle'); if (mc && !mc.disabled) n.mle = mc.checked;   // v32d
   if (n.yrs < 3) n.eto = 0; if (n.yrs < 2) n.gtd = 1;
   return n;
 }
 function extrasOf(n) {
   const x = {}, inc = (n.incs || []).filter(i => i.amt > 0).map(i => ({ k: i.k, amt: i.amt }));
   if (inc.length) x.incs = inc; if (n.kick > 0) x.kick = n.kick; if (n.eto > 0 && n.yrs >= 3) x.eto = n.eto; if (n.gtd != null && n.gtd < 1 && n.yrs >= 2) x.gtd = n.gtd;
+  if (n.mle === false) x.mle = false;   // v32d: default = spend the mid-level when the deal can use it
   if (n.role) x.role = ROLE_BY[n.role] ? { k: n.role } : n.role === 'S' ? { k: 'starter' } : { k: 'min', v: +n.role };   // v32b: ROLES keys if (n.ntc) x.ntc = true;
   return x;
 }
@@ -2349,7 +2415,7 @@ function negExtras(p, type, n) {
   ${sel('neg-kick', { label: 'Trade kicker ', o: [[0, 'None'], [0.05, '5%'], [0.1, '10%'], [0.15, '15%']] }, n.kick || 0, 'First time he is traded his salary rises by this share. He takes less per year for it.')}
   ${yrs >= 3 ? sel('neg-eto', { label: 'Early opt-out ', o: [[0, 'None']].concat(Array.from({ length: yrs - 1 }, (_, i) => [i + 1, 'after year ' + (i + 1)])) }, n.eto || 0, 'He can leave after that year if he is worth more. He takes about 4% less.') : ''}
   ${yrs >= 2 ? sel('neg-gtd', { label: 'Final-year guarantee ', o: [[1, 'Full'], [0.75, '75%'], [0.5, '50%'], [0.25, '25%']] }, n.gtd != null ? n.gtd : 1, 'How much of the last year you owe if you release him. Less than full asks for a bit more money.') : ''}
-  ${(() => { const er = expRole(L, t, p); return sel('neg-role', { label: 'Role ', o: [['', `Coach decides (likely ${roleName(er)}, ${roleRange(er)} min)`]].concat(ROLES.map(r => [r.k, `Promise: ${r.n} (${r.lo}-${r.hi} min)`])) }, ROLE_BY[n.role] ? n.role : '', 'The role you offer. A promised role is a floor the coach keeps: he takes less for a bigger role than he would get anyway and wants more (or refuses) for a smaller one. Break it and his mood drops.'); })()}
+  ${(() => { const er = expRole(L, t, p), pk = ROLE_BY[n.role] ? n.role : er, s0 = sel('neg-role', { label: 'Role ', o: [['', `Coach decides (likely ${roleName(er)}, ${roleRange(er)} min)`]].concat(ROLES.map(r => [r.k, `Promise: ${r.n} (${r.lo}-${r.hi} min)`])) }, ROLE_BY[n.role] ? n.role : '', 'The role you offer. A promised role is a floor the coach keeps: he takes less for a bigger role than he would get anyway and wants more (or refuses) for a smaller one. Break it and his mood drops.'); return s0 + `<div class="muted" style="flex-basis:100%;font-size:12px">${ROLE_BY[n.role] ? 'You promise' : 'Coach would likely use him as'}: <strong>${esc(roleName(pk))}</strong>, ${roleMinTxt(pk)}.</div>`; })()}
   ${ntc ? `<label class="check" style="margin:0" title="He must approve any trade. He takes about 5% less for it."><input type="checkbox" id="neg-ntc" data-negf="1" ${n.ntc ? 'checked' : ''}> No-trade clause</label>` : ''}`;
 }
 // contract extras: one line each, for the tooltip and the player page
@@ -2506,14 +2572,23 @@ function lvBox(g, upto) {
   for (let k = 0; k < upto; k++) { const ev = g.pbp[k][7]; if (!ev) continue; for (let j = 0; j < ev.length; j += 3) { const x = st[ev[j]]; if (x) x.s[ev[j + 1]] += ev[j + 2]; } }
   return st;
 }
+// v32d: the next planned subs for one team from its stored timeline (grouped by time), as text lines
+function nextSubs(g, si, elapsed, k) {
+  const tl = g.tl && g.tl[si]; if (!tl) return [];
+  const when = t => { const q = t < 2880 ? Math.floor(t / 720) : 4 + Math.floor((t - 2880) / 300), a = q < 4 ? q * 720 : 2880 + (q - 4) * 300, left = (q < 4 ? 720 : 300) - (t - a); return `${qTxt(q + 1)} ${clockTxt(Math.max(0, Math.round(left)))}`; };
+  const nm = id => { const p = L.players[id]; return p ? shortName(p) : '?'; };
+  const by = new Map(); for (const e of tl.ev) { if (e[0] / 10 <= elapsed + 0.5) continue; if (!by.has(e[0])) by.set(e[0], { o: [], i: [] }); const x = by.get(e[0]); if (e[1] >= 0) x.o.push(e[1]); if (e[2] >= 0) x.i.push(e[2]); }
+  return [...by.entries()].slice(0, k).map(([t, x]) => `${when(t / 10)}: ${x.i.map(nm).join(', ') || '—'} in for ${x.o.map(nm).join(', ') || '—'}`);
+}
 function vLive(g) {
   const lv = lvState(g), log = g.pbp, n = Math.min(lv.i, log.length), last = n ? log[n - 1] : null, done = n >= log.length;
   const hs = last ? last[4] : 0, as = last ? last[5] : 0, q = last ? last[0] : 1, c = last ? last[1] : 720;
   const st = lvBox(g, n), qNow = q, rp = pbpReplay(g, n), onSet = new Set(rp.court);
+  const elapsedNow = n ? (q <= 4 ? (q - 1) * 720 + (720 - c) : 2880 + (q - 5) * 300 + (300 - c)) : 0;   // v32d
   const fouls = side => { let f = 0; for (let k = 0; k < n; k++) { const e = log[k]; if (e[0] !== qNow || !e[7]) continue; for (let j = 0; j < e[7].length; j += 3) if (e[7][j + 1] === 14 && st[e[7][j]] && st[e[7][j]].side === side) f += e[7][j + 2]; } return f; };
   const tos = side => { let used = 0, mq = 1; for (let k = 0; k < n; k++) { const e = log[k]; if (e[6].includes('t') && e[2] === side) used++; if (e[0] > mq) mq = e[0]; } return 7 + Math.max(0, mq - 4) * 2 - used; };
   const team = (side, tid, pts) => `<div class="lv-team"><div>${logo(tid, 40)}</div><div><div class="lv-name">${esc(L.teams[tid].abbr)}</div><div class="muted lv-rec" style="font-size:12px">${esc(recLine(g, tid, side === 0))}</div><div class="muted" style="font-size:12px">Fouls ${fouls(side)} · TO left ${tos(side)}</div></div><div class="lv-pts">${pts}</div></div>`;
-  const courtWin = (side, tid) => { const ids = rp.court.slice(side === 0 ? 0 : 5, side === 0 ? 5 : 10); return `<div class="lv-court-tm" data-side="${side}"><div class="k">${esc(L.teams[tid].abbr)} on the floor</div>${ids.map(id => { const x = st[id] || { s: new Array(15).fill(0) }, pl = L.players[id]; return `<div class="lv-cp"><span class="lv-cpn">${pl ? `<a class="lk" data-player="${id}">${esc(shortName(pl))}</a>` : 'Player'}</span><span class="muted">${pl ? posLabel(pl) : ''}</span><span>${x.s[1]} pts</span><span class="${x.s[14] >= 5 ? 'lo' : 'muted'}">${x.s[14]} PF</span><span class="${(rp.pm[id] || 0) > 0 ? 'w' : (rp.pm[id] || 0) < 0 ? 'lo' : 'muted'}">${pmTxt(rp.pm[id] || 0)}</span></div>`; }).join('')}</div>`; };
+  const courtWin = (side, tid) => { const ids = rp.court.slice(side === 0 ? 0 : 5, side === 0 ? 5 : 10); return `<div class="lv-court-tm" data-side="${side}"><div class="k">${esc(L.teams[tid].abbr)} on the floor</div>${ids.map(id => { const x = st[id] || { s: new Array(15).fill(0) }, pl = L.players[id]; return `<div class="lv-cp"><span class="lv-cpn">${pl ? `<a class="lk" data-player="${id}">${esc(shortName(pl))}</a>` : 'Player'}</span><span class="muted">${pl ? posLabel(pl) : ''}</span><span>${x.s[1]} pts</span><span class="${x.s[14] >= 5 ? 'lo' : 'muted'}">${x.s[14]} PF</span><span class="${(rp.pm[id] || 0) > 0 ? 'w' : (rp.pm[id] || 0) < 0 ? 'lo' : 'muted'}">${pmTxt(rp.pm[id] || 0)}</span></div>`; }).join('')}${(() => { const ns = nextSubs(g, side === 0 ? 0 : 1, elapsedNow, 3); return ns.length ? `<div class="muted lv-next" style="font-size:12px;margin-top:4px"><strong>Planned subs</strong>${ns.map(x => `<div>${esc(x)}</div>`).join('')}</div>` : ''; })()}</div>`; };
   const shown = []; for (let k = n - 1; k >= 0; k--) if (lvShow(lv.f, log[k])) shown.push(log[k]);
   const boxT = (side, tid) => { const ps = Object.keys(st).map(Number).filter(id => st[id].side === side).sort((a, b) => st[b].s[1] - st[a].s[1] || (st[b].gs || 0) - (st[a].gs || 0)); const v = (x, i) => x.s[i];
     return `<div class="tblwrap"><table class="lv-box"><thead><tr><th class="l">${esc(L.teams[tid].abbr)}</th><th>Min</th><th>Pts</th><th>Reb</th><th>Ast</th><th>Stl</th><th>Blk</th><th>TO</th><th>PF</th><th>FG</th><th>3P</th><th>FT</th><th title="Plus-minus">+/-</th></tr></thead><tbody>${ps.map(id => { const x = st[id], p = L.players[id], pmv = rp.pm[id] || 0; return `<tr class="${onSet.has(id) ? 'oncourt' : ''}"><td class="l">${onSet.has(id) ? '<span class="lv-dot" title="On the floor"></span>' : ''}${p ? esc(shortName(p)) : 'Player'}</td><td>${minTxt(rp.min[id] || 0)}</td><td><strong>${v(x, 1)}</strong></td><td>${v(x, 8) + v(x, 9)}</td><td>${v(x, 10)}</td><td>${v(x, 11)}</td><td>${v(x, 12)}</td><td>${v(x, 13)}</td><td class="${v(x, 14) >= 5 ? 'lo' : ''}">${v(x, 14)}</td><td>${v(x, 2)}-${v(x, 3)}</td><td>${v(x, 4)}-${v(x, 5)}</td><td>${v(x, 6)}-${v(x, 7)}</td><td class="${pmv > 0 ? 'w' : pmv < 0 ? 'lo' : ''}">${pmTxt(pmv)}</td></tr>`; }).join('')}</tbody></table></div>`; };
@@ -2547,6 +2622,32 @@ function rxPanel(g) {
   if (!g.rx || !g.rx.length) return '';
   return `<section class="panel" style="margin-bottom:16px"><h3>Reactions</h3>${g.rx.map(q => { const pl = q.w !== 'coach' ? L.players[q.w] : null; return `<div class="rx"><div class="rx-w">${pl ? `<a class="lk" data-player="${pl.id}">${esc(rxWho(L, q))}</a>` : `${esc(rxWho(L, q))} <span class="muted">coach</span>`}${q.tid != null ? ` <span class="muted">· ${tlabel(q.tid)}</span>` : ''}</div><div class="rx-q">\u201C${esc(rxText(q, g.id))}\u201D</div></div>`; }).join('')}</section>`;
 }
+// ===== v32d: rotation chart (who was on court, by minute). Data: game.tl[side] = {st, ev, src, bad} from the engine =====
+function tlStints(tl, total) {
+  const on = {}, out = {}, end = Math.round(total * 10);
+  for (const id of tl.st) on[id] = 0;
+  const close = (id, t) => { if (on[id] == null) return; if (t > on[id]) (out[id] = out[id] || []).push([on[id] / 10, t / 10]); delete on[id]; };
+  for (const e of tl.ev) { if (e[1] >= 0) close(e[1], e[0]); if (e[2] >= 0 && on[e[2]] == null) on[e[2]] = e[0]; }
+  for (const id of Object.keys(on)) close(+id, end);
+  return out;
+}
+const gameTotal = g => 2880 + (g.ot || 0) * 300;
+function rotBars(stints, total, cls) {
+  return stints.map(([a, b]) => `<i class="${cls}" style="left:${(a / total * 100).toFixed(2)}%;width:${((b - a) / total * 100).toFixed(2)}%" title="${minTxt(a)}-${minTxt(b)} (${Math.round((b - a) / 60 * 10) / 10} min)"></i>`).join('');
+}
+function rotChartPanel(g, si) {
+  const tid = si === 0 ? g.home : g.away, tm = L.teams[tid], tl = g.tl && g.tl[si];
+  const head = `<h3>${tlabel(tid, true)} rotation chart</h3>`;
+  if (!tl) return `<section class="panel rotchart" style="margin-bottom:16px">${head}<p class="muted">No rotation timeline is stored for this game. It is kept for your games and the last 30 league games.</p></section>`;
+  const total = gameTotal(g), st = tlStints(tl, total), sec = id => (st[id] || []).reduce((a, x) => a + x[1] - x[0], 0);
+  const ids = Object.keys(st).map(Number).sort((a, b) => (tl.st.includes(b) - tl.st.includes(a)) || sec(b) - sec(a));
+  const qs = [0, 1, 2, 3].concat(g.ot ? Array.from({ length: g.ot }, (_, i) => 4 + i) : []);
+  const lines = qs.slice(1).map(q => { const x = q <= 4 ? q * 720 : 2880 + (q - 4) * 300; return `<b class="rc-q" style="left:${(x / total * 100).toFixed(2)}%"></b>`; }).join('');
+  const axisFix = qs.map(q => { const a = q < 4 ? q * 720 : 2880 + (q - 4) * 300, w = q < 4 ? 720 : 300; return `<span style="left:${(a / total * 100).toFixed(2)}%;width:${(w / total * 100).toFixed(2)}%">${q < 4 ? 'Q' + (q + 1) : 'OT' + (q - 3 > 1 ? q - 3 : '')}</span>`; }).join('');
+  const rows = ids.map(id => { const p = L.players[id], st0 = tl.st.includes(id); return `<div class="rc-row"><span class="rc-n" title="${p ? esc(p.name) : ''}">${p ? `<a class="lk" data-player="${id}">${esc(shortName(p))}</a>` : 'Player'}<span class="muted"> ${p ? esc(posLabel(p)) : ''}</span></span><span class="rc-track">${lines}${rotBars(st[id], total, st0 ? 'st' : 'bn')}</span><span class="rc-m">${Math.round(sec(id) / 60)}</span></div>`; }).join('');
+  const src = tl.src === 'chart' ? 'Your saved rotation chart' : 'Coach pattern';
+  return `<section class="panel rotchart" style="margin-bottom:16px">${head}<p class="muted" style="margin:-4px 0 8px;font-size:12px">${src}. Green bars = starters, orange bars = bench. Hover a bar for the time. Last column = minutes.${tl.bad ? ` <span class="warn">Your chart was not used: ${esc(tl.bad)}.</span>` : ''}</p><div class="rc-axis"><span class="rc-n"></span><span class="rc-track rc-ax">${axisFix}</span><span class="rc-m"></span></div>${rows}</section>`;
+}
 function vGame(g) {
   if (!g) return '<p class="muted">That box score is no longer stored.</p>';
   if (g.pbp && ui.liveMode === g.id) return vLive(g);
@@ -2566,7 +2667,7 @@ function vGame(g) {
   <div class="tblwrap"><table class="linescore" style="max-width:520px;margin-top:8px"><thead><tr><th class="l">Team</th>${qh}<th>Final</th></tr></thead><tbody>
   <tr><td class="l">${tlabel(g.away)}<div class="muted lv-rec" style="font-size:11px">${esc(recLine(g, g.away, false))}</div></td>${g.q.map(x => `<td>${x[1]}</td>`).join('')}<td><strong>${g.as}</strong></td></tr>
   <tr><td class="l">${tlabel(g.home)}<div class="muted lv-rec" style="font-size:11px">${esc(recLine(g, g.home, true))}</div></td>${g.q.map(x => `<td>${x[0]}</td>`).join('')}<td><strong>${g.hs}</strong></td></tr></tbody></table></div>${g.lg ? `<p class="muted" style="font-size:12px;margin:6px 0 0">Timeouts used: ${L.teams[g.away].abbr} ${g.lg.to[1]}, ${L.teams[g.home].abbr} ${g.lg.to[0]}${g.lg.ifl[0] + g.lg.ifl[1] ? ` · Intentional fouls late: ${L.teams[g.away].abbr} ${g.lg.ifl[1]}, ${L.teams[g.home].abbr} ${g.lg.ifl[0]}` : ''}${g.lg.hack[0] + g.lg.hack[1] ? ` · Hack-a-player: ${L.teams[g.away].abbr} ${g.lg.hack[1]}, ${L.teams[g.home].abbr} ${g.lg.hack[0]}` : ''}</p>` : ''}${injuries}</section>
-  ${rxPanel(g)}${side(1)}${side(0)}${g.pbp ? `<details class="panel"><summary><strong>Play-by-play</strong> <span class="muted">· ${g.pbp.length} entries · defensive adjustments: ${g.pbp.filter(e => e[6].includes('a')).length}</span></summary><div class="lv-feed" style="max-height:none">${g.pbp.map(e => lvEntryHtml(g, e)).join('')}</div></details>` : ''}`;
+  ${rxPanel(g)}${side(1)}${side(0)}${rotChartPanel(g, 1)}${rotChartPanel(g, 0)}${g.pbp ? `<details class="panel"><summary><strong>Play-by-play</strong> <span class="muted">· ${g.pbp.length} entries · defensive adjustments: ${g.pbp.filter(e => e[6].includes('a')).length}</span></summary><div class="lv-feed" style="max-height:none">${g.pbp.map(e => lvEntryHtml(g, e)).join('')}</div></details>` : ''}`;
 }
 
 // ---------- trades ----------
@@ -2686,9 +2787,9 @@ function positionReadPanel(t) {
 function targetsPanel(kind, noRead) {
   if (L.user == null) return '';
   const tab = TARGET_TABS[ui.tgtTab] ? ui.tgtTab : 'plan', t = L.teams[L.user], list = coachTargets(L, t, kind, tab), dev = tab === 'dev';
-  const rows = list.map(x => { const p = x.p; return `<tr class="click" data-player="${p.id}"><td class="l">${esc(p.name)}</td>${kind === 'fa' ? '' : `<td class="l">${tlabel(p.team)}</td>`}<td class="l">${posLabel(p)}</td><td>${p.age}</td><td><strong>${ovrTxt(p)}</strong></td><td>${dev ? `<span title="The coach's read of his potential">${x.est}</span>` : potCell(p)}</td><td>${kind === 'fa' ? money(p.ask || MINSAL) : p.contract ? money(p.contract.amt) + ' <span class="muted">' + (p.contract.exp - capSeason(L) + 1) + 'y</span>' : '—'}</td><td class="l wrapt muted" style="max-width:380px">${esc(x.why)}</td>${kind === 'fa' ? '' : `<td><button class="sm" data-tgt="${p.id}">Trade for</button></td>`}</tr>`; }).join('');
+  const rows = list.map(x => { const p = x.p; return `<tr class="click" data-player="${p.id}"><td class="l">${esc(p.name)}</td>${kind === 'fa' ? '' : `<td class="l">${tlabel(p.team)}</td>`}<td class="l">${posLabel(p)}</td><td>${p.age}</td><td><strong>${ovrTxt(p)}</strong></td><td>${dev ? `<span title="The coach's read of his potential">${x.est}</span>` : potCell(p)}</td><td>${kind === 'fa' ? money(p.ask || MINSAL) : p.contract ? money(p.contract.amt) + ' <span class="muted">' + (p.contract.exp - capSeason(L) + 1) + 'y</span>' : '—'}</td><td class="l wrapt muted" style="max-width:380px">${esc(x.why)}</td>${kind === 'fa' ? `<td class="l wrapt capfit" style="max-width:240px">${esc(x.cap || '')}</td>` : ''}${kind === 'fa' ? '' : `<td><button class="sm" data-tgt="${p.id}">Trade for</button></td>`}</tr>`; }).join('');
   const goal = tab === 'plan' ? `<p class="muted" style="margin:0 0 8px">Owner's goal: <strong>${esc(((t.owner || {}).goal || {}).txt || '—')}</strong> · team status: <strong>${esc(STATUS_LABEL[shownStatus(t)] || MODE_LABEL[t.mode])}</strong></p>` : tab === 'now' ? '<p class="muted" style="margin:0 0 8px">Players who help this season, whatever the age.</p>' : '<p class="muted" style="margin:0 0 8px">Players 24 and under, ranked by the coach\'s read of his potential.</p>';
-  return `${noRead ? '' : positionReadPanel(t)}<section class="panel" style="margin-bottom:16px"><h2>Coach targets · ${kind === 'fa' ? 'free agents' : 'trades'}</h2><div class="subtabs" style="margin-bottom:8px">${Object.entries(TARGET_TABS).map(([k, n]) => `<button class="sm ${tab === k ? 'primary' : ''}" data-tgttab="${k}">${esc(n)}</button>`).join('')}</div>${goal}<p class="muted" style="margin-top:-4px">Fill your needs, fit the coach's systems, suit your ${MODE_LABEL[t.mode].toLowerCase()} timeline${kind === 'fa' ? ', and fit your budget' : ''}. No target takes a core player's spot.</p>${rows ? `<div class="tblwrap"><table><thead><tr><th class="l">Player</th>${kind === 'fa' ? '' : '<th class="l">Team</th>'}<th class="l">Pos</th><th>Age</th><th>Ovr</th><th>${dev ? 'Coach\'s read' : potHead()}</th><th>${kind === 'fa' ? 'Asking' : 'Contract'}</th><th class="l">Why</th>${kind === 'fa' ? '' : '<th></th>'}</tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="muted">No clear targets right now.</p>'}</section>`;
+  return `${noRead ? '' : positionReadPanel(t)}<section class="panel" style="margin-bottom:16px"><h2>Coach targets · ${kind === 'fa' ? 'free agents' : 'trades'}</h2><div class="subtabs" style="margin-bottom:8px">${Object.entries(TARGET_TABS).map(([k, n]) => `<button class="sm ${tab === k ? 'primary' : ''}" data-tgttab="${k}">${esc(n)}</button>`).join('')}</div>${goal}<p class="muted" style="margin-top:-4px">Fill your needs, fit the coach's systems, suit your ${MODE_LABEL[t.mode].toLowerCase()} timeline${kind === 'fa' ? ', and fit your budget' : ''}. No target takes a core player's spot.</p>${rows ? `<div class="tblwrap"><table><thead><tr><th class="l">Player</th>${kind === 'fa' ? '' : '<th class="l">Team</th>'}<th class="l">Pos</th><th>Age</th><th>Ovr</th><th>${dev ? 'Coach\'s read' : potHead()}</th><th>${kind === 'fa' ? 'Asking' : 'Contract'}</th><th class="l">Why</th>${kind === 'fa' ? '<th class="l">Cap fit</th>' : ''}${kind === 'fa' ? '' : '<th></th>'}</tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="muted">No clear targets right now.</p>'}</section>`;
 }
 
 // v30a #9: who is buying and who is selling right now (front-office status: the same one the AI uses for its trade rules)
@@ -2913,6 +3014,24 @@ function moveBoard(pid, d, dir) {
   if (i < 0 || j < 0 || j >= ids.length) return;
   [ids[i], ids[j]] = [ids[j], ids[i]]; L.myBoard[d] = ids; save(); render();
 }
+// v32d: Draft tab > Team picks: any team's owned picks (this draft + future), with the original team, protection and swaps
+function teamPicksPage() {
+  const tid = ui.dpTeam != null && L.teams[ui.dpTeam] ? ui.dpTeam : (L.user != null ? L.user : 0), t = L.teams[tid]; ui.dpTeam = tid;
+  const ks = L.picks.filter(k => k.owner === tid && !pickUsed(L, k)).sort((a, b) => a.s - b.s || a.rd - b.rd);
+  const owed = L.picks.filter(k => k.orig === tid && k.owner !== tid && !pickUsed(L, k)).sort((a, b) => a.s - b.s || a.rd - b.rd);
+  const sw = swapsOf(L, tid), traded = ks.filter(k => k.orig !== tid).length, firsts = ks.filter(k => k.rd === 1).length;
+  const prot = k => !k.prot ? '<span class="muted">None</span>' : `<span class="pill pos" title="Conveys only if it lands outside the top ${k.prot}; otherwise it rolls to next year's draft">Top-${k.prot} protected</span>${k.roll ? ` <span class="muted">rolled over ${k.roll}×</span>` : ''}`;
+  const rowOf = k => `<tr><td class="l"><strong>${esc(pickLabel(L, Object.assign({}, k, { prot: 0 })))}</strong></td><td>${k.rd}</td><td class="l">${k.orig === tid ? '<span class="muted">Own pick</span>' : `via ${tlabel(k.orig)}`}</td><td class="l">${prot(k)}</td><td class="l">${pickChip(k)}</td><td class="l">${k.swap ? '<span class="pill pos" title="Tied to a pick swap until the lottery">tied to a swap</span>' : ''}</td></tr>`;
+  const yrsL = [...new Set(ks.map(k => k.s))];
+  const body = ks.length ? yrsL.map(S => `<tr class="nosort pkhead"><td class="l" colspan="6"><strong>${draftLabel(S)} draft</strong> <span class="muted">${ks.filter(k => k.s === S).length} pick${ks.filter(k => k.s === S).length > 1 ? 's' : ''}</span></td></tr>${ks.filter(k => k.s === S).map(rowOf).join('')}`).join('') : '<tr><td class="l muted" colspan="6">No picks.</td></tr>';
+  const opts = L.teams.map(x => `<option value="${x.id}" ${x.id === tid ? 'selected' : ''}>${esc(x.city + ' ' + x.name)}${x.id === L.user ? ' (you)' : ''}</option>`).join('');
+  return `<section class="panel"><h2>Team picks</h2><div class="row" style="align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px"><label>Team <select id="dp-team">${opts}</select></label><span class="muted">${ks.length} pick${ks.length === 1 ? '' : 's'} owned · ${firsts} first-rounder${firsts === 1 ? '' : 's'} · ${traded} acquired from other teams</span></div>
+  <div class="tblwrap"><table class="pk-table"><thead><tr><th class="l">Pick</th><th>Rd</th><th class="l">From</th><th class="l">Protection</th><th class="l">Value</th><th class="l">Notes</th></tr></thead><tbody>${body}</tbody></table></div>
+  ${owed.length ? `<h3 style="margin-top:12px;font-size:14px">Owed to other teams</h3><div class="tblwrap"><table><tbody>${owed.map(k => `<tr><td class="l">${esc(pickLabel(L, Object.assign({}, k, { prot: 0 })))}</td><td class="l">to ${tlabel(k.owner)}</td><td class="l">${prot(k)}</td></tr>`).join('')}</tbody></table></div>` : ''}
+  ${sw.length ? `<h3 style="margin-top:12px;font-size:14px">Open pick swaps</h3>${sw.map(x => `<div>${esc(swapLabel(L, x))}</div>`).join('')}` : ''}
+  <p class="muted" style="font-size:12px;margin:10px 0 0">${esc(t.abbr)}: picks they own for this draft and later ones. "Value" is the projected range and tier. A protected 1st stays with the original owner if it lands inside the protected slots.</p></section>`;
+}
+document.addEventListener('change', e => { if (e.target && e.target.id === 'dp-team' && L) { ui.dpTeam = +e.target.value; render(); } });
 function vDraft() {
   const years = Object.keys(L.classes || {}).map(Number).sort((a, b) => a - b);
   if (ui.cls == null || !years.includes(ui.cls)) ui.cls = years[0];
@@ -2935,13 +3054,14 @@ function vDraft() {
   const r2html = r2.length ? `<section class="panel"><h2>Your unsigned draft picks</h2><p class="muted" style="margin-top:-4px">First-rounders sign 3-year rookie-scale deals (passing on one is rare). Second-rounders sign 2-year minimum deals with a team option on year 2, or take a 2-year two-way deal (up to 2 slots). When free agency opens, undecided first-rounders are signed and undecided second-rounders become free agents.</p><div class="row" style="margin-bottom:8px"><button class="primary sm" data-signall="1">Sign all</button></div>${r2.map(p => `<div class="check"><span class="grow">${plink(p)} <span class="muted">Round ${p.draft ? p.draft.rd + ', pick ' + p.draft.no : '?'} · ${posLabel(p)} · ${p.age} · ${ovrTxt(p)} / ${potCell(p)} · ${draftTerms(p)}</span></span><button class="sm primary" data-r2="${p.id}" data-sign="1">Sign</button>${p.draft && p.draft.rd === 2 ? `<button class="sm" data-r2="${p.id}" data-sign="tw" title="A 2-year two-way deal: uses one of your 2 two-way slots, 20 games with the team a season, no playoffs unless converted">Two-way</button>` : ''}<button class="sm" data-r2="${p.id}" data-sign="0">Let go</button></div>`).join('')}</section>` : '';
   const liveNow = L.phase === 'off-draft' && d === L.season;
   // v28.7 R2: four pages: Overview / Draft classes / Scouting / Draft history
-  const pages = [['over', 'Overview'], ['cls', 'Draft classes'], ...(L.user != null ? [['scout', 'Scouting']] : []), ['hist', 'Draft history']];
+  const pages = [['over', 'Overview'], ['cls', 'Draft classes'], ['picks', 'Team picks'], ...(L.user != null ? [['scout', 'Scouting']] : []), ['hist', 'Draft history']];
   if (!pages.some(x => x[0] === ui.dpage)) ui.dpage = 'over';
   const ptabs = `<div class="subtabs" style="margin-bottom:12px">${pages.map(([k, n]) => `<button class="sm ${ui.dpage === k ? 'primary' : ''}" data-dpage="${k}">${esc(n)}</button>`).join('')}</div>`;
   const top = `${phaseNote()}${ptabs}<div class="stack">${r2html}${liveNow ? liveDraft(myTurn) : ''}`;
   const clsBar = `<section class="panel" style="padding-bottom:4px"><div class="row" style="margin-bottom:${ui.dpage === 'cls' ? 8 : 4}px">${tabs}</div>${ui.dpage === 'cls' ? subtabs : ''}</section>`;
   if (ui.dpage === 'over') return top + draftOverview(years[0], orderHtml) + '</div>';
   if (ui.dpage === 'scout') return top + clsBar + scoutingView(d) + picksBlock(L.teams[L.user]) + '</div>';
+  if (ui.dpage === 'picks') return top + teamPicksPage() + '</div>';
   if (ui.dpage === 'hist') return top + draftHistory() + '</div>';
   const body = ui.dtab === 'board' ? boardPanel(d) : `<section class="panel"><h2>${oi != null ? esc(OUTLETS[oi].name) + ' mock' : 'Consensus mock'} · ${draftLabel(d)} class</h2><p class="muted" style="margin-top:-4px">${oi != null ? esc(OUTLETS[oi].lean) + '.' : 'Average of the three outlets\' mocks.'} ${stab}</p>`;
   if (ui.dtab === 'board') return `${top}${clsBar}${body}</div>`;   // v25.5: no consensus table under the board (it has its own tab)

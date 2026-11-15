@@ -1,5 +1,19 @@
 # PBL progress
 
+## v32d S4 (Sonnet, Nov 15 2026): UI pass
+- [x] Rotation chart on the game page (both teams, from `game.tl`), "Planned subs" in the live starting-lineup window
+- [x] Chart editor (My Team > Rotation chart): toggle grid, Save / Undo / Reset to coach pattern, 5-per-block and injury checks, role-minutes warnings
+- [x] Roles + expected minutes: roster ("exp"), player page ("plan"), offer form (likely role / promised role with minutes)
+- [x] Mid-level: "Use mid-level" in the offer popup (amount left, used or not, why not, tax line / hard cap warning); same info in the Salary cap panel and Roster moves header. Engine `mleStatus`, `extra.mle`
+- [x] Coaching targets: free agents that fit under the hard cap only, "Cap fit" note per row
+- [x] Draft tab > Team picks: any team's picks (this draft + future), via-team, protection, swaps, owed picks
+- [x] Tests: node --check, lint 100 PASS, t30a 21/21, t30c 30/30, t32a 38/38, t32b 20/20, t32c 15/15, new `tools/t32d.js` 15/15, browser `tools/browser-v32bc.py.txt` 22/22, new `tools/browser-v32d.py.txt` 70/70 (desktop 1300 + 390px, every screen above, no horizontal page scroll)
+- Open / caveats:
+  - Mid-level is bookkeeping under the B2 cap rule (any team can sign up to the hard cap): the checkbox only decides whether the once-a-season exception is spent. Making it a real cap exception would need a rule change (S5 or later)
+  - A saved chart with a player who is out on game night falls back to the coach pattern for the whole game (S3 rule); the editor and the last-game message say so. A per-slot replacement would be an engine change
+  - Role warnings use the role range +-1.5 min (blocks are 3 min); real minutes also move with blowouts and foul trouble
+  - Long sims not run: no engine change touches the sim except the mid-level flag on your own signings (t32d covers it)
+
 ## v32c S3 (Opus, Nov 15 2026): rotation timeline (engine) + final v32b/c tune
 - [x] Coach patterns (`coachPat`): first-sub pair (SF + PF most often), Q1/Q3 first-sit times by style (tight ~7 / 10 min, balanced 6 / 9, deep 5 / 8), Q2/Q4 split; stable per coach, per-game jitter. 10+ distinct patterns in a 30-team league
 - [x] Plan (`planRotation`, 48 x 5): starters open each half; bench stints by position fit + role minutes. Game follows it (`subStep` / `followPlan`); close finishes, blowouts and OT use the old `doSubs`; foul trouble / injuries filled by fit + minutes owed (stars ride one foul longer); `planMakeUp` at quarter breaks gives back minutes lost

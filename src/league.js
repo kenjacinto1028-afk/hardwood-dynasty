@@ -248,6 +248,13 @@ function contractHit(amt, hg) { return amt <= MINSAL + 1e-9 ? 0 : amt * (hg ? 0.
 // Soft cap: free agents fit under the $150M cap, or once a season through the mid-level exception (up to $8M for a team
 // under the tax line; the signing itself may cross the line but never the hard cap). Your own players can be re-signed or extended up to the $170M hard cap. Minimum deals always fit.
 function mleOpen(L, t) { return t.mleUsed !== capSeason(L); }
+// v32d: mid-level status for the UI. pay = payroll now, hit = cap hit of the offer. eligible = the offer can use it (not used yet, up to MLE, payroll under the tax line before it, and the deal goes over the cap)
+function mleStatus(L, t, pay, hit) {
+  const open = mleOpen(L, t), crosses = hit > 0 && pay + hit > CAP + 1e-6;
+  let why = '';
+  if (!open) why = 'already used this season'; else if (hit <= 0) why = 'minimum deals do not need it'; else if (!crosses) why = 'the deal fits under the cap'; else if (hit > MLE + 1e-6) why = `the offer is over ${money(MLE)}`; else if (pay >= TAXLINE) why = 'payroll is already over the tax line';
+  return { open, left: open ? MLE : 0, eligible: !why, why };
+}
 function canFit(L, t, amt, hg, type) {
   const hit = contractHit(amt, hg); if (hit === 0) return true;
   const pay = payroll(L, t);
@@ -445,7 +452,8 @@ function signContract(L, p, tid, amt, yrs, type, opt, extra) {
   if (joining) { p.morale = 60; p.tradeReq = null; }
   if (type === 'signing' && tid === L.user && L.me && L.phase !== 'regular') { const k = capSeason(L); L.me.spree = L.me.spree && L.me.spree.s === k ? L.me.spree : { s: k, n: 0 }; if (++L.me.spree.n >= 5) unlock(L, 'spree'); }
   const t0 = L.teams[tid];
-  if (type === 'signing' && contractHit(amt, false) > 0 && payroll(L, t0) + contractHit(amt, false) > CAP + 1e-6) { t0.mleUsed = capSeason(L); }
+  // v32d: your offer can say whether this deal spends the mid-level (extra.mle true/false); AI signings keep the old rule (any deal that takes payroll over the cap)
+  if (type === 'signing' && contractHit(amt, false) > 0 && payroll(L, t0) > CAP + 1e-6 && (!extra || extra.mle == null || extra.mle)) { t0.mleUsed = capSeason(L); }
   for (const ot of L.teams) if (ot.id !== tid && (ot.dead || []).some(d => d.pid === p.id)) {
     ot.dead = ot.dead.filter(d => d.pid !== p.id);
     logNews(L, `${p.name} signed with ${t0.abbr}, so his dead money comes off ${ot.abbr}'s cap`, ot.id, 'tx');
@@ -629,7 +637,16 @@ function coachTargets(L, t, kind, tab) {
     const floor = tab === 'dev' ? bar - 12 : bar - (kind === 'fa' ? 3 : 1) - (lean >= 0.5 && young ? 8 : 0);
     if (p.ovr < floor) continue;
     if (tab === 'dev' && est < Math.max(70, bar + 2)) continue;
-    if (kind === 'fa') { if (p.ask == null) setAsk(L, p); if (p.ask > room + 1e-6 && p.ask > MINSAL) continue; }
+    let capNote = '';
+    if (kind === 'fa') {   // v32d: only free agents whose ask fits under the hard cap, each with where it fits
+      if (p.ask == null) setAsk(L, p);
+      const hit = contractHit(p.ask, false), after = payroll(L, t) + hit;
+      if (hit > 0 && after > APRON + 1e-6) continue;
+      if (hit <= 0) capNote = 'Minimum deal: always fits';
+      else if (after <= CAP + 1e-6) capNote = `Fits cap space (${money(CAP - after)} left after)`;
+      else if (after <= TAXLINE + 1e-6) capNote = `Fits under the tax line (${money(TAXLINE - after)} to spare); over the cap`;
+      else { let tx = 0; try { tx = taxCostOf(L, t, payroll(L, t), hit); } catch (e) { } capNote = `Fits under the hard cap (${money(APRON - after)} left); over the tax line, about ${money(tx)} tax`; }
+    }
     else { const st = tradeStatus(L, p); if ((st && st.k === 'protect') || tradeRestricted(L, p) || p.protect) continue; }
     const blk = takesSpot(L, t, p, kept); if (blk) continue;                      // never suggest someone who takes a kept player's spot
     let need = 0, needA = null; for (const a of p.arch || []) { const v = needs[a.p + '|' + a.n] || 0; if (v > need) { need = v; needA = a; } }
@@ -647,7 +664,7 @@ function coachTargets(L, t, kind, tab) {
     { const bk = kept.find(k => k.p.pos === p.pos && p.ovr <= k.p.ovr - 5); if (bk) why.push(`backs up ${bk.p.name} without taking his minutes`); }
     if (kind !== 'fa') { const st = tradeStatus(L, p); if (st && st.k === 'block') { sc += 3; why.push('his team is shopping him'); } }
     if (!why.length) continue;
-    out.push({ p, sc, why: why.join('; '), est });
+    out.push({ p, sc, why: why.join('; '), est, cap: capNote });
   }
   return out.sort((a, b) => b.sc - a.sc).slice(0, 8);
 }
@@ -4888,7 +4905,8 @@ function negotiate(L, pid, amt, yrs, tid, type, opt, extra) {
     let promise = false;
     if (type === 'signing' && tid === L.user && !extra.noOwner) { const oc = ownerCheck(L, amt, 0); if (!oc.ok) { if (oc.ask && extra.ownerPromise) promise = true; else return { ok: false, owner: oc, msg: oc.msg }; } }
     const yy = yrs, oo = opt;   // v32a: he accepts exactly the years offered (before, a deal under 80% of his value was silently cut to 1 year: 4-yr rookie extension, 2-yr minimum). He accepts, counters or refuses; never shortens
-    const ex = { inc: inc || 0, incK: extra.incK || 'gp', ntc: !!extra.ntc, incs: extra.incs || null, kick: extra.kick || 0, eto: extra.eto || null, gtd: extra.gtd != null ? extra.gtd : null, role: extra.role || null };
+    const mleHit = contractHit(amt, false), mleP = payroll(L, t), mleOK = type === 'signing' && mleOpen(L, t) && mleHit > 0 && mleHit <= MLE + 1e-6 && mleP < TAXLINE && mleP + mleHit > CAP + 1e-6;   // v32d
+    const ex = { mle: tid === L.user ? (mleOK && extra.mle !== false) : null, inc: inc || 0, incK: extra.incK || 'gp', ntc: !!extra.ntc, incs: extra.incs || null, kick: extra.kick || 0, eto: extra.eto || null, gtd: extra.gtd != null ? extra.gtd : null, role: extra.role || null };
     if (type === 'extension') { p.ext = { amt, yrs: yy, hg, opt: oo, x: ex }; p.ask = null; p.tx.push({ s: L.season, t: `Signed an extension with ${t.abbr}: ${yy} yr, ${money(amt)}/yr from next season` }); logNews(L, `${t.abbr} extended ${p.name}: ${yy} yr, ${money(amt)}/yr`, tid, 'tx'); }
     else { signContract(L, p, tid, amt, yy, type, oo, ex); if (type === 're-sign') L.resign = L.resign.filter(id => id !== pid); if (promise) acceptOwnerGoal(L); }
     return { ok: true, promised: promise, accepted: { pid, tid, amt, yrs: yy, opt: oo, type }, msg: `${p.name} agreed: ${yy} yr, ${money(amt)}/yr${oo ? ' with a ' + (oo === 'PO' ? 'player' : 'team') + ' option' : ''}.` };

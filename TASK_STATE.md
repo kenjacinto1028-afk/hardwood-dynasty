@@ -1,3 +1,15 @@
+# TASK_STATE — v32d S4 (Sonnet): UI pass — Nov 15 2026
+
+- [x] D0. Read code (game page, starting window, rotChart/tl API, roles UI, offer popup, MLE/cap box, coaching targets, draft tab)
+- [x] D1. Rotation chart view (game page) + starting lineup window planned subs — app.js rotChartPanel, tlStints, nextSubs; styles.css .rc-*
+- [x] D2. Rotation chart editor (my team) + reset + minutes-vs-role warning — app.js rotEditor (toggle grid, save/undo/reset, role warnings), tab "Rotation chart" in My Team
+- [x] D3. Roles + expected minutes on roster, player page, FA offer form
+- [x] D4. MLE "Use mid-level" in offer popup + cap box info
+- [x] D5. Coaching targets: affordable FAs only + fit notes
+- [x] D6. Draft tab: any team's owned picks (this year + future, traded, protections)
+- [x] D7. Tests: node --check, lint, t30a, browser per screen (desktop + 390px) — node --check, lint 100, t30a 21/21, t30c 30/30, t32a 38, t32b 20, t32c 15, new t32d 15/15, browser-v32bc 22/22, new browser-v32d 70/70 (1300 + 390px)
+- [x] D8. PROGRESS.md + README, commit, push or zip
+
 # TASK_STATE — v32b S2 (Opus): stats, minutes, roles — Nov 15 2026
 
 - [x] B0. Read code (buildSide targets, doSubs, rebKey, block calc, moraleParts EXP_MIN, c.role promises, negotiate/clauseMult, faRound)

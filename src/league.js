@@ -8866,8 +8866,8 @@ Object.assign(FLAVOR, {
 });
 // v32e text: news (1 wording each; Haiku adds more) + trade write-up reasons (4 wordings, lint)
 Object.assign(FLAVOR, {
-  'news.paycut': ['{name} took a pay cut to chase a ring: signed with {team} for {amt}/yr (value {val})'],
-  'news.leave': ['{name} turned down {team} and will test free agency ({why})'],
+  'news.paycut': ['{name} took a pay cut to chase a ring: signed with {team} for {amt}/yr (value {val})', '{name} chose winning over money: {team} get him for {amt}/yr (value {val})', 'Ring chase: {name} signs with {team} at {amt}/yr, well under his {val} value', '{name} left money on the table to join {team}: {amt}/yr (value {val})'],
+  'news.leave': ['{name} turned down {team} and will test free agency ({why})', '{name} is leaving {team} for free agency ({why})', 'No deal: {name} walks away from {team} ({why})', '{name} and {team} part ways; he heads to free agency ({why})'],
   'mv.t.expiring': ['cleared cap space for next summer', 'took an expiring deal to open room for free agency', 'swapped a long deal for an expiring one', 'wanted cap room next summer'],
   'mv.t.absorb': ['took on a longer deal for draft picks', 'was paid in picks to take on salary', 'used its cap room to add picks', 'absorbed a contract for picks'],
   'mv.t.longfit': ['wanted the player on a longer deal', 'wanted to keep a useful player for years', 'traded an expiring deal for a player under contract', 'wanted control beyond this season'],

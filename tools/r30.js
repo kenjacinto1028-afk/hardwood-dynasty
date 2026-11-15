@@ -40,6 +40,10 @@ for(let y=1;y<=N;y++){const t0=Date.now();R30.inj={rs:0,po:0,rsG:0,poG:0};const 
  row.top10PoMin=Math.round(top.reduce((a,p)=>a+((p.stats.po&&p.stats.po.min)||0)/60,0));row.top10RsMin=Math.round(top.reduce((a,p)=>a+((p.stats.rs&&p.stats.rs.min)||0)/60,0));
  row.injSeason=Object.assign({},R30.inj);
  row.injuredNow=Object.values(L.players).filter(p=>!p.retired&&p.team!=null&&p.injury>0).length;
+ try{const ps=Object.values(L.players).filter(p=>p.stats&&p.stats.rs&&p.stats.rs.gp>=50),gp=p=>p.stats.rs.gp,mpg=p=>p.stats.rs.min/60/gp(p);   // v32b: rebounds, blocks, minutes, roles
+  const by={};for(const p of Object.values(L.players)){const s=p.stats&&p.stats.rs;if(!s||s.gp<20||p.team==null||!p.role||p.roleT!==p.team)continue;const o=by[p.role]=by[p.role]||[0,0];o[0]+=s.min/60/s.gp;o[1]++;}for(const k in by)by[k]=+(by[k][0]/by[k][1]).toFixed(1);
+  row.v32={rpg9:ps.filter(p=>(p.stats.rs.orb+p.stats.rs.drb)/gp(p)>=9).length,bpg15:ps.filter(p=>p.stats.rs.blk/gp(p)>=1.5).length,topReb:+Math.max(0,...ps.map(p=>(p.stats.rs.orb+p.stats.rs.drb)/gp(p))).toFixed(1),topBlk:+Math.max(0,...ps.map(p=>p.stats.rs.blk/gp(p))).toFixed(1),
+   top10Mpg:ps.map(mpg).sort((a,b)=>b-a).slice(0,10).map(x=>+x.toFixed(1)),byRole:by,broken:Object.values(L.players).filter(p=>p.contract&&p.contract.role&&(p.contract.role.br||[]).includes(L.season)).length};}catch(e){row.v32={err:String(e.message)};}
  startOffseason(L);
  const A=L.awards[L.season]||{};const rp=A.roy!=null?L.players[A.roy&&A.roy.pid!=null?A.roy.pid:A.roy]:null;
  row.roty=rp?{n:rp.name,real:!!rp.real,draft:rp.draft?(rp.draft.rd+'-'+rp.draft.no+' s'+rp.draft.s):'none',ovr:rp.ovr,age:rp.age,rookieSeason:rp.rookieSeason}:null;

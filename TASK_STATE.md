@@ -1,3 +1,27 @@
+# TASK_STATE — v32b S2 (Opus): stats, minutes, roles — Nov 15 2026
+
+- [x] B0. Read code (buildSide targets, doSubs, rebKey, block calc, moraleParts EXP_MIN, c.role promises, negotiate/clauseMult, faRound)
+- [x] B1. tools/v32stats.js (ENGX= overrides). Baseline tools/runs32/v32b-base.txt: 29 at 9+ RPG, 6 at 1.5+ BPG, 2.6 BPG/team, top MPG 39
+- [x] B2. engine ENG.teamReb 0.1 (team rebounds, no player credit) + rebPos by court slot [.9,.92,1,1.05,1.12]: 18 at 9+ RPG, 43.5 team RPG (probe9b)
+- [x] B3. engine ENG.blkK 1.7, blkPow 1.2, blkSel 1.6: 13-16 at 1.5+ BPG, 4.3 team BPG
+- [x] B4. engine ROLES, teamRoles/setTeamRoles/roleOf, roleMinutes (lambda fit to 240); buildSide uses it (non-manual); weekly refresh; morale minutes vs role range
+- [x] B5. league.js expRole/roleAppeal; AI offers carry role (appeal), c.rl stored; promised role = floor + promiseState by range; clauseMult/signConcerns weigh role; app.js roster Role column, sumCard, rotation panel, offer Role picker, morale row
+- [x] B6. tools/t32b.js 20/20
+- [x] B7. node --check, lint, t30a 21/21, t30c 30/30, t32a 38/38, t32b 20/20; 10 seasons NBA commish + team (tools/runs32/v32b-*); tuned teamReb 0.115, sixth man lift, star stretch cap
+- [x] B8. PROGRESS.md v32b section (README with v32c)
+
+# TASK_STATE — v32c S3 (Opus): rotation timeline (engine) — Nov 15 2026
+
+- [x] C0. Read runPeriod subs (doSubs every 180 s / 60 late), lateSubs, logE entry[8] lineups, pbpReplay, L.games retention
+- [x] C1. engine coachPat (per coach: first-sub group, Q1/Q3 out times by style, Q2/Q4 split), planRotation (48x5 plan, bench stints by position fit + role minutes), per-game jitter
+- [x] C2. subStep/followPlan: plan in normal play; doSubs for close finish / blowout / OT; inTrouble + injuries filled by fit + minutes owed
+- [x] C3. g.tl {st, ev[[ds,out,in]], src, bad}; game.tl; tlPrune (yours + last 30); tlReplay; PBP 'u' sub lines with lineups; pbpReplay starters from tl
+- [x] C4. t.rotChart {q:[4 quarters x 4 blocks x 5 ids]} -> chartPlan/rotSetup; invalid -> coach plan + tl.bad reason
+- [x] C5. tools/t32c.js 15/15
+- [x] C6. All tests pass; 10 seasons commish + team (tools/runs32/v32c-*): minutes by role in range (sixth ~22.7), save +0.7% vs v32b
+- [x] C7. PROGRESS.md + README, committed, zip sent (GitHub not linked)
+
+---
 # TASK_STATE — v32a S1 (Sonnet): data + quick fixes — Nov 15 2026
 
 - [x] A0. Read code: nba-setup.js hook (nbaSetupV30a), rmb in engine buildSide, negotiate() 'disc' rule, p.ext (pending extension), offers panel

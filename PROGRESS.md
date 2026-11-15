@@ -1,5 +1,37 @@
 # PBL progress
 
+## v32c S3 (Opus, Nov 15 2026): rotation timeline (engine) + final v32b/c tune
+- [x] Coach patterns (`coachPat`): first-sub pair (SF + PF most often), Q1/Q3 first-sit times by style (tight ~7 / 10 min, balanced 6 / 9, deep 5 / 8), Q2/Q4 split; stable per coach, per-game jitter. 10+ distinct patterns in a 30-team league
+- [x] Plan (`planRotation`, 48 x 5): starters open each half; bench stints by position fit + role minutes. Game follows it (`subStep` / `followPlan`); close finishes, blowouts and OT use the old `doSubs`; foul trouble / injuries filled by fit + minutes owed (stars ride one foul longer); `planMakeUp` at quarter breaks gives back minutes lost
+- [x] `RM_LIFT` [5.5, 4.5, 3, 5.5, -1.5, -3, 0]: a normal game's plan sits above the range for top roles and under for rotation / bench, because blowouts take ~2.9 min a game from stars and give it to the bench. Without it stars averaged ~31
+- [x] Timeline `game.tl` (starters + sub events, deciseconds) for your games + last 30 league games (`tlPrune`); `tlReplay`; play-by-play sub lines (flag `u`) at the same times; starting lineup window from the timeline (`pbpReplay`)
+- [x] Your chart `t.rotChart` (4 quarters x 4 blocks of 3 min x 5 ids) overrides the coach; invalid (unavailable player, not 5 different) -> coach plan + `tl.bad` reason. Editor = S4
+- [x] Final tune (after the S3 engine changed minutes): `ENG.teamReb` 0.06, `blkK` 1.9
+- [x] Tests: node --check, lint 100 PASS, t30a quick 21/21, t30c 30/30, t32a 38/38, t32b 20/20, new `tools/t32c.js` 15/15, browser `tools/browser-v32bc.py.txt` 22/22 (roster Role column, summary Role, offer Role picker, rotation panel, live sub lines, starting window; 1300 + 390px)
+- [x] 10 seasons NBA SEED=21, commish / franchise (`tools/runs32/v32c-nba-*.txt`, vs v32b `tools/runs32/v32b-nba-*.txt`):
+  - 9+ RPG per season: commish avg 17.8 (14-21), franchise 17.7 (13-23). v32b 19.1 / 21.5; baseline 29
+  - 1.5+ BPG: commish 17.4 (15-21), franchise 16.8 (11-20). v32b 13.5 / 17.0; baseline 6
+  - Minutes by role (season avg, gp 20+), commish / franchise: fs 34.4 / 34.1, star 32.7 / 32.7, starter 27.4 / 27.6, sixth 22.6 / 22.7, rotation 17.6 / 17.2, bench 11.0 / 11.4, development 7.7 / 7.8. v32b: fs 34.1, star 33.4, starter 27.8, sixth 21.9, rot 17.4, bench 11.5. Top MPG 36.5-38.6 (v32b up to 40.3)
+  - Save at S10: 17,798 KB vs 17,678 KB in v32b (+120 KB, +0.7%; timelines ~46 KB at any time). Speed same (~107 s a season with two runs in parallel). 0 errors, 0 roster problems; broken role promises 0-2 a season
+- Open: sixth men average ~22.7 (range 24-28); development players ~7.7 per game played (garbage time); `tools/snap/` saves are not in the repo, remake them (TESTING.md) before using SNAP
+
+## v32b S2 (Opus, Nov 15 2026): rebounds, blocks, minutes, roles
+- [x] Rebounds (engine): `ENG.teamReb` 0.115 (that share of boards is a team rebound, no player credit, as in the NBA) + `ENG.rebPos` by court slot [0.9, 0.92, 1, 1.05, 1.12] (bigs box out near the rim) + `drbPow`/`orbPow` knobs (kept 1.0 / 1.1). Team RPG 47 -> ~43.5. No per-player edits
+- [x] Blocks (engine): `ENG.blkK` 1.7, `blkPow` 1.2, `blkSel` 1.6 (was 1 / 1.4 / 2.2): more blocks overall, less piled on one player (Wembanyama 7.8 at blkPow 2 -> ~4). Team BPG 2.6 -> ~4.3
+- [x] Roles (engine, above `buildSide`): `ROLES` (fs 34-37, star 32-35, starter 26-32, sixth 24-28, rot 16-24, bench 8-16, dev 0-8), `teamRoles` (greedy starting five; fs/star from league cut lines `roleCuts`: top ~0.5 / 1.6 per team by OVR, max 1 fs + 2 stars a team; bench by coach value: sixth, `coach.depth - 6` rotation, 2 bench, rest dev; a promised role is a floor; `t.roleSet` = your override, data only), `setTeamRoles` (weekly in `simDay` + when the roster or coach changes, `rolesFresh`), `roleOf`, `p.role` / `p.roleT`
+- [x] Minutes: `roleMinutes` fits role ranges to 240 for the players available that night (one shared shift times each role's flexibility, bisection; short-handed nights stretch the bench, stars 1.5 at most). Coach style leans: tight = top of the range, deep = bottom. Playoffs: top roles up to +2. `RM_LIFT` plans a bit above the range so minutes played (after blowout rest) land in it. Your manual depth chart keeps the old plan
+- [x] Morale: "Minutes vs role" judged against the role range (under the bottom - 1 = minus, inside = +1.5, above = small plus); `parts.role`, `parts.expMin` = range
+- [x] Offers: every AI offer carries the role he'd get there (`expRole`, quick rank estimate) and its pull (`roleAppeal`: about +7% for a franchise-star role, -6% for development). Signed role stored as `c.rl`. Your offer: Role picker (coach decides, or promise a role): `clauseMult` gives up to 10% off for a bigger role than he'd get and up to 15% more for a smaller one; 2+ roles below for a 68+ player = refusal (`signConcerns`). A promised role (`c.role.k` = ROLES key) is a floor in `teamRoles`; `promiseState` fails when he plays 3+ minutes under the range
+- [x] UI (minimal): roster Role column (sortable, tooltip with mpg + promise), player summary card Role box, Rotation & roles panel uses role names, offer form Role picker, morale row "x min · Starter (26-32)"
+- [x] Tests: node --check OK, lint 100 PASS, t30a quick 21/21, t30c 30/30, t32a 38/38, new `tools/t32b.js` 20/20. Probe: `tools/v32stats.js` (ENGX= overrides)
+- [x] 10 seasons NBA SEED=21 (`tools/runs32/v32b-nba-commish.txt`, `-team.txt`; before the last tune):
+  - 9+ RPG per season: commish 19,16,18,23,23,22,16,19,20,15 (avg 19.1); franchise avg 21.5 (18-28). Baseline 29 (`tools/runs32/v32b-base.txt`). Team rebounds raised 0.10 -> 0.115 after this run
+  - 1.5+ BPG: commish avg 13.5 (11-17), franchise 17.0 (12-21). Baseline 6
+  - Top-10 MPG leader 37-40 (now capped: stars stretch 1.5 at most when short-handed)
+  - Minutes by role (avg of season averages, gp 20+): fs 34.1, star 33.4, starter 27.8, sixth 21.9 (under 24: plan raised after this run), rotation 17.4, bench 11.5, development 8.0 (per game played)
+  - Save at S10 17,678 KB vs 17,411 in v31 (+1.5%); 0 errors, 0 roster problems; speed same as v31
+- Open: 9+ RPG drifts with league rating climb in some seasons (franchise S5: 28); development players average ~8 per game played (garbage time)
+
 ## v31 overseas (Nov 15 2026) — cut players aged 26 and under go abroad instead of retiring
 - [x] `startNewSeason` FA cap (60): a cut player aged <= 26 calls `sendAbroad` (league.js, above `startNewSeason`): off `L.fa`, stays in `L.players`, `p.abroad = { s, n }` (s = season he left, n = seasons already abroad on earlier stays). 27+ keep `retirePlayer(.., 'unsigned')` (deleted if never played)
 - [x] Club: `pipeBuild` P3 now also covers players abroad (same pick rule: age 30+ or OVR 48+ prefers EABL, else APBA; least-loaded team under the import cap, any least-loaded team if all full). Transaction "Went overseas: signed with X (LG)"; news `ab.go` (new FLAVOR key, 4 wordings) for OVR 50+ or drafted players, max 6 a year

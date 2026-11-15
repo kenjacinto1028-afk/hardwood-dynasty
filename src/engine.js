@@ -745,7 +745,7 @@ function sysVal(p, w) {
 // cached per player (keyed on what can change it) because games ask for these thousands of times a day
 const FIT_C = new WeakMap(), SR_C = new WeakMap();
 // Game balance: night-to-night swings, how much a big lead relaxes the leader (and pushes the trailer), team chemistry weight
-const ENG = { zone: { dunk: 0.80, lay: 0.55, paint: 0.44, mid: 0.445, tp: 0.350 }, sysD: { switch: -0.003, rim: 0.0045, pressure: -0.001 }, rebSlope: 0.003, grudge: 1.5, rival: 1.0, dLoad: 20, useTax: 0.5, drift: 0.004, knee: 85, kneeSlope: 0.5, sys: { pace: -0.0005, motion: 0.006, iso: 0, inside: -0.005 }, pace: 0.93, tov: 0.113, tovSlope: 0.018, slope: 1.3, formSd: 0.22, teamNight: 2.2, relax: 0.005, relaxCap: 0.09, relaxFrom: 8, chem: 1, b2bO: 0.8, b2bD: 0.6, b2bInj: 1.25, hurtBase: 1.5, hurtPer: 1.5, hurtInj: 1.5, aggr: 0.04, ato: 0.03, hackFt: 37, hackStart: 0.15, ftA: 0.30, ftB: 0.0068, mix: { rim: 0.833, post: 1.59, mid: 0.686, tp: 1.145, corner: 0.85 }, c3: 0.034, atb3: 0.005, bg: { tp: [42, 18, 0.08], mid: [38, 18, 0.2] }, tpSlope: 0.0036 };   // v25.4: big-man gate, lower 3P%   // v25.2: shot mix and three-point zone offsets   // v24.8: after-timeout play bonus, hack-a-player   // v24.7: playing hurt   // v24.6: back-to-back fatigue
+const ENG = { zone: { dunk: 0.80, lay: 0.55, paint: 0.44, mid: 0.445, tp: 0.350 }, sysD: { switch: -0.003, rim: 0.0045, pressure: -0.001 }, rebSlope: 0.003, grudge: 1.5, rival: 1.0, dLoad: 20, useTax: 0.5, drift: 0.004, knee: 85, kneeSlope: 0.5, sys: { pace: -0.0005, motion: 0.006, iso: 0, inside: -0.005 }, pace: 0.93, tov: 0.113, tovSlope: 0.018, slope: 1.3, formSd: 0.22, teamNight: 2.2, relax: 0.005, relaxCap: 0.09, relaxFrom: 8, chem: 1, b2bO: 0.8, b2bD: 0.6, b2bInj: 1.25, hurtBase: 1.5, hurtPer: 1.5, hurtInj: 1.5, aggr: 0.04, ato: 0.03, hackFt: 37, hackStart: 0.15, ftA: 0.30, ftB: 0.0068, mix: { rim: 0.833, post: 1.59, mid: 0.686, tp: 1.145, corner: 0.85 }, c3: 0.034, atb3: 0.005, bg: { tp: [42, 18, 0.08], mid: [38, 18, 0.2] }, tpSlope: 0.0036, orbPow: 1.1, drbPow: 1.0, rebPos: [0.9, 0.92, 1, 1.05, 1.12], teamReb: 0.06, blkK: 1.9, blkPow: 1.2, blkSel: 1.6 };   // v32b blocks: was 1 / 1.4 / 2.2 (6 players at 1.5+ BPG, 2.6 a team)   // v32b: rebound / block shares (tuned below)   // v25.4: big-man gate, lower 3P%   // v25.2: shot mix and three-point zone offsets   // v24.8: after-timeout play bonus, hack-a-player   // v24.7: playing hurt   // v24.6: back-to-back fatigue
 // v27 K5: the coach's sliders tilt what his system wants (more threes -> shooting, crash -> offensive boards, motion -> passing / IQ, iso -> handle / draw, gamble -> steals, pack paint -> blocks, run off the line -> perimeter D, pace -> speed)
 const SL_W_C = new WeakMap();
 function slWeights(coach) {
@@ -1158,6 +1158,250 @@ function makeSchedule(teams, G, season) {
 const BX = ['min', 'pts', 'fgm', 'fga', 'tpm', 'tpa', 'ftm', 'fta', 'orb', 'drb', 'ast', 'stl', 'blk', 'tov', 'pf', 'gs', 'pm'];
 const IX = {}; BX.forEach((k, i) => IX[k] = i);
 
+// ---------- v32b: roles with minutes expectations ----------
+// Each rostered player gets a role from his coach (p.role, refreshed weekly and when the roster changes). A role sets the minutes he
+// expects; the game plan (roleMinutes) fits those ranges to 240 minutes for whoever is available that night.
+const ROLES = [
+  { k: 'fs', n: 'Franchise star', lo: 34, hi: 37, flex: 0.15 },
+  { k: 'star', n: 'Star', lo: 32, hi: 35, flex: 0.25 },
+  { k: 'starter', n: 'Starter', lo: 26, hi: 32, flex: 0.5 },
+  { k: 'sixth', n: 'Sixth man', lo: 24, hi: 28, flex: 0.6 },
+  { k: 'rot', n: 'Rotation', lo: 16, hi: 24, flex: 1 },
+  { k: 'bench', n: 'Bench', lo: 8, hi: 16, flex: 1.4 },
+  { k: 'dev', n: 'Development', lo: 0, hi: 8, flex: 2 }];
+const ROLE_BY = {}; ROLES.forEach((r, i) => { r.i = i; ROLE_BY[r.k] = r; });
+const ROLE_KEYS = ROLES.map(r => r.k);
+function roleRank(k) { return ROLE_BY[k] ? ROLE_BY[k].i : 6; }
+function roleName(k) { return ROLE_BY[k] ? ROLE_BY[k].n : '—'; }
+function roleRange(k) { const r = ROLE_BY[k]; return r ? r.lo + '-' + r.hi : ''; }
+function roleMid(k) { const r = ROLE_BY[k]; return r ? (r.lo + r.hi) / 2 : 0; }
+// league-wide cut lines: franchise stars are about the top half-player per team, stars the next ~1.1 per team (by rating)
+function roleCuts(league) {
+  const key = league.season + ':' + (league.day || 0) + ':' + (league.phase || '');
+  if (league._rc && league._rc.key === key) return league._rc;
+  const ov = []; for (const t of league.teams) for (const id of t.roster) { const p = league.players[id]; if (p) ov.push(p.ovr); }
+  ov.sort((a, b) => b - a); const n = league.teams.length;
+  const at = i => ov[Math.min(ov.length - 1, Math.max(0, i))] || 99;
+  league._rc = { key, fs: Math.max(at(Math.round(n * 0.5) - 1), 70), star: Math.max(at(Math.round(n * 1.6) - 1), 66) };
+  Object.defineProperty(league, '_rc', { value: league._rc, enumerable: false, writable: true, configurable: true });   // not saved
+  return league._rc;
+}
+function roleValue(league, t, p) { const NBm = typeof NBA_ON !== 'undefined' && NBA_ON; return playerValue(p, t.coach) + ((t.yb || {})[p.id] || 0) + (NBm ? Math.max(-4, Math.min(4, p.rmb || 0)) : 0); }
+// roles for a roster (Map pid -> key). extra: a player who isn't on the team yet (what role he would get). Players out long-term keep their role.
+function teamRoles(league, t, extra) {
+  const cut = roleCuts(league), coach = t.coach;
+  let ps = t.roster.map(id => league.players[id]).filter(p => p && !(p.injLong && p.injury >= 30));
+  if (extra && !ps.includes(extra)) ps = ps.concat(extra);
+  const val = new Map(ps.map(p => [p.id, roleValue(league, t, p)]));
+  const pairs = []; for (const p of ps) for (let s = 0; s < 5; s++) pairs.push([playerValue(p, coach, s) + val.get(p.id) - playerValue(p, coach), p, s]);
+  pairs.sort((a, b) => b[0] - a[0]);
+  const slot = [null, null, null, null, null], used = new Set();
+  for (const [, p, s] of pairs) { if (slot[s] || used.has(p.id)) continue; slot[s] = p; used.add(p.id); }
+  const out = new Map(), st = slot.filter(Boolean).sort((a, b) => b.ovr - a.ovr);
+  let fs = false, stars = 0;
+  for (const p of st) { let k = 'starter'; if (!fs && p.ovr >= cut.fs && stars === 0) { k = 'fs'; fs = true; } else if (stars < 2 && p.ovr >= cut.star) { k = 'star'; stars++; } out.set(p.id, k); }
+  const bench = ps.filter(p => !used.has(p.id)).sort((a, b) => val.get(b.id) - val.get(a.id));
+  const nRot = clamp((coach.depth || 9) - 6, 1, 5);
+  bench.forEach((p, i) => out.set(p.id, i === 0 ? 'sixth' : i <= nRot ? 'rot' : i <= nRot + 2 ? 'bench' : 'dev'));
+  for (const p of ps) {
+    const c = p.contract, pr = c && c.role ? (ROLE_BY[c.role.k] ? c.role.k : c.role.k === 'starter' ? 'starter' : null) : null;   // a role promise is a floor
+    if (pr && p.team === t.id && roleRank(pr) < roleRank(out.get(p.id))) out.set(p.id, pr);
+    const us = league.user === t.id && t.roleSet && t.roleSet[p.id];   // your own call (data only for now; S4 adds the editor)
+    if (us && ROLE_BY[us] && p.team === t.id) out.set(p.id, us);
+  }
+  return out;
+}
+// refresh p.role for a team (weekly, at season start, after roster moves). Cheap: one greedy pass.
+function setTeamRoles(league, t) {
+  const m = teamRoles(league, t);
+  for (const [id, k] of m) { const p = league.players[id]; if (p) { p.role = k; p.roleT = t.id; } }
+  for (const id of t.roster) { const p = league.players[id]; if (p && !m.has(id) && p.roleT !== t.id) { p.role = teamRoles(league, t, p).get(id) || 'dev'; p.roleT = t.id; } }   // out long-term: the role he'd have healthy
+  t.roleKey = t.roster.join(',') + '|' + (t.coach ? t.coach.id : '');
+}
+function rolesFresh(league, t) { if (t.roleKey !== t.roster.join(',') + '|' + (t.coach ? t.coach.id : '')) setTeamRoles(league, t); }
+function roleOf(league, p) { if (p.team == null) return null; const t = league.teams[p.team]; if (t) rolesFresh(league, t); return p.roleT === p.team ? p.role : null; }
+// fit role ranges to the minutes on offer: one shared shift (lambda) times each role's flexibility, clamped to the range; bisection.
+// list: [{ id, k, w }] (w = optional extra lean, minutes). Returns { id: minutes }.
+const RM_LIFT = [5.5, 4.5, 3, 5.5, -1.5, -3, 0];   // v32c: a normal game's plan: top roles above their range by about what blowouts and foul trouble take off, rotation / bench a bit under (blowout garbage time adds it back), so season averages land in the ranges   // short-handed nights: stars stretch 1.5 at most (calc), the bench takes the rest   // plan a bit above the role so the minutes played (after blowout rest and foul trouble) land in it
+function roleMinutes(list, coach, playoff, total) {
+  total = total || 240;
+  const style = (coach && coach.rot) || 'Balanced', lean = style === 'Tight' ? 0.9 : style === 'Deep' ? 0.55 : 0.75;   // top roles aim high: blowout rest takes ~1.5 min off them
+  const pref = x => { const r = ROLE_BY[x.k] || ROLE_BY.dev; let f = r.i <= 2 ? lean : r.i === 3 ? 0.7 : r.i === 4 ? 0.5 : r.i === 5 ? 0.35 : 0.15; if (playoff) f = r.i <= 1 ? 1.4 : r.i === 2 ? Math.min(1.2, f + 0.3) : r.i >= 4 ? 0.15 : f; return r.lo + (r.hi - r.lo) * f + (x.w || 0) + RM_LIFT[r.i]; };
+  const sk = style === 'Tight' ? 0.5 : style === 'Deep' ? 1.6 : 1;   // how much the top three roles give up when minutes are tight (tight coaches protect them)
+  const fx = r => r.flex * (r.i <= 2 ? sk : 1), poHi = r => playoff && r.i <= 2 ? 2 : 0;   // playoffs: the top roles can run 2 past their range
+  const calc = (lam, wide) => { let s = 0; const m = {}; for (const x of list) { const r = ROLE_BY[x.k] || ROLE_BY.dev, lo = wide ? 0 : r.lo + Math.min(0, RM_LIFT[r.i]), hi = r.hi + Math.max(0, RM_LIFT[r.i]) + poHi(r) + (wide ? (r.i <= 1 ? Math.min(wide, 1.5) : wide) : 0); m[x.id] = clamp(pref(x) + lam * fx(r), lo, hi); s += m[x.id]; } return [s, m]; };
+  let wide = 0, a = -60, b = 60;
+  if (calc(b, 0)[0] < total) wide = calc(b, 6)[0] >= total ? 6 : 14;   // short-handed: roles stretch past their top
+  else if (calc(a, 0)[0] > total) wide = 0.001;                        // too many players: lower ends can drop to zero
+  for (let i = 0; i < 40; i++) { const mid = (a + b) / 2; if (calc(mid, wide)[0] > total) b = mid; else a = mid; }
+  const [s, m] = calc((a + b) / 2, wide);
+  if (s > 0 && Math.abs(s - total) > 0.5) for (const id in m) m[id] *= total / s;
+  return m;
+}
+// ---------- v32c: rotation timeline ----------
+// Each coach has a rotation pattern (coachPat): when his starters first sit in the 1st and 3rd quarters (two groups, staggered by
+// position), and how he splits the rest between the 2nd and 4th. planRotation turns it into a minute-by-minute plan (48 x 5, by
+// slot) whose minutes match the role targets (g.target); bench stints fill the gaps by position. The game follows the plan unless
+// the game is close late, a blowout, overtime, foul trouble, or an injury (subStep). Your team can save a chart (t.rotChart:
+// 4 quarters x 4 blocks of 3 minutes, 5 ids each) that replaces the coach's plan; an invalid one falls back to the coach's.
+const ROT_BLK = 3;   // chart block length (minutes)
+const PAT_C = new WeakMap();
+const PAT_FIRST = [[2, 3], [2, 3], [1, 2], [3, 4], [0, 2], [1, 4]];   // slots that sit first (SF + PF most often, as in the classic pattern)
+function coachPat(c) {
+  if (!c) return { e1: 6, e2: 9, first: [2, 3], q4: 0.55 };
+  const k = (c.id || 0) + '|' + (c.rot || '') + '|' + (c.depth || 9), y = PAT_C.get(c); if (y && y.k === k) return y;
+  let h = ((((c.id || 1) * 2654435761) >>> 0) ^ 0x5bd1e995) >>> 0; const nx = () => { h = (Math.imul(h ^ (h >>> 15), 2246822507) ^ 0x9e3779b9) >>> 0; return (h % 1000) / 1000; };
+  const st = c.rot || 'Balanced', b = st === 'Tight' ? [7, 10] : st === 'Deep' ? [5, 8] : [6, 9];
+  const x = { k, e1: b[0] + (nx() - 0.5), e2: b[1] + (nx() - 0.5), first: PAT_FIRST[Math.floor(nx() * PAT_FIRST.length)], q4: 0.5 + nx() * 0.12 };
+  PAT_C.set(c, x); return x;
+}
+function slotFit(p, s) { return s === p.pos || s === p.pos2 ? 1 : Math.min(Math.abs(s - p.pos), p.pos2 != null ? Math.abs(s - p.pos2) : 9) === 1 ? 0.72 : 0.3; }
+// best slot order for a set of 5 players (greedy on position fit, then value)
+function slotsFor(five, coach) {
+  const pairs = []; for (const p of five) for (let s = 0; s < 5; s++) pairs.push([slotFit(p, s) * 100 + playerValue(p, coach) * 0.01, p, s]);
+  pairs.sort((a, b) => b[0] - a[0]); const out = [null, null, null, null, null], used = new Set();
+  for (const [, p, s] of pairs) { if (out[s] || used.has(p.id)) continue; out[s] = p; used.add(p.id); }
+  return out;
+}
+// the coach's plan: plan[m][slot] = player (m = minute 0-47)
+function planRotation(g) {
+  const pat = coachPat(g.coach), T = id => (g.target[id] || 0) / 60, jit = () => (R() - 0.5) * 1.2;
+  const plan = Array.from({ length: 48 }, () => [null, null, null, null, null]), busy = Array.from({ length: 48 }, () => new Set());
+  const put = (p, s, a, b) => { for (let m = Math.max(0, a); m < Math.min(48, b); m++) { plan[m][s] = p; busy[m].add(p.id); } };
+  const st = g.court.slice(), onSt = new Set(st.filter(Boolean).map(p => p.id));
+  st.forEach((p, s) => {
+    if (!p) return;
+    const t = clamp(Math.round(T(p.id)), 0, 48), star = g.stars && g.stars.has(p.id);
+    let o1 = (pat.first.includes(s) ? pat.e1 : pat.e2) + jit() + (star ? 1 : 0), o3 = o1 + (R() - 0.4) * 0.8;
+    o1 = clamp(Math.round(o1), 3, 12); o3 = clamp(Math.round(o3), 3, 12);
+    if (o1 + o3 > t) { o1 = Math.floor(t / 2); o3 = t - o1; }
+    let rest = t - o1 - o3;
+    while (rest > 24 && (o1 < 12 || o3 < 12)) { if (o1 <= o3 && o1 < 12) o1++; else o3++; rest--; }
+    let b4 = Math.min(12, Math.round(rest * pat.q4)), b2 = Math.min(12, rest - b4); if (rest - b4 - b2 > 0) b4 = Math.min(12, rest - b2);
+    put(p, s, 0, o1); put(p, s, 24 - b2, 24); put(p, s, 24, 24 + o3); put(p, s, 48 - b4, 48);
+  });
+  const bench = g.players.filter(p => !onSt.has(p.id) && !g.out.has(p.id));
+  const B = new Map(bench.map(p => [p.id, Math.round(T(p.id))]));
+  const gaps = []; for (let s = 0; s < 5; s++) { let a = -1; for (let m = 0; m <= 48; m++) { const open = m < 48 && !plan[m][s]; if (open && a < 0) a = m; if (!open && a >= 0) { gaps.push({ s, a, b: m }); a = -1; } } }
+  gaps.sort((x, y) => x.a - y.a || (y.b - y.a) - (x.b - x.a));
+  for (const gp of gaps) {
+    let m = gp.a;
+    while (m < gp.b) {
+      let best = null, bv = -1;
+      for (const p of bench) { if (busy[m].has(p.id)) continue; const left = B.get(p.id), v = slotFit(p, gp.s) * (left > 0 ? 1 + left / 8 : 0.05) + (m > 0 && plan[m - 1][gp.s] === p ? 0.5 : 0); if (v > bv) { bv = v; best = p; } }
+      if (!best) break;
+      let len = Math.max(1, Math.min(gp.b - m, B.get(best.id) > 0 ? B.get(best.id) : 1));
+      let e = m; while (e < m + len && !busy[e].has(best.id)) e++;
+      put(best, gp.s, m, e); B.set(best.id, B.get(best.id) - (e - m)); m = Math.max(e, m + 1);
+    }
+  }
+  return plan;
+}
+// your saved chart -> plan, or a reason it can't be used
+function chartPlan(league, g) {
+  const ch = g.t.rotChart; if (!ch || !Array.isArray(ch.q)) return { bad: null };
+  const avail = new Map(g.players.map(p => [p.id, p])), plan = [];
+  for (let qi = 0; qi < 4; qi++) for (let b = 0; b < 12 / ROT_BLK; b++) {
+    const ids = ((ch.q[qi] || [])[b] || []).filter(x => x != null);
+    if (ids.length !== 5 || new Set(ids).size !== 5) return { bad: `Q${qi + 1} block ${b + 1}: needs 5 different players` };
+    const miss = ids.find(id => !avail.has(id) || !g.t.roster.concat(g.t.twoWay || []).includes(id));
+    if (miss != null) { const p = league.players[miss]; return { bad: `${p ? p.name : 'A player'} is not available (Q${qi + 1})` }; }
+    const five = slotsFor(ids.map(id => avail.get(id)), g.coach);
+    for (let m = 0; m < ROT_BLK; m++) plan.push(five);
+  }
+  return { plan };
+}
+function rotSetup(league, g, playoff) {
+  const cp = league.user === g.t.id ? chartPlan(league, g) : { bad: null };
+  if (cp.plan) {
+    g.plan = cp.plan; g.planSrc = 'chart';
+    const mins = {}; for (const row of cp.plan) for (const p of row) mins[p.id] = (mins[p.id] || 0) + 1;
+    for (const p of g.players) g.target[p.id] = (mins[p.id] || 0) * 60;
+    for (const p of g.court) if (p) g.st[p.id][IX.gs] = 0;
+    g.court = cp.plan[0].slice(); g.slotOf = {}; g.court.forEach((p, s) => { g.slotOf[p.id] = s; g.st[p.id][IX.gs] = 1; });
+    g.starters = new Set(g.court.map(p => p.id));
+  } else { g.plan = planRotation(g); g.planSrc = 'coach'; if (cp.bad) g.chartBad = cp.bad; }
+}
+function subState(g, quarter, clock, margin, ot) {
+  const m = Math.abs(margin), closing = ot || (quarter === 4 && clock <= 300 && m <= 10) || (quarter === 4 && clock <= 120 && m <= 15);
+  const blowout = !closing && ((quarter === 4 && m >= 20) || (quarter === 4 && clock <= 360 && m >= 16) || (quarter === 3 && clock <= 180 && m >= 28));
+  return closing ? 'close' : blowout ? 'blowout' : 'normal';
+}
+function inTrouble(g, p, quarter, clock) {
+  const pf = g.st[p.id][IX.pf], ftc = g.late ? g.late.ft : 'normal', big = g.stars && g.stars.has(p.id) ? 1 : 0;   // coaches ride their stars one foul longer
+  if (quarter < 4 && pf >= quarter + (ftc === 'ride' ? 2 : 1) + big) return true;
+  if (quarter === 4 && pf >= 5 && clock > (ftc === 'sit' ? 420 : ftc === 'ride' ? 180 : 300)) return true;
+  return false;
+}
+// follow the plan for this minute; fill holes (fouled out, injured, foul trouble) by position fit and minutes still owed
+function followPlan(g, elapsed, quarter, clock) {
+  const mi = Math.min(47, Math.floor(elapsed / 60 + 1e-6)), want = g.plan[mi].slice(), ok = p => p && !g.out.has(p.id) && !inTrouble(g, p, quarter, clock);
+  for (let s = 0; s < 5; s++) if (!ok(want[s]) || want.indexOf(want[s]) !== s) want[s] = null;
+  if (want.some(x => !x)) {
+    const inW = new Set(want.filter(Boolean).map(p => p.id)), onNow = new Set(g.court.filter(Boolean).map(p => p.id));
+    const pool = g.players.filter(p => !inW.has(p.id) && ok(p));
+    for (let s = 0; s < 5; s++) if (!want[s]) {
+      let best = null, bv = -1e9;
+      for (const p of pool) { if (inW.has(p.id)) continue; const owe = (g.target[p.id] - g.st[p.id][IX.min]) / 60, v = slotFit(p, s) * 10 + clamp(owe, -10, 20) * 0.4 + (onNow.has(p.id) ? 3 : 0) + playerValue(p, g.coach) * 0.03; if (v > bv) { bv = v; best = p; } }
+      if (best) { want[s] = best; inW.add(best.id); }
+    }
+  }
+  if (want.some(x => !x)) return false;
+  const same = want.every(p => g.court.some(c => c && c.id === p.id));
+  if (!same) { g.court = want; g.slotOf = {}; want.forEach((p, s) => g.slotOf[p.id] = s); }
+  g.state = 'normal'; return true;
+}
+// at a quarter break: anyone behind his plan so far (foul trouble, a blowout stretch) gets his next stints stretched by the minutes he
+// lost, taken from bench players next to him in the plan (players ahead of plan first)
+function planMakeUp(g, elapsed) {
+  const P = g.plan; if (!P) return; const m0 = Math.ceil(elapsed / 60 - 1e-6); if (m0 >= 47) return;
+  const pl = {}; for (let m = 0; m < m0; m++) for (const p of P[m]) if (p) pl[p.id] = (pl[p.id] || 0) + 1;
+  const left = {}; for (let m = m0; m < 48; m++) for (const p of P[m]) if (p) left[p.id] = (left[p.id] || 0) + 1;
+  const owe = p => (pl[p.id] || 0) - g.st[p.id][IX.min] / 60;   // + = behind plan
+  const short = g.players.filter(p => !g.out.has(p.id) && owe(p) >= 1).sort((a, b) => (g.target[b.id] || 0) - (g.target[a.id] || 0));
+  for (const p of short) {
+    let need = Math.round(owe(p)), guard = 0;
+    while (need > 0 && guard++ < 6) {
+      let did = false;
+      for (let m = m0; m < 48 && need > 0; m++) {
+        if (P[m].includes(p) || !((m > m0 && P[m - 1].includes(p)) || (m < 47 && P[m + 1].includes(p)))) continue;
+        let bs = -1, bv = -1e9;
+        for (let s = 0; s < 5; s++) { const q = P[m][s]; if (!q || q === p || slotFit(p, s) < 0.72 || (g.starters.has(q.id) && owe(q) > -1)) continue; const v = -owe(q) * 2 - (g.target[q.id] || 0) / 600 + slotFit(p, s); if (v > bv) { bv = v; bs = s; } }
+        if (bs < 0) continue;
+        const q = P[m][bs]; P[m] = P[m].slice(); P[m][bs] = p; pl[q.id] = (pl[q.id] || 0); need--; did = true;
+      }
+      if (!did) break;
+    }
+  }
+}
+// one substitution check (every possession). due = the old 3-minute window (or a forced change)
+function subStep(g, elapsed, quarter, clock, margin, ot, due) {
+  const st = subState(g, Math.min(quarter, 4), clock, margin, ot), changed = st !== g.subSt; g.subSt = st;
+  if (g.plan && st === 'normal' && !ot && quarter <= 4 && followPlan(g, elapsed, quarter, clock)) return;
+  if (due || changed) doSubs(g, elapsed, Math.min(quarter, 4), clock, margin, ot);
+}
+// timeline: starters + sub events [deciseconds, out id, in id]; compact, rebuilt into minutes by tlMinutes
+function tlNote(g, elapsed) {
+  const now = g.court.filter(Boolean).map(p => p.id); if (!g.tl) { g.tl = { st: now.slice(), ev: [], src: g.planSrc || 'coach' }; if (g.chartBad) g.tl.bad = g.chartBad; g.tlLast = now; return null; }
+  const last = g.tlLast, outs = last.filter(id => !now.includes(id)), ins = now.filter(id => !last.includes(id)); if (!outs.length && !ins.length) return null;
+  const t = Math.round(elapsed * 10); for (let i = 0; i < Math.max(outs.length, ins.length); i++) g.tl.ev.push([t, outs[i] != null ? outs[i] : -1, ins[i] != null ? ins[i] : -1]);
+  g.tlLast = now; return { outs, ins };
+}
+// seconds on court per player and the five on court each minute, rebuilt from a stored timeline
+function tlReplay(tl, total) {
+  const sec = {}, on = new Set(tl.st), byMin = []; let t0 = 0, k = 0;
+  const add = t => { for (const id of on) sec[id] = (sec[id] || 0) + (t - t0) / 10; t0 = t; };
+  const end = Math.round((total || 2880) * 10);
+  for (let m = 0; m * 600 < end; m++) { const t = m * 600 + 300; while (k < tl.ev.length && tl.ev[k][0] <= t) { const e = tl.ev[k++]; add(e[0]); if (e[1] >= 0) on.delete(e[1]); if (e[2] >= 0) on.add(e[2]); } byMin.push([...on]); }
+  while (k < tl.ev.length) { const e = tl.ev[k++]; add(e[0]); if (e[1] >= 0) on.delete(e[1]); if (e[2] >= 0) on.add(e[2]); }
+  add(end);
+  return { sec, byMin };
+}
+const TL_KEEP = 30;   // league games (not yours) that keep their timeline
+function tlPrune(league) {
+  const G = league.games; let n = 0;
+  for (let i = G.length - 1; i >= 0; i--) { const g = G[i]; if (!g.tl) continue; if (league.user != null && (g.home === league.user || g.away === league.user)) continue; if (++n > TL_KEEP) { delete g.tl; break; } }
+}
 function buildSide(league, tid, isHome, playoff) {
   const t = league.teams[tid], coach = t.coach;
   let avail = t.roster.map(id => league.players[id]).filter(p => p.injury <= 0 && !(p.holdout && p.holdout.left > 0) && !(p.susp && p.susp.g > 0));   // v28.8: suspended players sit
@@ -1223,20 +1467,31 @@ function buildSide(league, tid, isHome, playoff) {
   const style = coach.rot || 'Balanced';
   const NB = typeof NBA_ON !== 'undefined' && NBA_ON;   // v27.13 U7: NBA mode, a shorter real-style rotation (sim minutes ran 4 per game low)
   const benchMin = style === 'Deep' ? [22, 20, 18, 15, 13] : style === 'Tight' ? [26, 18, 12, 8, 5] : NB ? [25, 20, 15, 10, 6] : [24, 19, 15, 11, 8];
-  const sv = g.court.filter(Boolean).map(p => playerValue(p, coach));
-  const avgSv = sv.reduce((a, b) => a + b, 0) / (sv.length || 1);
-  const bv = rot.slice(0, 3).map(p => playerValue(p, coach));
-  const avgBv = bv.length ? bv.reduce((a, b) => a + b, 0) / bv.length : 0;
-  const benchGood = bv.length && avgBv >= avgSv - 4 ? 2 : 0; // a strong bench takes minutes from the starters
-  const base = (style === 'Deep' ? 29.5 : style === 'Tight' ? 33.5 : 31.5) + (NB ? 2.5 : 0) - benchGood;
-  const hiCap = style === 'Tight' ? 38 : style === 'Deep' ? 34 : NB ? 38 : 36;
-  // the team's best player (and a second one if he's good) gets star minutes
-  { const byV = g.players.slice().sort((a, b) => playerValue(b, coach) - playerValue(a, coach)); g.stars = new Set(byV.filter((p, i) => i === 0 || (i === 1 && p.ovr >= 74) || p.ovr >= 78).slice(0, 2).map(p => p.id)); }
-  let stTot = 0;
-  for (const p of g.court) if (p) { g.target[p.id] = clamp(base + (playerValue(p, coach) - avgSv) * 0.35 + (g.stars.has(p.id) ? (NB ? 3 : 2) : 0) + ((yb[p.id] || 0) + rmb(p)) * 0.35, 24, hiCap) * 60; stTot += g.target[p.id]; }   // v26.5: status minutes (t.yb)
-  let bTot = 0; rot.forEach((p, i) => { g.target[p.id] = (benchMin[i] + (g.stars.has(p.id) ? 4 : 0)) * 60; bTot += g.target[p.id]; });
-  const remain = 2880 * 5 - stTot;
-  if (bTot > 0) { const sc = remain / bTot; rot.forEach(p => g.target[p.id] = Math.min(g.target[p.id] * sc, 32 * 60)); }
+  // v32b: minutes follow roles (teamRoles / roleMinutes); your manual depth chart keeps the older plan below
+  if (!manual) {
+    rolesFresh(league, t);
+    const rk = p => (p.roleT === tid && ROLE_BY[p.role]) ? p.role : 'dev';
+    const list = avail.map(p => ({ id: p.id, k: rk(p) }));
+    const mm = roleMinutes(list, coach, playoff, 240);
+    for (const p of avail) g.target[p.id] = (mm[p.id] || 0) * 60;
+    g.stars = new Set(avail.filter(p => rk(p) === 'fs' || rk(p) === 'star').map(p => p.id));
+    if (!g.stars.size) { const b = avail.slice().sort((a, b) => playerValue(b, coach) - playerValue(a, coach))[0]; if (b) g.stars.add(b.id); }
+  } else {
+    const sv = g.court.filter(Boolean).map(p => playerValue(p, coach));
+    const avgSv = sv.reduce((a, b) => a + b, 0) / (sv.length || 1);
+    const bv = rot.slice(0, 3).map(p => playerValue(p, coach));
+    const avgBv = bv.length ? bv.reduce((a, b) => a + b, 0) / bv.length : 0;
+    const benchGood = bv.length && avgBv >= avgSv - 4 ? 2 : 0; // a strong bench takes minutes from the starters
+    const base = (style === 'Deep' ? 29.5 : style === 'Tight' ? 33.5 : 31.5) + (NB ? 2.5 : 0) - benchGood;
+    const hiCap = style === 'Tight' ? 38 : style === 'Deep' ? 34 : NB ? 38 : 36;
+    // the team's best player (and a second one if he's good) gets star minutes
+    { const byV = g.players.slice().sort((a, b) => playerValue(b, coach) - playerValue(a, coach)); g.stars = new Set(byV.filter((p, i) => i === 0 || (i === 1 && p.ovr >= 74) || p.ovr >= 78).slice(0, 2).map(p => p.id)); }
+    let stTot = 0;
+    for (const p of g.court) if (p) { g.target[p.id] = clamp(base + (playerValue(p, coach) - avgSv) * 0.35 + (g.stars.has(p.id) ? (NB ? 3 : 2) : 0) + ((yb[p.id] || 0) + rmb(p)) * 0.35, 24, hiCap) * 60; stTot += g.target[p.id]; }   // v26.5: status minutes (t.yb)
+    let bTot = 0; rot.forEach((p, i) => { g.target[p.id] = (benchMin[i] + (g.stars.has(p.id) ? 4 : 0)) * 60; bTot += g.target[p.id]; });
+    const remain = 2880 * 5 - stTot;
+    if (bTot > 0) { const sc = remain / bTot; rot.forEach(p => g.target[p.id] = Math.min(g.target[p.id] * sc, 32 * 60)); }
+  }
   for (const p of avail) if (!(p.id in g.target)) g.target[p.id] = 0;
   // minutes restriction after a long injury: about 20 minutes for 3 games, then 26 for 3 more
   for (const p of avail) if (p.minCap > 0 && g.target[p.id] > 0) g.target[p.id] = Math.min(g.target[p.id], (p.minCap > 3 ? 20 : 26) * 60);
@@ -1264,6 +1519,7 @@ function buildSide(league, tid, isHome, playoff) {
     if (add > 0 && dTot > add * 3) { for (const p of up) g.target[p.id] += p.moodMin * 60; for (const p of donors) g.target[p.id] -= add * g.target[p.id] / dTot; }
   }
   g.court.forEach((p, s) => { if (p) { g.slotOf[p.id] = s; g.st[p.id][IX.gs] = 1; } });
+  try { rotSetup(league, g, playoff); } catch (e) { g.plan = null; }   // v32c: rotation plan (coach pattern or your chart)
   g.chem = teamChem(g.court.filter(Boolean), coach);
   // player chemistry: starters who have played together for years get a small edge; a brand-new five a small penalty
   { const f = g.court.filter(Boolean); let s = 0, n = 0; for (let i = 0; i < f.length; i++) for (let j = i + 1; j < f.length; j++) { s += duoYears(league, f[i].id, f[j].id); n++; } g.chem.duo = n ? (s / n - 1) * 0.003 : 0; if (coach && coach.ch0) g.chem.duo = Math.max(0, g.chem.duo); g.chem.duoAvg = n ? s / n : 0; }
@@ -1480,6 +1736,7 @@ function usage0(g, p) {
   return Math.pow(Math.max(s, 10) / 60, 2.3) * (1.25 - p.tpa / 200);
 }
 
+function rebPosW(g, p) { const s = g.slotOf[p.id]; return ENG.rebPos[s != null ? s : p.pos] || 1; }   // v32b: where he plays on the floor (bigs box out near the rim)
 function rebKey(g, p, k) { const z = physZ(p); return Math.max(1, eff(g, p, k, k === 'drb') + z.h * ((p.xo === 'rebG' || p.xo === 'rebW') ? 1 : 5) + z.w * 2 + (p.vrt - 58) * 0.15); }
 
 // name, relative frequency, min games, max games, severe (can end a career)
@@ -1563,6 +1820,8 @@ function playGame0(league, homeId, awayId, playoff) {
   const nm = p => p ? (p.last || splitName(p.name)[1]) : '';
   let lastCourt = '';   // v30b: entry[8] = the ten on-court ids (home 5, then away 5) when the lineup changed since the last logged play, else 0; entry[9] = seconds the play used (minutes + plus-minus replay)
   const logE = (q, clock, side, text, flags, ev, ct, secs) => { if (LOG) { const e = [q, Math.max(0, Math.round(clock)), side, text, H.pts, A.pts, flags || '', ev || 0]; if (ct) { const k = ct.join(); e.push(k === lastCourt ? 0 : ct, secs || 0); lastCourt = k; } LOG.push(e); } };
+  // v32c: record substitutions in the timeline and as play-by-play lines (flag 'u')
+  const subLog = (q, clock) => { for (const g of [H, A]) { const d = tlNote(g, elapsed); if (d && LOG) { const nmL = ids => ids.map(id => nm(league.players[id])).join(', '); logE(q, clock, g === H ? 0 : 1, `${g.t.abbr} sub: ${nmL(d.ins)} in${d.outs.length ? ' for ' + nmL(d.outs) : ''}`, 'u', 0, [...onCourt(H).map(p => p.id), ...onCourt(A).map(p => p.id)], 0); } } };
   const PLUR = { pnr: 'pick-and-rolls', roll: 'rolls to the rim', pop: 'pick-and-pops', iso: 'isolations', post: 'post-ups', spot: 'spot-ups', screen: 'off-screen looks', dho: 'handoffs', cut: 'cuts', horns: 'horns sets', kick: 'kick-outs', trans: 'transition' };
   // a defense reacts to what is hurting it (at timeouts and quarter breaks); smarter coaches react sooner and pick the right counter more often
   function adjustD(g, o, q, clock) {
@@ -1642,17 +1901,17 @@ function playGame0(league, homeId, awayId, playoff) {
     if (quarter >= 2) { adjustD(H, A, quarter, len); adjustD(A, H, quarter, len); }   // v25.2: quarter breaks and halftime
     poss = ot ? (R() < 0.5 ? 0 : 1) : (quarter === 1 || quarter === 4 ? firstPoss : 1 - firstPoss);
     const startH = H.pts, startA = A.pts;
-    for (const g of sides) doSubs(g, elapsed, Math.min(quarter, 4), clock, H.pts - A.pts, ot);
+    if (!ot && quarter >= 2) for (const g of sides) if (g.planSrc === 'coach') planMakeUp(g, elapsed);   // v32c: make up minutes lost to fouls / blowouts
+    for (const g of sides) subStep(g, elapsed, quarter, clock, (g === H ? 1 : -1) * (H.pts - A.pts), ot, true);   // v32c: plan or coach's call
+    subLog(quarter, clock);
     let orebPoss = false, cPend = null, pushTeam = null;   // v25.3: pushTeam = side whose rebounder (rebG/pointW) starts the break
     while (clock > 0) {
       const off = sides[poss], def = sides[1 - poss];
       // substitution windows (every ~3 minutes) or forced
       const need = sides.some(g => g.court.some(p => !p || g.out.has(p.id)));
       const late = quarter >= 4 && clock <= 360;
-      if (need || elapsed - lastSub >= (late ? 60 : 180)) {
-        for (const g of sides) doSubs(g, elapsed, Math.min(quarter, 4), clock, (g === H ? 1 : -1) * (H.pts - A.pts), ot);
-        lastSub = elapsed;
-      }
+      { const due = need || elapsed - lastSub >= (late ? 60 : 180); if (due) lastSub = elapsed;
+        for (const g of sides) subStep(g, elapsed, quarter, clock, (g === H ? 1 : -1) * (H.pts - A.pts), ot, due); }   // v32c: follow the rotation plan
       if (quarter >= 4 && clock <= 120 && Math.abs(H.pts - A.pts) <= 6) {
         // the defense protects a lead or a tie with stoppers; the offense chasing points goes to its scorers
         const offSide = sides[poss], defSide = sides[1 - poss];
@@ -1662,6 +1921,7 @@ function playGame0(league, homeId, awayId, playoff) {
       }
       // v24.8: a leader expecting to be fouled puts its free-throw shooters on the floor
       if (quarter >= 4 && clock <= 60 && sides.some(g => g.late.foul !== 'never')) { const ld = H.pts > A.pts ? H : A.pts > H.pts ? A : null, tr = ld === H ? A : H; if (ld && tr.late.foul !== 'never' && Math.abs(H.pts - A.pts) <= 10 && ld.state !== 'ft') lateSubs(ld, 'ft'); }
+      subLog(quarter, clock);
       const offC = onCourt(off), defC = onCourt(def);
       if (offC.length < 5 || defC.length < 5) { /* extremely rare: play short-handed */ }
       if (cPend) { clFin(cPend); cPend = null; }
@@ -1860,8 +2120,8 @@ function playGame0(league, homeId, awayId, playoff) {
             const is3 = type === 'tp';
             // Block?
             const blkBase = { dunk: 0.03, lay: 0.085, paint: 0.06, mid: 0.025, tp: 0.008 }[type];
-            const blocker = wpick(defC, defC.map(p => Math.pow(Math.max(1, eff(def, p, 'blk', true) + physZ(p).h * 6 + physZ(p).w * 4), 2.2) * (p.id === defender.id ? 1.6 : 1)));
-            const pBlk = blkBase * Math.pow((eff(def, blocker, 'blk', true) + physZ(blocker).h * 6 + physZ(blocker).w * 4) / 60, 1.4);
+            const blocker = wpick(defC, defC.map(p => Math.pow(Math.max(1, eff(def, p, 'blk', true) + physZ(p).h * 6 + physZ(p).w * 4), ENG.blkSel) * (p.id === defender.id ? 1.6 : 1)));
+            const pBlk = blkBase * ENG.blkK * Math.pow((eff(def, blocker, 'blk', true) + physZ(blocker).h * 6 + physZ(blocker).w * 4) / 60, ENG.blkPow);   // v32b: blkK / blkPow (was 1 / 1.4): more blocks for elite rim protectors
             // Shooting foul?
             const fBase = { dunk: 0.13, lay: 0.2, paint: 0.15, mid: 0.05, tp: 0.02 }[type] * (1 + SL_FX.rim.foul * slD(off.coach).rim + SL_FX.gamble.foul * slD(def.coach).gamble) * (OX.foul || 1) * (inside ? (DX.foul || 1) : 1) * (off.coach.off === 'iso' && shooter.id !== handler.id ? 0.92 : 1);
             const fouler = R() < (def.st[defender.id][IX.pf] >= 4 ? 0.25 : 0.5) ? defender : wpick(defC, defC.map(p => (150 - p.fdc) * (def.st[p.id][IX.pf] >= 4 ? 0.35 : 1)));
@@ -1892,11 +2152,11 @@ function playGame0(league, homeId, awayId, playoff) {
               const offReb = avgOf(off, 'orb') + physAvg(off), defReb = avgOf(def, 'drb', true) + physAvg(def);
               let pO = 0.235 + (offReb - defReb) * ENG.rebSlope + (blocked ? 0.04 : 0) + (is3 ? 0.01 : 0) + (onCourt(off).reduce((a, p) => a + (p.tcr || 40), 0) / onCourt(off).length - 40) * 0.0012 + (OX.orb || 0) + (DX.drb || 0) + SL_FX.glass.orb * slD(off.coach).glass;
               if (R() < clamp(pO, 0.1, 0.4)) {
-                const r = wpick(offC, offC.map(p => Math.pow(rebKey(off, p, 'orb'), 1.1)));
-                off.st[r.id][IX.orb]++; involved.add(r.id); orebPoss = true; switchPoss = false; off.putback = r.id; rebBy = r; rebO = true;
+                const r = wpick(offC, offC.map(p => Math.pow(rebKey(off, p, 'orb'), ENG.orbPow) * rebPosW(off, p)));
+                if (R() >= ENG.teamReb) off.st[r.id][IX.orb]++; involved.add(r.id); orebPoss = true;   // v32b: some boards are team rebounds (no player credit) switchPoss = false; off.putback = r.id; rebBy = r; rebO = true;
               } else {
-                const r = wpick(defC, defC.map(p => Math.pow(rebKey(def, p, 'drb'), 1.0) * (is3 && (p.xo === 'rebG' || p.xo === 'rebW') ? 1.5 : 1)));
-                def.st[r.id][IX.drb]++; rebBy = r; if (r.xo === 'rebG' || r.xo === 'pointW') pushTeam = def;
+                const r = wpick(defC, defC.map(p => Math.pow(rebKey(def, p, 'drb'), ENG.drbPow) * rebPosW(def, p) * (is3 && (p.xo === 'rebG' || p.xo === 'rebW') ? 1.5 : 1)));
+                if (R() >= ENG.teamReb) def.st[r.id][IX.drb]++; rebBy = r; if (r.xo === 'rebG' || r.xo === 'pointW') pushTeam = def;
               }
             }
             usedBy = shooter;
@@ -1932,8 +2192,8 @@ function playGame0(league, homeId, awayId, playoff) {
     for (let i = 0; i < n; i++) { st[IX.fta]++; last = R() < pct; if (last) { st[IX.ftm]++; st[IX.pts]++; off.pts++; } }
     if (!last) {
       const offC = onCourt(off), defC = onCourt(def);
-      if (R() < 0.13) { const r = wpick(offC, offC.map(p => Math.pow(rebKey(off, p, 'orb'), 1.1))); off.st[r.id][IX.orb]++; return 'oreb'; }
-      const r = wpick(defC, defC.map(p => Math.pow(rebKey(def, p, 'drb'), 1.0))); def.st[r.id][IX.drb]++;
+      if (R() < 0.13) { const r = wpick(offC, offC.map(p => Math.pow(rebKey(off, p, 'orb'), ENG.orbPow) * rebPosW(off, p))); if (R() >= ENG.teamReb) off.st[r.id][IX.orb]++; return 'oreb'; }
+      const r = wpick(defC, defC.map(p => Math.pow(rebKey(def, p, 'drb'), ENG.drbPow) * rebPosW(def, p))); if (R() >= ENG.teamReb) def.st[r.id][IX.drb]++;
     }
     return 'done';
   }
@@ -1946,6 +2206,7 @@ function playGame0(league, homeId, awayId, playoff) {
   const game = finishGame(league, H, A, qScores, ot, events);
   game.pt = { [H.t.id]: H.ppt, [A.t.id]: A.ppt }; game.ptP = Object.assign({}, H.pptP, A.pptP);
   game.cov = [H.cov0 + (H.cov !== H.cov0 ? '>' + H.cov : ''), A.cov0 + (A.cov !== A.cov0 ? '>' + A.cov : '')];
+  game.tl = [H.tl || null, A.tl || null];   // v32c: rotation timeline (kept for your games and recent league games)
   if (LOG) game.pbp = LOG;
   if (series) { series.adj = series.adj || {}; for (const g of [H, A]) series.adj[g.t.id] = { cov: g.cov, dbl: g.dbl, lock: g.lock }; }   // adjustments carry over to the next game of the series
   return game;
@@ -2083,7 +2344,7 @@ function simDay(league) {
   for (const [h, a] of league.schedule[league.day]) {
     const g = playGame(league, h, a);
     applyGame(league, g);
-    league.games.push(g);
+    league.games.push(g); tlPrune(league);
   }
   if (typeof twoWayDay === 'function') twoWayDay(league, league.games.slice(-league.schedule[league.day].length));
   healDay(league, gpdOf(league));
@@ -2205,7 +2466,7 @@ function simPlayoffDay(league) {
     const g = playGame(league, home, away, true);
     g.playoff = true; g.stage = poStages(league)[po.stage]; g.gnum = n; g.poDay = po.day;
     g.id = league.games.length + 1;
-    applyGame(league, g); league.games.push(g); sr.games.push(g.id); played++;
+    applyGame(league, g); league.games.push(g); tlPrune(league); sr.games.push(g.id); played++;
     const hiWon = (home === sr.hi) === (g.hs > g.as);
     if (hiWon) sr.hw++; else sr.lw++;
     if (sr.hw >= sr.hiNeed) sr.winner = sr.hi;
@@ -2287,7 +2548,7 @@ function pipeVal(l) { return l ? l.pts + 0.7 * l.reb + 0.9 * l.ast + 1.3 * (l.st
 // Returns { court: [home 5, away 5 ids], min: {id: seconds}, pm: {id: plus-minus} }; matches the final box score at n = log.length.
 function pbpReplay(g, n) {
   const log = g.pbp || [], m = Math.min(n == null ? log.length : n, log.length);
-  let court = [0, 1].flatMap(s => g.box.filter(r => r[1] === s && r[17]).map(r => r[0])), h = 0, a = 0;
+  let court = g.tl && g.tl[0] && g.tl[1] ? [...g.tl[0].st, ...g.tl[1].st] : [0, 1].flatMap(s => g.box.filter(r => r[1] === s && r[17]).map(r => r[0])), h = 0, a = 0;   // v32c: starting fives from the timeline
   const min = {}, pm = {};
   for (let k = 0; k < m; k++) {
     const e = log[k]; if (e[8]) court = e[8];

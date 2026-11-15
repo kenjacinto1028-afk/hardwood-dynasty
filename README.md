@@ -14,6 +14,28 @@ The game is split into small files so a change rewrites one file, not 1.3 MB.
 | `src/nba-setup.js` | v30a NBA setup extras: real rookies (`nbaRookies`) + real jersey numbers (`NBA_JERSEY_CSV`, `nbaJerseys`) |
 | `src/index.template.html` | Page shell with markers `/*CSS*/ /*VENDOR*/ /*ENGINE*/ /*LEAGUE*/ /*APP*/` for the single-file build |
 
+## v32c S3 (Opus, Nov 15 2026): rotation timeline (engine)
+
+Code: `src/engine.js`, block "v32c: rotation timeline" above `buildSide`. UI for the chart editor is S4.
+- **Coach pattern** `coachPat(coach)`: which two slots sit first (SF + PF most often), when the starters first sit in Q1 / Q3 (tight coaches later, deep earlier), how the rest splits between Q2 and Q4. Stable per coach; small game-to-game jitter.
+- **Plan** `planRotation(g)`: 48 x 5 (minute x slot). Starters play the start of each half; bench stints fill the gaps by position fit and role minutes (`g.target`). `rotSetup` runs at the end of `buildSide` (`g.plan`, `g.planSrc`).
+- **Following it** `subStep` / `followPlan` every possession: the plan in normal play; `doSubs` (old logic) for a close finish, a blowout, overtime. Foul trouble (`inTrouble`, stars one foul longer) and injuries are filled by fit + minutes owed; `planMakeUp` at each quarter break stretches the next stints of anyone behind plan. `RM_LIFT` sets a normal game above the range for the top roles (and under for rotation / bench), so season averages land in the role ranges.
+- **Your chart** `t.rotChart = { q: [4 quarters][4 blocks of 3 min][5 player ids] }` replaces the coach's plan (`chartPlan`). Invalid (missing or unavailable player, not 5 different) -> coach plan, reason in `tl.bad`.
+- **Timeline** `game.tl = [home, away]`, each `{ st: starters, ev: [[deciseconds, out id, in id]], src: 'coach'|'chart', bad? }`. `tlReplay(tl, totalSec)` -> seconds per player + five on court each minute. Kept for your games and the last 30 league games (`tlPrune`). Play-by-play sub lines (flag `u`) at the same times; `pbpReplay` takes starters from the timeline (starting lineup window).
+- Tests: `tools/t32c.js`, browser `tools/browser-v32bc.py.txt`.
+
+## v32b S2 (Opus, Nov 15 2026): rebounds, blocks, minutes, roles
+
+Code: `src/engine.js` (ENG knobs, "v32b: roles" block above `buildSide`), `src/league.js` (`expRole`, `roleAppeal`, morale, offers, promises), `src/app.js` (Role column, summary card, offer Role picker).
+- **Engine**: `ENG.teamReb` (share of boards that are team rebounds), `ENG.rebPos` (rebound weight by court slot), `drbPow` / `orbPow`, `blkK` / `blkPow` / `blkSel` (block rate and how much it piles on one player).
+- **Roles** `ROLES` (key, name, lo-hi minutes): fs 34-37, star 32-35, starter 26-32, sixth 24-28, rot 16-24, bench 8-16, dev 0-8. `teamRoles` / `setTeamRoles` (weekly + roster changes) -> `p.role`, `p.roleT`; `roleOf(L, p)`. `t.roleSet` = your override (data only).
+- **Minutes** `roleMinutes(list, coach, playoff)` fits the ranges to 240 for whoever is available.
+- **Offers / promises**: AI offers carry a role (`expRole`) that pulls the player (`roleAppeal`); contracts store `c.rl`. Your Role picker sends `extra.role = { k: ROLES key }` = a promise (floor in `teamRoles`, `promiseState` by range).
+- Tests: `tools/t32b.js`; probe `tools/v32stats.js` (one season: 9+ RPG, 1.5+ BPG, MPG by rank and role; `ENGX='{...}'` overrides ENG); `tools/r30.js` rows now carry `v32` (rpg9, bpg15, top10Mpg, byRole, broken promises).
+
+## v32a S1 (Sonnet, Nov 15 2026): NBA ratings, roster setup, extension / draft-offer fixes
+See PROGRESS.md (v32a section). Data in `src/nba-setup.js` (`NBA_ADJ`, `NBA_OVR_ADJ`, `NBA_PRONE`, `nbaFixRmb`); test `tools/t32a.js`.
+
 ## v31 overseas (Nov 15 2026): cut players aged 26 and under go abroad
 
 Young players cut at the season-start free-agent cap (60) no longer "retire" at 20-22. Code: `src/league.js` (helpers above `startNewSeason`: `ABROAD`, `sendAbroad`, `abroadOffseason`; club and lines in `pipeBuild` P3; call in `startOffseason` after `computeMarket`), `src/app.js` (`faTxt`, filters, player page). Test: `node tools/t31-abroad.js` (14 checks, about 3 min), browser `tools/browser-v31.py.txt` (rename to .py, serve the folder, `python3 browser-v31.py PORT`).

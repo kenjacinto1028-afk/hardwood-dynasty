@@ -416,6 +416,7 @@ function yrsFor(p, amt) {
 function signContract(L, p, tid, amt, yrs, type, opt, extra) {
   if (p.club) try { pipeLeave(L, p, tid); } catch (e) { }   // v29 P8: in-season signing from an international club (EABL buyout)
   if (extra && extra.callUp) extra = null;
+  let rl0 = null; if (extra && extra.rl && Object.keys(extra).length === 1) { rl0 = extra.rl; extra = null; }   // v32b: an AI offer's role is info only, not a clause
   let mvS = null; try { mvS = mvSignPre(L, p, tid, type, amt); } catch (e) { }   // v30c #5
   const aiMade = !extra && tid !== L.user;   // v26.1 review: AI deals get clauses too (aiClauses)
   amt = Math.max(MINSAL, r1(amt));
@@ -435,7 +436,8 @@ function signContract(L, p, tid, amt, yrs, type, opt, extra) {
     if (extra.kick > 0) p.contract.kick = Math.min(KICK_MAX, extra.kick);
     if (extra.eto && yrs >= 3) p.contract.eto = cs + clamp(Math.round(extra.eto), 1, yrs - 1) - 1;
     if (extra.gtd != null && extra.gtd < 1 && yrs >= 2) p.contract.gtd = extra.gtd;
-    if (extra.role) p.contract.role = { k: extra.role.k === 'min' ? 'min' : 'starter', v: extra.role.k === 'min' ? (extra.role.v || 24) : null, br: [] }; }
+    if (extra.role) p.contract.role = ROLE_BY[extra.role.k] ? { k: extra.role.k, v: ROLE_BY[extra.role.k].lo, br: [] } : { k: extra.role.k === 'min' ? 'min' : 'starter', v: extra.role.k === 'min' ? (extra.role.v || 24) : null, br: [] }; }   // v32b: a promised role (ROLES key) or the older starter / minutes promise
+  try { p.contract.rl = extra && extra.role && ROLE_BY[extra.role.k] ? extra.role.k : rl0 || (extra && extra.rl) || expRole(L, L.teams[tid], p); } catch (e) { }   // v32b: the role he signed for
   p.contracts.push({ s: cs, tid, amt, yrs, type, hg, opt: opt || null });
   const joining = p.team !== tid;
   // free-agent signings can't be traded until the 25% mark of the next season (in-season signings: 14 days)
@@ -2472,7 +2474,10 @@ function moraleParts(L, p) {
   const healthy = rosterOf(L, t).filter(x => x.injury <= 0).sort((a, b) => b.ovr - a.ovr);
   const rank = Math.max(0, healthy.findIndex(x => x.id === p.id));
   const s = p.stats.rs;
-  if (p.injury <= 0 && s && s.gp >= 5 && p.ovr >= 55) { const mpg = s.min / s.gp / 60, exp = EXP_MIN[Math.min(rank, EXP_MIN.length - 1)]; parts.minutes = clamp((mpg - exp) * 1.2 * (mpg < exp ? clamp(1 - 0.3 * trc(p, 'cch'), 0.6, 1.4) : 1), -20, 8); /* v25.9: coachable players accept a smaller role more easily */ parts.expMin = exp; parts.mpg = mpg; }
+  const rl = typeof roleOf === 'function' ? roleOf(L, p) : null;   // v32b: minutes are judged against his role's range
+  if (rl && p.injury <= 0 && s && s.gp >= 5 && p.ovr >= 50) { const mpg = s.min / s.gp / 60, r = ROLE_BY[rl], ck = clamp(1 - 0.3 * trc(p, 'cch'), 0.6, 1.4);
+    parts.minutes = mpg < r.lo - 1 ? clamp((mpg - (r.lo - 1)) * 1.2 * ck, -20, 0) : mpg > r.hi + 1 ? clamp((mpg - r.hi - 1) * 0.5, 0, 4) : 1.5; parts.expMin = roleRange(rl); parts.role = rl; parts.mpg = mpg; }
+  else if (p.injury <= 0 && s && s.gp >= 5 && p.ovr >= 55) { const mpg = s.min / s.gp / 60, exp = EXP_MIN[Math.min(rank, EXP_MIN.length - 1)]; parts.minutes = clamp((mpg - exp) * 1.2 * (mpg < exp ? clamp(1 - 0.3 * trc(p, 'cch'), 0.6, 1.4) : 1), -20, 8); /* v25.9: coachable players accept a smaller role more easily */ parts.expMin = exp; parts.mpg = mpg; }
   const g = t.w + t.l, wp = g >= 5 ? t.w / g : (t.expW != null ? t.expW : 0.5);
   const ww = clamp((p.age >= 30 ? 1.2 : 0.8) + 0.5 * tw(p, 'win'), 0.5, 2);   // v25.9
   parts.winning = clamp((wp - 0.5) * 40 * ww, -16, 12);
@@ -3646,7 +3651,7 @@ function afterDay(L) {
   try { rivalryWeek(L); } catch (e) { }   // v24.4
   if (L.day === deadlineDay(L) + 3) aiBuyouts(L);
   if (L.day === twPoDay(L)) aiTwoWayPlayoff(L);   // v23
-  if (L.day % wkLen(L) === 0) { updateMorale(L); checkPromises(L); }   // v26.1: role promises
+  if (L.day % wkLen(L) === 0) { for (const t of L.teams) setTeamRoles(L, t); updateMorale(L); checkPromises(L); }   // v32b: roles refresh weekly   // v26.1: role promises
   try { lr2Day(L); } catch (e) { }   // v28.8: interviews, one-on-ones, your promises
   try { pipeDay(L); } catch (e) { }   // v29 P8: injury call-ups from international clubs
   if (L.day === allStarDay(L) && !(L.allStar && L.allStar.s === L.season)) runAllStar(L);
@@ -4807,13 +4812,26 @@ function negAppeal(p, t, type, L) {
   if (L) a *= agentAppeal(L, p, t);   // v25.1: agent type
   return a;
 }
+// v32b: the role a player would have on team t (his own role if he is on it). Quick: his rank by coach value among the healthy roster.
+function expRole(L, t, p) {
+  if (p.team === t.id) { const r = roleOf(L, p); if (r) return r; }
+  const cut = roleCuts(L), v = roleValue(L, t, p), others = rosterOf(L, t).filter(x => x.id !== p.id && !(x.injLong && x.injury >= 30));
+  const idx = others.filter(x => roleValue(L, t, x) > v).length, nRot = clamp(((t.coach && t.coach.depth) || 9) - 6, 1, 5);
+  if (idx < 5) { const top = others.filter(x => x.ovr > p.ovr); if (p.ovr >= cut.fs && !top.some(x => x.ovr >= cut.fs)) return 'fs'; if (p.ovr >= cut.star && top.filter(x => x.ovr >= cut.star).length < 2) return 'star'; return 'starter'; }
+  return idx === 5 ? 'sixth' : idx <= 5 + nRot ? 'rot' : idx <= 7 + nRot ? 'bench' : 'dev';
+}
+// how much a role on offer pulls him (minutes matter less to veterans)
+function roleAppeal(p, k) { return 1 + 0.004 * (roleMid(k) - 18) * (p.age <= 30 ? 1 : 0.6); }
 // What a player wants beyond money: a real role, a team that can win. Returns premiums and hard refusals.
-function signConcerns(L, p, t, type) {
+function signConcerns(L, p, t, type, extra) {
   const out = { prem: 1, notes: [], refuse: null };
+  const offR = extra && extra.role && ROLE_BY[extra.role.k] ? extra.role.k : null, expR = offR ? expRole(L, t, p) : null;   // v32b: a promised role answers his minutes worry
   const others = rosterOf(L, t).filter(x => x.id !== p.id && !(x.injLong && x.injury >= 30));
   const rank = others.filter(x => x.ovr > p.ovr).length + 1;        // where he'd slot in by rating
   const loyal = trv(p, 'loy') >= 66 && (type === 're-sign' || type === 'extension');
-  if (p.ovr >= 63 && rank >= 9) {
+  if (offR && roleRank(offR) <= roleRank(expR)) { /* promised at least the role he'd get: no minutes premium */ }
+  else if (offR && roleRank(offR) - roleRank(expR) >= 2 && p.ovr >= 68 && !loyal) { out.refuse = `${p.name} won't sign: you are offering a ${roleName(offR).toLowerCase()} role and he expects to be a ${roleName(expR).toLowerCase()}.`; out.refuseKind = 'minutes'; }
+  else if (p.ovr >= 63 && rank >= 9) {
     if (p.ovr >= 70 && p.age <= 31 && rank >= 10 && !loyal) { out.refuse = `${p.name} won't sign: he'd be about ${rank}th in your rotation and wants real minutes.`; out.refuseKind = 'minutes'; }
     else { out.prem *= 1.12; out.notes.push(fl('neg.minutes', { rank }, p.id * 7 + L.season)); }
   } else if (p.ovr >= 63 && rank >= 7) { out.prem *= 1.05; out.notes.push(fl('neg.role', { rank }, p.id * 7 + L.season)); }
@@ -4843,7 +4861,7 @@ function negotiate(L, pid, amt, yrs, tid, type, opt, extra) {
   if (p.ask == null) setAsk(L, p);
   if (p.prefY == null) p.prefY = yrsFor(p, p.ask);     // v15: his preferred length is fixed for the window (it used to re-roll on every offer)
   const pref = type === 'signing' ? Math.min(4, p.prefY) : p.prefY;
-  const cc = signConcerns(L, p, t, type);
+  const cc = signConcerns(L, p, t, type, extra);
   if (cc.refuse) return { ok: false, refused: true, msg: cc.refuse };
 
   // the ask, adjusted for years, options, team appeal and his concerns, but never above the max he can legally get
@@ -4943,8 +4961,8 @@ function faRound(L, lastCall, minOvr) {
       if (W > MINSAL && W > room) W = room >= 1.5 ? room : MINSAL;
       W = W < 1.5 ? MINSAL : r1(W);
       if (trv(p, 'win') >= 72 && t.mode === 'tank' && p.ovr >= 68) continue;   // won't sign with a tanking team
-      const ap = negAppeal(p, t, 'signing', L);
-      offers.push({ tid: t.id, amt: W, cut, ap, sc: W * ap });
+      const role = expRole(L, t, p), ap = negAppeal(p, t, 'signing', L) * roleAppeal(p, role);   // v32b: every offer carries a role
+      offers.push({ tid: t.id, amt: W, cut, ap, sc: W * ap, role });
     }
     const uo = multi ? (L.faOffers || {})[p.id] : null;
     if (!offers.length && !uo) continue;
@@ -4955,7 +4973,7 @@ function faRound(L, lastCall, minOvr) {
     const okAI = offers.filter(o => o.sc + 1e-6 >= p.ask || lastCall), best = okAI[0], second = offers.find(o => o !== best);
     if (multi) {
       const star = (p.fame || 0) >= 60 || p.ovr >= 78, maxWait = star ? 5 : 2;
-      const uAp = uo ? negAppeal(p, L.teams[L.user], 'signing', L) : 0, uSc = uo ? uo.amt * Math.pow(uAp, K) : -1;
+      const uAp = uo ? negAppeal(p, L.teams[L.user], 'signing', L) * roleAppeal(p, uo.extra && uo.extra.role && ROLE_BY[uo.extra.role.k] ? uo.extra.role.k : expRole(L, L.teams[L.user], p)) : 0, uSc = uo ? uo.amt * Math.pow(uAp, K) : -1;
       p.faSeen = (p.faSeen || 0) + 1;
       if (p.faSeen === 1) try { faLeak(L, p, offers); } catch (e) { }   // v26.6 R2
       const realN = offers.filter(o => o.amt > MINSAL + 0.05).length;   // minimum offers from teams filling the roster don't count
@@ -4997,7 +5015,7 @@ function faRound(L, lastCall, minOvr) {
     if (multi && isRFA(L, p) && best.tid !== p.rfa.tid && price > 2) { p.sheet = { tid: best.tid, amt: price, yrs: Math.min(4, yrsFor(p, price)), day: L.faDay }; logNews(L, `${p.name} signed an offer sheet with ${L.teams[best.tid].abbr} (${money(price)} × ${p.sheet.yrs}); ${L.teams[p.rfa.tid].abbr} can match`, p.rfa.tid, 'tx'); if (p.rfa.tid === L.user) faEvent(L, p, 'sheet', best.tid, '', { amt: price, yrs: p.sheet.yrs }); continue; }
     if (best.cut) { best.cut.tx.push({ s: L.season, t: `Released by ${L.teams[best.tid].abbr} to open a roster spot` }); toFA(L, best.cut); }
     if (multi && offers.length >= 2) { const mx = Math.max(...offers.map(o => o.amt)); const c = (L.faChoice = L.faChoice || {})[p.pers] = (L.faChoice || {})[p.pers] || [0, 0, 0]; c[0]++; if (best.amt < mx * 0.97) c[1]++; if (price > p.ask * 1.02) c[2]++; }   // stats: choices with 2+ offers, took less money, paid above ask
-    signContract(L, p, best.tid, price, Math.min(4, yrsFor(p, price)), 'signing');
+    signContract(L, p, best.tid, price, Math.min(4, yrsFor(p, price)), 'signing', null, { rl: best.role });
     if (multi) try { faDecision(L, p, best, offers); } catch (e) { }   // v26.6 R2: why he picked them
     { const wp = wetPay(p); if (Math.abs(wp - 1) >= 0.02) p.tx.push({ s: L.season, t: `Work ethic priced in (${wp > 1 ? '+' : ''}${Math.round((wp - 1) * 100)}%)` }); }   // v24.4
     if (multi && best.amt > p.ask * 1.02 && p.ovr >= 65 && offers.length >= 2) faEvent(L, p, 'note', best.tid, '');
@@ -6524,6 +6542,7 @@ function promiseState(L, p) {
   const tg = t.w + t.l, inj = (p.injuries || []).filter(x => x.s === S).reduce((a, x) => a + (x.games || 0), 0), avail = tg - Math.min(inj, tg);
   if (tg < 15 || avail < 12 || p.injLong) return 'early';
   const mpg = (s.min || 0) / avail / 60, gs = (s.gs || 0) / avail;
+  if (ROLE_BY[c.role.k]) return c.role.k === 'dev' ? 'kept' : mpg < ROLE_BY[c.role.k].lo - 3 ? 'failing' : 'kept';   // v32b: under his role's range by 3+ minutes
   if (c.role.k === 'starter') return gs < 0.6 ? 'failing' : 'kept';
   return mpg < c.role.v - 3 ? 'failing' : 'kept';
 }
@@ -6534,7 +6553,7 @@ function checkPromises(L) {
     const c = p.contract; c.role.br = (c.role.br || []).concat(L.season);
     p.morale = Math.max(0, (p.morale == null ? 60 : p.morale) - Math.round(12 * clamp(1 - 0.25 * trc(p, 'cch'), 0.7, 1.3)));
     if (t.coach && !(p.friction || []).includes(t.coach.id)) p.friction = (p.friction || []).concat(t.coach.id);
-    const what = c.role.k === 'starter' ? 'a starting job' : `${c.role.v} minutes a game`;
+    const what = ROLE_BY[c.role.k] ? `a ${roleName(c.role.k).toLowerCase()} role (${roleRange(c.role.k)} min)` : c.role.k === 'starter' ? 'a starting job' : `${c.role.v} minutes a game`;
     p.tx.push({ s: L.season, t: `Promise broken: ${what}` });
     logNews(L, `${p.name} (${t.abbr}) is upset: he was promised ${what}`, t.id, 'tx');
     try { feedPromise(L, p, t, what); } catch (e) { }   // v26.5
@@ -6546,7 +6565,10 @@ function clauseMult(L, p, t, yrs, ex) {
   if (ex.kick > 0) m *= 1 - 0.4 * Math.min(KICK_MAX, ex.kick);
   if (ex.eto && yrs >= 3) m *= 0.96;
   if (ex.gtd != null && ex.gtd < 1 && yrs >= 2) m *= 1 + 0.06 * (1 - ex.gtd);
-  if (ex.role) {
+  if (ex.role && ROLE_BY[ex.role.k]) {   // v32b: a promised role vs the role he'd get anyway: a bigger one he takes less for, a smaller one he wants paid for
+    const d = roleMid(ex.role.k) - roleMid(expRole(L, t, p)), w = clamp(1 - 0.5 * twp(p, 'mon') + 0.3 * twp(p, 'win'), 0.4, 1.4) * (p.age <= 30 ? 1 : 0.7);
+    m *= clamp(1 - (d > 0 ? 0.005 : 0.008) * d * w, 0.9, 1.15);
+  } else if (ex.role) {
     const rank = rosterOf(L, t).filter(x => x.id !== p.id).filter(x => x.ovr > p.ovr).length + 1;   // where he'd slot in
     const need = rank <= 3 ? 0.25 : rank <= 5 ? 0.6 : 1;   // a sure starter barely cares
     const v = ex.role.k === 'starter' ? 0.07 : 0.012 * Math.max(0, (ex.role.v || 24) - 16) / 4;

@@ -1,0 +1,23 @@
+# v32g report: python3 tools/v32g-sum.py.txt tools/runs32/v32g-*.txt   (one line per season from tools/r30.js output)
+import json,sys
+def asks(b):
+  out=[]
+  for band in ['56-59','60-64','65-69','70+']:
+    ks=[k for k in b if k.startswith(band+'|')]; n=sum(b[k]['n'] for k in ks)
+    out.append('%s %s' % (band, '-' if not n else '%.1f(n%d)' % (sum(b[k]['med']*b[k]['n'] for k in ks)/n, n)))
+  return ' '.join(out)
+for f in sys.argv[1:]:
+  print('==',f)
+  print('S  | sec  KB    | lgOvr top8 75+/80+ | 9RPG 1.5BPG | MPG fs/star/st/6th/rot/bn/dev | pay avg(min-max) >tax | re-sign all/60+ | why60 top | winF | exp/dump tr | MLE n avg | FA65 left | asks med')
+  for l in open(f):
+    if not l.startswith('S '): continue
+    r=json.loads(l[2:]); v=r.get('v32') or {}; e=r.get('v32e') or {}; g=r.get('v32g') or {}
+    br=v.get('byRole') or {}; pay=e.get('payroll') or {}; rs=e.get('resign') or {}; w=e.get('why60') or {}; tr=e.get('trades') or {}
+    why=sorted([(k,x) for k,x in w.items() if k not in('n','kept')],key=lambda z:-z[1])[:3]
+    wf=((e.get('payCut') or {}).get('wf') or {}).get('n')
+    print('%-2s | %4.0f %5s | %5s %5s %s/%s | %4s %4s | %s | %s(%s-%s) %s | %s/%s | %s | %s | %s/%s | %s %s | %s | %s %s' % (
+      r['s'], (r.get('ms') or 0)/1000, r.get('kb'), g.get('lgOvr'), g.get('top8'), g.get('ovr75'), g.get('ovr80'), v.get('rpg9'), v.get('bpg15'),
+      '/'.join(str(br.get(k,'-')) for k in ['fs','star','starter','sixth','rot','bench','dev']),
+      pay.get('avg'), pay.get('min'), pay.get('max'), pay.get('overTax'), rs.get('rate'), rs.get('rate60'),
+      ' '.join('%s %d'%(k,x) for k,x in why), wf, tr.get('exp'), tr.get('dump'), g.get('mle'), g.get('mleAmt'), g.get('fa65'),
+      asks(((e.get('asks') or {}).get('bands')) or {}), ('ERR '+str(r.get('err'))) if r.get('err') else ''))

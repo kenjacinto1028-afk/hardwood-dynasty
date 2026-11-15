@@ -35,7 +35,7 @@ run(`var L=newLeague({mode:'team',size:30,userTeam:5,games:82,nba:true});`);
     const p3=mk(2);t.mleUsed=null;signContract(L,p3,t.id,4,1,'signing',null,{});const dflt=t.mleUsed;
     return {pay0,CAP,keep:keep==null?null:keep,spent,dflt,cs:capSeason(L)};`);
   chk('payroll over the cap for the signing test', r.pay0 + 4 > r.CAP, r.pay0 + ' vs ' + r.CAP);
-  chk('signing with mle:false keeps the mid-level', r.keep == null, String(r.keep));
+  chk('v32g: an over-cap signing spends the mid-level whatever the flag (the offer itself is refused with mle:false, see t32g)', r.keep === r.cs, String(r.keep));
   chk('signing with mle:true spends it', r.spent === r.cs, String(r.spent));
   chk('signing with no flag (AI rule) spends it', r.dflt === r.cs, String(r.dflt));
 }
@@ -56,7 +56,7 @@ run(`var L=newLeague({mode:'team',size:30,userTeam:5,games:82,nba:true});`);
   chk('targets: every FA target has a cap-fit note', ['low', 'me'].every(w => all.every(k => r[w][k].noNote === 0)), JSON.stringify(['low', 'me'].map(w => all.map(k => r[w][k].noNote))));
   chk('lowest-payroll team gets "Fits cap space" or minimum notes', r.low.now.n === 0 || r.low.now.notes.some(x => /cap space|Minimum|tax line/.test(x)), r.low.now.notes.join(' | '));
   chk('squeezed team: nobody asks more than the room under the hard cap', r.tight.over === 0 && r.tight.maxAsk <= r.tight.room + 1e-6, JSON.stringify(r.tight));
-  chk('squeezed team: notes are hard-cap / minimum', r.tight.n === 0 || r.tight.notes.every(x => /hard cap|Minimum|tax line|cap space/.test(x)), r.tight.notes.join(' | '));
+  chk('squeezed team: notes are hard-cap / minimum', r.tight.n === 0 || r.tight.notes.every(x => /hard cap|Minimum|tax line|cap space|mid-level/.test(x)), r.tight.notes.join(' | '));
 }
 // ---------- C: rotation chart round trip ----------
 {

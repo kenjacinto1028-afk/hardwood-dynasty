@@ -1,5 +1,20 @@
 # PBL progress
 
+## v32g (Opus, Nov 16 2026): open items + v32 review (S7)
+- [x] Sixth men: plan fix (`planRotation` long run per half for the first man off the bench, owed-minutes gap fill, `planEven`; `RM_LIFT` sixth 10.5, fs 6.5). 20 seasons: sixth 24.3 avg (23.3-25.6, was ~22.5); other roles in range (fs 34.1-35.5, star 32.1-33.2, starter 26.3-27.8, rot 16.7-17.9, bench 10.1-11.9, dev 6.7-7.8)
+- [x] Mid-level is a real cap exception (`MLE_REAL`): over the cap, one above-minimum free agent a season up to $15M, under the tax line, never past the hard cap; AI and you; re-signing still to the hard cap. "Use mid-level" unticked over the cap = refused with a reason; popup warnings. Win-first and coaching targets follow it. 4-13 mid-level signings a season ($6-18M avg)
+- [x] Saved rotation chart: a player out gets one stand-in for his blocks (no fallback to the coach); game chart note "Chart changed for this game: X out: Y took his N blocks"; editor note, Save not blocked, his squares can be cleared
+- [x] Review fixes: floor charge counts only up to the floor (salary added in season uses it up); salary dumps go to under-floor teams first; t32e leave-kinds check (seed noise)
+- [x] Saved leagues remade: `tools/snap/nba-commish-s10.json.gz`, `nba-team-s10.json.gz` (3.8 MB each), `pbl16-commish-s10.json.gz` (1.9 MB). Not in git (`.gitignore`); sent in a separate zip
+- [x] Tests: node --check, lint 104, t30a 21/21, t30c pass, t32a 38, t32b 20, t32c 15, t32d 15, t32e 21, new `tools/t32g.js` 23/23, new `tools/browser-v32g.py.txt` 22/22. 10 seasons NBA commish + franchise (`tools/runs32/v32g-nba-*.txt`), 20 seasons new NBA league (`tools/runs32/v32g-20-nba-commish.txt`): 0 errors, 0 roster problems
+- [x] Report: `V32-REVIEW.md` (+ project doc `claude/nba/v32-review.md`): per-season table (asks by OVR, payroll, re-sign rate + reasons, win-first, expiring trades, RPG/BPG, minutes by role, rating climb, save size, speed)
+- Open / caveats:
+  - Sixth men under 24 in 8 of 20 seasons (23.3-23.9)
+  - A team sits $51-77M committed after free agency in 7 of 20 summers (pays the floor difference)
+  - Committed payroll over the hard cap after free agency twice (236 / 230): rookie-scale picks and player options skip the hard-cap check
+  - Save grows ~1.2 MB a season (29 MB JSON at S20)
+  - Hand-set numbers checked on one seed
+
 ## v32f-a (Sonnet, Nov 16 2026): one universe, no real-vs-game split in the UI
 - [x] History > Seasons: one list, newest first (this league's seasons, then 2025-26 back to 1946-47), same six columns. The "Real NBA history" sub-tab is gone (an old save with that tab selected opens Seasons). Rows from the NBA data have no standings, so they are not clickable and Best record shows a dash
 - [x] History > Championships: one list, each team's NBA titles + titles won here as one number (no "in this league" text); defunct franchise (Baltimore Bullets) is a row in the same list, sorted by count

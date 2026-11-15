@@ -1,3 +1,9 @@
+# v32g Haiku task: news wordings (Nov 16 2026) — done
+
+- [x] `news.paycut`, `news.leave` (src/league.js): 4 wordings each (+3). Other one-wording `news.*` keys: none left. Lint extended to these two keys (`node tools/lint-v30-text.js`). t30c 30/30.
+
+---
+
 # v30 Haiku task: wording variants (Nov 15 2026) — done for 5t, 21t, 23t
 
 Rule: 4 wordings per key, under 140 characters, same `{vars}` as the first wording (HOF speeches: vars must be ones `hofSpeech` passes). Check with `node tools/lint-v30-text.js` (scope: `mv.*`, v30 interview pools, `hof.speech.*`) and `node tools/t30c.js` (must stay 30/30).

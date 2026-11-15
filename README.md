@@ -14,6 +14,15 @@ The game is split into small files so a change rewrites one file, not 1.3 MB.
 | `src/nba-setup.js` | v30a NBA setup extras: real rookies (`nbaRookies`) + real jersey numbers (`NBA_JERSEY_CSV`, `nbaJerseys`) |
 | `src/index.template.html` | Page shell with markers `/*CSS*/ /*VENDOR*/ /*ENGINE*/ /*LEAGUE*/ /*APP*/` for the single-file build |
 
+## v32g (Opus, Nov 16 2026): open items + v32 review (S7)
+Code: `src/engine.js`, `src/league.js`, `src/app.js`.
+- **Sixth man minutes** (engine): `planRotation` gives the first man off the bench (18+ min planned) one long run per half, sliding to whichever slot opens; the gap fill weights minutes owed more than position fit; `planEven` evens bench minutes (extends a stint of a player still owed minutes). `RM_LIFT` sixth 5.5 -> 10.5, franchise star 5.5 -> 6.5.
+- **Mid-level = real cap exception** (league): `MLE_REAL` (true), `mleFits`, `canFit` (signing: under the cap, or the mid-level once a season up to `MLE` while under the tax line, never past the hard cap; re-sign / extension / rookie still up to the hard cap), `faRound`/`b2Room`/`faRoom` (cap room or the mid-level, whichever is more), `demandCtx` next-summer room, `winFirstTeams` room. `signContract` spends it on any above-minimum signing that doesn't fit under the cap (`t.mleUsed`, `t.mleWho`). Your offer over the cap with "Use mid-level" unticked is refused (`negotiate`, `makeFAOffer`); the offer popup says why (`app.js` mlebox). Coaching targets: over the cap only mid-level deals, note "Needs your mid-level".
+- **Saved rotation chart with a player out** (engine `chartPlan`): one stand-in takes all his blocks (position fit, then value, not already on court then); `tl.subs` notes on the game's chart; the editor shows a note instead of blocking Save, and an out player's squares can be cleared (`rcOut`).
+- **Payroll floor** (league): `payroll()` counts a floor charge only up to the floor (salary added later uses it up); `payNoFloor`; `salaryDump` sends dumps to teams under the floor first and they ask for fewer picks.
+- Saved test leagues: `tools/snap/*.json.gz` (remade Nov 16, not in git: 3.8 MB each; in the separate snap zip).
+- Tests: `node tools/t32g.js` (23), browser `tools/browser-v32g.py.txt` (22 at 1300 + 390px). Report: `python3 tools/v32g-sum.py.txt <r30 output>` (r30 row `v32g`: mid-level use, unsigned 65+ FAs, league OVR, top-8 OVR, 75+/80+ counts).
+
 ## v32f-a (Sonnet, Nov 16 2026): one universe UI
 Code: `src/app.js` (blocks marked v32f: `histRows` merge in `vHistory`, `awardLeadersAll` / `awardLeadersPanels`, `teamFinalYears`, `nbaTeamHonors`, `trophyCase`), `src/nba-text.js` (wording), `src/styles.css`.
 - History: no Real NBA sub-tab. Seasons, Championships and Awards history are single lists (this league's seasons first, then 2025-26 back to 1946-47).

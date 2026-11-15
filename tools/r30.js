@@ -17,6 +17,9 @@ var V32E={asks:null,exp:[],sign:[]};
  const sf=startFA;startFA=function(L){const r=sf(L);try{V32E.asks=V32E.askRep(L);}catch(e){V32E.asks={err:e.message};}return r;};
  const sc=signContract;signContract=function(L,p,tid,amt,yrs,type,opt,extra){const t=L.teams[tid];if((type==='signing'||type==='re-sign')&&L.phase!=='regular')(V32E.con=V32E.con||[]).push({o:p.ovr,a:p.age,amt,type});if(type==='signing'&&p.team==null)V32E.sign.push({pid:p.id,tid,amt,mval:p.mval,ask:p.ask,ovr:p.ovr,age:p.age,ring:(p.awards||[]).filter(a=>a.a==='Champion').length,st:t.status||t.mode,ph:L.phase});return sc.apply(this,arguments);};
 })();
+// v32g: mid-level use (offseason + season), unsigned 65+ free agents after free agency
+var V32G={sg:[]};
+(function(){const sc=signContract;signContract=function(L,p,tid,amt,yrs,type,opt,extra){try{if(type==='signing'&&typeof contractHit==='function'){const t=L.teams[tid],pre=payroll(L,t),hit=contractHit(amt,false);if(hit>0)V32G.sg.push({tid,amt,o:p.ovr,a:p.age,how:pre+hit<=CAP+1e-6?'room':'mle',ph:L.phase==='regular'?'rs':'off'});}}catch(e){}return sc.apply(this,arguments);};})();
 `);
 const out=run(`(function(N){
 const L=${process.env.SNAP?'SL':`newLeague({mode:'${MODE}',size:${+process.env.SIZE||30},userTeam:${MODE==='team'?5:'undefined'},games:82${NBA?",nba:true":""}})`};LCUR=L;
@@ -75,6 +78,11 @@ for(let y=1;y<=N;y++){const t0=Date.now();R30.inj={rs:0,po:0,rsG:0,poG:0};const 
    payroll:(()=>{const v=L.teams.map(t=>payroll(L,t,L.season+1));return {avg:+(v.reduce((a,b)=>a+b,0)/v.length).toFixed(1),min:+Math.min(...v).toFixed(1),max:+Math.max(...v).toFixed(1),overTax:v.filter(x=>x>TAXLINE).length};})(),
    why:L.resignLog&&L.resignLog.s===L.season?L.resignLog.out:null,why60:L.resignLog&&L.resignLog.s===L.season?L.resignLog.o60:null,
    trades:{all:tr.length,dump:tr.filter(r=>r.kind==='dump').length,exp:tr.filter(r=>r.kind==='exp').length,wk:tr.reduce((o,r)=>{if(r.wk)o[r.wk]=(o[r.wk]||0)+1;return o;},{})}};V32E.sign=[];}catch(e){row.v32e={err:String(e.message)};}
+ try{const sg=V32G.sg,m=sg.filter(x=>x.how==='mle'),fa65=(L.fa||[]).map(id=>L.players[id]).filter(p=>p&&!p.retired&&!p.prospect&&p.ovr>=65);
+  row.v32g={sign:sg.length,room:sg.length-m.length,mle:m.length,mleOff:m.filter(x=>x.ph==='off').length,mleAmt:m.length?+(m.reduce((a,x)=>a+x.amt,0)/m.length).toFixed(1):null,mleMax:m.length?Math.max(...m.map(x=>x.amt)):null,
+   fa65:fa65.length,fa65who:fa65.sort((a,b)=>b.ovr-a.ovr).slice(0,4).map(p=>p.name+' '+p.ovr+' a'+p.age+' ask '+p.ask),lgOvr:+(()=>{const a=[];for(const t of L.teams)for(const id of t.roster){const p=L.players[id];if(p)a.push(p.ovr);}return a.reduce((x,y)=>x+y,0)/a.length;})().toFixed(2),
+   top8:+(()=>{const a=[];for(const t of L.teams){const r=t.roster.map(id=>L.players[id]).filter(Boolean).map(p=>p.ovr).sort((x,y)=>y-x).slice(0,8);a.push(...r);}return a.reduce((x,y)=>x+y,0)/a.length;})().toFixed(2),
+   ovr75:Object.values(L.players).filter(p=>p.team!=null&&!p.retired&&p.ovr>=75).length,ovr80:Object.values(L.players).filter(p=>p.team!=null&&!p.retired&&p.ovr>=80).length};V32G.sg=[];}catch(e){row.v32g={err:String(e.message)};}
  startNewSeason(L);
  row.twCalls=R30.tw.calls-tw0.calls;row.twNo=R30.tw.no-tw0.no;
  row.weird=weird();

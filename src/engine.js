@@ -1222,7 +1222,7 @@ function rolesFresh(league, t) { if (t.roleKey !== t.roster.join(',') + '|' + (t
 function roleOf(league, p) { if (p.team == null) return null; const t = league.teams[p.team]; if (t) rolesFresh(league, t); return p.roleT === p.team ? p.role : null; }
 // fit role ranges to the minutes on offer: one shared shift (lambda) times each role's flexibility, clamped to the range; bisection.
 // list: [{ id, k, w }] (w = optional extra lean, minutes). Returns { id: minutes }.
-const RM_LIFT = [5.5, 4.5, 3, 5.5, -1.5, -3, 0];   // v32c: a normal game's plan: top roles above their range by about what blowouts and foul trouble take off, rotation / bench a bit under (blowout garbage time adds it back), so season averages land in the ranges   // short-handed nights: stars stretch 1.5 at most (calc), the bench takes the rest   // plan a bit above the role so the minutes played (after blowout rest and foul trouble) land in it
+const RM_LIFT = [6.5, 4.5, 3, 10.5, -1.5, -3, 0];   // v32g: sixth man 5.5 -> 10.5, franchise star 5.5 -> 6.5 (with the long-run placement in planRotation, sixth men land ~25 instead of ~22.7). v32c: a normal game's plan: top roles above their range by about what blowouts and foul trouble take off, rotation / bench a bit under (blowout garbage time adds it back), so season averages land in the ranges   // short-handed nights: stars stretch 1.5 at most (calc), the bench takes the rest   // plan a bit above the role so the minutes played (after blowout rest and foul trouble) land in it
 function roleMinutes(list, coach, playoff, total) {
   total = total || 240;
   const style = (coach && coach.rot) || 'Balanced', lean = style === 'Tight' ? 0.9 : style === 'Deep' ? 0.55 : 0.75;   // top roles aim high: blowout rest takes ~1.5 min off them
@@ -1243,7 +1243,8 @@ function roleMinutes(list, coach, playoff, total) {
 // position), and how he splits the rest between the 2nd and 4th. planRotation turns it into a minute-by-minute plan (48 x 5, by
 // slot) whose minutes match the role targets (g.target); bench stints fill the gaps by position. The game follows the plan unless
 // the game is close late, a blowout, overtime, foul trouble, or an injury (subStep). Your team can save a chart (t.rotChart:
-// 4 quarters x 4 blocks of 3 minutes, 5 ids each) that replaces the coach's plan; an invalid one falls back to the coach's.
+// 4 quarters x 4 blocks of 3 minutes, 5 ids each) that replaces the coach's plan; a player out that night gets a stand-in for his
+// blocks (v32g); a chart that can't be fixed that way falls back to the coach's.
 const ROT_BLK = 3;   // chart block length (minutes)
 const PAT_C = new WeakMap();
 const PAT_FIRST = [[2, 3], [2, 3], [1, 2], [3, 4], [0, 2], [1, 4]];   // slots that sit first (SF + PF most often, as in the classic pattern)
@@ -1282,39 +1283,93 @@ function planRotation(g) {
   });
   const bench = g.players.filter(p => !onSt.has(p.id) && !g.out.has(p.id));
   const B = new Map(bench.map(p => [p.id, Math.round(T(p.id))]));
+  // v32g: the first man off the bench (18+ min planned) gets one long run in each half, sliding to whichever slot opens, so his
+  // minutes aren't lost to position fit in the gap fill below (sixth men averaged ~22.7 vs their 24-28 range)
+  const top = bench.slice().sort((a, b) => B.get(b.id) - B.get(a.id))[0];
+  if (top && B.get(top.id) >= 18) for (const [h0, h1, need] of [[0, 24, Math.ceil(B.get(top.id) / 2)], [24, 48, B.get(top.id) - Math.ceil(B.get(top.id) / 2)]]) {
+    let m = h0, got = 0, s = -1;
+    while (m < h1 && !plan[m].some(x => !x)) m++;
+    for (; m < h1 && got < need; m++) {
+      const open = [0, 1, 2, 3, 4].filter(k => !plan[m][k]); if (!open.length) { s = -1; continue; }   // starters all on: his next stint starts at the next opening
+      const k = open.includes(s) ? s : open.sort((a, b) => slotFit(top, b) - slotFit(top, a))[0];
+      put(top, k, m, m + 1); s = k; got++;
+    }
+    B.set(top.id, B.get(top.id) - got);
+  }
   const gaps = []; for (let s = 0; s < 5; s++) { let a = -1; for (let m = 0; m <= 48; m++) { const open = m < 48 && !plan[m][s]; if (open && a < 0) a = m; if (!open && a >= 0) { gaps.push({ s, a, b: m }); a = -1; } } }
   gaps.sort((x, y) => x.a - y.a || (y.b - y.a) - (x.b - x.a));
   for (const gp of gaps) {
     let m = gp.a;
     while (m < gp.b) {
       let best = null, bv = -1;
-      for (const p of bench) { if (busy[m].has(p.id)) continue; const left = B.get(p.id), v = slotFit(p, gp.s) * (left > 0 ? 1 + left / 8 : 0.05) + (m > 0 && plan[m - 1][gp.s] === p ? 0.5 : 0); if (v > bv) { bv = v; best = p; } }
+      for (const p of bench) { if (busy[m].has(p.id)) continue; const left = B.get(p.id), v = (0.4 + 0.6 * slotFit(p, gp.s)) * (left > 0 ? 1 + left / 5 : 0.05) + (m > 0 && plan[m - 1][gp.s] === p ? 0.5 : 0); if (v > bv) { bv = v; best = p; } }
       if (!best) break;
       let len = Math.max(1, Math.min(gp.b - m, B.get(best.id) > 0 ? B.get(best.id) : 1));
       let e = m; while (e < m + len && !busy[e].has(best.id)) e++;
       put(best, gp.s, m, e); B.set(best.id, B.get(best.id) - (e - m)); m = Math.max(e, m + 1);
     }
   }
+  planEven(plan, busy, bench, B);
   return plan;
 }
-// your saved chart -> plan, or a reason it can't be used
+// v32g: the gap fill above follows position fit, so a sixth man often ended ~4 min short of his plan (bench / development players
+// over theirs). Even it out: a bench player still owed 1+ minutes extends one of his stints by a minute, taking it from a bench
+// player on court then who is owed less (decent position fit; same slot preferred). Starters' minutes are never touched.
+function planEven(plan, busy, bench, B) {
+  const isB = new Set(bench.map(p => p.id));
+  for (let it = 0; it < 120; it++) {
+    const need = bench.filter(p => B.get(p.id) >= 1).sort((a, b) => B.get(b.id) - B.get(a.id));
+    let done = false;
+    for (const X of need) {
+      let best = null, bv = 1e9;
+      for (let m = 0; m < 48; m++) {
+        if (busy[m].has(X.id)) continue;
+        for (let s = 0; s < 5; s++) {
+          const Y = plan[m][s]; if (!Y || !isB.has(Y.id) || Y === X) continue;
+          if (!((m > 0 && busy[m - 1].has(X.id)) || (m < 47 && busy[m + 1].has(X.id)))) continue;   // extend a stint (he may slide to the next slot), no new fragments
+          if (B.get(Y.id) >= B.get(X.id) - 1 || slotFit(X, s) < Math.min(0.72, slotFit(Y, s))) continue;
+          const v = B.get(Y.id) - slotFit(X, s) - (m > 0 && plan[m - 1][s] === X || m < 47 && plan[m + 1][s] === X ? 0.5 : 0); if (v < bv) { bv = v; best = [m, s, Y]; }
+        }
+      }
+      if (!best) continue;
+      const [m, s, Y] = best; plan[m][s] = X; busy[m].delete(Y.id); busy[m].add(X.id); B.set(X.id, B.get(X.id) - 1); B.set(Y.id, B.get(Y.id) + 1); done = true; break;
+    }
+    if (!done) break;
+  }
+}
+// your saved chart -> plan, or a reason it can't be used. v32g: a player in the chart who is out tonight (injury, suspension,
+// traded) no longer voids the chart: one stand-in takes all his blocks (best position fit for his spot, then value, a player
+// not already on court in those blocks); only if nobody fits does a block fall back to the coach pattern. g.chartSubs lists the swaps.
 function chartPlan(league, g) {
   const ch = g.t.rotChart; if (!ch || !Array.isArray(ch.q)) return { bad: null };
-  const avail = new Map(g.players.map(p => [p.id, p])), plan = [];
+  const avail = new Map(g.players.map(p => [p.id, p])), mine = new Set(g.t.roster.concat(g.t.twoWay || [])), plan = [];
+  const blocks = [];
   for (let qi = 0; qi < 4; qi++) for (let b = 0; b < 12 / ROT_BLK; b++) {
     const ids = ((ch.q[qi] || [])[b] || []).filter(x => x != null);
     if (ids.length !== 5 || new Set(ids).size !== 5) return { bad: `Q${qi + 1} block ${b + 1}: needs 5 different players` };
-    const miss = ids.find(id => !avail.has(id) || !g.t.roster.concat(g.t.twoWay || []).includes(id));
-    if (miss != null) { const p = league.players[miss]; return { bad: `${p ? p.name : 'A player'} is not available (Q${qi + 1})` }; }
-    const five = slotsFor(ids.map(id => avail.get(id)), g.coach);
-    for (let m = 0; m < ROT_BLK; m++) plan.push(five);
+    blocks.push(ids.slice());
   }
-  return { plan };
+  const ok = id => avail.has(id) && mine.has(id), subs = [];
+  const missing = [...new Set(blocks.flat())].filter(id => !ok(id));
+  const cnt = {}; for (const bl of blocks) for (const id of bl) cnt[id] = (cnt[id] || 0) + 1;
+  for (const id of missing) {
+    const P = league.players[id], pos = P ? P.pos : 2, his = blocks.map((bl, i) => bl.includes(id) ? i : -1).filter(i => i >= 0);
+    const score = c => slotFit(c, pos) * 10 + playerValue(c, g.coach) * 0.08 - (cnt[c.id] || 0) * 0.35;   // fit first, then the better player, lighter load
+    const pool = g.players.filter(c => ok(c.id) && !missing.includes(c.id)).sort((a, b) => score(b) - score(a));
+    const one = pool.find(c => his.every(i => !blocks[i].includes(c.id)));
+    for (const i of his) {
+      const c = one || pool.find(x => !blocks[i].includes(x.id)); if (!c) return { bad: `${P ? P.name : 'A player'} is not available and nobody can take his spot` };
+      blocks[i][blocks[i].indexOf(id)] = c.id; cnt[c.id] = (cnt[c.id] || 0) + 1;
+      const sub = subs.find(x => x.out === id && x.in === c.id); if (sub) sub.n++; else subs.push({ out: id, in: c.id, n: 1 });
+    }
+  }
+  for (const ids of blocks) { const five = slotsFor(ids.map(id => avail.get(id)), g.coach); for (let m = 0; m < ROT_BLK; m++) plan.push(five); }
+  return { plan, subs };
 }
 function rotSetup(league, g, playoff) {
   const cp = league.user === g.t.id ? chartPlan(league, g) : { bad: null };
   if (cp.plan) {
-    g.plan = cp.plan; g.planSrc = 'chart';
+    g.plan = cp.plan; g.planSrc = 'chart'; if (cp.subs && cp.subs.length) g.chartSubs = cp.subs.map(x => { const a = league.players[x.out], b = league.players[x.in]; return `${a ? a.name : 'A player'} out: ${b ? b.name : 'a teammate'} took his ${x.n} block${x.n > 1 ? 's' : ''}`; });
     const mins = {}; for (const row of cp.plan) for (const p of row) mins[p.id] = (mins[p.id] || 0) + 1;
     for (const p of g.players) g.target[p.id] = (mins[p.id] || 0) * 60;
     for (const p of g.court) if (p) g.st[p.id][IX.gs] = 0;
@@ -1382,7 +1437,7 @@ function subStep(g, elapsed, quarter, clock, margin, ot, due) {
 }
 // timeline: starters + sub events [deciseconds, out id, in id]; compact, rebuilt into minutes by tlMinutes
 function tlNote(g, elapsed) {
-  const now = g.court.filter(Boolean).map(p => p.id); if (!g.tl) { g.tl = { st: now.slice(), ev: [], src: g.planSrc || 'coach' }; if (g.chartBad) g.tl.bad = g.chartBad; g.tlLast = now; return null; }
+  const now = g.court.filter(Boolean).map(p => p.id); if (!g.tl) { g.tl = { st: now.slice(), ev: [], src: g.planSrc || 'coach' }; if (g.chartBad) g.tl.bad = g.chartBad; if (g.chartSubs) g.tl.subs = g.chartSubs; g.tlLast = now; return null; }
   const last = g.tlLast, outs = last.filter(id => !now.includes(id)), ins = now.filter(id => !last.includes(id)); if (!outs.length && !ins.length) return null;
   const t = Math.round(elapsed * 10); for (let i = 0; i < Math.max(outs.length, ins.length); i++) g.tl.ev.push([t, outs[i] != null ? outs[i] : -1, ins[i] != null ? ins[i] : -1]);
   g.tlLast = now; return { outs, ins };

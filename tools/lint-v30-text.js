@@ -4,13 +4,14 @@
 //   iv.q/a.<v30 pool>, iv.*.draft  interviews (#23): same {vars} as the first wording
 //   sc.*, tk.*                   scouting report + ticker lines (8t, 7t): same {vars} as the first wording
 //   hof.speech.*                 HOF speeches (#21): every {var} must be one the code passes for that key
+//   news.paycut, news.leave      news wordings (v32g): same {vars} as the first wording
 // Use ALL=1 to check every FLAVOR and story key instead (older keys still have 1 wording by design).
 const load = require('./load.js'), SRC = process.env.SRC || 'src', ALL = !!process.env.ALL;
 const { run } = load(SRC, 3);
 const flavor = JSON.parse(run('JSON.stringify(typeof FLAVOR!=="undefined"?FLAVOR:{})'));
 const story = JSON.parse(run('JSON.stringify(typeof NBA_TEXT!=="undefined"&&NBA_TEXT.story?NBA_TEXT.story:{})'));
 const V30_POOL = 'bench|future|rotation|pressure|rest|dpick|dtrade|dclass|dneed|dwork';
-const inScope = k => ALL || new RegExp(`^(sc\\.|ab\\.|tk\\.|mv\\.|iv\\.(q|a)\\.(${V30_POOL})\\b|iv\\.(intro|news)\\.draft$|hof\\.speech\\.)`).test(k);
+const inScope = k => ALL || new RegExp(`^(sc\\.|ab\\.|tk\\.|mv\\.|iv\\.(q|a)\\.(${V30_POOL})\\b|iv\\.(intro|news)\\.draft$|hof\\.speech\\.|news\\.(paycut|leave)$)`).test(k);
 // vars the code passes for each HOF speech key (league.js hofSpeech)
 const HOF_VARS = { 'hof.speech.open': ['name', 'seasons'], 'hof.speech.team': ['team', 'n'], 'hof.speech.coach': ['c1'], 'hof.speech.coach2': ['c1', 'c2'], 'hof.speech.mates': ['list', 'top', 'rest'], 'hof.speech.fam': ['rel', 'who'], 'hof.speech.titles': ['n', 'rings'], 'hof.speech.mvp': ['n', 'mvps'], 'hof.speech.close': ['name'] };
 const sets = [['FLAVOR', flavor], ['story', story]];
@@ -31,6 +32,6 @@ for (const [name, obj] of sets) for (const k of Object.keys(obj)) {
     else if (vars(s).join() !== v0.join()) problems.push(`${name} ${k}[${i}]: vars {${vars(s).join(' ')}} differ from first wording {${v0.join(' ')}}`);
   });
 }
-console.log(`v30 text lint: ${keys} keys checked${ALL ? ' (all)' : ' (sc, tk, mv, v30 interview pools, hof.speech)'}`);
+console.log(`v30 text lint: ${keys} keys checked${ALL ? ' (all)' : ' (sc, tk, mv, v30 interview pools, hof.speech, news.paycut/leave)'}`);
 if (problems.length) { console.log(problems.map(p => 'FAIL ' + p).join('\n')); console.log(`${problems.length} problem(s)`); process.exit(1); }
 console.log('PASS all keys: 4+ wordings, vars match, under 140 chars');

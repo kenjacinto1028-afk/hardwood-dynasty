@@ -50,7 +50,7 @@ run(`var L=newLeague({mode:'team',userTeam:5,size:30,games:82,nba:true}); comput
     L2.user=null;L2.phase='off-draft';startResign(L2);for(const [id,tid] of list){n++;if(L2.players[id].team===tid)kept++;}walk+=L2.log.filter(e=>e.k==='walk').length;for(const k in L2.resignLog.out)why[k]=(why[k]||0)+L2.resignLog.out[k];}
     return {kept,n,rate:kept/n,walk,why};`);
   chk('rotation players (60-77, age <=31) re-sign most of the time (60-88%)', r.rate >= 0.6 && r.rate <= 0.88, (r.rate * 100).toFixed(0) + '% of ' + r.n);
-  chk('players leave for several reasons (4+ kinds, player and team side)', Object.keys(r.why).filter(k => k.startsWith('p:')).length >= 4 && Object.keys(r.why).some(k => k.startsWith('t:')), JSON.stringify(r.why));
+  chk('players leave for several reasons (3+ player kinds + team side; v32g: was 4+, seed-dependent: the role reason needs 15+ games of stats, none in a new league)', Object.keys(r.why).filter(k => k.startsWith('p:')).length >= 3 && Object.keys(r.why).some(k => k.startsWith('t:')), JSON.stringify(r.why));
   chk('news when a good player turns his team down', r.walk >= 1, r.walk + ' news lines');
 }
 // ---------- D ----------

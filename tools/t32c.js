@@ -63,7 +63,7 @@ run(`for(let d=0;d<20;d++)simDay(L);`);
     return {src:tl.src,match,tot,h1,st,src2:tl2.src,bad2:tl2.bad||'',src3:tl3.src,bad3:tl3.bad||''};`);
   chk('your chart runs the game (source = chart, starters = chart Q1 block 1)', r.src === 'chart' && r.st, r.src);
   chk('on-court five follows the chart: 1st half 90%+, whole game 60%+ (close finishes / blowouts / fouls take over)', r.h1 >= 22 && r.match >= r.tot * 0.6, r.h1 + '/24, ' + r.match + '/' + r.tot);
-  chk('chart with an injured player falls back to the coach (with a reason)', r.src2 === 'coach' && /not available/.test(r.bad2), r.src2 + ' ' + r.bad2);
+  chk('v32g: chart with an injured player still runs, with a stand-in (see t32g)', r.src2 === 'chart' && !r.bad2, r.src2 + ' ' + r.bad2);
   chk('chart with a 4-man block falls back to the coach', r.src3 === 'coach' && /5 different/.test(r.bad3), r.src3 + ' ' + r.bad3);
 }
 // ---------- E ----------

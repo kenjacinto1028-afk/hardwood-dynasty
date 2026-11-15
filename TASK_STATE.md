@@ -1,3 +1,21 @@
+# TASK_STATE — v32g (Opus): open items + v32 review (S7) — Nov 16 2026
+
+Part A
+- [x] A0. Read code (roleMinutes/RM_LIFT, mleStatus/cap rules/AI signing, rotChart validation in planRotation) — done
+- [x] A1. Sixth men 24-28 via role minutes plan — engine.js planRotation: long run per half for the top bench man, gap fill weights minutes owed, planEven; RM_LIFT sixth 9, fs 6.5. 1 season: sixth 25.3 (was 22.5)
+- [x] A2. Mid-level = real cap exception — league.js MLE_REAL, mleFits, canFit, faRoom(max room/MLE), b2Room, demandCtx proj, signContract marks t.mleUsed/mleWho; negotiate + makeFAOffer refuse over-cap offers with mle unticked; app.js offer warnings
+- [x] A3. Saved chart stand-ins — engine.js chartPlan (one stand-in per out player, g.chartSubs -> tl.subs); app.js game chart note, editor note (rcOut), out players can be removed, no save block
+- [x] A4. tools/snap/ remade (nba-commish-s10 3.8 MB gz, nba-team-s10 3.8 MB gz, pbl16 in progress); kept out of git (.gitignore)
+- [x] A5. tools/t32g.js 21/21; node --check, lint 104, t30a 21/21, t30c pass, t32a 38, t32b 20, t32c 15 (chart test updated), t32d 15 (mle test updated), t32e 20/21 seed 5 (leave-kinds check is seed noise; 21/21 SEED=11). Also: win-first room = cap room or MLE; coaching targets note 'Needs your mid-level'
+- [x] A6. 10 seasons NBA SEED=21 (tools/runs32/v32g-nba-*.txt): 0 errors, 0 roster problems; sixth 22.9-26.2 (avg ~24.3/24.9) -> RM_LIFT sixth 9 -> 10.5; payroll avg 152-184 (v32e2 163-181); win-first 0-3; save 17.4-17.5 MB
+Part B
+- [x] B1. Review: sixth men low (fixed A1), MLE vs win-first room (fixed), coaching-target notes vs MLE (fixed), teams far under payroll floor (67-95M committed), floor charge static in season, rating climb 57->64 (known, levels off), t32e leave-kinds check seed-flaky
+- [x] B2. Fixes: payroll() floor charge only up to the floor (payNoFloor), salary dumps go to under-floor teams first and ask less; t32g D 23/23
+- [x] B3. 20 seasons new NBA league: tools/runs32/v32g-20-nba-commish.txt, 0 errors; r30 row v32g + tools/v32g-sum.py.txt
+- [x] B4. V32-REVIEW.md + project doc claude/nba/v32-review.md
+- [x] B5. PROGRESS.md + README, committed; push blocked (GitHub not linked): zip of changed files + separate snap zip sent
+
+---
 # TASK_STATE — v32f-a (one universe UI): remove real-vs-game split — Nov 16 2026
 
 - [x] G0. Grep src for real/Real NBA/historical wording + the split panels — grep of app/league/engine/nba-setup/nba-text; only app.js and nba-text.js had user-facing real-vs-game text

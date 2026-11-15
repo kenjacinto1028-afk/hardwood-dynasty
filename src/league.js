@@ -220,9 +220,10 @@ function payroll(L, t, cs) {
   cs = cs == null ? capSeason(L) : cs;
   let s = 0; for (const id of t.roster) s += capHit(L, L.players[id], cs);
   for (const d of t.dead || []) if (d.exp >= cs && (d.from == null || d.from <= cs)) s += d.amt;
-  for (const fp of t.floorPaid || []) if (fp.s === cs) s += fp.amt;      // a payroll-floor charge counts as payroll that season
+  for (const fp of t.floorPaid || []) if (fp.s === cs) s += Math.min(fp.amt, Math.max(0, MINPAY - s));      // a payroll-floor charge counts as payroll that season; v32g: only the part still under the floor (salary added later in the season uses it up, as the NBA settles the shortfall at season end)
   return s;
 }
+function payNoFloor(L, t, cs) { cs = cs == null ? capSeason(L) : cs; let s = 0; for (const id of t.roster) s += capHit(L, L.players[id], cs); for (const d of t.dead || []) if (d.exp >= cs && (d.from == null || d.from <= cs)) s += d.amt; return s; }   // v32g: salary without the floor charge
 // Cap commitments for the next five seasons: each player's salary per season, plus dead money and floor charges
 function capProjection(L, t) {
   const cs = capSeason(L), years = [0, 1, 2, 3, 4].map(i => cs + i);
@@ -255,20 +256,24 @@ function mleStatus(L, t, pay, hit) {
   if (!open) why = 'already used this season'; else if (hit <= 0) why = 'minimum deals do not need it'; else if (!crosses) why = 'the deal fits under the cap'; else if (hit > MLE + 1e-6) why = `the offer is over ${money(MLE)}`; else if (pay >= TAXLINE) why = 'payroll is already over the tax line';
   return { open, left: open ? MLE : 0, eligible: !why, why };
 }
+// v32g: the mid-level is a real cap exception again (MLE_REAL). A free agent above the minimum must fit under the cap, or use the
+// once-a-season mid-level (up to MLE, payroll under the tax line before the deal, never past the hard cap). Re-signing your own
+// players (Bird rights), extensions and rookie deals still go up to the hard cap. Off = the v24.4 B2 rule (any signing up to the hard cap).
+const MLE_REAL = true;
+function mleFits(L, t, pay, hit) { return mleOpen(L, t) && hit <= MLE + 1e-6 && pay < TAXLINE && pay + hit <= APRON + 1e-6; }
 function canFit(L, t, amt, hg, type) {
   const hit = contractHit(amt, hg); if (hit === 0) return true;
   const pay = payroll(L, t);
   if (type === 're-sign' || type === 'extension' || type === 'rookie') return pay + hit <= APRON + 1e-6;
   if (pay + hit <= CAP + 1e-6) return true;
-  if (V244.b2) return pay + hit <= APRON + 1e-6;   // v24.4 B2: no cap-room or mid-level test, only the hard cap
-  return mleOpen(L, t) && hit <= MLE + 1e-6 && pay < TAXLINE && pay + hit <= APRON + 1e-6;
+  if (V244.b2 && !MLE_REAL) return pay + hit <= APRON + 1e-6;   // v24.4 B2: no cap-room or mid-level test, only the hard cap
+  return mleFits(L, t, pay, hit);
 }
-// Most a team can offer a free agent right now (0 = minimum deals only)
-function faRoom(L, t) {
-  const pay = payroll(L, t);
-  if (pay < CAP - 1e-6) return CAP - pay;
-  if (mleOpen(L, t) && pay < TAXLINE) return Math.min(MLE, APRON - pay);
-  return 0;
+// Most a team can offer a free agent right now (0 = minimum deals only): cap room, or the mid-level if that is more
+function faRoom(L, t, pay) {
+  if (pay == null) pay = payroll(L, t);
+  const room = Math.max(0, CAP - pay), mle = mleOpen(L, t) && pay < TAXLINE ? Math.max(0, Math.min(MLE, APRON - pay)) : 0;
+  return Math.max(room, mle);
 }
 
 // ---------- v24.4 B2: every team may bid up to the $170M hard cap, but past the soft cap and the tax line it costs something ----------
@@ -289,7 +294,7 @@ function b2Ceiling(L, t, p, needs) {
   if (t.owner) { if (t.owner.tight || (t.cash || 0) < 0) c = Math.min(c, CAP); c = Math.min(c, t.owner.limit); }
   return Math.min(APRON, c);
 }
-function b2Room(L, t, p, needs) { return Math.max(0, b2Ceiling(L, t, p, needs) - payroll(L, t)); }
+function b2Room(L, t, p, needs) { const pay = payroll(L, t), r = Math.max(0, b2Ceiling(L, t, p, needs) - pay); return MLE_REAL ? Math.min(r, faRoom(L, t, pay)) : r; }   // v32g: also limited by cap room / the mid-level
 // most he can bid so that salary plus the tax it adds stays within what the player is worth to the team
 function b2Bid(L, t, W, pay) {
   if (bidsThroughTax(L, t) || pay + W <= TAXLINE + 1e-6) return W;
@@ -392,6 +397,7 @@ function demandCtx(L, proj) {
   for (const t of L.teams) {
     needs[t.id] = teamNeeds(L, t);
     let r = V244.b2 ? (proj ? b2Ceiling(L, t) - payroll(L, t, L.season + 1) : b2Room(L, t)) : proj ? CAP - payroll(L, t, L.season + 1) : faRoom(L, t);
+    if (MLE_REAL && proj) { const pn = payroll(L, t, L.season + 1); r = Math.min(r, Math.max(CAP - pn, pn < TAXLINE ? MLE : 0)); }   // v32g: next summer: cap room or the mid-level
     if (t.owner) r = Math.min(r, Math.max(0, t.owner.limit - payroll(L, t, proj ? L.season + 1 : L.season)));
     room[t.id] = r;
   }
@@ -476,8 +482,9 @@ function signContract(L, p, tid, amt, yrs, type, opt, extra) {
   if (joining) { p.morale = 60; p.tradeReq = null; }
   if (type === 'signing' && tid === L.user && L.me && L.phase !== 'regular') { const k = capSeason(L); L.me.spree = L.me.spree && L.me.spree.s === k ? L.me.spree : { s: k, n: 0 }; if (++L.me.spree.n >= 5) unlock(L, 'spree'); }
   const t0 = L.teams[tid];
-  // v32d: your offer can say whether this deal spends the mid-level (extra.mle true/false); AI signings keep the old rule (any deal that takes payroll over the cap)
-  if (type === 'signing' && contractHit(amt, false) > 0 && payroll(L, t0) > CAP + 1e-6 && (!extra || extra.mle == null || extra.mle)) { t0.mleUsed = capSeason(L); }
+  // v32g: a signing above the minimum that doesn't fit under the cap is the team's mid-level for the season (AI and you; your
+  // offer can only reach this point over the cap with "Use mid-level" ticked, see negotiate). p is not on the roster yet here.
+  if (type === 'signing' && contractHit(amt, false) > 0 && payroll(L, t0) + contractHit(amt, false) > CAP + 1e-6 && (!extra || extra.mle == null || extra.mle || MLE_REAL)) { t0.mleUsed = capSeason(L); t0.mleWho = { s: capSeason(L), pid: p.id, amt }; }
   for (const ot of L.teams) if (ot.id !== tid && (ot.dead || []).some(d => d.pid === p.id)) {
     ot.dead = ot.dead.filter(d => d.pid !== p.id);
     logNews(L, `${p.name} signed with ${t0.abbr}, so his dead money comes off ${ot.abbr}'s cap`, ot.id, 'tx');
@@ -666,8 +673,10 @@ function coachTargets(L, t, kind, tab) {
       if (p.ask == null) setAsk(L, p);
       const hit = contractHit(p.ask, false), after = payroll(L, t) + hit;
       if (hit > 0 && after > APRON + 1e-6) continue;
+      if (MLE_REAL && hit > 0 && after > CAP + 1e-6 && !mleFits(L, t, payroll(L, t), hit)) continue;   // v32g: over the cap only a mid-level deal fits
       if (hit <= 0) capNote = 'Minimum deal: always fits';
       else if (after <= CAP + 1e-6) capNote = `Fits cap space (${money(CAP - after)} left after)`;
+      else if (MLE_REAL) { let tx = 0; try { tx = after > TAXLINE ? taxCostOf(L, t, payroll(L, t), hit) : 0; } catch (e) { } capNote = `Needs your mid-level (${money(MLE)}, once a season)${tx > 0 ? `; over the tax line after, about ${money(tx)} tax` : ''}`; }
       else if (after <= TAXLINE + 1e-6) capNote = `Fits under the tax line (${money(TAXLINE - after)} to spare); over the cap`;
       else { let tx = 0; try { tx = taxCostOf(L, t, payroll(L, t), hit); } catch (e) { } capNote = `Fits under the hard cap (${money(APRON - after)} left); over the tax line, about ${money(tx)} tax`; }
     }
@@ -3070,7 +3079,7 @@ function financeGame(L, g) {
   const ratio = price / (marketPrice(L, home) * (g.playoff ? 1.5 : 1));
   if (ratio > 1.1) hypeBump(home, -(ratio - 1.1) * 2 * hk);
 }
-function cashPayroll(L, t, cs) { cs = cs == null ? capSeason(L) : cs; let s = 0; for (const p of rosterOf(L, t)) if (p.contract && p.contract.exp >= cs) s += p.contract.amt; for (const d of t.dead || []) if (d.exp >= cs) s += d.amt; for (const fp of t.floorPaid || []) if (fp.s === cs) s += fp.amt; return s; }
+function cashPayroll(L, t, cs) { cs = cs == null ? capSeason(L) : cs; let s = 0; for (const p of rosterOf(L, t)) if (p.contract && p.contract.exp >= cs) s += p.contract.amt; for (const d of t.dead || []) if (d.exp >= cs) s += d.amt; for (const fp of t.floorPaid || []) if (fp.s === cs) s += Math.min(fp.amt, Math.max(0, MINPAY - s)); return s; }
 const STAFF_BASE = { 3: 15, 2: 12, 1: 9.5 }, INTERIM_PAY = 0.5;
 // Owner's budget for the head coach, the scouting director and money still owed to fired staff (a hard limit on new hires)
 function staffBudgetFor(L, t) { return r1(clamp(STAFF_BASE[t.market] + (t.owner ? t.owner.wealth * 0.1 : 0) + Math.max(0, t.cash || 0) * 0.01, 7, 20)); }
@@ -3587,10 +3596,11 @@ function salaryDump(L, toUser) {
   if (!over.length) return null;
   const A = pick(over), p = dumpCandidate(L, A); if (!p) return null;
   const hit = capHit(L, p, cs);
-  const recv = L.teams.filter(t => t.id !== A.id && (toUser ? t.id === L.user : t.id !== L.user) && CAP - payroll(L, t, cs) >= hit && t.roster.length < 15).sort((a, b) => (b.mode === 'rebuild' || b.mode === 'tank') - (a.mode === 'rebuild' || a.mode === 'tank'));
+  const recv = L.teams.filter(t => t.id !== A.id && (toUser ? t.id === L.user : t.id !== L.user) && CAP - payroll(L, t, cs) >= hit && t.roster.length < 15).sort((a, b) => (payNoFloor(L, a, cs) < MINPAY) !== (payNoFloor(L, b, cs) < MINPAY) ? (payNoFloor(L, b, cs) < MINPAY) - (payNoFloor(L, a, cs) < MINPAY) : (b.mode === 'rebuild' || b.mode === 'tank') - (a.mode === 'rebuild' || a.mode === 'tank'));   // v32g: teams under the payroll floor first
   for (const B of recv) {
     // only attach picks when the contract is a real burden; a useful player on a big deal is moved for nothing
-    const v = playerTV(L, B, p, false), need = v >= 1.2 ? 0 : Math.max(0.5, 1.2 - v);
+    // v32g: a team under the payroll floor pays the gap anyway, so salary that keeps it under the floor costs it nothing: it asks for less
+    const v = playerTV(L, B, p, false), free = Math.max(0, Math.min(hit, MINPAY - payNoFloor(L, B, cs))) / Math.max(hit, 1), need = (v >= 1.2 ? 0 : Math.max(0.5, 1.2 - v)) * (1 - 0.6 * free);
     const picks = L.picks.filter(k => k.owner === A.id && k.s > L.season && !pickUsed(L, k)).sort((a, b) => b.rd - a.rd || b.s - a.s);
     const aGive = { players: [p.id], picks: [] }; let got = 0; const gv = [];
     for (const k of picks) { if (got >= need || aGive.picks.length >= 2) break; aGive.picks.push(k.id); gv.push(pickTV(L, B, k)); got = bundleSum(gv); }
@@ -3659,7 +3669,7 @@ function winFirstTeams(L, p) {
     if (p.pers === 'Mentor' && mentorsOf(L, t).length >= MENTOR_MAX) continue;
     const rot = rotationOf(L, t), f = b2Fit(L, t, p);
     if (!(f.starter || f.need || p.ovr >= (rot[6] ? rot[6].ovr : 0))) continue;   // he'd play real minutes there
-    const room = Math.min(APRON - payroll(L, t), t.owner ? Math.max(0, t.owner.limit + 5 - payroll(L, t)) : 99);
+    const room = Math.min(MLE_REAL ? faRoom(L, t) : APRON - payroll(L, t), t.owner ? Math.max(0, t.owner.limit + 5 - payroll(L, t)) : 99);   // v32g: over the cap a contender has its mid-level
     let amt = r1(p.mval * rnd(WIN_FIRST.cut[0], WIN_FIRST.cut[1]));
     amt = Math.min(amt, r1(room - 0.2));
     if (amt < 1.5) amt = MINSAL;
@@ -5072,7 +5082,8 @@ function negotiate(L, pid, amt, yrs, tid, type, opt, extra) {
   const need = needR(yrs, opt);
   const hg = (type === 're-sign' || type === 'extension') && p.draftTid === tid && amt >= 10;
   if (type === 'extension') { if (payroll(L, t, L.season + 1) + contractHit(amt, hg) > APRON + 1e-6) return { ok: false, msg: `That would put next season's payroll over the ${money(APRON)} hard cap.` }; }
-  else if (!canFit(L, t, amt, hg, type)) return { ok: false, msg: type === 're-sign' ? `That would put ${t.abbr} over the ${money(APRON)} hard cap (payroll ${money(payroll(L, t))}).` : V244.b2 ? `That would put ${t.abbr} over the ${money(APRON)} hard cap (payroll ${money(payroll(L, t))}).` : `${t.abbr} can't fit that (payroll ${money(payroll(L, t))}${hg ? ', counting 90%' : ''}). Over the ${money(CAP)} cap you can only sign free agents with the mid-level exception (up to ${money(MLE)}, once a season, only while under the ${money(TAXLINE)} tax line${mleOpen(L, t) ? '' : '; already used this season'}) or at the minimum.` };
+  else if (!canFit(L, t, amt, hg, type)) return { ok: false, msg: type === 're-sign' ? `That would put ${t.abbr} over the ${money(APRON)} hard cap (payroll ${money(payroll(L, t))}).` : V244.b2 && !MLE_REAL ? `That would put ${t.abbr} over the ${money(APRON)} hard cap (payroll ${money(payroll(L, t))}).` : `${t.abbr} can't fit that (payroll ${money(payroll(L, t))}${hg ? ', counting 90%' : ''}). Over the ${money(CAP)} cap you can only sign free agents with the mid-level exception (up to ${money(MLE)}, once a season, only while under the ${money(TAXLINE)} tax line${mleOpen(L, t) ? '' : '; already used this season'}) or at the minimum.` };
+  if (MLE_REAL && type === 'signing' && tid === L.user && extra && extra.mle === false && !extra.quote && contractHit(amt, hg) > 0 && payroll(L, t) + contractHit(amt, hg) > CAP + 1e-6) return { ok: false, msg: `Over the ${money(CAP)} cap this deal needs your mid-level exception: tick "Use mid-level", or offer the minimum.` };   // v32g
   if (type === 'signing' && t.roster.length >= 15 && !(L.phase === 'regular' && false)) return { ok: false, msg: `${t.abbr} already have 15 players. Release someone first.` };
   if (amt + incVal + 0.01 >= need || (p.ask <= MINSAL + 1e-6 && amt >= MINSAL)) {
     // v24.5.1: the owner is asked only once the player would accept, and a promise counts only when he signs
@@ -5262,6 +5273,7 @@ function submitFAOffer(L, pid, amt, yrs, opt, extra) {
   const cc = signConcerns(L, p, t, 'signing'); if (cc.refuse) return { ok: false, refused: true, msg: cc.refuse };
   if (t.roster.length + Object.keys(L.faOffers || {}).filter(id => +id !== pid).length >= 15) return { ok: false, msg: 'Your roster plus pending offers would go past 15 players.' };
   if (!canFit(L, t, amt + pendingTotal(L, pid), false, 'signing')) return { ok: false, msg: `That doesn't fit with your other pending offers (${money(pendingTotal(L, pid))} already offered).` };
+  if (MLE_REAL && extra && extra.mle === false && contractHit(amt, false) > 0 && payroll(L, t) + pendingTotal(L, pid) + contractHit(amt, false) > CAP + 1e-6) return { ok: false, msg: `Over the ${money(CAP)} cap this offer needs your mid-level exception: tick "Use mid-level", or offer the minimum.` };   // v32g
   const wantPromise = !!(extra && extra.ownerPromise); extra = Object.assign({}, extra || {}); delete extra.ownerPromise;
   { const oc = ownerCheck(L, amt, pendingTotal(L, pid)); if (!oc.ok) { if (oc.ask && wantPromise) extra.ownerPromise = true; else return { ok: false, owner: oc, msg: oc.msg }; } }   // v24.5 / v24.5.1: the promise is stored with the offer and made only if he signs
   (L.faOffers = L.faOffers || {})[pid] = { amt, yrs, opt: yrs >= 2 ? opt || null : null, extra, day: L.faDay };

@@ -14,6 +14,12 @@ The game is split into small files so a change rewrites one file, not 1.3 MB.
 | `src/nba-setup.js` | v30a NBA setup extras: real rookies (`nbaRookies`) + real jersey numbers (`NBA_JERSEY_CSV`, `nbaJerseys`) |
 | `src/index.template.html` | Page shell with markers `/*CSS*/ /*VENDOR*/ /*ENGINE*/ /*LEAGUE*/ /*APP*/` for the single-file build |
 
+## v32 version-end review (Opus, Nov 16 2026)
+- `wfBar(L)` (league.js, next to `WIN_FIRST`): win-first star bar = OVR of the ~5-per-team best active players (min 66), cached per season (`L._wfb`, not saved). Used by the win-first FA pool and `resignLeave`.
+- `clauseTV` (league.js): prices promised S2 roles for a buyer.
+- Report: `python3 tools/v32r-sum.py.txt tools/runs32/v32r-*.txt` (minutes by role, young asks, re-sign, win-first, trades, payroll, save size, errors). Tests: `node tools/t32r.js` (10).
+- Review: `V32-REVIEW.md`; next prompts: `V32-NEXT-PROMPTS.md`.
+
 ## v32h (Opus, Nov 16 2026): cleanup
 
 - `planRotation` (engine.js): sixth man's partner starter sits up to `SIX_EARLY` min earlier each half. `RM_LIFT[0]` 5.5.

@@ -3662,13 +3662,22 @@ function runSalaryDumps(L) {
 // a few multi-champs who want more; one-ring stars rarely. Never a player you have an offer out to. Runs on free-agency days 1-3.
 // To keep a pool, an older ringless star on a non-contender sometimes skips re-signing to test the market (startResign, wfLeave).
 const WIN_FIRST = { ovr: 66, age: 30, leave: 0.7, days: 3, p: 0.8, cut: [0.45, 0.75], floor: 0.3 };
+// v32 review: the star bar follows the league (the ~5-per-team best players, never under 66). With an absolute 66 the pool grew with the
+// league's rating climb: 0-2 win-first moves a summer early on, 4-6 by season 13-15 (target 1-2). Cached per season, not saved.
+function wfBar(L) {
+  if (L._wfb && L._wfb.k === L.season) return L._wfb.v;
+  const fa = new Set(L.fa || []), ov = Object.values(L.players).filter(p => !p.retired && !p.prospect && !p.abroad && (p.team != null || fa.has(p.id))).map(p => p.ovr).sort((a, b) => b - a);
+  const v = Math.max(WIN_FIRST.ovr, ov[Math.round(5 * L.teams.length) - 1] || WIN_FIRST.ovr);
+  Object.defineProperty(L, '_wfb', { value: { k: L.season, v }, enumerable: false, writable: true, configurable: true });
+  return v;
+}
 function winFirstScore(L, p) {
   const rings = (p.awards || []).filter(a => a.a === 'Champion').length;
   const base = rings === 0 ? 1 : rings >= 2 && p.age >= 32 ? 0.3 : 0.1;
   return base * (1 + 0.15 * (p.age - WIN_FIRST.age)) * (0.6 + 0.8 * twp(p, 'win'));
 }
 function winFirstCands(L) {
-  return L.fa.map(id => L.players[id]).filter(p => p && !p.retired && !p.prospect && !p.abroad && !p.club && p.ovr >= WIN_FIRST.ovr && p.age >= WIN_FIRST.age && (p.mval || 0) >= 6 && !isRFA(L, p) && !p.sheet && !(L.faOffers || {})[p.id] && p.winFirst !== L.season);
+  return L.fa.map(id => L.players[id]).filter(p => p && !p.retired && !p.prospect && !p.abroad && !p.club && p.ovr >= wfBar(L) && p.age >= WIN_FIRST.age && (p.mval || 0) >= 6 && !isRFA(L, p) && !p.sheet && !(L.faOffers || {})[p.id] && p.winFirst !== L.season);
 }
 function winFirstTeams(L, p) {
   const out = [];
@@ -4989,7 +4998,7 @@ function resignLeave(L, t, p, icon) {
     coach: (() => { try { return t.coach && fit(p, t.coach) < 45 ? 0.06 : 0; } catch (e) { return 0; } })(),
     fresh: 0.035 + (t.market === 1 && p.ovr >= 68 ? 0.02 : 0)
   };
-  if (p.age >= WIN_FIRST.age && p.ovr >= WIN_FIRST.ovr && !['allin', 'contend'].includes(t.status) && t.mode !== 'contend') ch.win = Math.max(ch.win, WIN_FIRST.leave * winFirstScore(L, p));   // older ringless star on a non-contender
+  if (p.age >= WIN_FIRST.age && p.ovr >= wfBar(L) && !['allin', 'contend'].includes(t.status) && t.mode !== 'contend') ch.win = Math.max(ch.win, WIN_FIRST.leave * winFirstScore(L, p));   // older ringless star on a non-contender
   for (const k of Object.keys(ch).sort(() => R() - 0.5)) if (ch[k] > 0 && R() < ch[k] * stay) return k;
   return null;
 }
@@ -6816,7 +6825,10 @@ function clauseMult(L, p, t, yrs, ex) {
 function clauseTV(L, t, p, giving, v) {
   const c = p.contract; if (!c || giving || p.team === t.id) return v;
   if (c.kick > 0 && !c.kicked) { const yl = yrsLeft(L, p); v -= c.kick * c.amt * yl * 0.09; }
-  if (c.role) { const rank = rotationOf(L, t).filter(x => x.ovr > p.ovr).length; if ((c.role.k === 'starter' && rank >= 5) || (c.role.k === 'min' && rank >= 7)) v *= 0.9; }
+  if (c.role && ROLE_BY[c.role.k] && c.role.k !== 'starter') {   // v32 review: a promised role (S2 roles) travels with the contract and is a floor on the new team: price it like the old promises (-5% a role step he'd jump, max -15%)
+    let er = null; try { er = expRole(L, t, p); } catch (e) { }
+    const gap = er ? roleRank(er) - roleRank(c.role.k) : 0; if (gap > 0) v *= 1 - Math.min(0.15, 0.05 * gap);
+  } else if (c.role) { const rank = rotationOf(L, t).filter(x => x.ovr > p.ovr).length; if ((c.role.k === 'starter' && rank >= 5) || (c.role.k === 'min' && rank >= 7)) v *= 0.9; }
   if (c.gtd != null && c.gtd < 1 && yrsLeft(L, p) >= 2) v *= 1.02;
   return v;
 }

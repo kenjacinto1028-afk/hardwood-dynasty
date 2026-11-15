@@ -1,4 +1,66 @@
-# v32 review (S7, Opus, Nov 16 2026)
+# v32 version-end review (Opus, Nov 16 2026)
+
+Scope: v32a-v32h (S1-S5, S6a, S7 cleanup) checked against claude/nba/v32-plan.md, with the focus on where S2 (roles/minutes), S3 (rotations) and S5 (market) touch each other. Version-end tier: 20 seasons x 4 leagues, SEED=21, new leagues.
+Runs: `tools/runs32/v32r-{nba,pbl16}-{commish,team}.txt`; summary `tools/runs32/v32r-summary.txt` (`python3 tools/v32r-sum.py.txt <files>`). Baselines: `tools/runs31/v31n-nba-commish.txt` (v31: save size, speed), v31 RPG/BPG from the v32b notes, market numbers from `tools/runs32/v32e-base.txt` / `v32e2-base-old.txt` (code before v32e).
+
+## Verdict
+v32 works as one system. 80 seasons, 0 errors, 0 broken saves, 1 harness-only roster flag. Minutes by role, young asks, re-signing and payroll hold for 20 seasons in all four leagues. Two cross-system problems found and fixed (below). Remaining issues all trace back to one root: the league's rating climb (NBA 58 -> 64, PBL 58 -> 65.6), which pushes blocks, "wants to win" leaves and team-side releases up over time.
+
+## Fixed in this review
+| # | Problem | Systems | Fix |
+|---|---|---|---|
+| 1 | Win-first moves grew with the rating climb: 0-2 a summer early, 4-6 in seasons 13-17 (NBA commish); "wants to win" leaves 5 -> 15-18 | S5 market x progression | Star bar follows the league: `wfBar(L)` = OVR of the ~5-per-team best active players, never under 66 (league.js, used by the `winFirstFA` pool and `resignLeave`). From the season-10 save (`tools/snap/nba-commish-s10.json.gz`), 6 seasons, SEED=31: old 0,1,3,1,3,4 (avg 2.0); 3.5-per-team 0,1,0,1,1,1; 4-per-team 0,1,1,1,0,0; kept 5-per-team 0,1,1,1,2,2 (avg 1.2). `tools/runs32/v32r-ab-*.txt` |
+| 2 | A promised role (S2 roles: fs, star, sixth, rot...) stays on the contract after a trade and is a floor on the new team, but trade value only priced the old starter/minutes promises | S2 roles x trade AI | `clauseTV` prices S2 promises: -5% a role step above what he'd get there, max -15% (buyer only) |
+
+Tests: node --check, lint 106 PASS, t30a 21/21, t32e 21/21, t32h 11/11, new `tools/t32r.js` 10/10. The 4 x 20-season runs used the code before these two fixes; the A/B runs above cover fix #1 (fix #2 only touches trades of players with a promise you gave).
+
+## 20 seasons x 4 leagues (new leagues, SEED=21)
+| | NBA commish | NBA franchise | PBL16 commish | PBL16 franchise | Target / before v32 changes |
+|---|---|---|---|---|---|
+| 9+ RPG | 14-25 (avg 19.3) | 16-22 (18.2) | 5-9 (6.2) | 3-12 (7.0) | 15-20 (NBA); ~8-11 scaled to 16 teams; v31 29 |
+| 1.5+ BPG | 14-29 (21.5) | 14-23 (18.3) | 7-16 (11.3) | 4-16 (12.3) | 10+ (NBA); v31 6 |
+| Franchise star mpg | 32.6-35.3 (34.4) | 33.2-35.3 (34.1) | 32.8-35.6 (34.2) | 32.3-35.2 (33.9) | 34-37 |
+| Star | 31.7-33.2 (32.5) | 31.9-33.4 (32.7) | 31.2-32.8 (32.0) | 30.1-32.5 (31.9) | 32-35 |
+| Starter | 26.7-27.7 (27.2) | 26.7-27.8 (27.2) | 26.2-28.1 (27.1) | 26.4-28.2 (27.1) | 26-32 |
+| Sixth man | 23.3-26.3 (24.8) | 23.4-26.8 (25.0) | 22.7-27.2 (24.6) | 22.8-26.4 (24.4) | 24-28 |
+| Rotation | 17.2-18.7 (17.8) | 16.5-18.2 (17.5) | 16.2-19.3 (17.8) | 17-19.5 (18.1) | 16-24 |
+| Bench | 10.2-11.6 (10.9) | 10.4-11.9 (11.1) | 9.6-12 (11.1) | 10-12.7 (11.2) | 8-16 |
+| Development | 6.6-7.7 (7.1) | 6.7-7.9 (7.2) | 6.6-8.5 (7.3) | 6.5-8.7 (7.3) | 0-8 |
+| Young FA (25-) OVR 55- at minimum | all, every season | all | all | all | all; before v32e: 24 of 101 |
+| Young 56-59 ask, max | $2.9M | $2.9M | $2.1M | $1.9M | ~2x min ($2.6M NBA); before v32e max $16.4M |
+| Under 60 asking $10M+ | 0 | 0 | 0 | 0 | 0; before v32e 5 |
+| Re-sign rate all / 60+ | 0.41-0.60 / 0.58-0.76 | 0.38-0.60 / 0.61-0.76 | 0.38-0.62 / 0.49-0.85 | 0.36-0.65 / 0.46-0.86 | before v32e 0.29-0.40 / 0.53-0.70 |
+| Win-first pay cuts a summer | 0-6 (2.1) | 0-3 (1.5) | 0-1 (0.3) | 0-2 (0.3) | 1-2 (fixed #1) |
+| Expiring trades / salary dumps a season | 0-5 / 0-3 | 0-6 / 0-6 | 0-4 / 0-4 | 0-6 / 0-4 | AI uses both |
+| Payroll avg (next season, after FA) | 158-178 | 160-182 | 109-146 | 110-143 | before v32e2 180-188 (NBA) |
+| Max committed next season | 221.7 | 221.3 | 169.7 | 170 | hard cap 221.7 / 170 |
+| League OVR S1 -> S20 | 57.8 -> 63.8 | 58.2 -> 63.3 | 58.0 -> 65.4 | 57.8 -> 63.5 | flat would be ideal |
+| Save S1 / S10 / S20 (MB JSON) | 4.8 / 14.0 / 22.8 | 4.8 / 14.1 / 22.8 | 2.3 / 7.3 / 12.2 | 2.3 / 7.3 / 12.1 | v31 S10 17.0; v32g S20 28.6 |
+| Sec a season (late seasons) | 53-87 | 60-93 | 37-75 | 51-80 | v31 56-75 |
+| Errors / roster problems | 0 / 0 | 0 / 1 (CLE 16 at S10 start, harness runs your offseason) | 0 / 0 | 0 / 0 | |
+
+Notes
+- Speed: seasons 1-5 ran with 4 leagues sharing 2 CPUs (190-312 s); late seasons alone-ish match v31.
+- Blocks drift up in the NBA commissioner league from season 10 (22-29 players at 1.5+ BPG) as drafted players replace the real ones; franchise league stays 17-23. No upper target was set; the real NBA has ~10-15.
+- "Team didn't want him" is the top re-sign reason and grows 5 -> 21-33 a summer (60-64 OVR becomes bench level as the league climbs). Asks follow the climb, so payroll stays flat.
+- PBL16 is below the NBA targets for rebounds (6-7 at 9+ RPG vs ~8-11 scaled) and stars (31.9-32.0 vs 32-35). The targets were set on NBA data; PBL uses generated players.
+
+## How the systems fit (checked)
+- Roles (S2) -> rotation plan (S3): role targets feed `planRotation`; minutes land in range for all roles in all leagues (franchise star and star at the low end; sixth man under 24 in 2-3 of 20 seasons).
+- Roles -> market (S5): offers carry the role (`expRole`, `roleAppeal`); re-sign "wants a bigger role" uses mpg under 18 for 62+ players; promised roles are floors in `teamRoles` and now priced in trades (fix #2).
+- Contracts -> cap: mid-level is a real exception (4-17 signings a season), next-season payroll never above the hard cap (221.7 / 170) in 80 seasons.
+- Market -> progression: asks, re-sign and win-first now all follow league-relative bars except "Team didn't want him" (rank-based already) - see open items.
+
+## Open items (not changed)
+| Item | Numbers | Option |
+|---|---|---|
+| Rating climb (root of the drifts) | NBA 58 -> 64 (flat after S8), PBL 58 -> 65.6 (still rising at S20) | Progression/draft balance pass: equilibrium near the start OVR, or re-center ratings each summer |
+| Blocks drift (NBA commish) | 22-29 at 1.5+ BPG from S10 | After the climb fix; else scale `blkK` by league blk average |
+| Stars at the low end | star 31.7-33.4, fs 32.6-35.3 (avg 34.1-34.4) | `RM_LIFT` star +0.5 (check early-season stars stay under 37) |
+| PBL rebounds / stars | 9+ RPG avg 6-7 of 16 teams; stars 31.9 | Separate PBL check after the climb fix |
+| Harness roster flag | CLE 16 at S10 (franchise) | Harness-only (AI runs your offseason); leave |
+
+## Earlier: v32g review (S7, Opus, Nov 16 2026)
 
 Scope: S1-S5 + S6a (v32a-v32f-a) read section by section in PROGRESS.md, checked against each other (roles vs minutes vs re-signing vs market vs rotations vs trades), plus the three open items (sixth men, mid-level, rotation chart). One 20-season NBA league from a new league (SEED=21, commissioner): `tools/runs32/v32g-20-nba-commish.txt`, summary `python3 tools/v32g-sum.py.txt <file>`.
 

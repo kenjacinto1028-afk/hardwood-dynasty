@@ -1,3 +1,15 @@
+# TASK_STATE — v32 version-end review (Opus) + history files check (v119 zip) — Nov 16 2026
+
+- [x] R0. Read PROGRESS v32a-v32h, TESTING, v32-plan; start 4 x 20-season runs (tools/runs32/v32r-*.txt) — running SEED=21
+- [x] R1. Code review — found: S2 role promises travel with a traded contract (floor on new team) but clauseTV priced only old starter/min promises -> fixed league.js clauseTV; tools/t32r.js 6/6
+- [x] R2. History zip (v119): inventory, blank/gap audit — /home/claude/hist/inv*.py; source = B-Ref dataset (sumitrodatta/bball-reference-datasets)
+- [x] R3. Reconstruct blanks — /home/claude/hist/build.py -> hist/out/*v120.xlsx + NBA_ADVANCED_RS_BY_SEASON_v120.csv + build.log (fill log sheet per workbook)
+- [x] R4. 4 x 20 seasons done (tools/runs32/v32r-{nba,pbl16}-{commish,team}.txt), summary tools/runs32/v32r-summary.txt (tools/v32r-sum.py.txt): 0 errors
+- [x] R5. Fixes: clauseTV role promises, win-first bar wfBar (5 per team; A/B old 0,1,3,1,3,4 vs new 0,1,1,1,2,2); t32r 10/10, t32e 21/21, t30a 21/21, lint 106, t32h 11/11
+- [x] R6. V32-REVIEW.md + V32-NEXT-PROMPTS.md written, PROGRESS + README updated ; project docs claude/nba/v32-review.md + v32-next-prompts.md written
+- [ ] R7. Commit; push or zip
+
+---
 # TASK_STATE — v32h (Opus): cleanup from v32 review — Nov 16 2026
 
 - [x] H0. Read code: planRotation sixth-man stints, hard cap checks (rookie scale, player options), save size (what grows) — done

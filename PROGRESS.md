@@ -1,5 +1,15 @@
 # PBL progress
 
+## v32 version-end review (Opus, Nov 16 2026)
+- [x] Review v32a-v32h against claude/nba/v32-plan.md, focus on S2 roles/minutes x S3 rotations x S5 market. Report: `V32-REVIEW.md` (+ project doc claude/nba/v32-review.md); next prompts `V32-NEXT-PROMPTS.md`
+- [x] 20 seasons x 4 leagues (NBA commish/franchise, PBL16 commish/franchise, SEED=21): `tools/runs32/v32r-*.txt`, summary `tools/runs32/v32r-summary.txt` (`python3 tools/v32r-sum.py.txt`). 0 errors; minutes by role in range (stars at the low end); young asks all at min / max $2.9M; re-sign 60+ 0.58-0.76 (NBA); next-season payroll never over the hard cap; save S20 22.8 MB (v32g 28.6)
+- [x] Fix: win-first bar follows the league (`wfBar`, ~5-per-team best, never under 66): with the absolute 66, win-first moves grew 0-2 -> 4-6 a summer and "wants to win" leaves 5 -> 15-18 as league OVR climbed. A/B from the season-10 save (`tools/snap/nba-commish-s10.json.gz`, 6 seasons): old 0,1,3,1,3,4; 4-per-team 0,1,1,1,0,0; kept 5-per-team 0,1,1,1,2,2
+- [x] Fix: promised S2 roles (fs/star/sixth/rot...) travel with a traded contract and are a floor on the new team; `clauseTV` now prices them (-5% a role step above his expected role there, max -15%)
+- [x] History files v120 (separate zip `NBA_History_v120.zip`): checked vs Basketball-Reference data, blanks filled with a fill log, advanced stats added (see its HISTORY_V120_REPORT.md)
+- [x] Tests: node --check, lint 106 PASS, t30a 21/21, t32e 21/21, t32h 11/11, new `tools/t32r.js` 10/10
+- Open: rating climb (NBA 58 -> 64, PBL 58 -> 65.6) drives blocks drift (NBA commish 22-29 at 1.5+ BPG late), "team didn't want him"; stars/franchise stars at the low end of their ranges; PBL16 rebounds low (6-7 at 9+ RPG). Plan: V32-NEXT-PROMPTS.md (v33a)
+
+
 ## v32h (Opus, Nov 16 2026): cleanup from the v32 review
 - [x] Sixth man first (`planRotation`, engine.js): the starter he pairs with (best position fit, not a star) sits up to `SIX_EARLY` (4) minutes earlier each half and comes back earlier, so the sixth man's run starts before the rest of the starters' rest pattern. Franchise star lift `RM_LIFT` 6.5 -> 5.5 (6-6.5 pushed them to ~38 early in a season)
 - [x] Hard cap (league.js): AI teams can't take on trade salary that leaves next season's committed payroll over the hard cap (`tradeCheck`; your team may, your call); icons re-sign under the hard cap (hometown discount up to 25%, else he leaves, logged `t:cap`); AI team options declined if picking them up leaves the team over. Player options stay the player's right. Rookie deals and RFA matches were already checked

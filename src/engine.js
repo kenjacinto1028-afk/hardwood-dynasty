@@ -1561,7 +1561,8 @@ function playGame0(league, homeId, awayId, playoff) {
   }
   const LOG = league.user != null && (league.user === homeId || league.user === awayId) && !league.noLog ? [] : null;
   const nm = p => p ? (p.last || splitName(p.name)[1]) : '';
-  const logE = (q, clock, side, text, flags, ev) => { if (LOG) LOG.push([q, Math.max(0, Math.round(clock)), side, text, H.pts, A.pts, flags || '', ev || 0]); };
+  let lastCourt = '';   // v30b: entry[8] = the ten on-court ids (home 5, then away 5) when the lineup changed since the last logged play, else 0; entry[9] = seconds the play used (minutes + plus-minus replay)
+  const logE = (q, clock, side, text, flags, ev, ct, secs) => { if (LOG) { const e = [q, Math.max(0, Math.round(clock)), side, text, H.pts, A.pts, flags || '', ev || 0]; if (ct) { const k = ct.join(); e.push(k === lastCourt ? 0 : ct, secs || 0); lastCourt = k; } LOG.push(e); } };
   const PLUR = { pnr: 'pick-and-rolls', roll: 'rolls to the rim', pop: 'pick-and-pops', iso: 'isolations', post: 'post-ups', spot: 'spot-ups', screen: 'off-screen looks', dho: 'handoffs', cut: 'cuts', horns: 'horns sets', kick: 'kick-outs', trans: 'transition' };
   // a defense reacts to what is hurting it (at timeouts and quarter breaks); smarter coaches react sooner and pick the right counter more often
   function adjustD(g, o, q, clock) {
@@ -1913,7 +1914,7 @@ function playGame0(league, homeId, awayId, playoff) {
         const z = def.seen[play] || (def.seen[play] = [0, 0, null]); z[0]++; z[1] += gained; z[2] = usedBy.id; }
       if (LOG && desc) { const ev = []; for (const [id, g, a0] of snapE) { const a1 = g.st[id]; for (let i = 0; i < 14; i++) { const d = a1[i + 1] - a0[i]; if (d) ev.push(id, i + 1, d); } }
         const sc = (off.pts - (off === H ? pmH : pmA)) > 0, cl = quarter >= 4 && clock <= 300 && Math.abs(H.pts - A.pts) <= 5;
-        logE(quarter, clock, off === H ? 0 : 1, desc, (sc ? 's' : '') + (cl ? 'c' : ''), ev.length ? ev : 0); }
+        logE(quarter, clock, off === H ? 0 : 1, desc, (sc ? 's' : '') + (cl ? 'c' : ''), ev.length ? ev : 0, LOG ? [...onH.map(p => p.id), ...onA.map(p => p.id)] : null, secs); }
       injuryCheck(off, involved); injuryCheck(def, involved);
       if (switchPoss) poss = 1 - poss;
     }
@@ -2281,3 +2282,18 @@ function pipeLines(lg, rows) {
 }
 // production score used for awards, stock and the stat-vs-rating check
 function pipeVal(l) { return l ? l.pts + 0.7 * l.reb + 0.9 * l.ast + 1.3 * (l.stl + l.blk) : 0; }
+
+// ===== v30b: replay a stored play-by-play (entry[8] lineup changes, entry[9] seconds) up to n entries.
+// Returns { court: [home 5, away 5 ids], min: {id: seconds}, pm: {id: plus-minus} }; matches the final box score at n = log.length.
+function pbpReplay(g, n) {
+  const log = g.pbp || [], m = Math.min(n == null ? log.length : n, log.length);
+  let court = [0, 1].flatMap(s => g.box.filter(r => r[1] === s && r[17]).map(r => r[0])), h = 0, a = 0;
+  const min = {}, pm = {};
+  for (let k = 0; k < m; k++) {
+    const e = log[k]; if (e[8]) court = e[8];
+    const dh = (e[4] - h) - (e[5] - a); h = e[4]; a = e[5];
+    if (e[9]) for (const id of court) min[id] = (min[id] || 0) + e[9];
+    if (dh) for (let i = 0; i < court.length; i++) pm[court[i]] = (pm[court[i]] || 0) + (i < 5 ? dh : -dh);
+  }
+  return { court, min, pm };
+}

@@ -1,0 +1,25 @@
+import subprocess, time
+from playwright.sync_api import sync_playwright
+srv = subprocess.Popen(['python3','-m','http.server','8768'], cwd='/home/claude/game', stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL); time.sleep(1)
+errs=[]
+try:
+  with sync_playwright() as pw:
+    b = pw.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
+    pg = b.new_page(viewport={'width':1400,'height':900}); pg.on('pageerror', lambda e: errs.append(str(e)))
+    pg.goto('http://localhost:8768/index.html'); pg.wait_for_selector('#create', timeout=15000)
+    pg.evaluate("(()=>{const u=__pbl.ui; u.setup=Object.assign(u.setup||{}, {mode:'team',team:0,nba:true});document.getElementById('create').click();})()"); pg.wait_for_timeout(4000)
+    pg.evaluate("location.hash='#standings'"); pg.wait_for_timeout(500)
+    pg.click('#subtabs a[data-v="players"]'); pg.wait_for_timeout(800)
+    print('hash', pg.evaluate("location.hash"), '|', pg.evaluate("document.querySelector('#main h2').textContent"))
+    rc = lambda: pg.evaluate("document.querySelector('table[data-sid^=\"pdir\"]').tBodies[0].rows.length")
+    for k in ['info','bio','attr','stats']:
+      pg.click(f'[data-pdtab="{k}"]'); pg.wait_for_timeout(500)
+      print(k, rc(), pg.evaluate("document.querySelector('table[data-sid^=\"pdir\"] tbody tr').textContent.slice(0,110)"))
+      pg.screenshot(path=f'/tmp/p_{k}.png')
+    pg.click('[data-pdtab="bio"]'); pg.wait_for_timeout(300)
+    pg.select_option('#pdn','SI'); pg.wait_for_timeout(400); print('SI', rc())
+    pg.select_option('#pdn','all'); pg.fill('#pda1','30'); pg.dispatch_event('#pda1','change'); pg.wait_for_timeout(300); pg.fill('#pdm','80'); pg.dispatch_event('#pdm','change'); pg.wait_for_timeout(400); print('30+ & 80+', rc())
+    pg.click('[data-pdclear]'); pg.wait_for_timeout(400); print('cleared', rc())
+    b.close()
+finally: srv.kill()
+print('errors', errs)

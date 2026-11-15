@@ -1,0 +1,90 @@
+import asyncio, sys
+from playwright.async_api import async_playwright
+PORT = sys.argv[1] if len(sys.argv) > 1 else '8775'
+res = []
+def ok(n, c, x=''): res.append(('PASS ' if c else 'FAIL ') + n + (f'  [{x}]' if x else ''))
+CLR = "document.querySelector('#modal').innerHTML=''"
+async def go(pg, h):
+    await pg.evaluate(CLR); await pg.evaluate("location.hash='#standings'"); await pg.wait_for_timeout(200)
+    await pg.evaluate(f"location.hash='#{h}'"); await pg.wait_for_timeout(700)
+async def main():
+    async with async_playwright() as p:
+        b = await p.chromium.launch(args=['--no-sandbox'])
+        pg = await (await b.new_context(viewport={'width': 1300, 'height': 900})).new_page()
+        errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
+        await pg.goto(f'http://localhost:{PORT}/index.html'); await pg.wait_for_timeout(2000)
+        await pg.click('[data-setmode="team"]'); await pg.wait_for_timeout(300)
+        await pg.click('#create'); await pg.wait_for_timeout(3500)
+        await pg.evaluate(CLR)
+        # weekly before day 7
+        await go(pg, 'weekly'); t = await pg.evaluate("document.querySelector('#main').innerText")
+        ok('weekly tab empty state before day 7', 'first report comes out' in t.lower())
+        await pg.evaluate("(()=>{for(let i=0;i<14;i++)simDay(window.__pbl.L);})()"); await pg.evaluate(CLR)
+        await go(pg, 'weekly'); t = await pg.evaluate("document.querySelector('#main').innerText")
+        ok('weekly report renders sections', all(k in t.lower() for k in ['headlines', 'mvp ladder', 'power rankings', 'big injuries']), t[:80].replace('\n', ' '))
+        ok('weekly title week 2', 'week 2' in t.lower())
+        tabs = await pg.evaluate("[...document.querySelectorAll('#subtabs button, #subtabs a, #tabs button')].map(e=>e.innerText).join('|')")
+        ok('Weekly report in nav', 'weekly report' in tabs.lower(), tabs[:120])
+        # stats: NM cells and legend
+        await go(pg, 'stats'); await pg.evaluate("document.querySelector('[data-stab=\"players\"]').click()"); await pg.wait_for_timeout(600)
+        await pg.evaluate("(()=>{const c=document.querySelector('#pall');if(c&&!c.checked)c.click();})()"); await pg.wait_for_timeout(600)
+        t = await pg.evaluate("document.querySelector('#main').innerText")
+        ok('players table shows NM cells', 'NM' in t.split('\n').__str__() or any(x.strip() == 'NM' or 'NM' in x.split('\t') for x in t.split('\n')) or '\tNM' in t, str(t.count('NM')))
+        ok('players legend explains NM', 'not met' in t.lower())
+        await pg.evaluate("document.querySelector('[data-sort=\"tp\"]').click()"); await pg.wait_for_timeout(400)
+        order = await pg.evaluate("[...document.querySelectorAll('#main tbody tr')].map(r=>[...r.children].map(c=>c.innerText.trim()))")
+        # 3P% column index: find header
+        hdr = await pg.evaluate("[...document.querySelectorAll('#main thead th')].map(h=>h.innerText.trim())")
+        ix = [i for i,h in enumerate(hdr) if h.startswith('3P')]
+        if ix:
+            col = [r[ix[0]] for r in order if len(r) > ix[0]]
+            firstNM = next((i for i,v in enumerate(col) if v == 'NM'), None)
+            ok('NM rows sort to the bottom (3P%)', firstNM is None or all(v in ('NM', '—') for v in col[firstNM:]), f'first NM at {firstNM} of {len(col)}')
+            await pg.evaluate("document.querySelector('[data-sort=\"tp\"]').click()"); await pg.wait_for_timeout(400)
+            order = await pg.evaluate("[...document.querySelectorAll('#main tbody tr')].map(r=>[...r.children].map(c=>c.innerText.trim()))")
+            col = [r[ix[0]] for r in order if len(r) > ix[0]]
+            firstNM = next((i for i,v in enumerate(col) if v == 'NM'), None)
+            ok('NM rows still at the bottom after flipping sort', firstNM is None or all(v in ('NM', '—') for v in col[firstNM:]), f'first NM at {firstNM}')
+        # trade fit lines on an offer
+        await pg.evaluate("""(()=>{const L=window.__pbl.L;const best=t=>L.teams[t].roster.map(i=>L.players[i]).sort((a,b)=>b.ovr-a.ovr)[0];const a=best(1),m=best(L.user);
+          L.offers=[{a:1,b:L.user,aGive:{players:[a.id],picks:[]},bGive:{players:[m.id],picks:[]},id:'t-1',why:'test',ttl:5,made:1,isNew:false}];})()""")
+        await go(pg, 'trades'); t = await pg.evaluate("document.querySelector('#main').innerText")
+        ok('offer shows fit lines for both players', t.count('Fit ') >= 2 and '→' in t, str(t.count('Fit ')))
+        # my team
+        await pg.evaluate("(()=>{const L=window.__pbl.L,t=L.teams[L.user];const r=t.roster.map(i=>L.players[i]).sort((a,b)=>b.ovr-a.ovr);r[0].contract.exp=L.season;r[0].contract.len=3;r[0].ext=false;r[1].contract.exp=L.season+1;r[1].contract.type='rookie';r[1].contract.len=3;r[1].ext=false;})()")
+        await go(pg, 'myteam'); t = await pg.evaluate("document.querySelector('#main').innerText")
+        ok('needs attention: extend line', 'Extend before the deadline' in t)
+        ok('needs attention: can extend line', 'Can extend now' in t)
+        await pg.evaluate("(()=>{const L=window.__pbl.L,t=L.teams[L.user];const r=t.roster.map(i=>L.players[i]).sort((a,b)=>b.ovr-a.ovr);r[0].morale=10;})()"); await go(pg, 'myteam'); t = await pg.evaluate("document.querySelector('#main').innerText")
+        ok('unhappy player moves to Won\'t extend', "Won't extend right now" in t and 'unhappy' in t)
+        ok('chemistry window has tabs', await pg.evaluate("!!document.querySelector('[data-twin=\"chem|Team chemistry\"]')") and await pg.evaluate("!!document.querySelector('[data-twin=\"chem|Lineup chemistry\"]')"))
+        ok('lineup chemistry explainer', 'Grades your starting five' in t)
+        await pg.click('[data-twin="chem|Team chemistry"]'); await pg.wait_for_timeout(300)
+        t2 = await pg.evaluate("document.querySelector('#main').innerText")
+        ok('team chemistry tab content', 'average seasons together' in t2.lower())
+        ok('rotation window has tabs', await pg.evaluate("!!document.querySelector('[data-twin=\"rot|Lineup & rotation\"]')"))
+        await pg.click('[data-twin="rot|Lineup & rotation"]'); await pg.wait_for_timeout(300)
+        t3 = await pg.evaluate("document.querySelector('#main').innerText")
+        ok('lineup & rotation tab content', 'Lineup & rotation' in t3 and 'Coach decides' in await pg.evaluate("document.querySelector('#main').innerHTML"))
+        # player page
+        await go(pg, 'myteam'); await pg.evaluate("(()=>{const L=window.__pbl.L;const rr=L.teams[L.user].roster.map(i=>L.players[i]).sort((a,b)=>b.ovr-a.ovr);const id=(rr.find(p=>p.age<=24)||rr[0]).id;document.querySelector('#main tr[data-player=\\\"'+id+'\\\"]').click();})()"); await pg.wait_for_timeout(900)
+        print('twin btns', await pg.evaluate("[...document.querySelectorAll('[data-twin]')].map(e=>e.dataset.twin).join(',')"))
+        ok('player: career highs / best games / feats tabs', await pg.evaluate("['Career highs','Best games','Feats'].filter(k=>document.querySelector('[data-twin=\"pbest|'+k+'\"]')).length")>=2)
+        ok('player: training / dev tabs', await pg.evaluate("['Training focus','Development report'].filter(k=>document.querySelector('[data-twin=\"pdev|'+k+'\"]')).length")==2)
+        await pg.evaluate("document.querySelector('[data-twin=\"pdev|Development report\"]').click()"); await pg.wait_for_timeout(300)
+        ok('dev report tab shows content', 'coach' in (await pg.evaluate("document.querySelector('#main').innerText")).lower())
+        # draft
+        await go(pg, 'draft')
+        await pg.evaluate("(()=>{const b=document.querySelector('[data-dtab=\"board\"]');b&&b.click();})()"); await pg.wait_for_timeout(500)
+        t = await pg.evaluate("document.querySelector('#main').innerText")
+        ok('draft board: no consensus table below', 'All prospects' not in t)
+        ths = await pg.evaluate("[...document.querySelectorAll('#main th')].map(e=>e.innerText).join('|')")
+        ok('draft board: Type, Ht, Compares to columns', all(k in ths.lower() for k in ['type', 'ht', 'compares to']), ths[:160])
+        await pg.evaluate("document.querySelector('[data-dtab=\"cons\"]').click()"); await pg.wait_for_timeout(400)
+        ok('consensus tab still has table', 'consensus mock' in (await pg.evaluate("document.querySelector('#main').innerText")).lower())
+        await pg.evaluate("(()=>{const L=window.__pbl.L;while(L.phase==='regular')simDay(L);})()"); await pg.evaluate(CLR); await go(pg, 'weekly'); t = await pg.evaluate("document.querySelector('#main').innerText")
+        ok('final week report after the regular season', 'final week' in t.lower(), t[:60].replace('\n',' '))
+        ok('no page errors', not errs, '; '.join(errs)[:300])
+        await b.close()
+asyncio.run(main())
+print('\n'.join(res)); print(sum(r.startswith('FAIL') for r in res), 'failed of', len(res))

@@ -1,0 +1,47 @@
+# v28.6 browser test: attributes panel (rounded values, traits first), League > Players tab (Info / Stats). Serve the folder, then: python3 browser-v286.py PORT
+import asyncio, sys
+from playwright.async_api import async_playwright
+PORT = sys.argv[1] if len(sys.argv) > 1 else '8786'
+res = []
+def ok(n, c, x=''): res.append(('PASS ' if c else 'FAIL ') + n + (f'  [{x}]' if x else ''))
+CLR = "document.querySelector('#modal').innerHTML=''"
+async def main():
+  async with async_playwright() as p:
+    b = await p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
+    pg = await (await b.new_context(viewport={'width': 1700, 'height': 900})).new_page()
+    errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
+    ev = pg.evaluate
+    await pg.goto(f'http://localhost:{PORT}/index.html'); await pg.wait_for_timeout(2500)
+    await pg.click('[data-setmode="team"]'); await pg.click('[data-setnba="1"]'); await pg.wait_for_timeout(300)
+    await pg.click('[data-setmode="team"]'); await pg.click('.teampick:has-text("Lakers")'); await pg.click('#create'); await pg.wait_for_timeout(5000); await ev(CLR)
+    # age everyone a bit so athletic values go fractional, then open a player
+    await ev("(()=>{const L=__pbl.L;for(const p of Object.values(L.players)){p.spd+=0.4137;p.agi-=0.2719;p.vrt+=0.5521;p.str+=0.3333}})()")
+    await ev("(()=>{const U=__pbl.ui,L=__pbl.L;const p=Object.values(L.players).find(x=>x.name==='Austin Reaves');U.view='player';U.player=p.id;U.attrTab='on';__pbl.render()})()"); await pg.wait_for_timeout(300)
+    txt = await ev("document.querySelector('#main .attrs.on').textContent")
+    ok('no long decimals in attributes', not __import__('re').search(r'\d\.\d{2}', txt), txt[:80])
+    first = await ev("document.querySelector('#main .attrs.on > div h3').textContent")
+    ok('Traits is the first column', first == 'Traits', first)
+    tops = await ev("[...document.querySelectorAll('#main .attrs.on > div > h3')].map(h=>Math.round(h.getBoundingClientRect().top))")
+    ok('all columns on one row at 1700px', len(set(tops)) == 1, str(tops))
+    inj = await ev("[...document.querySelectorAll('#main .attrs.on .arow2.stk')].map(x=>x.getBoundingClientRect().height)")
+    ok('injury / fit rows compact', inj and max(inj) < 52, str(inj))
+    await pg.screenshot(path='/tmp/v286-attrs.png')
+    # players tab
+    await ev("(()=>{const U=__pbl.ui;U.player=null;U.view='players';__pbl.render()})()"); await pg.wait_for_timeout(400)
+    n = await ev("document.querySelectorAll('#main table tbody tr').length")
+    ok('players table lists everyone', n >= 400, str(n))
+    hd = await ev("[...document.querySelectorAll('#main thead th')].map(x=>x.textContent).join(',')")
+    ok('info columns', all(k in hd for k in ['Age', 'Pos', 'Archetype', 'Ovr', 'Pot', 'Fit', 'Mood', 'Contract']), hd)
+    await pg.click('[data-pdtab="stats"]'); await pg.wait_for_timeout(300)
+    row = await ev("document.querySelector('#main tbody tr').textContent")
+    hd2 = await ev("[...document.querySelectorAll('#main thead th')].map(x=>x.textContent).join(',')")
+    ok('stats tab shows zeros at season start', 'PTS' in hd2 and '0.0' in row, row[:80])
+    await pg.select_option('#pdt', label=await ev("__pbl.L.teams.find(t=>t.abbr==='LAL').city+' '+__pbl.L.teams.find(t=>t.abbr==='LAL').name")); await pg.wait_for_timeout(300)
+    n2 = await ev("document.querySelectorAll('#main tbody tr').length")
+    ok('team filter', 13 <= n2 <= 17, str(n2))
+    await pg.click('[data-pdtab="info"]'); await pg.click('#main thead th:nth-child(6)'); await pg.wait_for_timeout(200)
+    ok('no page errors', not errs, '; '.join(errs[:3]))
+    await b.close()
+  for r in res: print(r)
+  print(sum(r.startswith('PASS') for r in res), '/', len(res), 'pass')
+asyncio.run(main())

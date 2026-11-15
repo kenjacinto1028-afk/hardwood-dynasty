@@ -1,0 +1,88 @@
+# v25.9 Sonnet-part browser checks (S1-S5). Serve the folder, then: python3 browser-v259.py PORT
+import asyncio, sys
+from playwright.async_api import async_playwright
+PORT = sys.argv[1] if len(sys.argv) > 1 else '8777'
+res = []
+def ok(n, c, x=''): res.append(('PASS ' if c else 'FAIL ') + n + (f'  [{x}]' if x else ''))
+CLR = "document.querySelector('#modal').innerHTML=''"
+async def go(pg, h):
+    await pg.evaluate(CLR); await pg.evaluate("location.hash='#standings'"); await pg.wait_for_timeout(200)
+    await pg.evaluate(f"location.hash='#{h}'"); await pg.wait_for_timeout(800)
+async def txt(pg): return await pg.evaluate("document.querySelector('#main').innerText")
+async def tc(pg): return await pg.evaluate("document.querySelector('#main').textContent")
+async def main():
+    async with async_playwright() as p:
+        b = await p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
+        pg = await (await b.new_context(viewport={'width': 1300, 'height': 900})).new_page()
+        errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
+        await pg.goto(f'http://localhost:{PORT}/index.html'); await pg.wait_for_timeout(2500)
+        await pg.click('[data-setmode="team"]'); await pg.click('#create'); await pg.wait_for_timeout(4000); await pg.evaluate(CLR)
+        # S1/S2: a rostered player of mine
+        pid = await pg.evaluate("(()=>{const L=window.__pbl.L;return L.teams[L.user].roster.map(i=>L.players[i]).sort((a,b)=>b.ovr-a.ovr)[0].id})()")
+        await pg.evaluate(f"window.__pbl.openPlayer({pid})"); await pg.wait_for_timeout(600)
+        t = await txt(pg)
+        ok('S1 On court / Off court tabs', await pg.evaluate("document.querySelectorAll('[data-attrtab]').length===2"))
+        ok('S1 on court shows Motor, Coachability, Durability', all(k.lower() in t.lower() for k in ['Motor', 'Coachability', 'Durability']))
+        ok('S1 on court bars with numbers (own player: motor and coachability exact, durability may be a read)', await pg.evaluate("document.querySelectorAll('.trrow .trbar').length>=2"))
+        ok('S1 old work-ethic row gone from skills, ratings still shown', 'Finishing' in t or 'Mid-range' in t or 'Three' in t or 'Speed' in t)
+        await pg.evaluate("document.querySelector('[data-attrtab=\"off\"]').click()"); await pg.wait_for_timeout(500)
+        t = await txt(pg)
+        ok('S1 off court shows 4 traits', all(k in t for k in ['Loyalty', 'Money', 'Winning', 'Work ethic']))
+        ok('S1 off court personality chip', await pg.evaluate("!!document.querySelector('#main .attrs')") and await pg.evaluate("document.querySelectorAll('#main .pill.pos').length>=1"))
+        # inject a log so the Changes list shows
+        await pg.evaluate(f"(()=>{{const L=window.__pbl.L,p=L.players[{pid}];p.trLog=[{{s:L.season,k:'mon',d:5,why:'paid'}},{{s:L.season-1,k:'loy',d:-4,why:'traded'}}];window.__pbl.render();}})()"); await pg.wait_for_timeout(500)
+        t = await txt(pg)
+        tl = t.lower(); ok('S1 Changes list: trait, sign, reason', 'changes' in tl and 'money' in tl and '+5' in t and 'got paid' in tl and 'traded' in tl, tl[tl.find('changes'):][:80])
+        # other team player: ~ read when unseen
+        oid = await pg.evaluate("(()=>{const L=window.__pbl.L;const p=Object.values(L.players).find(x=>x.team!=null&&x.team!==L.user&&!x.prospect&&!(x.seen>=1));return p?p.id:null})()")
+        if oid:
+            await pg.evaluate(f"window.__pbl.openPlayer({oid})"); await pg.wait_for_timeout(500)
+            await pg.evaluate("document.querySelector('[data-attrtab=\"off\"]').click()"); await pg.wait_for_timeout(400)
+            ok('S1 unseen player shows rough read (~)', '~' in await txt(pg))
+        # S2 scouting report
+        await pg.evaluate(f"window.__pbl.openPlayer({pid})"); await pg.wait_for_timeout(500)
+        t = await txt(pg)
+        ok('S2 scouting report box', 'scouting report' in t.lower())
+        ok('S2 tier chip', await pg.evaluate("[...document.querySelectorAll('#main .panel')].some(s=>/scouting report/i.test(s.innerText)&&s.querySelector('.pill.pos'))"))
+        ok('S2 report lines, no braces / undefined', await pg.evaluate("[...document.querySelectorAll('#main .srline')].length>=3") and '{' not in t and 'undefined' not in t)
+        # S3: prospects (draft class). Team mode: scouting panel + comps
+        prid = await pg.evaluate("(()=>{const L=window.__pbl.L;const p=Object.values(L.players).find(x=>x.prospect);return p?p.id:null})()")
+        await pg.evaluate(f"window.__pbl.openPlayer({prid})"); await pg.wait_for_timeout(600)
+        t = await txt(pg)
+        ok('S3 prospect comps: Floor and Ceiling rows', 'Floor' in t and 'Ceiling' in t and 'NBA:' in t)
+        ok('S3 strengths / weaknesses line', 'Strengths:' in t and 'Weaknesses:' in t)
+        ok('S3 comps have no braces / undefined / NaN', '{' not in t and 'undefined' not in t and 'NaN' not in t)
+        ok('S1 prospect traits unknown before interview', await pg.evaluate("(()=>{document.querySelector('[data-attrtab=\"on\"]').click();return true})()"))
+        await pg.wait_for_timeout(300)
+        t = await txt(pg); ok('S1 prospect: Unknown shown', 'Unknown' in t)
+        # interview, then rough reads
+        await pg.evaluate(f"(()=>{{const L=window.__pbl.L;interview(L,L.user,{prid});window.__pbl.render();}})()") if False else None
+        r = await pg.evaluate(f"(()=>{{const L=window.__pbl.L;return L.teams[L.user].interviews&&1}})()")
+        ok('S1 draft interview result shows rough reads', await pg.evaluate(f"(()=>{{const L=window.__pbl.L;const m=interview(L,L.user,{prid});window.__pbl.render();return !m}})()"))
+        await pg.wait_for_timeout(500); t = await txt(pg)
+        ok('S1 interview: Rough reads line', 'Rough reads:' in t and 'loyalty ~' in t)
+        await pg.evaluate("document.querySelector('[data-attrtab=\"off\"]').click()"); await pg.wait_for_timeout(300)
+        ok('S1 prospect off court: rough reads after interview', '~' in await txt(pg))
+        # draft tab reports list has comps
+        await go(pg, 'draft'); await pg.evaluate("(()=>{const b=document.querySelector('[data-dtab=\"scout\"]');if(b)b.click()})()"); await pg.wait_for_timeout(600)
+        c = await tc(pg); ok('S3 draft Reports list has comps', 'Floor' in c and 'NBA:' in c)
+        # S4: play a season, yearbook has Trait changes
+        await pg.evaluate("(()=>{const L=window.__pbl.L;let g=0;while(L.phase==='regular')simDay(L);processPending(L);startPlayoffs(L);while(L.phase==='playoffs'&&g++<400)simPlayoffDay(L);startOffseason(L);})()")
+        await pg.evaluate(CLR); await go(pg, 'history'); await pg.wait_for_timeout(500)
+        c = await tc(pg); ok('S4 yearbook shows Trait changes', 'Trait changes' in c, '')
+        # league comp link once the league has history (a prospect in the next class)
+        prid2 = await pg.evaluate("(()=>{const L=window.__pbl.L;const p=Object.values(L.players).find(x=>x.prospect);return p?p.id:null})()")
+        await pg.evaluate(f"window.__pbl.openPlayer({prid2})"); await pg.wait_for_timeout(600)
+        ok('S3 league comp is a link (after a season)', await pg.evaluate("document.querySelectorAll('#main .comps [data-player]').length>=1"))
+        # S5 how it works
+        await go(pg, 'rules'); c = await tc(pg)
+        ok('S5 How it works: Traits paragraph', 'Every player has seven traits' in c and 'Off court' in c and 'Motor'.lower() in c.lower())
+        # carry-over v25.8: FO chip on a team page, 3-team before -> after
+        await go(pg, 'teams'); await pg.evaluate("(()=>{const e=document.querySelector('#main [data-team]');if(e)e.click()})()"); await pg.wait_for_timeout(700)
+        ok('FO chip on team page', await pg.evaluate("[...document.querySelectorAll('#main .pill')].some(e=>/Loves picks|Balanced|Win-now|Win now/i.test(e.textContent))"), '')
+        await go(pg, 'trades'); await pg.evaluate("(()=>{const b=document.querySelector('#t3-start');if(b&&!b.disabled)b.click()})()"); await pg.wait_for_timeout(700)
+        ok('3-team panel opens with before -> after column', '1sts before → after' in (await tc(pg)).replace('\n',' ') or '1STS BEFORE' in (await txt(pg)).upper())
+        ok('no page errors', not errs, '; '.join(errs)[:200])
+        await b.close()
+    print('\n'.join(res)); print(sum(r.startswith('PASS') for r in res), '/', len(res))
+asyncio.run(main())

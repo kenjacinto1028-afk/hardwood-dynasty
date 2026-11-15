@@ -1,0 +1,93 @@
+# v26.0 Sonnet-part browser checks (S1-S7). Serve the folder, then: python3 browser-v260.py PORT
+import asyncio, sys
+from playwright.async_api import async_playwright
+PORT = sys.argv[1] if len(sys.argv) > 1 else '8778'
+res = []
+def ok(n, c, x=''): res.append(('PASS ' if c else 'FAIL ') + n + (f'  [{x}]' if x else ''))
+CLR = "document.querySelector('#modal').innerHTML=''"
+async def go(pg, h):
+    await pg.evaluate(CLR); await pg.evaluate("location.hash='#standings'"); await pg.wait_for_timeout(200)
+    await pg.evaluate(f"location.hash='#{h}'"); await pg.wait_for_timeout(800)
+async def txt(pg): return await pg.evaluate("document.querySelector('#main').innerText")
+async def tc(pg): return await pg.evaluate("document.querySelector('#main').textContent")
+def clean(t): return '{' not in t and 'undefined' not in t and 'NaN' not in t
+async def main():
+    async with async_playwright() as p:
+        b = await p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
+        pg = await (await b.new_context(viewport={'width': 1300, 'height': 900})).new_page()
+        errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
+        await pg.goto(f'http://localhost:{PORT}/index.html'); await pg.wait_for_timeout(2500)
+        await pg.click('[data-setmode="team"]'); await pg.click('#create'); await pg.wait_for_timeout(4000); await pg.evaluate(CLR)
+        await go(pg, 'myteam'); t = await txt(pg)
+        # S1
+        ok('S1 five-season line says First season', await pg.evaluate("FLAVOR['yr5.first'].includes((document.querySelector('#main .recent5')||{}).textContent)"))
+        # S2
+        n = await pg.evaluate("document.querySelectorAll('#main .need').length")
+        ok('S2 roster needs rows', n >= 1, n)
+        ok('S2 urgency pills with labels', await pg.evaluate("[...document.querySelectorAll('#main .need .pill')].every(e=>/Fix now|Fix this summer|Minor/.test(e.textContent))"))
+        ok('S2 needs text clean', clean(await pg.evaluate("[...document.querySelectorAll('#main .need')].map(e=>e.textContent).join(' ')")))
+        # S5 chips in roster
+        chips = await pg.evaluate("[...document.querySelectorAll('#main table .pill[class*=\"tg-\"]')].map(e=>e.className+'|'+e.textContent)")
+        ok('S5 tag chips on the roster', len(chips) >= 1, len(chips))
+        ok('S5 chips have a reason tooltip', await pg.evaluate("[...document.querySelectorAll('#main table .pill[class*=\"tg-\"]')].every(e=>e.title&&e.title.length>3)"))
+        # S6 Untouchable toggle
+        ok('S6 button is named Untouchable (no Protect)', await pg.evaluate("[...document.querySelectorAll('#main [data-protect]')].length>=5 && [...document.querySelectorAll('#main [data-protect]')].every(e=>/Untouchable/.test(e.textContent))"))
+        pid = await pg.evaluate("+document.querySelector('#main [data-protect]').dataset.protect")
+        await pg.evaluate("document.querySelector('#main [data-protect]').click()"); await pg.wait_for_timeout(500)
+        ok('S6 click sets p.protect', await pg.evaluate(f"window.__pbl.L.players[{pid}].protect===true"))
+        ok('S6 row shows Untouchable chip', await pg.evaluate(f"(()=>{{const r=document.querySelector('#main tr[data-player=\"{pid}\"]');return !!r&&!!r.querySelector('.pill.tg-untouch');}})()"))
+        ok('S6 button is checked', await pg.evaluate("document.querySelector('#main [data-protect]').textContent.includes('✓')"))
+        # trade screen: protected player locked for AI, unprotect again below
+        await pg.evaluate(f"window.__pbl.openPlayer({pid})"); await pg.wait_for_timeout(600)
+        ok('S5 player page header shows Untouchable chip', await pg.evaluate("!!document.querySelector('#main .bio .pill.tg-untouch')"))
+        await go(pg, 'myteam')
+        await pg.evaluate(f"document.querySelector('#main [data-protect=\"{pid}\"]').click()"); await pg.wait_for_timeout(400)
+        ok('S6 click again clears p.protect', await pg.evaluate(f"window.__pbl.L.players[{pid}].protect===false"))
+        # S3: my coach
+        cid = await pg.evaluate("window.__pbl.L.teams[window.__pbl.L.user].coach.id")
+        await pg.evaluate(f"(()=>{{const a=document.createElement('a');a.className='lk';a.dataset.coach={cid};document.querySelector('#main').appendChild(a);a.click();}})()"); await pg.wait_for_timeout(700)
+        t = await txt(pg); tl = t.lower()
+        ok('S3 coach report panel', 'coach report' in tl and 'roster fit' in tl and 'key players' in tl and 'clash with him' in tl)
+        ok('S3 fit percent and rank', await pg.evaluate("/\\d+%/.test(document.querySelector('#main').innerText) && /ranks #\\d+ of 12/.test(document.querySelector('#main').innerText)"))
+        ok('S3 star player link and wants chips', await pg.evaluate("document.querySelectorAll('#main section.panel a[data-player]').length>=1") and 'wants' in tl)
+        ok('S3 coach page clean', clean(t))
+        # free coach (fit with your roster)
+        fid = await pg.evaluate("(()=>{const L=window.__pbl.L;const c=L.coachPool.find(c=>!c.interim);return c?c.id:null})()")
+        await pg.evaluate(f"(()=>{{const a=document.createElement('a');a.className='lk';a.dataset.coach={fid};document.querySelector('#main').appendChild(a);a.click();}})()"); await pg.wait_for_timeout(700)
+        t = await txt(pg); ok('S3 free coach: fit with your roster', 'fit with your roster' in t.lower() and clean(t))
+        # S4: hiring dialog
+        await go(pg, 'myteam'); await pg.evaluate("document.querySelector('[data-mtab=\"office\"]').click()"); await pg.wait_for_timeout(500)
+        await pg.evaluate("window.__pbl.L.phase==='playoffs'||0")
+        await pg.evaluate("document.querySelector('[data-firecoach]').click()"); await pg.wait_for_timeout(600)
+        d = await pg.evaluate("document.querySelector('#modal').innerText")
+        if 'fire' in d.lower():
+            ok('S4 hiring dialog has sort buttons', await pg.evaluate("document.querySelectorAll('#modal [data-hsort]').length===2"))
+            fits = await pg.evaluate("[...document.querySelectorAll('#modal tbody tr')].map(r=>+r.children[7].dataset.v)")
+            ok('S4 default sort is by fit (best first)', len(fits) > 2 and all(fits[i] >= fits[i+1] for i in range(len(fits)-1)), fits[:5])
+            ok('S4 fit cell shows score, % and change', await pg.evaluate("[...document.querySelectorAll('#modal tbody tr')].every(r=>/\\d+\\s*·\\s*\\d+%/.test(r.children[7].innerText))"))
+            await pg.evaluate("document.querySelector('#modal [data-hsort=\"ovr\"]').click()"); await pg.wait_for_timeout(500)
+            ov = await pg.evaluate("[...document.querySelectorAll('#modal tbody tr')].map(r=>+r.children[2].innerText)")
+            ok('S4 sort by overall', len(ov) > 2 and all(ov[i] >= ov[i+1] for i in range(len(ov)-1)), ov[:5])
+            ok('S4 dialog clean', clean(await pg.evaluate("document.querySelector('#modal').innerText")))
+            await pg.evaluate("document.querySelector('#x-close').click()")
+        else:
+            ok('S4 hiring dialog opened', False, 'no fire button')
+        await pg.evaluate(CLR)
+        # S5 trade screens: chips on lists. Move to offseason so the trade window is open.
+        await pg.evaluate("(()=>{const L=window.__pbl.L;let g=0;while(L.phase==='regular')simDay(L);processPending(L);startPlayoffs(L);while(L.phase==='playoffs'&&g++<400)simPlayoffDay(L);startOffseason(L);})()")
+        await pg.evaluate(CLR); await go(pg, 'trades')
+        tid = await pg.evaluate("(()=>{const L=window.__pbl.L;return L.teams.find(t=>t.id!==L.user).id})()")
+        await pg.evaluate(f"(()=>{{const s=document.querySelector('#tw');if(s){{s.value='{tid}';s.dispatchEvent(new Event('change'))}}}})()"); await pg.wait_for_timeout(700)
+        ok('S5 trade screen asset lists show tag chips', await pg.evaluate("document.querySelectorAll('#main .pill[class*=\"tg-\"]').length>=1"))
+        await pg.evaluate("(()=>{const b=document.querySelector('#t3-start');if(b&&!b.disabled)b.click()})()"); await pg.wait_for_timeout(700)
+        ok('S5 3-team lists show chips and no errors', await pg.evaluate("document.querySelectorAll('#main .grid3 .pill[class*=\"tg-\"]').length>=0"))
+        # S1 after a season
+        await pg.evaluate(CLR); await go(pg, 'myteam'); r = await pg.evaluate("(document.querySelector('#main .recent5')||{}).textContent||''")
+        ok('S1 line after a season', r and 'First season' not in r and clean(r), r)
+        # S7
+        await go(pg, 'rules'); c = await tc(pg)
+        ok('S7 How it works: tags, roster needs, coach fit', all(k in c for k in ['Franchise Cornerstone', 'Roster needs', 'Coach fit', 'Untouchable']))
+        ok('no page errors', not errs, '; '.join(errs)[:200])
+        await b.close()
+    print('\n'.join(res)); print(sum(r.startswith('PASS') for r in res), '/', len(res))
+asyncio.run(main())

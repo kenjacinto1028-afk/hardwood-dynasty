@@ -1,0 +1,28 @@
+import sys,subprocess,time
+from playwright.sync_api import sync_playwright
+PORT=8791
+srv=subprocess.Popen(['python3','-m','http.server',str(PORT)],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL); time.sleep(1)
+errs=[];res=[]
+def ck(n,ok): res.append(ok); print(('PASS ' if ok else 'FAIL ')+n)
+try:
+  with sync_playwright() as p:
+    b=p.chromium.launch(executable_path='/usr/bin/google-chrome',args=['--no-sandbox']); pg=b.new_page()
+    pg.on('pageerror',lambda e:errs.append(str(e)))
+    pg.goto(f'http://localhost:{PORT}/index.html'); pg.wait_for_timeout(1500)
+    pg.click('[data-setmode="team"]'); pg.click('[data-setnba="1"]'); pg.click('#create'); pg.wait_for_timeout(4000)
+    # coach with a tree: give a coach a mentee
+    r=pg.evaluate("""()=>{const {L,ui,render}=window.__pbl;const a=L.teams[1].coach,b=L.teams[2].coach,c=L.teams[3].coach;b.mentor=a.id;c.mentor=b.id;a.sysHist=[{s:L.season,k:'off',from:a.off,to:b.off}];ui.coach=a.id;ui.gm=null;render();return [a.id,b.name,c.name]}""")
+    t=pg.inner_text('#main').lower(); ck('coach tree panel',('coaching tree' in t) and r[1].lower() in t and r[2].lower() in t and 'system history' in t and '→' in t)
+    pg.evaluate("()=>{const {ui,render}=window.__pbl;ui.coach=null;ui.view='teams';ui.team=1;ui.teamTab='overview';render()}")
+    pg.click('[data-gm]'); pg.wait_for_timeout(300)
+    t=pg.inner_text('#main').lower(); ck('GM page opens from team header',('stints' in t) and ('season by season' in t) and 'age' in t)
+    pg.evaluate("()=>{const {ui,render}=window.__pbl;ui.gm=null;ui.view='teams';ui.team=1;ui.teamTab='history';render()}")
+    t=pg.inner_text('#main').lower(); ck('staff history on team history tab',('staff history' in t) and 'general managers' in t and 'head coaches' in t)
+    pg.evaluate("()=>{const {L,ui,render}=window.__pbl;ui.gm=null;ui.team=null;ui.view='coaches';ui.stab='gms';render()}")
+    t=pg.inner_text('#main').lower(); ck('GMs list',('general managers' in t) and pg.locator('#main [data-gm]').count()>=29)
+    pg.evaluate("()=>{const {L,ui,render}=window.__pbl;const pl=Object.values(L.players).find(x=>!x.retired&&!x.prospect);const c=L.teams[0].coach;pl.coachId=c.id;ui.view='teams';ui.player=pl.id;render()}")
+    ck('Now a coach link','now a coach' in pg.inner_text('#main').lower())
+    ck('no page errors',not errs); print(errs[:3])
+    b.close()
+finally: srv.terminate()
+sys.exit(0 if all(res) else 1)

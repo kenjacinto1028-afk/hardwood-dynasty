@@ -1,0 +1,112 @@
+# v26.5 Sonnet-part browser checks (S1-S5). Serve the artifact folder, then: python3 browser-v265.py PORT
+import asyncio, sys
+from playwright.async_api import async_playwright
+PORT = sys.argv[1] if len(sys.argv) > 1 else '8778'
+res = []
+def ok(n, c, x=''): res.append(('PASS ' if c else 'FAIL ') + n + (f'  [{x}]' if x else ''))
+CLR = "document.querySelector('#modal').innerHTML=''"
+async def go(pg, h):
+    await pg.evaluate(CLR); await pg.evaluate("location.hash='#standings'"); await pg.wait_for_timeout(200)
+    await pg.evaluate(f"location.hash='#{h}'"); await pg.wait_for_timeout(700)
+async def txt(pg): return await pg.evaluate("document.querySelector('#main').innerText")
+async def tc(pg): return await pg.evaluate("document.querySelector('#main').textContent")
+async def mt(pg): return await pg.evaluate("document.querySelector('#modal').textContent")
+def clean(t): return '{' not in t and 'undefined' not in t and 'NaN' not in t
+async def main():
+  try:
+    async with async_playwright() as p:
+        b = await p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
+        pg = await (await b.new_context(viewport={'width': 1300, 'height': 900})).new_page()
+        errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
+        await pg.goto(f'http://localhost:{PORT}/index.html'); await pg.wait_for_timeout(2500)
+        await pg.click('[data-setmode="team"]'); await pg.click('#create'); await pg.wait_for_timeout(4000); await pg.evaluate(CLR)
+        await pg.evaluate("(()=>{const L=window.__pbl.L;for(let i=0;i<30;i++)simDay(L);window.__pbl.render()})()")
+        # S2 feed
+        await go(pg, 'feed'); t = await txt(pg)
+        ok('S2 Feed tab in nav', await pg.evaluate("!!document.querySelector('#subtabs [data-v=\"feed\"]')"))
+        ok('S2 Feed renders posts, max 25', 1 <= await pg.evaluate("document.querySelectorAll('#main .post').length") <= 25)
+        ok('S2 post card parts (badge, likes, day)', await pg.evaluate("!!document.querySelector('#main .post .pill')") and '♥' in t and 'Day ' in t)
+        ok('S2 More loads 25 more', await pg.evaluate("(()=>{const a=document.querySelectorAll('#main .post').length;const b=document.querySelector('#feed-more');if(!b)return false;b.click();return document.querySelectorAll('#main .post').length===a+25||document.querySelectorAll('#main .post').length>a})()"))
+        for f in ['all', 'team', 'players', 'media', 'rumors']:
+            await pg.click(f'[data-feedf="{f}"]'); await pg.wait_for_timeout(300)
+            n = await pg.evaluate("document.querySelectorAll('#main .post').length"); c = await tc(pg)
+            exp = await pg.evaluate(f"feedList(window.__pbl.L,'{f}',25).length")
+            ok(f'S2 filter {f}', n == exp and clean(c), f'{n}/{exp}')
+        await pg.click('[data-feedf="players"]'); await pg.wait_for_timeout(300)
+        pid = await pg.evaluate("document.querySelector('#main .post a[data-player]')?.dataset.player||''")
+        ok('S2 player post links to the player', bool(pid))
+        if pid:
+            await pg.click('#main .post a[data-player] >> nth=0'); await pg.wait_for_timeout(600)
+            ok('S2 click opens the player', await pg.evaluate(f"window.__pbl.ui.player==={pid}||window.__pbl.ui.player=='{pid}'"))
+            await pg.evaluate("window.__pbl.ui.player=null"); 
+        await go(pg, 'feed'); await pg.click('[data-feedf="all"]')
+        ok('S2 team link on a post', await pg.evaluate("!!document.querySelector('#main .post a[data-team]')"))
+        await go(pg, 'myteam'); ok('S2 Latest box on My team (3 posts)', await pg.evaluate("document.querySelectorAll('#main .panel .post').length===3"))
+        # S3 reactions
+        gid = await pg.evaluate("(()=>{const L=window.__pbl.L;const g=L.games.find(g=>g.rx&&g.rx.length&&(g.home===L.user||g.away===L.user));return g?g.id:-1})()")
+        ok('S3 a game with reactions exists', gid != -1, gid)
+        if gid != -1:
+            await pg.evaluate(f"(()=>{{const u=window.__pbl.ui;u.game={gid};window.__pbl.render()}})()"); await pg.wait_for_timeout(500)
+            t = await txt(pg)
+            ok('S3 Reactions panel with quotes', 'reactions' in t.lower() and '“' in t and await pg.evaluate("document.querySelectorAll('#main .rx').length>=1"))
+            ok('S3 box score clean', clean(await tc(pg)))
+            await pg.evaluate("(()=>{const u=window.__pbl.ui;u.game=null;window.__pbl.render()})()")
+        # S4 press
+        await pg.evaluate("(()=>{const L=window.__pbl.L;L.press=null;pressTrigger(L,'streakW',{n:5});window.__pbl.render()})()"); await pg.wait_for_timeout(400)
+        ok('S4 header button while open', await pg.evaluate("!!document.querySelector('#simctl [data-sim=\"press\"]')"))
+        await pg.click('#simctl [data-sim="press"]'); await pg.wait_for_timeout(500)
+        m = await mt(pg)
+        ok('S4 dialog: question and four answers', 'Press conference' in m and await pg.evaluate("document.querySelectorAll('#modal [data-prc]').length===4"))
+        ok('S4 labels', all(x in m for x in ['Confident', 'Humble', 'Deflect', 'Call out']))
+        await pg.click('#modal [data-prc="humble"]'); await pg.wait_for_timeout(500)
+        m = await mt(pg)
+        ok('S4 answer shows quote and effects', 'You:' in m and '“' in m and ('media reputation' in m or 'fan hype' in m or 'morale' in m), m[-160:])
+        ok('S4 next question', await pg.evaluate("!!document.querySelector('#pr-next')"))
+        await pg.click('#pr-next'); await pg.wait_for_timeout(500)
+        m = await mt(pg)
+        if 'Question 2' in m:
+            await pg.click('#modal [data-prc="callout"]'); await pg.wait_for_timeout(500)
+            ok('S4 second answer shows effects', 'You:' in await mt(pg))
+            await pg.click('#pr-next'); await pg.wait_for_timeout(500)
+        ok('S4 closed when done', await pg.evaluate("document.querySelector('#modal').innerHTML===''") and await pg.evaluate("!pressOpen(window.__pbl.L)"))
+        ok('S4 header button gone', await pg.evaluate("!document.querySelector('#simctl [data-sim=\"press\"]')"))
+        await go(pg, 'myteam'); await pg.click('[data-mtab="office"]'); await pg.wait_for_timeout(400); t = await txt(pg)
+        ok('S4 media reputation on front office', 'Media reputation' in t)
+        # S1 personality
+        ok('S1 personality panel: Patience, Ambition, level words', 'front office personality' in t.lower() and 'patience' in t.lower() and 'ambition' in t.lower() and any(w in t for w in ['Low', 'Mid', 'High']))
+        ok('S1 numbers hidden in team mode', await pg.evaluate("!/\\d/.test(document.querySelector('#main .fo-row .fo-val').textContent)"))
+        ok('S1 trait chips with tooltip', await pg.evaluate("(()=>{const c=document.querySelectorAll('#main .fo-trait');return c.length===0||[...c].every(x=>x.title.length>5)})()"))
+        ok('S1 office clean', clean(await tc(pg)))
+        await pg.evaluate("(()=>{const L=window.__pbl.L;L.mode='commish';window.__pbl.render()})()"); await pg.wait_for_timeout(300)
+        ok('S1 commissioner sees numbers', await pg.evaluate("/^\\d+$/.test(document.querySelector('#main .fo-row .fo-val').textContent)"))
+        await pg.evaluate("(()=>{const L=window.__pbl.L;L.mode='team';window.__pbl.render()})()")
+        # S1 rising chip
+        await pg.evaluate("(()=>{const L=window.__pbl.L;const t=L.teams.find(t=>t.id!==L.user);window.__rt=t.id;t.status='rising';t.stShow=null;L.teams[L.user].status='rising';window.__pbl.render()})()")
+        await go(pg, 'standings')
+        ok('S1 Rising pill in standings with tooltip', await pg.evaluate("(()=>{const e=document.querySelector('#main .pill.st-rising');return !!e&&e.textContent.trim()==='Rising'&&e.title.includes(STATUS_WHY.rising.slice(0,20))})()"))
+        await go(pg, 'myteam'); ok('S1 Rising pill in team header', await pg.evaluate("!!document.querySelector('#main .bio .pill.st-rising')"))
+        await go(pg, 'trades')
+        await pg.evaluate("(()=>{const u=window.__pbl.ui;u.tradeWith=window.__rt;u.tGive={players:[],picks:[]};u.tGet={players:[],picks:[]};u.tradeMsg=null;window.__pbl.render()})()"); await pg.wait_for_timeout(400)
+        ok('S1 Rising pill on the trade screen', await pg.evaluate("!!document.querySelector('#main .pill.st-rising')"))
+        # S5 news
+        await go(pg, 'news'); t = await txt(pg)
+        ok('S5 news filters Rumors, Beat reports, Features', all(x in t for x in ['Rumors', 'Beat reports', 'Features']))
+        for k in ['rumor', 'beat', 'feature']:
+            await pg.click(f'[data-ncat="{k}"]'); await pg.wait_for_timeout(300)
+            n = await pg.evaluate(f"window.__pbl.L.log.filter(x=>x.cat==='{k}').length"); rows = await pg.evaluate("document.querySelectorAll('#main .leader').length")
+            ok(f'S5 {k} filter', clean(await tc(pg)) and (n == 0 or rows >= 1), f'{n} items')
+        await pg.click('[data-ncat=""]')
+        # power ranking blurbs
+        await pg.evaluate("(()=>{const L=window.__pbl.L;prBlurbs(L);window.__pbl.render()})()")
+        await go(pg, 'standings')
+        ok('S5 power ranking blurbs', await pg.evaluate("document.querySelectorAll('#main .prb').length>=5"))
+        ok('S5 standings clean', clean(await tc(pg)))
+        await go(pg, 'weekly'); ok('S5 weekly report clean', clean(await tc(pg)))
+        # How it works
+        await go(pg, 'rules'); c = await tc(pg)
+        ok('S1 How it works section', 'Team statuses: Rising, personality and minutes' in c)
+        ok('no page errors', not errs, '; '.join(errs)[:300])
+        await b.close()
+  finally:
+    print('\n'.join(res)); print(sum(r.startswith('PASS') for r in res), '/', len(res))
+asyncio.run(main())

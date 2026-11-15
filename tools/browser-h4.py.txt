@@ -1,0 +1,42 @@
+# v27.12 H4 checks (career + legends UI). Serve the folder, then: python3 browser-h4.py PORT
+import asyncio, sys
+from playwright.async_api import async_playwright
+PORT = sys.argv[1] if len(sys.argv) > 1 else '8784'
+res = []
+def ok(n, c, x=''): res.append(('PASS ' if c else 'FAIL ') + n + (f'  [{x}]' if x else ''))
+async def main():
+    async with async_playwright() as p:
+        b = await p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
+        pg = await (await b.new_context(viewport={'width': 1300, 'height': 900})).new_page()
+        errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
+        await pg.goto(f'http://localhost:{PORT}/index.html'); await pg.wait_for_timeout(2500)
+        await pg.click('[data-setmode="team"]'); await pg.click('[data-setnba="1"]'); await pg.wait_for_timeout(300); await pg.click('#create'); await pg.wait_for_timeout(4500)
+        await pg.evaluate("document.querySelector('#modal').innerHTML=''")
+        txt = "document.querySelector('#main').innerText"
+        go = lambda js: pg.evaluate("(()=>{const W=window.__pbl;" + js + ";W.render()})()")
+        await go("const L=W.L;W.ui.player=Object.values(L.players).find(p=>p.name==='LeBron James').id"); await pg.wait_for_timeout(700)
+        t = await pg.evaluate(txt)
+        ok('LeBron 2003-04 row', '2003-04' in t and 'REAL NBA SEASONS' in t.upper() and 'REAL CAREER' in t.upper())
+        await pg.evaluate("document.querySelector('[data-ptab=\"rs:tot\"]').click()"); await pg.wait_for_timeout(400)
+        t = await pg.evaluate(txt); ok('totals tab', '2003-04' in t and 'Career, real + sim' in t.replace('CAREER, REAL + SIM','Career, real + sim') or 'CAREER, REAL + SIM' in t.upper())
+        await pg.evaluate("document.querySelector('[data-ptab=\"rs:adv\"]').click()"); await pg.wait_for_timeout(400)
+        t = await pg.evaluate(txt); ok('advanced tab', 'VORP' in t and '2003-04' in t)
+        # role player: est rows
+        name = await pg.evaluate("(()=>{const W=window.__pbl,L=W.L;const p=Object.values(L.players).find(p=>p.real&&typeof nbaEstRows==='function'&&(nbaEstRows(p)||[]).filter(r=>r.est).length>=2);return p&&p.name})()")
+        await go(f"const L=W.L;W.ui.player=Object.values(L.players).find(p=>p.name==={name!r}).id;W.ui.pTab={{}}"); await pg.wait_for_timeout(700)
+        t = await pg.evaluate(txt); n_est = await pg.evaluate("document.querySelectorAll('#main tr.est').length")
+        ok('role player est rows', n_est >= 2 and 'est.' in t, f'{name} {n_est}')
+        await go("W.ui.player=null;W.ui.view='history';W.ui.histTab='legends'"); await pg.wait_for_timeout(600)
+        t = await pg.evaluate(txt)
+        ok('Legends: Jordan HOF 2009', 'Michael Jordan' in t and '2009' in t and 'Bill Russell' in t)
+        await pg.evaluate("document.querySelector('[data-legend=\"Michael Jordan\"]').click()"); await pg.wait_for_timeout(400)
+        d = await pg.evaluate("document.querySelector('#modal').innerText")
+        dd = d.upper(); ok('legend card', 'MICHAEL JORDAN' in dd and '32,292' in dd and 'HALL OF FAME 2009' in dd, d[:80])
+        await pg.evaluate("document.querySelector('#modal').innerHTML=''")
+        await go("W.ui.player=null;W.ui.view='history';W.ui.histTab='records'"); await pg.wait_for_timeout(800)
+        top = await pg.evaluate("(()=>{const h=[...document.querySelectorAll('#main h3')].find(x=>x.textContent==='Points · career');return h&&h.parentElement.innerText})()")
+        ok('all-time points leader', top and ('LeBron James' in top.split('\n')[1] + top.split('\n')[2] + top.split('\n')[3] or 'Kareem' in top), (top or '')[:120].replace('\n',' | '))
+        ok('legends in leaders', top and 'retired legend' in top, '')
+        ok('no page errors', not errs, '; '.join(errs)[:300])
+        await b.close()
+asyncio.run(main()); print('\n'.join(res))

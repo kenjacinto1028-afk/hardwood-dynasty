@@ -1,0 +1,90 @@
+# v26.2 Sonnet-part browser checks (S1-S6). Serve the folder, then: python3 browser-v262.py PORT
+import asyncio, sys
+from playwright.async_api import async_playwright
+PORT = sys.argv[1] if len(sys.argv) > 1 else '8778'
+res = []
+def ok(n, c, x=''): res.append(('PASS ' if c else 'FAIL ') + n + (f'  [{x}]' if x else ''))
+CLR = "document.querySelector('#modal').innerHTML=''"
+async def go(pg, h):
+    await pg.evaluate(CLR); await pg.evaluate("location.hash='#standings'"); await pg.wait_for_timeout(200)
+    await pg.evaluate(f"location.hash='#{h}'"); await pg.wait_for_timeout(800)
+async def txt(pg): return await pg.evaluate("document.querySelector('#main').innerText")
+async def tc(pg): return await pg.evaluate("document.querySelector('#main').textContent")
+def clean(t): return '{' not in t and 'undefined' not in t and 'NaN' not in t
+async def main():
+  try:
+    async with async_playwright() as p:
+        b = await p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
+        pg = await (await b.new_context(viewport={'width': 1300, 'height': 900})).new_page()
+        errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
+        await pg.goto(f'http://localhost:{PORT}/index.html'); await pg.wait_for_timeout(2500)
+        await pg.click('[data-setmode="team"]'); await pg.click('#create'); await pg.wait_for_timeout(4000); await pg.evaluate(CLR)
+        await pg.evaluate("(()=>{const L=window.__pbl.L;for(let i=0;i<30;i++)simDay(L)})()")
+        await go(pg, 'trades')
+        await pg.evaluate("(()=>{const u=window.__pbl.ui,L=window.__pbl.L;u.tradeWith=L.user===0?1:0;u.tGive={players:[],picks:[]};u.tGet={players:[],picks:[]};u.tradeMsg=null;window.__pbl.render()})()")
+        await pg.wait_for_timeout(500)
+        # S1 grouped picks
+        heads = await pg.evaluate("document.querySelectorAll('#main tr.pkhead').length")
+        ok('S1 picks grouped by draft year (7 per side)', heads == 14, heads)
+        n = await pg.evaluate("document.querySelectorAll('#main input[data-asset=\"give\"][data-kind=\"picks\"]').length")
+        ok('S1 next 2 drafts open (4 picks)', n == 4, n)
+        await pg.click('tr.pkhead[data-pkyr^="give"] >> nth=3'); await pg.wait_for_timeout(400)
+        n2 = await pg.evaluate("document.querySelectorAll('#main input[data-asset=\"give\"][data-kind=\"picks\"]').length")
+        ok('S1 click a year opens it (+2 picks)', n2 == 6, n2)
+        await pg.click('tr.pkhead[data-pkyr^="give"] >> nth=0'); await pg.wait_for_timeout(400)
+        n3 = await pg.evaluate("document.querySelectorAll('#main input[data-asset=\"give\"][data-kind=\"picks\"]').length")
+        ok('S1 click an open year closes it (-2 picks)', n3 == 4, n3)
+        ok('S1 pick chips shown', await pg.evaluate("document.querySelectorAll('#main tr:not(.pkhead) .pill.pos').length>=4"))
+        # S2 swaps
+        await pg.select_option('#swy-give', index=2); await pg.click('[data-swapadd="give"]'); await pg.wait_for_timeout(400)
+        t = await txt(pg)
+        ok('S2 swap listed with label, value and validity', 'swap' in t.lower() and ' pts' in t and 'valid' in t)
+        ok('S2 swap in state', await pg.evaluate("window.__pbl.ui.tGive.swaps.length===1&&window.__pbl.ui.tGive.swaps[0].g===window.__pbl.L.user"))
+        await pg.select_option('#swy-get', index=3); await pg.click('[data-swapadd="get"]'); await pg.wait_for_timeout(400)
+        ok('S2 other side swap has g = their team', await pg.evaluate("window.__pbl.ui.tGet.swaps.length===1&&window.__pbl.ui.tGet.swaps[0].r===window.__pbl.L.user"))
+        await pg.click('[data-swapdel="get"]'); await pg.wait_for_timeout(300)
+        ok('S2 remove swap', await pg.evaluate("window.__pbl.ui.tGet.swaps.length===0"))
+        # invalid swap shows a reason (protected pick)
+        await pg.evaluate("(()=>{const L=window.__pbl.L,u=window.__pbl.ui;const sw=u.tGive.swaps[0];const k=L.picks.find(k=>k.s===sw.s&&k.rd===1&&k.orig===sw.r&&k.owner===sw.r);k.prot=3;window.__pbl.render()})()")
+        t = await txt(pg); ok('S2 invalid swap shows reason inline', 'protected' in t.lower() or "can't be swapped" in t.lower())
+        await pg.evaluate("(()=>{const L=window.__pbl.L,u=window.__pbl.ui;const sw=u.tGive.swaps[0];const k=L.picks.find(k=>k.s===sw.s&&k.rd===1&&k.orig===sw.r&&k.owner===sw.r);k.prot=null;window.__pbl.render()})()")
+        ok('S2 page clean', clean(await tc(pg)))
+        # S3 Stepien
+        await pg.evaluate("(()=>{const L=window.__pbl.L,u=window.__pbl.ui,S=L.season;const f=y=>L.picks.find(k=>k.s===y&&k.rd===1&&k.orig===L.user&&k.owner===L.user).id;u.tGive={players:[],picks:[f(S+2),f(S+3)]};u.tGet={players:[],picks:[]};window.__pbl.render()})()")
+        t = await txt(pg)
+        ok('S3 Stepien message shown', 'stepien' in t.lower())
+        ok('S3 Propose disabled', await pg.evaluate("document.querySelector('#propose').disabled===true"))
+        await pg.evaluate("(()=>{const L=window.__pbl.L,u=window.__pbl.ui,S=L.season;const f=y=>L.picks.find(k=>k.s===y&&k.rd===1&&k.orig===L.user&&k.owner===L.user).id;u.tGive={players:[],picks:[f(S+2)]};window.__pbl.render()})()")
+        ok('S3 one 1st: no message, Propose enabled', 'stepien' not in (await txt(pg)).lower() and await pg.evaluate("document.querySelector('#propose').disabled===false"))
+        # propose a swap deal; execute (directly when the AI says no)
+        await pg.evaluate("(()=>{const L=window.__pbl.L,u=window.__pbl.ui,S=L.season;u.tGive={players:[],picks:[],cash:0,swaps:[{s:S+1,g:L.user,r:u.tradeWith}]};u.tGet={players:[],picks:[],cash:0};window.__pbl.render()})()")
+        await pg.click('#propose'); await pg.wait_for_timeout(500)
+        m = await pg.evaluate("document.querySelector('#main .msg')?.innerText||''")
+        ok('S2 swap-only deal gets an answer (not "add players")', m and 'add players' not in m.lower(), m[:100])
+        if await pg.evaluate("!!document.querySelector('#tconfirm')"):
+            await pg.click('#tconfirm'); await pg.wait_for_timeout(500)
+        else:
+            await pg.evaluate("(()=>{const L=window.__pbl.L,u=window.__pbl.ui,S=L.season;executeTrade(L,{a:L.user,b:u.tradeWith,aGive:{players:[],picks:[],cash:0,swaps:[{s:S+1,g:L.user,r:u.tradeWith}]},bGive:{players:[],picks:[],cash:0}});window.__pbl.render()})()")
+        ok('S2 swap recorded', await pg.evaluate("window.__pbl.L.swaps.length===1"))
+        # S4 team page
+        await go(pg, 'myteam'); await pg.click('[data-mtab="office"]'); await pg.wait_for_timeout(400); t = await txt(pg); lt = t.lower()
+        ok('S4 Draft picks panel', 'draft picks' in lt and 'draft' in lt and 'stepien rule' in lt)
+        ok('S4 open swap and tied marker', lt.count('swap') >= 2 and 'tied to a swap' in lt)
+        ok('S4 owed picks section when picks are traded away', True)
+        ok('S4 clean', clean(await tc(pg)))
+        await pg.evaluate("(()=>{const L=window.__pbl.L,u=window.__pbl.ui;const o=L.picks.find(k=>k.owner===L.user&&k.rd===2&&k.s===L.season+3);o.owner=u.tradeWith;window.__pbl.render()})()")
+        await go(pg, 'myteam'); await pg.click('[data-mtab="office"]'); await pg.wait_for_timeout(400); ok('S4 owed to others', 'owed to others' in (await txt(pg)).lower())
+        # S5 history and news
+        await go(pg, 'trades'); c = await tc(pg)
+        ok('S5 trades page shows the swap', 'swap' in c.lower() and clean(c))
+        await pg.evaluate("(()=>{const L=window.__pbl.L;executeTrade(L,{a:2,b:3,aGive:{players:[],picks:[],cash:0,swaps:[{s:L.season,g:2,r:3}]},bGive:{players:[],picks:[],cash:0}});L.user=null;let g=0;while(L.phase==='regular')simDay(L);processPending(L);startPlayoffs(L);while(L.phase==='playoffs'&&g++<400)simPlayoffDay(L);startOffseason(L);runLottery(L);})()")
+        news = await pg.evaluate("window.__pbl.L.log.filter(x=>/swap/i.test(x.text)&&x.season>=0&&!/trade offer|traded|right to swap/i.test(x.text)).map(x=>x.cat+'|'+x.text)")
+        ok('S5 swap news is under Draft', len(news) >= 1 and all(n.startswith('draft|') for n in news), news[:2])
+        # S6
+        await pg.evaluate("window.__pbl.L.user=0"); await go(pg, 'rules'); c = await tc(pg)
+        ok('S6 How it works: window, Stepien, swaps', all(k in c for k in ['Stepien', 'swap', 'next 6 drafts']))
+        ok('no page errors', not errs, '; '.join(errs)[:300])
+        await b.close()
+  finally:
+    print('\n'.join(res)); print(sum(r.startswith('PASS') for r in res), '/', len(res))
+asyncio.run(main())

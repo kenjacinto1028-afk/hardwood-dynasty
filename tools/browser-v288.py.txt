@@ -1,0 +1,112 @@
+# v28.8 UI checks: suspensions, drama Suspend, interview, one-on-one, promises, Discipline page; desktop + 390px. Serve the artifact folder, then: python3 browser-v288.py PORT
+import asyncio, sys, re
+from playwright.async_api import async_playwright
+PORT = sys.argv[1] if len(sys.argv) > 1 else '8788'
+res = []
+def ok(n, c, x=''): res.append(('PASS ' if c else 'FAIL ') + n + (f'  [{x}]' if x else ''))
+CLR = "document.querySelector('#modal').innerHTML=''"
+async def ev(pg, js): return await pg.evaluate(js)
+async def go(pg, h):
+    await ev(pg, CLR); await ev(pg, "window.__pbl.ui.player=null"); await ev(pg, "location.hash='#standings'"); await pg.wait_for_timeout(200)
+    await ev(pg, f"location.hash='#{h}'"); await pg.wait_for_timeout(700)
+async def tc(pg, sel='#main'): return await ev(pg, f"(document.querySelector('{sel}')||{{textContent:''}}).textContent")
+def clean(t): return '{' not in t and 'undefined' not in t and 'NaN' not in t
+async def player(pg, pid):
+    await ev(pg, CLR); await ev(pg, f"window.__pbl.ui.player={pid};window.__pbl.render()"); await pg.wait_for_timeout(500)
+async def newgame(b, w, h, mobile):
+    ctx = await b.new_context(viewport={'width': w, 'height': h}, is_mobile=mobile, has_touch=mobile)
+    pg = await ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
+    await pg.goto(f'http://localhost:{PORT}/index.html'); await pg.wait_for_timeout(2500)
+    await pg.click('[data-setmode="team"]'); await pg.click('[data-setgames="58"]'); await pg.click('#create'); await pg.wait_for_timeout(4500); await ev(pg, CLR)
+    return pg, errs
+async def main():
+  async with async_playwright() as p:
+    b = await p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
+    pg, errs = await newgame(b, 1300, 900, False)
+    await ev(pg, "(()=>{const L=window.__pbl.L;for(let i=0;i<12;i++)simDay(L);window.__pbl.render()})()")
+    ids = await ev(pg, "(()=>{const L=window.__pbl.L;const r=rotationOf(L,L.teams[L.user]);return r.slice(0,8).map(p=>p.id)})()")
+    # --- S1 suspend from player page
+    await player(pg, ids[2])
+    ok('Suspend and Meet buttons on your player', await ev(pg, "!!document.querySelector('[data-susp]') && !!document.querySelector('[data-meet]')"))
+    await pg.click('[data-susp]'); await pg.wait_for_timeout(300)
+    t = await tc(pg, '#modal'); ok('suspend dialog', 'Suspend' in t and await ev(pg, "document.querySelectorAll('#sp-g option').length")==5, t[:60])
+    await ev(pg, "document.querySelector('#sp-g').value='3'"); await pg.click('#sp-go'); await pg.wait_for_timeout(400)
+    ok('player is suspended 3 games', await ev(pg, f"window.__pbl.L.players[{ids[2]}].susp.g===3 && window.__pbl.L.players[{ids[2]}].susp.k==='team'"))
+    t = await tc(pg); ok('SUSP 3 chip on player page', 'SUSP 3' in t and clean(t))
+    await pg.click('[data-susp]'); await pg.wait_for_timeout(300); await pg.click('#sp-go'); await pg.wait_for_timeout(200)
+    ok('second suspend shows the error', await ev(pg, "!document.querySelector('#sp-msg').hidden") and 'already suspended' in await tc(pg, '#sp-msg'))
+    await ev(pg, CLR)
+    await go(pg, 'myteam'); t = await tc(pg); ok('SUSP chip on roster', 'SUSP 3' in t)
+    await go(pg, 'injuries'); t = await tc(pg); ok('injury report lists suspended player', 'Suspended players' in t and 'SUSP' in t and clean(t))
+    # --- S2 drama dialog with conduct incident
+    await ev(pg, f"(()=>{{const L=window.__pbl.L;const t=L.teams[L.user];const p=L.players[{ids[3]}];const e={{id:'drC',s:L.season,day:L.day,tid:t.id,k:'conduct',sev:3,what:'blew up at the coaches on the bench',pids:[p.id],st:'open',text:p.name+' blew up at the coaches on the bench.'}};L.drama.unshift(e);L.dramaOpen='drC';window.__pbl.render()}})()")
+    ok('header Locker room issue button', await ev(pg, "!!document.querySelector('#simctl [data-sim=\"drama\"]')"))
+    await pg.click('#simctl [data-sim="drama"]'); await pg.wait_for_timeout(300)
+    t = await tc(pg, '#modal'); ok('conduct dialog has 6 choices incl. Suspend with games', await ev(pg, "document.querySelectorAll('[data-drc]').length")==6 and 'Suspend him' in t and '3 games' in t, t[:100])
+    await pg.click('[data-drc="suspend"]'); await pg.wait_for_timeout(400)
+    t = await tc(pg, '#modal'); ok('result shows games suspended', 'Suspended 3 games' in t and clean(t), t[:140])
+    ok('conduct player now suspended', await ev(pg, f"window.__pbl.L.players[{ids[3]}].susp && window.__pbl.L.players[{ids[3]}].susp.g===3"))
+    await ev(pg, CLR)
+    await ev(pg, f"(()=>{{const L=window.__pbl.L;const t=L.teams[L.user];const p=L.players[{ids[4]}];const e={{id:'drL',s:L.season,day:L.day,tid:t.id,k:'vetMin',pids:[p.id,{ids[5]}],st:'open',text:'A veteran is angry about minutes.'}};L.drama.unshift(e);L.dramaOpen='drL';window.__pbl.render()}})()")
+    await pg.click('#simctl [data-sim="drama"]'); await pg.wait_for_timeout(300)
+    ok('non-conduct dialog has no Suspend', await ev(pg, "document.querySelectorAll('[data-drc]').length")==5 and not await ev(pg, "!!document.querySelector('[data-drc=\"suspend\"]')"))
+    await pg.click('[data-drc="discipline"]'); await pg.wait_for_timeout(400)
+    t = await tc(pg, '#modal'); ok('discipline result shows the fine', 'Fined' in t and clean(t), t[:140])
+    await ev(pg, CLR)
+    await ev(pg, f"(()=>{{const L=window.__pbl.L;const t=L.teams[L.user];const p=L.players[{ids[6]}];L.drama.unshift({{id:'drP',s:L.season,day:L.day,tid:t.id,k:'mentor',pos:true,pids:[p.id],st:'done',text:p.name+' took a rookie under his wing.'}});window.__pbl.render()}})()")
+    await go(pg, 'myteam'); t = await tc(pg); ok('locker room panel: positive tag + suspension result', 'Positive' in t and 'game' in t)
+    # --- S3 Discipline page + finance rows
+    await ev(pg, "(()=>{const L=window.__pbl.L;for(let i=0;i<25;i++)simDay(L);window.__pbl.render()})()")
+    await go(pg, 'discipline'); t = await tc(pg)
+    ok('Discipline page', all(x in t for x in ['Technical fouls', 'Fines paid', 'Games suspended', 'Recent fines', 'Recent suspensions']) and clean(t), t[:100])
+    rows = await ev(pg, "document.querySelectorAll('#main tbody tr').length"); ok('Discipline tables have rows', rows >= 4, rows)
+    ok('your suspension listed under Recent suspensions', 'conduct' in t.lower() or 'team' in t.lower())
+    await go(pg, 'myteam'); await ev(pg, "window.__pbl.ui.teamTab='fin';window.__pbl.render()"); await pg.wait_for_timeout(400); t = await tc(pg)
+    ok('finance tab: Fines collected row (this season)', 'Fines collected' in t and clean(t), '')
+    await ev(pg, "window.__pbl.ui.teamTab='overview'")
+    # --- S4 interview
+    await ev(pg, CLR); await ev(pg, "(()=>{const L=window.__pbl.L;L.ivDone={};L.iv=null;ivTrigger(L,'deadline');window.__pbl.ui.ivSeen=null;window.__pbl.render()})()")
+    ok('interview open + header button', await ev(pg, "!!ivOpen(window.__pbl.L) && !!document.querySelector('#simctl [data-sim=\"iv\"]')"))
+    ok('sim would stop for the interview', await ev(pg, "window.__pbl.interruptKind()")=='iv')
+    await pg.click('#simctl [data-sim="iv"]'); await pg.wait_for_timeout(300)
+    t = await tc(pg, '#modal'); ok('interview dialog: title, intro, 4 answers', 'Media interview' in t and await ev(pg, "document.querySelectorAll('[data-iva]').length")==4 and clean(t), t[:120])
+    for i in range(3):
+        await pg.click('[data-iva="2"]'); await pg.wait_for_timeout(300)
+        t = await tc(pg, '#modal'); ok(f'answer {i+1}: shows effects', 'You:' in t and clean(t), t[-90:])
+        await pg.click('#iv-next'); await pg.wait_for_timeout(300)
+    ok('interview finished (3 answers)', await ev(pg, "window.__pbl.L.iv.done===true && window.__pbl.L.iv.qs.every(q=>q.ans!=null)") and not await ev(pg, "!!document.querySelector('#ov')"))
+    ok('Interview button gone', not await ev(pg, "!!document.querySelector('#simctl [data-sim=\"iv\"]')"))
+    # --- S5/S6 one-on-one + promise
+    pid0 = await ev(pg, "(()=>{const L=window.__pbl.L;L.mtg=null;for(const id of %s){const r=meetPlayer(L,id);if(!r.ok)continue;const has=mtgOptions(L).some(o=>['start','min','ext','trade'].includes(o.k));L.mtg=null;L.players[id].lastMtg=undefined;if(has)return id;}return %s})()" % (ids[:8], ids[0]))
+    ids[0] = pid0
+    await player(pg, ids[0]); await pg.click('[data-meet]'); await pg.wait_for_timeout(300)
+    t = await tc(pg, '#modal'); n = await ev(pg, "document.querySelectorAll('[data-mtg]').length"); ok('one-on-one dialog with options', 'One-on-one' in t and n >= 2 and clean(t), n)
+    pk = await ev(pg, "(()=>{const b=[...document.querySelectorAll('[data-mtg]')].find(x=>['start','min','ext','trade'].includes(x.dataset.mtg));return b?b.dataset.mtg:null})()")
+    ok('a promise option is offered', pk is not None, pk)
+    await pg.click(f'[data-mtg="{pk or "patience"}"]'); await pg.wait_for_timeout(300)
+    t = await tc(pg, '#modal'); ok('result shows promise + morale / trust', 'You promised' in t and 'Trust in you' in t and clean(t), t[:160])
+    await pg.click('#x-close'); await pg.wait_for_timeout(300)
+    await pg.click('[data-meet]'); await pg.wait_for_timeout(300); t = await tc(pg, '#modal'); ok('second meeting is refused with the reason', 'recently' in t, t[:80]); await ev(pg, CLR)
+    await ev(pg, f"(()=>{{window.__pbl.ui.player={ids[0]};updateMorale(window.__pbl.L);window.__pbl.render()}})()"); await pg.wait_for_timeout(400)
+    t = await tc(pg); ok('player page: Trust in you bar + Your promise row', 'Trust in you' in t and 'Your promise' in t, '')
+    await go(pg, 'myteam'); t = await tc(pg); ok('Promises panel with the promise', 'Promises' in t and 'Open' in t and clean(t))
+    await ev(pg, f"(()=>{{const L=window.__pbl.L;mtgOpen(L);const p=L.players[{ids[1]}];L.mtg=null;window.__pbl.ui.mtgSeen=null;mtgStart(L,p,'player');window.__pbl.render()}})()")
+    ok('player request: header Meeting button + sim stops', await ev(pg, "!!document.querySelector('#simctl [data-sim=\"mtg\"]') && window.__pbl.interruptKind()==='mtg'"))
+    await pg.click('#simctl [data-sim="mtg"]'); await pg.wait_for_timeout(300); t = await tc(pg, '#modal'); ok('player-requested meeting dialog', 'wants to' in t or 'asked' in t or 'feuding' in t or 'unhappy' in t or 'coming on' in t or 'check-in' in t, t[:100]); await ev(pg, CLR)
+    ok('desktop: no page errors', not errs, errs[:3])
+    # --- mobile 390
+    m, merrs = await newgame(b, 390, 844, True)
+    ids = await ev(m, "(()=>{const L=window.__pbl.L;for(let i=0;i<30;i++)simDay(L);const r=rotationOf(L,L.teams[L.user]);suspendPlayer(L,r[2].id,2,'conduct detrimental to the team');L.ivDone={};ivTrigger(L,'open');mtgStart(L,r[1],'player');L.promises=L.promises||[];mkPromise(L,r[0],'min',28,'meeting');const t=L.teams[L.user];L.drama.unshift({id:'drC',s:L.season,day:L.day,tid:t.id,k:'conduct',sev:3,what:'skipped practice',pids:[r[3].id],st:'open',text:r[3].name+' skipped practice.'});L.dramaOpen='drC';window.__pbl.render();return r.slice(0,4).map(p=>p.id)})()")
+    for h in ['myteam', 'discipline', 'injuries', 'standings']:
+        await go(m, h); w = await ev(m, "document.documentElement.scrollWidth"); ok(f'390px {h}: no sideways scroll', w <= 392, w)
+    await player(m, ids[2]); w = await ev(m, "document.documentElement.scrollWidth"); ok('390px player page: no sideways scroll', w <= 392, w)
+    await m.screenshot(path='/tmp/m288-player.png')
+    for name, fn in [('suspend dialog', "document.querySelector('[data-susp]')?.click()"), ('interview', "window.__pbl.dlg('iv')"), ('one-on-one', "window.__pbl.dlg('mtg')"), ('drama', "window.__pbl.L.dramaOpen='drC';window.__pbl.dlg('drama')")]:
+        await player(m, ids[2]); await ev(m, fn); await m.wait_for_timeout(400)
+        bx = await ev(m, "(()=>{const d=document.querySelector('.dialog');if(!d)return null;const r=d.getBoundingClientRect();return [r.left,r.right,document.documentElement.scrollWidth]})()")
+        ok(f'390px {name}: fits the screen', bx is not None and bx[0] >= 0 and bx[1] <= 391 and bx[2] <= 392, bx)
+        await m.screenshot(path=f'/tmp/m288-{name.replace(" ","-")}.png')
+    ok('390px: no page errors', not merrs, merrs[:3])
+    await b.close()
+  print('\n'.join(res)); print(sum(r.startswith('PASS') for r in res), 'pass,', sum(r.startswith('FAIL') for r in res), 'fail')
+asyncio.run(main())

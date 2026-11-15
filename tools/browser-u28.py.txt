@@ -1,0 +1,26 @@
+import subprocess, time
+from playwright.sync_api import sync_playwright
+srv = subprocess.Popen(['python3','-m','http.server','8766'], cwd='/home/claude/game', stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL); time.sleep(1)
+errs=[]
+try:
+  with sync_playwright() as pw:
+    b = pw.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
+    pg = b.new_page(viewport={'width':1300,'height':1000}); pg.on('pageerror', lambda e: errs.append(str(e)))
+    pg.goto('http://localhost:8766/index.html'); pg.wait_for_selector('#create', timeout=15000)
+    pg.evaluate("(()=>{const u=__pbl.ui; u.setup=Object.assign(u.setup||{}, {mode:'team',team:0,nba:true});document.getElementById('create').click();})()"); pg.wait_for_timeout(4000)
+    def shot(h, name, js=None):
+      pg.evaluate(f"location.hash='#{h}'"); pg.wait_for_timeout(700)
+      if js: pg.evaluate(js); pg.wait_for_timeout(500)
+      pg.screenshot(path=f'/tmp/u_{name}.png'); print(name, pg.evaluate("[...document.querySelectorAll('#main h2,#main h3')].slice(0,8).map(x=>x.textContent.slice(0,30)).join(' | ')"))
+    shot('myteam','team')
+    for k in ['center','offers','block','done']:
+      shot('trades','tr_'+k, f"document.querySelector('[data-trtab=\"{k}\"]').click()")
+    shot('fa','fa_over',"document.querySelector('[data-fav=\"over\"]').click()")
+    shot('fa','fa_now',"document.querySelector('[data-fav=\"now\"]').click()")
+    shot('fa','fa_up',"document.querySelector('[data-fav=\"up\"]').click()")
+    shot('draft','dr_board',"document.querySelector('[data-dtab=\"board\"]').click()")
+    shot('draft','dr_info',"document.querySelector('[data-dtab=\"info\"]').click()")
+    shot('draft','dr_cons',"document.querySelector('[data-dtab=\"cons\"]').click()")
+    b.close()
+finally: srv.kill()
+print('errors', errs)

@@ -1,0 +1,25 @@
+import subprocess, time, sys
+from playwright.sync_api import sync_playwright
+srv = subprocess.Popen(['python3','-m','http.server','8765'], cwd='/home/claude/game', stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL); time.sleep(1)
+errs=[]
+try:
+  with sync_playwright() as pw:
+    b = pw.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
+    pg = b.new_page(viewport={'width':1300,'height':1800}); pg.on('pageerror', lambda e: errs.append(str(e)))
+    pg.goto('http://localhost:8765/index.html'); pg.wait_for_timeout(1500)
+    pg.wait_for_selector('#create', timeout=15000); pg.evaluate("(()=>{const u=__pbl.ui; u.setup=Object.assign(u.setup||{}, {mode:'team',team:0,nba:true});document.getElementById('create').click();})()"); pg.wait_for_timeout(4000)
+    for nm in ['Nikola Jokic','Domantas Sabonis']:
+      pg.evaluate(f"(()=>{{const p=Object.values(__pbl.L.players).find(p=>p.name==='{nm}');__pbl.openPlayer(p.id);}})()")
+      pg.wait_for_timeout(500)
+      info = pg.evaluate("""(()=>{const t=[...document.querySelectorAll('#main table.sortable')].filter(t=>/^p-/.test(t.dataset.sid));return t.map(x=>x.dataset.sid+': rows '+x.tBodies[0].rows.length+' first '+x.tBodies[0].rows[0].cells[0].textContent+' last '+x.tBodies[0].rows[x.tBodies[0].rows.length-1].textContent.slice(0,80)).join('\\n')+'\\nh4 real? '+/Real NBA seasons/.test(document.body.innerText)})()""")
+      print(nm); print(info)
+    # sort by Pts
+    pg.evaluate("(()=>{const th=[...document.querySelectorAll('table[data-sid=\"p-rs-pg\"] thead th')].find(h=>h.textContent==='Pts');th.click();})()"); pg.wait_for_timeout(400)
+    print('sorted first:', pg.evaluate("document.querySelector('table[data-sid=\"p-rs-pg\"] tbody tr').textContent.slice(0,60)"))
+    pg.evaluate("document.querySelector('[data-ptab=\"rs:adv\"]').click()"); pg.wait_for_timeout(400)
+    print('adv rows', pg.evaluate("document.querySelector('table[data-sid=\"p-rs-adv\"]').tBodies[0].rows.length"), pg.evaluate("document.querySelector('table[data-sid=\"p-rs-adv\"] tbody tr').textContent.slice(0,90)"))
+    pg.evaluate("document.querySelector('[data-ptab=\"rs:pg\"]').click()"); pg.wait_for_timeout(300)
+    pg.locator('table[data-sid="p-rs-pg"]').screenshot(path='/tmp/f5.png')
+    b.close()
+finally: srv.kill()
+print('errors', errs)

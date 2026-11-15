@@ -1,0 +1,81 @@
+# v26.1 Sonnet-part browser checks (S1-S5). Serve the folder, then: python3 browser-v261.py PORT
+import asyncio, sys
+from playwright.async_api import async_playwright
+PORT = sys.argv[1] if len(sys.argv) > 1 else '8778'
+res = []
+def ok(n, c, x=''): res.append(('PASS ' if c else 'FAIL ') + n + (f'  [{x}]' if x else ''))
+CLR = "document.querySelector('#modal').innerHTML=''"
+async def go(pg, h):
+    await pg.evaluate(CLR); await pg.evaluate("location.hash='#standings'"); await pg.wait_for_timeout(200)
+    await pg.evaluate(f"location.hash='#{h}'"); await pg.wait_for_timeout(800)
+async def txt(pg): return await pg.evaluate("document.querySelector('#main').innerText")
+async def tc(pg): return await pg.evaluate("document.querySelector('#main').textContent")
+def clean(t): return '{' not in t and 'undefined' not in t and 'NaN' not in t
+async def main():
+    async with async_playwright() as p:
+        b = await p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
+        pg = await (await b.new_context(viewport={'width': 1300, 'height': 900})).new_page()
+        errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
+        await pg.goto(f'http://localhost:{PORT}/index.html'); await pg.wait_for_timeout(2500)
+        await pg.click('[data-setmode="team"]'); await pg.click('#create'); await pg.wait_for_timeout(4000); await pg.evaluate(CLR)
+        # S1 favorites
+        await go(pg, 'preview'); t = (await txt(pg)).lower(); c = await tc(pg)
+        ok('S1 favorites section', 'favorites' in t and 'title' in t and 'mvp' in t)
+        ok('S1 odds and percent shown', await pg.evaluate("/[+-]\\d+/.test(document.querySelector('#main .favs').textContent)&&/%/.test(document.querySelector('#main .favs').textContent)"))
+        ok('S1 rookies: no rookies yet or list', 'rookie of the year' in t)
+        ok('S1 preview clean', clean(c))
+        await pg.evaluate("(()=>{const L=window.__pbl.L;for(let i=0;i<20;i++)simDay(L)})()"); await go(pg, 'preview')
+        ok('S1 live update shows Preseason line', 'preseason:' in (await txt(pg)).lower())
+        # S3 negotiation
+        pid = await pg.evaluate("(()=>{const L=window.__pbl.L;const p=Object.values(L.players).filter(p=>p.team==null&&!p.tw&&!p.retired&&!p.prospect).sort((a,b)=>b.ovr-a.ovr)[0];return p.id})()")
+        await pg.evaluate(f"window.__pbl.openPlayer({pid})"); await pg.wait_for_timeout(600)
+        t = (await pg.evaluate("document.querySelector('#main').innerText")).lower()
+        ok('S3 negotiation shows clauses', all(k in t for k in ['trade kicker', 'role promise', 'add incentive']))
+        q1 = await pg.evaluate("document.querySelector('#main .panel strong')&&document.querySelector('#main').innerText.match(/wants \\$([\\d.]+)/)?.[1]")
+        await pg.click('[data-incadd]'); await pg.wait_for_timeout(400)
+        ok('S3 add incentive row', await pg.evaluate("document.querySelectorAll('[data-incrow]').length===1"))
+        await pg.select_option('#neg-kick', '0.15'); await pg.wait_for_timeout(500)
+        q2 = await pg.evaluate("document.querySelector('#main').innerText.match(/wants \\$([\\d.]+)/)?.[1]")
+        ok('S3 quote updates with kicker', q1 and q2 and float(q2) < float(q1), f'{q1} -> {q2}')
+        ok('S3 kicker kept after re-render', await pg.evaluate("document.querySelector('#neg-kick').value==='0.15'"))
+        await pg.select_option('#neg-yrs', '3'); await pg.wait_for_timeout(500)
+        ok('S3 opt-out shows for 3+ yrs', await pg.evaluate("!!document.querySelector('#neg-eto')&&!!document.querySelector('#neg-gtd')"))
+        await pg.select_option('#neg-role', 'S'); await pg.select_option('#neg-gtd', '0.5'); await pg.select_option('#neg-eto', '1'); await pg.wait_for_timeout(500)
+        await pg.click('[data-incdel]'); await pg.wait_for_timeout(400)
+        ok('S3 remove incentive row', await pg.evaluate("document.querySelectorAll('[data-incrow]').length===0"))
+        ok('S3 negotiation clean', clean(await tc(pg)))
+        # sign him with generous terms and read the contract
+        await pg.evaluate(f"(()=>{{const L=window.__pbl.L,p=L.players[{pid}];const t=L.teams[L.user];while(t.roster.length>12)release(L,L.players[t.roster[t.roster.length-1]]);}})()")
+        r = await pg.evaluate(f"(()=>{{const L=window.__pbl.L,p=L.players[{pid}];return JSON.stringify(negotiate(L,p.id,Math.min(maxFor(p),p.ask*1.6),3,L.user,'signing',null,{{incs:[{{k:'gp',amt:0.5}},{{k:'mvp',amt:0.5}}],kick:0.1,eto:1,gtd:0.5,role:{{k:'starter'}},noOwner:true}}))}})()")
+        ok('S3 offer with extras accepted', '"ok":true' in r, r[:160])
+        await pg.evaluate(f"window.__pbl.openPlayer({pid})"); await pg.wait_for_timeout(600)
+        t = (await pg.evaluate("document.querySelector('#main').innerText")).lower()
+        ok('S4 player page lists extras', all(k in t for k in ['incentive', 'trade kicker', 'early opt-out', 'guarantee', 'promise']))
+        ok('S4 promise state text', any(k in t for k in ['not yet judged', 'kept', 'at risk', 'broken']))
+        await go(pg, 'myteam'); ok('S4 roster tooltip lists extras', await pg.evaluate("[...document.querySelectorAll('#main [title]')].some(e=>/Trade kicker/.test(e.title))"))
+        # dead money with a guarantee
+        await pg.evaluate(f"(()=>{{const L=window.__pbl.L;release(L,L.players[{pid}]);}})()")
+        d = await pg.evaluate("JSON.stringify(window.__pbl.L.teams[window.__pbl.L.user].dead.slice(-2))")
+        ok('S4 dead money entry created', '"amt"' in d, d[:150])
+        await go(pg, 'myteam'); ok('S4 cap table clean after release', clean(await tc(pg)))
+        # S2 season review
+        await pg.evaluate("(()=>{const L=window.__pbl.L;let g=0;while(L.phase==='regular')simDay(L);processPending(L);startPlayoffs(L);while(L.phase==='playoffs'&&g++<400)simPlayoffDay(L);})()")
+        await pg.evaluate("window.__pbl.review(window.__pbl.L.season)"); await pg.wait_for_timeout(500)
+        m = (await pg.evaluate("document.querySelector('#modal').innerText")).lower()
+        ok('S2 review dialog content', 'season review' in m and 'preseason favorite' in m and 'mvp' in m and 'title' in m, m[:120])
+        ok('S2 review clean', clean(await pg.evaluate("document.querySelector('#modal').textContent")))
+        await pg.evaluate(CLR)
+        await pg.evaluate("(()=>{const L=window.__pbl.L;startOffseason(L);})()")
+        await pg.evaluate("window.__pbl.render()"); await pg.evaluate("location.hash='#history'"); await pg.wait_for_timeout(600)
+        s = await pg.evaluate("(()=>{const L=window.__pbl.L,ui=window.__pbl.ui;ui.hs=L.history[0]?L.history[0].s:null;return ui.hs})()")
+        ok('S2 history season has review button', await pg.evaluate("window.__pbl.render(),!!document.querySelector('[data-review]')"), s)
+        await pg.click('[data-review]'); await pg.wait_for_timeout(500)
+        ok('S2 reopen from history', 'season review' in (await pg.evaluate("document.querySelector('#modal').innerText")).lower())
+        await pg.evaluate(CLR)
+        # S5
+        await go(pg, 'rules'); c = await tc(pg)
+        ok('S5 How it works: favorites and clauses', all(k in c for k in ['Favorites', 'trade kicker', 'early opt-out', 'role promise']))
+        ok('no page errors', not errs, '; '.join(errs)[:200])
+        await b.close()
+    print('\n'.join(res)); print(sum(r.startswith('PASS') for r in res), '/', len(res))
+asyncio.run(main())

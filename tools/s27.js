@@ -1,0 +1,31 @@
+// v27 S1/S2: SEED=n node tools/s27.js [seasons] -> coach arcs (system changes, coaching tree, ex-player coaches) and GM careers over a long run
+const {run}=require('./load.js')(process.env.SRC||'src',+process.env.SEED||1);
+console.log(run(`(function(N){const L=newLeague({mode:'commish',nba:true,games:82});const out=[];let ok=0,n=0;const chk=(c,m)=>{n++;if(c)ok++;else out.push('FAIL '+m);};
+const gm0=L.teams.map(t=>t.gm&&t.gm.id);const fo0=L.teams.map(t=>JSON.stringify(foOf(L,t)));
+chk(L.teams.every(t=>!t.gm||foOf(L,t)===t.gm.fo),'front office = its GM');
+for(let y=1;y<=N;y++){let g=0;
+ while(L.phase==='regular'&&g++<400)simDay(L);processPending(L);startPlayoffs(L);g=0;while(L.phase==='playoffs'&&g++<400)simPlayoffDay(L);
+ startOffseason(L);runLottery(L);startDraft(L);g=0;while(L.phase==='off-draft'&&g++<200)aiDraftPick(L);startFA(L);g=0;while(L.phase==='off-fa'&&g++<40)faDay(L);processPending(L);startNewSeason(L);}
+const all=[...L.teams.map(t=>t.coach),...L.coachPool,...(L.coachArchive||[])].filter((c,i,a)=>a.indexOf(c)===i);
+const sysCh=all.filter(c=>(c.sysHist||[]).length).length, ment=all.filter(c=>c.mentor!=null).length, ex=all.filter(c=>c.exP!=null);
+const trees=all.map(c=>[c,coachTree(L,c,3)]).sort((a,b)=>b[1].length-a[1].length);
+const hcEx=L.teams.filter(t=>t.coach.exP!=null).length;
+console.log('coaches '+all.length+' | system changes '+CA_CNT.sys+' ('+sysCh+' coaches) | with mentor '+ment+' | ex-players queued '+CA_CNT.exQ+', coaches '+ex.length+' (head coaches now '+hcEx+'): '+ex.slice(0,6).map(c=>c.name+' '+c.ovr).join(', '));
+console.log('biggest tree: '+trees[0][0].name+' '+trees[0][1].length+' direct, e.g. '+trees[0][1].slice(0,3).map(x=>x.c.name+(x.kids.length?' (+'+x.kids.length+')':'')).join(', '));
+const gms=[...L.teams.map(t=>t.gm).filter(Boolean),...(L.gmPool||[]),...(L.gmArchive||[])];
+const still=L.teams.filter((t,i)=>t.gm&&t.gm.id===gm0[i]).length, chg=L.teams.filter((t,i)=>JSON.stringify(foOf(L,t))!==fo0[i]).length;
+const ages=L.teams.filter(t=>t.gm).map(t=>t.gm.age);
+console.log('GMs '+gms.length+' | hired '+GM_CNT.hired+' fired '+GM_CNT.fired+' retired '+GM_CNT.retired+' style flips '+GM_CNT.style+' | same GM as S0: '+still+'/30 | front office changed: '+chg+'/30 | GM ages '+Math.min(...ages)+'-'+Math.max(...ages));
+const best=gms.map(g=>[g,gmCareer(L,g)]).sort((a,b)=>b[1].titles-a[1].titles||b[1].w-a[1].w)[0];
+console.log('top GM: '+best[0].name+' '+best[1].w+'-'+best[1].l+' titles '+best[1].titles+' teams '+best[1].teams.length+' stints '+(best[0].stints||[]).length);
+chk(CA_CNT.sys>=3&&CA_CNT.sys<=40,'system changes rare but happen ('+CA_CNT.sys+')');
+chk(ment>=10,'coaching tree forms ('+ment+')');
+chk(ex.length>=2,'ex-players become coaches ('+ex.length+')');
+chk(GM_CNT.retired>=2&&GM_CNT.hired>=5,'GMs retire and get replaced');
+chk(L.teams.every(t=>!t.gm||foOf(L,t)===t.gm.fo),'front office still = its GM');
+chk(L.teams.every(t=>!t.gm||(t.gm.stints||[]).length&&t.gm.stints[t.gm.stints.length-1].tid===t.id),'GM stints');
+chk(ages.every(a=>a>=30&&a<=72),'GM ages sane');
+chk(all.every(c=>c.sl&&SL_KEYS.every(k=>c.sl[k]>=0&&c.sl[k]<=100)),'sliders in range');
+const L2=JSON.parse(JSON.stringify(L));migrateLeague(L2);chk(L2.teams.every(t=>!t.gm||foOf(L2,t)===t.gm.fo),'save/load: front office = GM');
+return ok+'/'+n+(ok===n?' pass':'')+(out.length?'\\n'+out.join('\\n'):'');
+})(${+process.argv[2]||20})`));

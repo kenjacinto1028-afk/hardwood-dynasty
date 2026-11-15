@@ -1,0 +1,82 @@
+# v25.7 Sonnet-part browser checks (S3 pick UI, S4 tabs/core/position read, S5 two-way 2nds, S6 protection select, S9 cash). Serve the folder, then: python3 browser-v257.py PORT
+import asyncio, sys
+from playwright.async_api import async_playwright
+PORT = sys.argv[1] if len(sys.argv) > 1 else '8775'
+res = []
+def ok(n, c, x=''): res.append(('PASS ' if c else 'FAIL ') + n + (f'  [{x}]' if x else ''))
+CLR = "document.querySelector('#modal').innerHTML=''"
+async def go(pg, h):
+    await pg.evaluate(CLR); await pg.evaluate("location.hash='#standings'"); await pg.wait_for_timeout(200)
+    await pg.evaluate(f"location.hash='#{h}'"); await pg.wait_for_timeout(800)
+async def txt(pg): return await pg.evaluate("document.querySelector('#main').innerText")
+async def main():
+    async with async_playwright() as p:
+        b = await p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
+        pg = await (await b.new_context(viewport={'width': 1300, 'height': 900})).new_page()
+        errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
+        await pg.goto(f'http://localhost:{PORT}/index.html'); await pg.wait_for_timeout(2500)
+        await pg.click('[data-setmode="team"]'); await pg.click('#create'); await pg.wait_for_timeout(4000); await pg.evaluate(CLR)
+        # preseason is before the trade window: move to the offseason so trading is open
+        await pg.evaluate("(()=>{const L=window.__pbl.L;while(L.phase==='regular')simDay(L);startPlayoffs(L);while(L.phase==='playoffs')simPlayoffDay(L);startOffseason(L);})()")
+        await go(pg, 'trades'); t = await txt(pg)
+        ok('S3 trades: pick tier chips', any(k in t for k in ['Franchise', 'High lottery', 'Lottery', 'Mid 1st', 'Early 2nd', 'Late 2nd']))
+        ok('S3 trades: range text', '#' in t and 'Top ' in t or '~#' in t or '-' in t)
+        ok('S3 trades: tooltip text', await pg.evaluate("[...document.querySelectorAll('#main [title]')].some(e=>e.title.includes('Projected from team status, roster and record'))"))
+        tc = await pg.evaluate("document.querySelector('#main').textContent"); ok('S3 trades: How this works mentions curve, bundling, cash', all(k in tc for k in ['big drops after #5', 'count for less', '$5M']))
+        ok('S9 cash input on both sides', await pg.evaluate("document.querySelectorAll('input[data-cash]').length===2"))
+        # cash: give $2M and a pick, propose
+        await pg.evaluate("(()=>{const L=window.__pbl.L,b=document.querySelector('#tw');})()")
+        await pg.evaluate("document.querySelector('input[data-asset=\"give\"][data-kind=\"picks\"]').click()"); await pg.wait_for_timeout(500)
+        await pg.fill('input[data-cash="give"]', '2'); await pg.dispatch_event('input[data-cash="give"]', 'change'); await pg.wait_for_timeout(500)
+        v = await pg.evaluate("document.querySelector('input[data-cash=\"give\"]').value"); ok('S9 cash value kept after render', v == '2', v)
+        ok('S6 protection select shows on a checked 1st', await pg.evaluate("!!document.querySelector('select[data-prot]')"))
+        await pg.select_option('select[data-prot]', '5'); await pg.wait_for_timeout(500)
+        t = await txt(pg); ok('S6 label shows top-5 prot.', 'top-5 prot.' in t)
+        await pg.evaluate("document.querySelector('#propose').click()"); await pg.wait_for_timeout(500)
+        t = await txt(pg); ok('trade message renders (cash+protection deal)', any(k in t for k in ['accept', 'want', 'value', 'Add players']), t[t.find('Propose'):][:0])
+        # S9: offers and history show cash
+        await pg.evaluate("(()=>{const L=window.__pbl.L,u=L.user,o=L.teams.find(t=>t.id!==u);const mine=L.picks.find(k=>k.owner===u&&k.rd===2),th=L.picks.find(k=>k.owner===o.id&&k.rd===2);L.offers=[{a:o.id,b:u,aGive:{players:[],picks:[th.id],cash:1.5},bGive:{players:[],picks:[mine.id]},id:'t-1',why:'test',ttl:5,made:1,isNew:false}];})()")
+        await go(pg, 'trades'); t = await txt(pg)
+        ok('S9 offer shows cash', '$1.5M cash' in t, '')
+        # S4 tabs
+        ok('S4 coach target tabs exist', await pg.evaluate("document.querySelectorAll('[data-tgttab]').length===3"))
+        await pg.evaluate("document.querySelector('[data-tgttab=\"dev\"]').click()"); await pg.wait_for_timeout(500)
+        t = await txt(pg); ok('S4 dev tab text', 'ranked by the coach' in t.lower())
+        await pg.evaluate("document.querySelector('[data-tgttab=\"now\"]').click()"); await pg.wait_for_timeout(500)
+        ok('S4 win now tab', 'whatever the age' in await txt(pg))
+        await pg.evaluate("document.querySelector('[data-tgttab=\"plan\"]').click()"); await pg.wait_for_timeout(500)
+        ok('S4 plan tab shows owner goal', "Owner's goal" in await txt(pg))
+        # position read
+        t = await txt(pg); tl = t.lower(); i = tl.find("coach's position read"); ok('S4 position read on Trades (no braces)', i >= 0 and '{' not in t[i:tl.find('coach targets')], str(i))
+        ok('S4 position read has 5 rows', await pg.evaluate("(()=>{const h=[...document.querySelectorAll('#main h3')].find(x=>x.innerText.toLowerCase().includes('position read'));return h?h.parentElement.querySelectorAll('tbody tr').length:0})()") == 5, 'rows')
+        # core
+        await go(pg, 'myteam'); t = await txt(pg)
+        ok('S4 position read on My Team', "coach's position read" in t.lower())
+        n = await pg.evaluate("document.querySelectorAll('[data-core]').length"); ok('S4 core buttons', n >= 13, str(n))
+        for i in range(5):
+            await pg.evaluate(f"document.querySelectorAll('[data-core]')[{i}].click()"); await pg.wait_for_timeout(250)
+            await pg.evaluate(CLR)
+        c = await pg.evaluate("window.__pbl.L.teams[window.__pbl.L.user].roster.filter(i=>window.__pbl.L.players[i].core).length"); ok('S4 core respects max 4', c == 4, str(c))
+        ok('S4 core pill + button state', await pg.evaluate("document.querySelectorAll('[data-core].primary').length===4"))
+        await pg.evaluate("document.querySelector('[data-core].primary').click()"); await pg.wait_for_timeout(300)
+        c = await pg.evaluate("window.__pbl.L.teams[window.__pbl.L.user].roster.filter(i=>window.__pbl.L.players[i].core).length"); ok('S4 core can be unmarked', c == 3, str(c))
+        # no coach target takes a core player's spot
+        r = await pg.evaluate("(()=>{const L=window.__pbl.L,t=L.teams[L.user];let bad=0,n=0;const k=keptSpots(L,t);for(const tab of ['plan','now','dev'])for(const kind of ['trade','fa'])for(const x of coachTargets(L,t,kind,tab)){n++;if(takesSpot(L,t,x.p,k))bad++;}return bad+':'+n;})()")
+        ok('S4 no coach target takes a core player\'s spot', r.split(':')[0] == '0', r)
+        # S3 team page picks and draft tab
+        await go(pg, 'draft'); t = await txt(pg); ok('S3 draft tab: Your picks with chips', 'Your picks' in t)
+        # S5: two-way for 2nd-rounders
+        await pg.evaluate("""(()=>{const L=window.__pbl.L;runLottery(L);startDraft(L);let n=0;while(L.phase==='off-draft'&&n++<400){const s=L.draftOrder[L.draftIdx];if(!s)break;if(s.owner===L.user){const b=draftBoard(L,L.user,L.season)[0];draftPlayer(L,b.id);}else aiDraftPick(L);}})()""")
+        await go(pg, 'draft'); t = await txt(pg)
+        has = await pg.evaluate("document.querySelectorAll('[data-r2][data-sign=\"tw\"]').length")
+        ok('S5 draft tab: Two-way button on 2nd-rounders', has >= 1, str(has))
+        if has:
+            await pg.evaluate("window.__pbl.L.teams[window.__pbl.L.user].twoWay=[]")
+            await pg.evaluate("document.querySelector('[data-r2][data-sign=\"tw\"]').click()"); await pg.wait_for_timeout(500)
+            tw = await pg.evaluate("window.__pbl.L.teams[window.__pbl.L.user].twoWay.length"); ok('S5 click signs a two-way deal', tw == 1, str(tw))
+        # finances
+        await go(pg, 'myteam'); await pg.evaluate("document.querySelector('[data-mtab=\"office\"]').click()"); await pg.wait_for_timeout(400)
+        ok('no page errors', not errs, ' | '.join(errs[:3]))
+        await b.close()
+    print('\n'.join(res)); print(sum(1 for r in res if r.startswith('FAIL')), 'failed of', len(res))
+asyncio.run(main())

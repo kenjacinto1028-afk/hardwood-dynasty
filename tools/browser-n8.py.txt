@@ -1,0 +1,82 @@
+# v27 N8 full-flow browser test. Serve the folder, then: python3 browser-n8.py PORT
+# new NBA league -> trade deadline -> a trade -> season end -> playoffs -> draft (real 2027 names) -> FA -> season 2; every view each phase; player / legend / GM / coach pages
+import asyncio, sys, re
+from playwright.async_api import async_playwright
+PORT = sys.argv[1] if len(sys.argv) > 1 else '8784'
+res = []
+def ok(n, c, x=''): res.append(('PASS ' if c else 'FAIL ') + n + (f'  [{x}]' if x else ''))
+CLR = "document.querySelector('#modal').innerHTML=''"
+VIEWS = ['myteam','coaches','standings','schedule','teams','stats','injuries','awards','trades','fa','draft','weekly','news','feed','history','rules']
+def clean(t): return 'undefined' not in t and 'NaN' not in t and '[object' not in t
+async def main():
+  async with async_playwright() as p:
+    b = await p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
+    pg = await (await b.new_context(viewport={'width': 1300, 'height': 900})).new_page()
+    errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
+    ev = pg.evaluate
+    async def txt(): return await ev("document.querySelector('#main').textContent")
+    async def sweep(tag):
+      bad = []
+      for v in VIEWS:
+        await ev(CLR); await ev(f"(()=>{{const U=__pbl.ui;U.player=null;U.view='{v}';__pbl.render()}})()"); await pg.wait_for_timeout(150)
+        if not clean(await txt()): bad.append(v)
+      ht = ['seasons','nba','legends','book','awards','greats','records','ach']
+      for h in ht:
+        await ev(f"(()=>{{const U=__pbl.ui;U.view='history';U.histTab='{h}';__pbl.render()}})()"); await pg.wait_for_timeout(150)
+        if not clean(await txt()): bad.append('history:'+h)
+      ok(f'{tag}: all views clean', not bad, ','.join(bad))
+    await pg.goto(f'http://localhost:{PORT}/index.html'); await pg.wait_for_timeout(2500)
+    await pg.click('[data-setmode="team"]'); await pg.click('[data-setnba="1"]'); await pg.wait_for_timeout(300)
+    await pg.click('[data-setmode="team"]'); await pg.click('.teampick:has-text("Lakers")'); await pg.click('#create'); await pg.wait_for_timeout(5000); await ev(CLR)
+    ok('NBA league, LAL', await ev("(()=>{const L=__pbl.L;return !!L.nba&&L.teams[L.user].abbr==='LAL'})()"))
+    await sweep('start')
+    # sim to just before the deadline
+    d = await ev("(()=>{const L=__pbl.L;let g=0;while(L.day<deadlineDay(L)-2&&g++<400)simDay(L);__pbl.render();return L.day+'/'+deadlineDay(L)+' window '+inTradeWindow(L)})()")
+    ok('reached trade deadline window', 'window true' in d, d)
+    # a trade: our worst-value bench player + 2nd-round pick for their bench player; fall back to any accepted 1-for-1
+    r = await ev("""(()=>{const L=__pbl.L,me=L.user;const mine=Object.values(L.players).filter(p=>p.team===me&&!p.retired).sort((a,b)=>a.ovr-b.ovr);
+      for(const t of L.teams){if(t.id===me)continue;const th=Object.values(L.players).filter(p=>p.team===t.id&&!p.retired).sort((a,b)=>a.ovr-b.ovr);
+        for(const a of mine.slice(0,6))for(const x of th.slice(0,6)){const give={players:[a.id],picks:[]},get={players:[x.id],picks:[]};const e=evaluateUserTrade(L,t.id,give,get);
+          if(e.ok){executeTrade(L,{a:me,b:t.id,aGive:give,bGive:get});__pbl.render();return 'traded '+a.name+' for '+x.name+' ('+t.abbr+')';}}}return 'no trade';})()""")
+    ok('user trade at the deadline', r.startswith('traded'), r)
+    await sweep('after trade')
+    await ev("(()=>{const L=__pbl.L;let g=0;while(L.phase==='regular'&&g++<400)simDay(L);processPending(L);startPlayoffs(L);__pbl.render()})()")
+    await sweep('playoffs start')
+    await ev("(()=>{const L=__pbl.L;let g=0;while((L.phase==='playin'||L.phase==='playoffs')&&g++<600)simPlayoffDay(L);__pbl.render()})()")
+    ok('playoffs done', await ev("__pbl.L.phase==='season-done'"), await ev("__pbl.L.phase"))
+    await sweep('season done')
+    await ev("(()=>{const L=__pbl.L;startOffseason(L);runLottery(L);startDraft(L);__pbl.render()})()")
+    await ev(CLR); await ev("(()=>{const U=__pbl.ui;U.view='draft';__pbl.render()})()"); await pg.wait_for_timeout(300)
+    t = await txt(); real = await ev("(()=>{const L=__pbl.L;const n=NBA_PROS.trim().split('\\n').map(l=>l.split('|')[0]);return n.slice(0,5)})()")
+    ok('draft board shows real 2027 names', any(n and n in t for n in real), real[:3])
+    await sweep('draft')
+    await ev("(()=>{const L=__pbl.L;let g=0;while(L.phase==='off-draft'&&g++<200)aiDraftPick(L);startFA(L);__pbl.render()})()")
+    await sweep('free agency')
+    await ev("(()=>{const L=__pbl.L;let g=0;while(L.phase==='off-fa'&&g++<40)faDay(L);processPending(L);startNewSeason(L);__pbl.render()})()")
+    ok('season 2 (2027-28)', '2027-28' in await ev("document.querySelector('#when').textContent"))
+    await ev("(()=>{const L=__pbl.L;for(let i=0;i<20;i++)simDay(L);__pbl.render()})()")
+    await sweep('season 2')
+    # pages: real star (est + real rows), role player est rows, rookie, legend, GM, coach tree
+    for nm in ['LeBron James', 'Stephen Curry', 'Cooper Flagg']:
+      await ev(CLR); await ev(f"(()=>{{const L=__pbl.L;const p=Object.values(L.players).find(p=>p.name==={nm!r});__pbl.ui.player=p.id;__pbl.ui.pTab={{}};__pbl.render()}})()"); await pg.wait_for_timeout(300)
+      t = await txt(); ok(f'{nm} page clean', clean(t) and len(t) > 500)
+    est = await ev("(()=>{const L=__pbl.L;const p=Object.values(L.players).find(p=>p.real&&!p.retired&&(nbaPastRows(p)||[]).length>=3&&!NBA_CAR[p.name]);__pbl.ui.player=p.id;__pbl.render();return p.name+' '+document.querySelectorAll('#main tr').length})()")
+    await pg.wait_for_timeout(300); ok('role player est rows on page', int(est.split()[-1]) >= 3 and clean(await txt()), est)
+    await ev("(()=>{const U=__pbl.ui;U.player=null;U.view='history';U.histTab='legends';__pbl.render()})()"); await pg.wait_for_timeout(300)
+    n = await ev("document.querySelectorAll('#main tr[data-legend], #main [data-lgd], #main tbody tr').length")
+    clicked = await ev("(()=>{const r=document.querySelector('#main tbody tr');if(!r)return 0;(r.querySelector('a')||r).click();return 1})()"); await pg.wait_for_timeout(400)
+    t = await ev("(document.querySelector('#modal').textContent||'')+document.querySelector('#main').textContent")
+    ok('legend card opens', n > 50 and clicked and clean(t), f'{n} rows')
+    await ev(CLR); await ev("(()=>{const U=__pbl.ui;U.view='coaches';U.stab='gms';__pbl.render()})()"); await pg.wait_for_timeout(300)
+    t = await txt(); ok('GM page clean', clean(t) and len(t) > 300)
+    clk = await ev("(()=>{const a=document.querySelector('#main [data-gm]');if(a)a.click();return !!a})()"); await pg.wait_for_timeout(300)
+    t = await ev("(document.querySelector('#modal').textContent||'')+document.querySelector('#main').textContent"); ok('GM card opens', clk and clean(t))
+    await ev(CLR); await ev("(()=>{const U=__pbl.ui;U.view='coaches';U.stab='coaches';__pbl.render()})()"); await pg.wait_for_timeout(300)
+    clk = await ev("(()=>{const L=__pbl.L;const c=L.teams[L.user].coach;const U=__pbl.ui;U.gm=null;U.player=null;U.game=null;U.coach=c.id;__pbl.render();return document.querySelector('#main').textContent.length})()"); await pg.wait_for_timeout(300)
+    t = await txt(); ok('coach page (tree) opens', clk > 300 and clean(t) and 'coaching stops' in t.lower(), [w for w in ['undefined','NaN','[object'] if w in t]+[t.lower().find('tree'), len(t)])
+    await ev("__pbl.save()"); await pg.wait_for_timeout(1500); await pg.reload(); await pg.wait_for_timeout(3500)
+    ok('save / reload', await ev("(()=>{const L=__pbl.L;return !!L&&!!L.nba&&L.teams[L.user].abbr==='LAL'})()"))
+    ok('no page errors', not errs, '; '.join(errs)[:400])
+    await b.close()
+  print('\n'.join(res)); print(sum(r.startswith('PASS') for r in res), '/', len(res))
+asyncio.run(main())

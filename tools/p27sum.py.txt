@@ -1,0 +1,13 @@
+# summarize p27 outputs: python3 tools/p27sum.py.txt runs/p27-s*.txt  (seasons 1-20 and 6-20)
+import sys,re
+rows={}
+for f in sys.argv[1:]:
+  for l in open(f):
+    m=re.match(r'S(\d+) (\d+)/(\d+)/(\d+)/(\d+)',l)
+    if m: rows.setdefault(f,[]).append(tuple(map(int,m.groups())))
+for lo in (1,6):
+  print(f'seasons {lo}-20 across {len(rows)} seeds:')
+  for i,k in [(1,'90+'),(2,'85+'),(3,'80+'),(4,'75+')]:
+    v=[r[i] for rs in rows.values() for r in rs if r[0]>=lo]
+    if v: print(f'  {k}: min {min(v)} max {max(v)} avg {sum(v)/len(v):.1f}')
+for f,rs in rows.items(): print(f, ' '.join(f'{r[1]}/{r[2]}/{r[4]}' for r in rs))

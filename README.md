@@ -14,6 +14,20 @@ The game is split into small files so a change rewrites one file, not 1.3 MB.
 | `src/nba-setup.js` | v30a NBA setup extras: real rookies (`nbaRookies`) + real jersey numbers (`NBA_JERSEY_CSV`, `nbaJerseys`) |
 | `src/index.template.html` | Page shell with markers `/*CSS*/ /*VENDOR*/ /*ENGINE*/ /*LEAGUE*/ /*APP*/` for the single-file build |
 
+## v30a UI (Sonnet, Nov 15 2026): Progression page, two-way release + refusal message, pipeline popup, FA filter, type-change chips, live-draft targets, trade filters, buyers and sellers
+
+UI only: `src/app.js` + `src/styles.css`. Test: `tools/browser-v30a.py.txt` (rename to `.py`, serve the folder, `python3 browser-v30a.py PORT`; 95 checks at 1300px and 390px, plays a season and clicks through the offseason).
+- **#20 Progression page:** view `review` (League → Progression, only while `L.offSummary` exists, i.e. until the next season starts). `vReviewPage` wraps `vReview`. During `off-review`, Standings and My team show `reviewBanner` (link to the page) instead of the whole report.
+- **#16 Two-way release:** `twRelDialog(pid)` (confirm → `releaseTwoWay`), button on the My team two-way table and the player page (`data-x="twrelc:id"`).
+- **#17 Pipeline popup:** `pipeDoneDialog`, queued in `afterRun` when `season-done` → `off-review` (once per season, `L.pipeSeen`). Champions per league, up to 4 stock-up and 4 stock-down prospects of this draft class, buttons: Open draft board / Open Pipeline / Later.
+- **#12 Can afford:** `ui.faAfford`; a free agent fits when `p.ask || p.mval` ≤ max(MINSAL, `faRoom`).
+- **#14 End of free agency:** `faEndBar` (`#fa-end`) clicks the header `faend` button, so it keeps the existing rule: stops early if a player wants to talk.
+- **#15 Type changes:** `typeDiff(m)` splits "A + B → C + D" into added / dropped / Elite up / Elite down / kept; `typeMoveRow` draws chips (`.tchg.tadd|tdrop|tkeep`) and a kind pill (New type, Type replaced, Type dropped, Now Elite, No longer Elite).
+- **#11 Live draft targets:** in `liveDraft`, `tgtOf(p)`: `dir` when his consensus rank is within 2 of one of your remaining overall pick numbers, else `watch` when on your watch list. Rows get `.target`, a pill and `data-tgtk`; `#livetgt` lists next pick and targets left.
+- **#4 Completed trades filters:** `ui.trF` (`''`, `pp`, `kk`, `mix`); `trKind(t)` from `aIn` / `bIn` / `cIn` (players and picks). Records without `aIn` / `bIn` only show under All.
+- **#9 Buyers and sellers:** `buyersSellersPanel` on Trade center. Buyers: all-in, contender, push, hopeful, rising. Sellers: tank, rebuild, retool. Status is the AI's `t.status` (or the mode when no status yet). "Trade" sets the trade partner and clears the builder (`data-trwith`).
+- **#13 UI:** `signTwoWay` refusals ("turned down the two-way deal") are kept in `ui.twNo` and drawn by `twNoHtml` on the player page until the day or phase changes.
+
 ## v30a logic (Opus, Nov 15 2026): two-way refusals, roster flag, best of 7, real rookies, real jersey numbers
 
 Engine / data only (no UI polish). Test: `node tools/t30a.js [quick]` (SEED, GAMES env).

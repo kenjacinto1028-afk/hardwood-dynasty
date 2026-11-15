@@ -7,7 +7,18 @@
 - [x] #25 New NBA league: real first-year players (0 service: 2026 class + undrafted) tagged rookies → ROTY / All-Rookie after season 1 — `nbaRookies` (src/nba-setup.js)
 - [x] #10 Real jersey numbers from claude/nba/jersey-numbers.csv.txt (team + name; blank/duplicate → random free; "00" kept) — `nbaJerseys` (src/nba-setup.js, new file)
 - [x] Tests: `tools/t30a.js` 29/29 (quick 21/21). Existing: t27 71/71, t265 27/27, t287 11/11, t288 35/35, m265 7/7, unit-v253 26/26, t257 29/29, x28, t255/t256/t258b, m1-m6, u7, u8, f1, f4 38/38, f5 9/9 OK. Same as before v30a: t266 23/24 (R5), t257s 21/22, t258 12/13 (baseline 11/13). New noise: t29 quick 18/19 (NCHF leader 34.4 ppg vs 34 cap; baseline 32.8), auto.js seed 1 9/10 (user roster 12 at off-ready, filled at season start; seeds 2-5 10/10). Not run: browser *.py.txt, long harnesses (u9, s20, k27, l27, n27, p27, s27, n8), an*/h* analysis scripts.
-- [ ] v30a UI items (20, 16, 17, 12, 14, 15, 11, 4, 9) — Sonnet
+- [x] v30a UI (Nov 15 2026) — **Sonnet**: all in `src/app.js` + `src/styles.css`, engine / league unchanged
+  - [x] #20 Progression / regression report has its own page: League → Progression (`#review`, `vReviewPage`), reopenable until the next season starts; Standings and My team show a link banner during the review
+  - [x] #16 Release button for two-way players (My team two-way table + player page) with a confirm dialog (`twRelDialog`)
+  - [x] #17 "Pipeline seasons are done" popup when the offseason starts (champions, stock up / down, buttons to the draft board and Pipeline); once a season (`L.pipeSeen`), in Recent popups
+  - [x] #12 Free agents "Can afford" checkbox (asking price ≤ your biggest possible offer; minimum deals always fit)
+  - [x] #14 "Sim to end of free agency": the header button already existed (stops when a player wants to talk); added the same button on all three Free agency pages (`faEndBar`). Behavior unchanged. Open question: skip player talks instead?
+  - [x] #15 Type changes: chips per player (added / dropped / unchanged, Elite gained or lost) + kind label (`typeDiff`, `typeMoveRow`)
+  - [x] #11 Live draft: Director's board rows near your remaining picks (±2) and your watch list are highlighted with a Target / Watch pill, plus a line with your next pick and targets left
+  - [x] #4 Completed trades filter: All / Player-player / Pick-pick / Mix, with counts (`trKind`)
+  - [x] #9 Trade center: Buyers and sellers panel from the front-office status (all-in, contender, push, hopeful, rising vs tank, rebuild, retool), with why line and a Trade button
+  - [x] #13 UI: a refused two-way offer stays on the player page as "Turned down" with his reason (`twNoHtml`)
+  - [x] Tests: `tools/browser-v30a.py.txt` 95/95 (desktop 1300 + 390px, real offseason buttons). Same results as before the UI work: node t27 71/71, t265 27/27, t287 11/11, t288 35/35, t257 29/29, t30a quick 21/21, t29 quick 18/19, auto 9/10, t266 23/24, t257s 21/22, t258 12/13; browser-v30 44/44, v288 45/45. Already failing before the UI work (same on commit 92dc371): browser-v30t 13/15 (Season start has 8 items, expected 10), browser-v29 62/69 (roster select / School-club / call-up checks), browser-v287 22/23 (drama dialog).
 
 ## v28.7 (Nov 13 2026) — done
 - [x] Multi-season autopilot + fast mode — Opus

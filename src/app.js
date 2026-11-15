@@ -695,11 +695,11 @@ function renderHeader() {
     $('#simctl').innerHTML = btns.map(([k, t], i) => `<button data-sim="${k}" title="${esc(SIM_TIP[k] || '')}" class="${i === 0 ? 'primary' : ''}${k === 'multi' ? ' multi' : ''}" ${ui.busy && k !== 'autostop' ? 'disabled' : ''}>${t}</button>`).join('');
   }
   // v24: tabs are grouped. The top row has five groups; the row under it lists the views in the group you are in.
-  const NAME = { feed: 'Feed', myteam: 'My team', coaches: 'Staff & GMs', preview: 'Season preview', weekly: 'Weekly report', standings: 'Standings', schedule: 'Schedule', stats: 'Stats', players: 'Players', awards: 'Awards', teams: 'Teams', trades: 'Trades', fa: 'Free agency', draft: 'Draft', news: 'News & events', injuries: 'Injuries', discipline: 'Discipline', pipeline: 'Pipeline', history: 'History', rules: 'How it works' };
+  const NAME = { feed: 'Feed', myteam: 'My team', coaches: 'Staff & GMs', preview: 'Season preview', weekly: 'Weekly report', standings: 'Standings', review: 'Progression', schedule: 'Schedule', stats: 'Stats', players: 'Players', awards: 'Awards', teams: 'Teams', trades: 'Trades', fa: 'Free agency', draft: 'Draft', news: 'News & events', injuries: 'Injuries', discipline: 'Discipline', pipeline: 'Pipeline', history: 'History', rules: 'How it works' };
   const showPre = L.phase === 'regular' && L.day <= 7 || ui.view === 'preview';
   const groups = [
     L.user != null ? { k: 'team', t: 'My team', v: ['myteam', 'coaches'] } : { k: 'team', t: 'Staff & GMs', v: ['coaches'] },
-    { k: 'league', t: 'League', v: ['standings', 'schedule', 'teams', 'stats', 'players', 'injuries', 'discipline', 'awards', 'pipeline'] },
+    { k: 'league', t: 'League', v: ['standings', ...(L.offSummary ? ['review'] : []), 'schedule', 'teams', 'stats', 'players', 'injuries', 'discipline', 'awards', 'pipeline'] },
     { k: 'moves', t: 'Roster moves', v: ['trades', 'fa', 'draft'] },
     { k: 'story', t: 'News & history', v: [...(showPre ? ['preview'] : []), 'weekly', 'news', 'feed', 'history'] },
     { k: 'help', t: 'How it works', v: ['rules'] }
@@ -1968,17 +1968,23 @@ function dlPanel(p) {
   const pg = k => f1(d[k] / d.gp);
   return `<section class="panel" style="margin-bottom:16px"><h3>D-league</h3>${d ? `<p style="margin:0 0 6px">${d.gp} games · ${pg('min')} min · ${pg('pts')} pts · ${pg('reb')} reb · ${pg('ast')} ast</p>` : '<p class="muted" style="margin:0 0 6px">No D-league games yet this season.</p>'}<p class="muted" style="margin:0 0 6px;font-size:12px">Players in their first 3 seasons and anyone barely playing get a D-league game on days they don't play for the team. Those minutes count half toward his development.</p>${mine ? `<label class="check" style="margin:0"><input type="checkbox" data-x="dloff:${p.id}" ${p.dlOff ? '' : 'checked'}> Play him in the D-league on off days</label>` : ''}</section>`;
 }
+// v30a #13 UI: his answer when he turns a two-way offer down (kept until the day / phase changes, or he signs somewhere)
+function twNoHtml(p) {
+  const x = ui.twNo; if (!x || x.pid !== p.id || x.s !== L.season || x.ph !== L.phase || x.d !== L.day || p.tw || p.team != null) return '';
+  const k = /standard contract \(his market/.test(x.msg) || /expects a standard contract/.test(x.msg) ? 'Offer him a standard contract on this page, or put someone else in the slot.' : 'Ask again after the next week of games.';
+  return `<div class="msg no" id="tw-no" style="margin-top:8px"><strong>Turned down.</strong> ${esc(x.msg.replace(/^.*?turned down the two-way deal:\s*/, '').replace(/^./, c => c.toUpperCase()))}<div class="muted" style="margin-top:4px">${k}</div></div>`;
+}
 function twoWayPanel(p) {
   if (L.user == null) return dlPanel(p);
   if (!p.tw) { const d = dlPanel(p); if (d) return d; }
   if (p.tw && isUser(p.tw.tid)) {
     const d = p.dl && p.dl.s === L.season ? p.dl : null;
     return `<section class="panel" style="margin-bottom:16px"><h3>Two-way contract</h3><p style="margin:0 0 6px">${p.tw.games} of ${TW_GAMES} games with the team used. ${p.tw.games >= TW_GAMES ? 'He can only play in the development league now unless you convert him.' : ''} Not eligible for the playoffs unless converted.</p>${d ? `<p style="margin:0 0 6px">Development league: ${d.gp} games, ${f1(d.pts / d.gp)} pts, ${f1(d.reb / d.gp)} reb, ${f1(d.ast / d.gp)} ast in ${f1(d.min / d.gp)} min.</p>` : ''}
-    <div class="row"><label class="check" style="margin:0"><input type="checkbox" data-x="twact:${p.id}" ${p.tw.active ? 'checked' : ''}> Dress him for team games</label><button class="sm primary" data-x="twconv:${p.id}">Convert to a standard contract</button><button class="sm" data-x="twrel:${p.id}">Release</button></div><p class="muted" id="tw-msg" style="margin:6px 0 0"></p></section>`;
+    <div class="row"><label class="check" style="margin:0"><input type="checkbox" data-x="twact:${p.id}" ${p.tw.active ? 'checked' : ''}> Dress him for team games</label><button class="sm primary" data-x="twconv:${p.id}">Convert to a standard contract</button><button class="sm" data-x="twrelc:${p.id}">Release</button></div><p class="muted" id="tw-msg" style="margin:6px 0 0"></p></section>`;
   }
   if (twEligible(L, p) && ['regular', 'off-fa', 'off-ready'].includes(L.phase)) {
     const n = (L.teams[L.user].twoWay || []).length;
-    return `<section class="panel" style="margin-bottom:16px"><h3>Two-way option</h3><p style="margin:0 0 6px">He's eligible for a two-way deal: off the cap and the 15-man roster, up to ${TW_GAMES} regular-season games with you, the rest in the development league. You have ${2 - n} slot${2 - n === 1 ? '' : 's'} open.</p>${n < 2 ? `<button class="sm primary" data-x="twsign:${p.id}">Sign to a two-way deal</button>` : ''}<p class="muted" id="tw-msg" style="margin:6px 0 0"></p></section>`;
+    return `<section class="panel" style="margin-bottom:16px"><h3>Two-way option</h3><p style="margin:0 0 6px">He's eligible for a two-way deal: off the cap and the 15-man roster, up to ${TW_GAMES} regular-season games with you, the rest in the development league. You have ${2 - n} slot${2 - n === 1 ? '' : 's'} open.</p>${n < 2 ? `<button class="sm primary" data-x="twsign:${p.id}">Sign to a two-way deal</button>` : ''}${twNoHtml(p)}<p class="muted" id="tw-msg" style="margin:6px 0 0"></p></section>`;
   }
   return '';
 }
@@ -1996,10 +2002,17 @@ function chemPanel(t) {
   const d = teamDuos(L, t), pctv = Math.min(100, d.avg / 3 * 100);
   return `<section class="panel"><h3>Team chemistry</h3><div class="k">Top 8 · average seasons together ${f1(d.avg)}</div>${meter(pctv, pctv >= 60 ? '' : pctv >= 30 ? 'warn' : 'bad')}${d.best.length ? `<div style="margin-top:6px">${d.best.map(x => `<div>${plink(x.a)} &amp; ${plink(x.b)} <span class="muted">${Math.floor(x.n)}+ season${x.n >= 2 ? 's' : ''}</span></div>`).join('')}</div>` : '<p class="muted" style="margin:6px 0 0">No established duos yet.</p>'}<p class="muted" style="margin:6px 0 0;font-size:12px">Starters who've played together for years get a small edge; a brand-new five a small penalty.</p></section>`;
 }
+// v30a #16: release a two-way player (team panel + player page). Two-way deals sit off the cap and the 15-man roster, so no dead money.
+function twRelDialog(pid) {
+  const p = L.players[pid]; if (!p || !p.tw || !isUser(p.tw.tid)) return;
+  dialog(`<h2>Release ${esc(p.name)}?</h2><p>He leaves your two-way slot and goes to free agency. ${p.tw.games} of ${TW_GAMES} team games used. You can sign another two-way player into the open slot.</p><div class="row"><button class="primary" id="twr-ok">Release</button><button id="twr-no">Keep him</button></div>`);
+  $('#twr-no').onclick = closeDialog;
+  $('#twr-ok').onclick = () => { const n = p.name; releaseTwoWay(L, p); closeDialog(); save(); render(); alertMsg(n + ' released from his two-way deal.'); };
+}
 function twoWayTeamPanel(t) {
   const tws = twOf(L, t), mine = isUser(t.id);
   if (!tws.length && !mine) return '';
-  return `<section class="panel" style="margin-top:16px"><h2>Two-way players</h2>${tws.length ? `<div class="tblwrap"><table><thead><tr><th class="l">Player</th><th>Age</th><th>Ovr</th><th title="Games with the team (max ${TW_GAMES})">Team G</th><th title="Development league games">DL G</th><th>DL Pts</th><th>DL Reb</th><th>DL Ast</th>${mine ? '<th></th>' : ''}</tr></thead><tbody>${tws.map(p => { const d = p.dl && p.dl.s === L.season && p.dl.gp ? p.dl : null; return `<tr><td class="l">${plink(p)} <span class="muted">${posLabel(p)}</span></td><td>${p.age}</td><td>${ovrTxt(p)}</td><td>${p.tw.games}/${TW_GAMES}</td><td>${d ? d.gp : 0}</td><td>${d ? f1(d.pts / d.gp) : '—'}</td><td>${d ? f1(d.reb / d.gp) : '—'}</td><td>${d ? f1(d.ast / d.gp) : '—'}</td>${mine ? `<td><button class="sm" data-x="twconv:${p.id}">Convert</button></td>` : ''}</tr>`; }).join('')}</tbody></table></div>` : `<p class="muted">No two-way players. Sign free agents 27 or younger with fewer than 3 seasons of service (a season counts at 10+ regular-season games) from their player page (up to 2).</p>`}<p class="muted" id="tw-msg" style="margin:6px 0 0"></p></section>`;
+  return `<section class="panel" style="margin-top:16px"><h2>Two-way players</h2>${tws.length ? `<div class="tblwrap"><table><thead><tr><th class="l">Player</th><th>Age</th><th>Ovr</th><th title="Games with the team (max ${TW_GAMES})">Team G</th><th title="Development league games">DL G</th><th>DL Pts</th><th>DL Reb</th><th>DL Ast</th>${mine ? '<th></th>' : ''}</tr></thead><tbody>${tws.map(p => { const d = p.dl && p.dl.s === L.season && p.dl.gp ? p.dl : null; return `<tr><td class="l">${plink(p)} <span class="muted">${posLabel(p)}</span></td><td>${p.age}</td><td>${ovrTxt(p)}</td><td>${p.tw.games}/${TW_GAMES}</td><td>${d ? d.gp : 0}</td><td>${d ? f1(d.pts / d.gp) : '—'}</td><td>${d ? f1(d.reb / d.gp) : '—'}</td><td>${d ? f1(d.ast / d.gp) : '—'}</td>${mine ? `<td style="white-space:nowrap"><button class="sm" data-x="twconv:${p.id}">Convert</button> <button class="sm" data-x="twrelc:${p.id}">Release</button></td>` : ''}</tr>`; }).join('')}</tbody></table></div>` : `<p class="muted">No two-way players. Sign free agents 27 or younger with fewer than 3 seasons of service (a season counts at 10+ regular-season games) from their player page (up to 2).</p>`}<p class="muted" id="tw-msg" style="margin:6px 0 0"></p></section>`;
 }
 function devTeamPanel(t) {
   if (!isUser(t.id)) return '';
@@ -2053,9 +2066,12 @@ function xAction(v, el) {
   else if (k === 'asg') { setAssign(L, L.user, (L.teams[L.user].scoutAssign || []).length, { k: a, v: a === 'nat' ? b : +b }); }
   else if (k === 'asgdel') { setAssign(L, L.user, +a, null); }
   else if (k === 'asgadd') { const [kk, vv] = $('#asg-v').value.split(':'); setAssign(L, L.user, (L.teams[L.user].scoutAssign || []).length, { k: kk, v: kk === 'pos' ? +vv : vv }); }
-  else if (k === 'twsign') { const m = signTwoWay(L, L.players[+a], L.user); if (m) { msg('#tw-msg', m); return; } }
+  else if (k === 'twsign') { const m = signTwoWay(L, L.players[+a], L.user);
+    if (m) { if (/turned down the two-way deal/.test(m)) { ui.twNo = { pid: +a, msg: m, s: L.season, ph: L.phase, d: L.day }; save(); render(); } else msg('#tw-msg', m); return; }   // v30a #13 UI: refusals stay on the panel with his reason
+    ui.twNo = null; }
   else if (k === 'twconv') { const m = convertTwoWay(L, L.players[+a]); if (m) { msg('#tw-msg', m); return; } }
   else if (k === 'twrel') { releaseTwoWay(L, L.players[+a]); }
+  else if (k === 'twrelc') { twRelDialog(+a); return; }
   else if (k === 'twact') { const p = L.players[+a]; if (p.tw) p.tw.active = !p.tw.active; }
   else if (k === 'dloff') { const p = L.players[+a]; p.dlOff = !p.dlOff; }
   save(); render(); if (inModal) scoutPromptDialog();
@@ -2450,6 +2466,19 @@ function targetsPanel(kind, noRead) {
   return `${noRead ? '' : positionReadPanel(t)}<section class="panel" style="margin-bottom:16px"><h2>Coach targets · ${kind === 'fa' ? 'free agents' : 'trades'}</h2><div class="subtabs" style="margin-bottom:8px">${Object.entries(TARGET_TABS).map(([k, n]) => `<button class="sm ${tab === k ? 'primary' : ''}" data-tgttab="${k}">${esc(n)}</button>`).join('')}</div>${goal}<p class="muted" style="margin-top:-4px">Fill your needs, fit the coach's systems, suit your ${MODE_LABEL[t.mode].toLowerCase()} timeline${kind === 'fa' ? ', and fit your budget' : ''}. No target takes a core player's spot.</p>${rows ? `<div class="tblwrap"><table><thead><tr><th class="l">Player</th>${kind === 'fa' ? '' : '<th class="l">Team</th>'}<th class="l">Pos</th><th>Age</th><th>Ovr</th><th>${dev ? 'Coach\'s read' : potHead()}</th><th>${kind === 'fa' ? 'Asking' : 'Contract'}</th><th class="l">Why</th>${kind === 'fa' ? '' : '<th></th>'}</tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="muted">No clear targets right now.</p>'}</section>`;
 }
 
+// v30a #9: who is buying and who is selling right now (front-office status: the same one the AI uses for its trade rules)
+const BUY_ST = ['allin', 'contend', 'push', 'hopeful', 'rising'], SELL_ST = ['tank', 'rebuild', 'retool'];
+function buyersSellersPanel() {
+  const real = t => t.status || ({ contend: 'contend', hopeful: 'hopeful', rebuild: 'rebuild', tank: 'tank' }[t.mode]);
+  const teams = L.teams.filter(t => t.id !== L.user), open = inTradeWindow(L);
+  const row = t => { const k = real(t), pay = payroll(L, t), rec = t.w + t.l ? ` · ${t.w}-${t.l}` : '';
+    return `<div class="leader bsrow" data-bs="${t.id}" style="grid-template-columns:minmax(0,1fr) auto;align-items:center"><span>${tlabel(t.id, true)} ${modePill(t)}<span class="muted">${rec} · payroll ${money(pay)}</span><br><span class="muted" style="font-size:12px">${esc(STATUS_WHY[k] || '')}</span></span>${L.user != null ? `<button class="sm" data-trwith="${t.id}" ${open ? '' : 'disabled'}>Trade</button>` : ''}</div>`; };
+  const rk = t => BUY_ST.concat(SELL_ST).indexOf(real(t)), order = list => list.sort((a, b) => rk(a) - rk(b) || b.w - a.w);
+  const buyers = order(teams.filter(t => BUY_ST.includes(real(t)))), sellers = order(teams.filter(t => SELL_ST.includes(real(t))));
+  const rest = teams.length - buyers.length - sellers.length;
+  return `<section class="panel" id="bspanel" style="margin-top:16px"><h2>Buyers and sellers</h2><p class="muted" style="margin-top:-4px">Each front office's current plan. Buyers pay picks and young players for help; sellers move veterans for picks and prospects.${open ? '' : ' Trading is closed right now.'}${rest > 0 ? ` ${rest} team${rest > 1 ? 's are' : ' is'} in neither group.` : ''}</p>
+  <div class="grid2e"><div><h3 style="margin-top:0">Buyers · ${buyers.length}</h3>${buyers.map(row).join('') || '<p class="muted">None.</p>'}</div><div><h3 style="margin-top:0">Sellers · ${sellers.length}</h3>${sellers.map(row).join('') || '<p class="muted">None.</p>'}</div></div></section>`;
+}
 function vTrades() {
   const open = inTradeWindow(L);
   const T = L.schedule.length;
@@ -2466,7 +2495,13 @@ function vTrades() {
     ${ui.tradeMsg ? `<div class="msg ${ui.tradeMsg.ok ? 'ok' : 'no'}">${esc(ui.tradeMsg.msg)}${ui.tradeMsg.ok && !ui.tradeMsg.done && !/completed|^Undone/.test(ui.tradeMsg.msg) ? ' <button class="primary sm" id="tconfirm">Complete trade</button>' : ui.tradeMsg.suggest ? ` <button class="sm" id="tsuggest">Add ${esc(ui.tradeMsg.suggest.name)}</button>` : ''}</div>` : ''}${proposalsPanel()}<details class="about"><summary>How this works</summary><p>Picks are valued on the rosters after the trade, so a tanking team that adds a star sees its own picks drop. Front offices differ (pick lovers, win-now), and sellers ask less when a star asked out, has 1 year left, or is old for a rebuilding team.</p><p>Teams value picks on a curve with big drops after #5, #14 and #45, so one top pick is worth far more than several mid ones. Future picks are valued from a projected range (shown with a tier) that follows team status, roster and record. Packages of several assets count for less than one great asset: the best piece counts in full, the next at 80%, then 60% and 40%. You can add up to $5M in cash each way per season (it counts in that season's profit), and add a top-N protection to a 1st you send: if it lands inside the protected slots it rolls to next year's pick, and after two rolls becomes a 2nd.</p></details></section>`;
   }
   const pend = L.mode === 'commish' ? `<section class="panel" style="margin-bottom:16px"><h2>Trades awaiting review</h2><p class="muted" style="margin-top:-4px"><span class="tipword" title="Agreed trades go through at the next sim step unless you veto them.">${status}</span></p>${(L.pending || []).length ? L.pending.map(tr => `<div class="panel pending" style="margin-bottom:8px"><div>${tlink(tr.a, true)} get <strong>${giveLinks(tr.bGive)}</strong></div><div>${tlink(tr.b, true)} get <strong>${giveLinks(tr.aGive)}</strong></div><div class="row" style="margin-top:8px"><span class="muted">${MODE_LABEL[L.teams[tr.a].mode]} ↔ ${MODE_LABEL[L.teams[tr.b].mode]}</span><button class="danger" data-veto="${tr.id}">Veto</button></div></div>`).join('') : '<p class="muted">No trades waiting.</p>'}</section>` : '';
-  const hist = L.trades.slice(0, 60);
+  // v30a #4: completed trades filter: player-player (no picks), pick-pick (no players), mix (players on one side and picks on the other, or both)
+  const trKind = t => { const sides = [t.aIn, t.bIn, t.cIn].filter(Boolean); if (!t.aIn || !t.bIn) return ''; const pl = sides.some(x => (x.players || []).length), pk = sides.some(x => (x.picks || []).length); return pl && pk ? 'mix' : pl ? 'pp' : pk ? 'kk' : ''; };
+  const TRF = [['', 'All'], ['pp', 'Player-player'], ['kk', 'Pick-pick'], ['mix', 'Mix']];
+  const trCnt = k => L.trades.filter(t => !k || trKind(t) === k).length;
+  if (!TRF.some(x => x[0] === ui.trF)) ui.trF = '';
+  const hist = L.trades.filter(t => !ui.trF || trKind(t) === ui.trF).slice(0, 60);
+  const trFbar = `<div class="row" id="trfbar" style="margin-bottom:10px">${TRF.map(([k, n]) => `<button class="sm chipbtn ${ui.trF === k ? 'primary' : ''}" data-trf="${k}" title="${k === 'pp' ? 'Players only, no picks' : k === 'kk' ? 'Picks only, no players' : k === 'mix' ? 'Players and picks in the same deal' : 'Every trade'}">${n} · ${trCnt(k)}</button>`).join('')}</div>`;
   const offers = L.user != null ? `<section class="panel" style="margin-bottom:16px"><h2>Offers for you</h2><label class="muted" style="font-size:13px;display:block;margin:-4px 0 8px"><input type="checkbox" data-nopause="1" ${L.pauseOffers === false ? 'checked' : ''}> Don't stop the sim for trade offers (they wait here)</label>${(L.offers || []).length ? L.offers.map(o => `<div class="panel pending" style="margin-bottom:8px"><div>${tlink(o.a, true)} ${modePill(L.teams[o.a])} offer <strong>${giveLinks(o.aGive)}</strong></div><div>for your <strong>${giveLinks(o.bGive)}</strong></div>${getsLines(o.a, L.user, o.bGive, o.aGive)}${o.why ? `<div class="why">Why: ${esc(o.why)}</div>` : ''}<div class="row" style="margin-top:8px"><button class="primary" data-accept="${o.id}">Accept</button><button data-counter="${o.id}">Negotiate</button><button data-decline="${o.id}">Decline</button><span class="muted">${o.ttl} day${o.ttl > 1 ? 's' : ''} left at most · they may withdraw</span></div></div>`).join('') : '<p class="muted">No offers right now. AI teams make offers while trading is open.</p>'}</section>` : '';
   // v28.7 U2: sub tabs (Trade center / Offers for you / Trading block / Completed trades)
   const trTabs = [['center', 'Trade center'], ...(L.user != null ? [['offers', `Offers for you${(L.offers || []).length ? ' · ' + L.offers.length : ''}`]] : []), ['block', 'Trading block'], ['done', 'Completed trades']];
@@ -2474,13 +2509,15 @@ function vTrades() {
   const trSub = `<div class="subtabs" style="margin-bottom:12px">${trTabs.map(([k, n]) => `<button class="sm ${ui.trTab === k ? 'primary' : ''}" data-trtab="${k}">${esc(n)}</button>`).join('')}</div>`;
   if (ui.trTab === 'offers') return trSub + offers;
   if (ui.trTab === 'block') return trSub + tradingBlockPanel();
-  if (ui.trTab === 'center') return trSub + `${builder}${L.user != null ? trade3Panel() : ''}${L.user != null && open ? targetsPanel('trade') : ''}${pend}` + (L.user == null && !pend ? '<p class="muted">Trades between AI teams show in Completed trades.</p>' : '');
-  return trSub + `<section class="panel"><h2>Completed trades</h2>${hist.length ? `<div class="tblwrap"><table><thead><tr><th class="l">When</th><th class="l">Team</th><th class="l">Got</th><th class="l">Team</th><th class="l">Got</th></tr></thead><tbody>${hist.map(t => `<tr><td class="l">${seasonName(t.s)} ${esc(t.when)}</td><td class="l">${tlink(t.a)}</td><td class="l wrap">${t.aIn ? giveLinks(t.aIn, t.aIn.picks) : esc(t.aGets)}</td><td class="l">${tlink(t.b)}</td><td class="l wrap">${t.bIn ? giveLinks(t.bIn, t.bIn.picks) : esc(t.bGets)}</td></tr>${t.multi ? `<tr><td class="l muted">3-team</td><td class="l">${tlink(t.c)}</td><td class="l wrap" colspan="3">${t.cIn ? giveLinks(t.cIn, t.cIn.picks) : esc(t.cGets)}</td></tr>` : ''}${t.why || t.grades ? `<tr><td></td><td class="l muted" colspan="4" style="font-size:12px">${t.grades ? `How each side saw it: ${L.teams[t.a].abbr} ${t.grades.a}, ${L.teams[t.b].abbr} ${t.grades.b}${t.multi ? `, ${L.teams[t.c].abbr} ${t.grades.c}` : ''}. ` : ''}${esc(t.why || '')}</td></tr>` : ''}`).join('')}</tbody></table></div>` : '<p class="muted">No trades yet.</p>'}</section>`;
+  if (ui.trTab === 'center') return trSub + `${builder}${L.user != null ? trade3Panel() : ''}${L.user != null && open ? targetsPanel('trade') : ''}${buyersSellersPanel()}${pend}` + (L.user == null && !pend ? '<p class="muted">Trades between AI teams show in Completed trades.</p>' : '');
+  return trSub + `<section class="panel"><h2>Completed trades</h2>${trFbar}${hist.length ? `<div class="tblwrap"><table><thead><tr><th class="l">When</th><th class="l">Team</th><th class="l">Got</th><th class="l">Team</th><th class="l">Got</th></tr></thead><tbody>${hist.map(t => `<tr><td class="l">${seasonName(t.s)} ${esc(t.when)}</td><td class="l">${tlink(t.a)}</td><td class="l wrap">${t.aIn ? giveLinks(t.aIn, t.aIn.picks) : esc(t.aGets)}</td><td class="l">${tlink(t.b)}</td><td class="l wrap">${t.bIn ? giveLinks(t.bIn, t.bIn.picks) : esc(t.bGets)}</td></tr>${t.multi ? `<tr><td class="l muted">3-team</td><td class="l">${tlink(t.c)}</td><td class="l wrap" colspan="3">${t.cIn ? giveLinks(t.cIn, t.cIn.picks) : esc(t.cGets)}</td></tr>` : ''}${t.why || t.grades ? `<tr><td></td><td class="l muted" colspan="4" style="font-size:12px">${t.grades ? `How each side saw it: ${L.teams[t.a].abbr} ${t.grades.a}, ${L.teams[t.b].abbr} ${t.grades.b}${t.multi ? `, ${L.teams[t.c].abbr} ${t.grades.c}` : ''}. ` : ''}${esc(t.why || '')}</td></tr>` : ''}`).join('')}</tbody></table></div>` : `<p class="muted">${ui.trF ? 'No trades of this kind yet.' : 'No trades yet.'}</p>`}</section>`;
 }
 
 // ---------- free agency ----------
 function vFA() {
-  const fas = L.fa.map(id => L.players[id]).filter(p => p && !p.retired && !(ui.faHideRook && L.user != null && hiddenFor(L, p)));
+  // v30a #12: "Can afford" = his asking price fits the largest offer you can make (cap room, or the mid-level); minimum deals always fit
+  const roomNow = L.user != null ? faRoom(L, L.teams[L.user]) : 0, canAff = p => (p.ask || p.mval || MINSAL) <= Math.max(MINSAL, roomNow) + 1e-6;
+  const fas = L.fa.map(id => L.players[id]).filter(p => p && !p.retired && !(ui.faHideRook && L.user != null && hiddenFor(L, p)) && !(ui.faAfford && L.user != null && !canAff(p)));
   const key = ui.faSort;
   fas.sort((a, b) => key === 'ask' ? (b.ask || 0) - (a.ask || 0) : key === 'age' ? a.age - b.age : ovrNum(b) - ovrNum(a));
   let resign = '';
@@ -2500,10 +2537,10 @@ function vFA() {
   // v28.7 P1: three pages: Overview (cap, coach read, needs, targets, re-signs, around the league) / Free agents / Upcoming free agents
   if (!['over', 'now', 'up'].includes(ui.faTab) || (ui.faTab === 'over' && L.user == null)) ui.faTab = L.user != null ? 'over' : 'now';
   const r2note = r2n ? `<div class="note">You have ${r2n} unsigned draft pick${r2n > 1 ? 's' : ''} on the <a class="lk" href="#draft">Draft</a> tab.</div>` : '';
-  if (ui.faTab === 'over') return `${phaseNote()}${faToggle()}${r2note}${resign}${mine}${faAround()}`;
-  if (ui.faTab === 'up') return `${phaseNote()}${faToggle()}${upcomingFA()}`;
-  return `${phaseNote()}${faToggle()}${resign && L.phase === 'off-resign' ? `<div class="note">Re-sign decisions are on the <a class="lk" data-fav="over">Overview</a> page.</div>` : ''}<section class="panel"><h2>Free agents · ${fas.length}</h2><details class="about"><summary>How this works</summary><p>${L.phase === 'off-fa' ? `Day ${L.faDay} of 10. ` : ''}Undrafted players and second-round picks who weren't signed are here too. Asking prices fall the longer a player goes unsigned. A good player who signs well below his value only takes a 1-year deal so he can test the market again.${L.user != null ? ' Open a player to make an offer.' : ''}</p></details>
-  <div class="filters"><label>Sort <select id="fas"><option value="ovr" ${key === 'ovr' ? 'selected' : ''}>Overall</option><option value="ask" ${key === 'ask' ? 'selected' : ''}>Asking price</option><option value="age" ${key === 'age' ? 'selected' : ''}>Youngest</option></select></label>${L.user != null ? `<label style="margin-left:12px"><input type="checkbox" data-hiderook="1" ${ui.faHideRook ? 'checked' : ''}> Hide unrevealed rookies</label>` : ''}</div>
+  if (ui.faTab === 'over') return `${phaseNote()}${faToggle()}${faEndBar()}${r2note}${resign}${mine}${faAround()}`;
+  if (ui.faTab === 'up') return `${phaseNote()}${faToggle()}${faEndBar()}${upcomingFA()}`;
+  return `${phaseNote()}${faToggle()}${faEndBar()}${resign && L.phase === 'off-resign' ? `<div class="note">Re-sign decisions are on the <a class="lk" data-fav="over">Overview</a> page.</div>` : ''}<section class="panel"><h2>Free agents · ${fas.length}</h2><details class="about"><summary>How this works</summary><p>${L.phase === 'off-fa' ? `Day ${L.faDay} of 10. ` : ''}Undrafted players and second-round picks who weren't signed are here too. Asking prices fall the longer a player goes unsigned. A good player who signs well below his value only takes a 1-year deal so he can test the market again.${L.user != null ? ' Open a player to make an offer.' : ''}</p></details>
+  <div class="filters"><label>Sort <select id="fas"><option value="ovr" ${key === 'ovr' ? 'selected' : ''}>Overall</option><option value="ask" ${key === 'ask' ? 'selected' : ''}>Asking price</option><option value="age" ${key === 'age' ? 'selected' : ''}>Youngest</option></select></label>${L.user != null ? `<label style="margin-left:12px"><input type="checkbox" data-hiderook="1" ${ui.faHideRook ? 'checked' : ''}> Hide unrevealed rookies</label><label style="margin-left:12px" title="Only players whose asking price fits the biggest offer you can make now (${money(Math.max(MINSAL, roomNow))}). Minimum-salary players always fit."><input type="checkbox" data-faafford="1" ${ui.faAfford ? 'checked' : ''}> Can afford (up to ${money(Math.max(MINSAL, roomNow))})</label>` : ''}</div>
   ${fbar('fa')}<div class="tblwrap"><table class="sortable" data-sid="fa" data-flist="fa"><thead><tr><th class="l">Player</th><th class="l">Pos</th><th class="l">Type</th><th class="l">Personality</th><th>Age</th><th>Ovr</th><th>${potHead()}</th><th>Market</th><th>Asking</th>${canSign ? '<th class="nosort"></th>' : ''}</tr></thead><tbody>${rows || '<tr><td class="l muted" colspan="8">No free agents.</td></tr>'}</tbody></table></div></section>`;
 }
 
@@ -2532,6 +2569,12 @@ function faAround() {
   const badge = r => r.hit > 0 ? '<span class="pill pos">Right</span>' : r.hit < 0 ? '<span class="pill neg">Wrong</span>' : '<span class="pill">Open</span>';
   return `<section class="panel" style="margin-bottom:16px"><h3>Around the league</h3><div class="grid2e"><div><div class="k">Rumors</div>${rs.length ? rs.map(r => `<div class="check"><span class="grow">${plink(L.players[r.pid])} <span class="muted">meeting with</span> ${(r.fa || []).map(t => tlabel(t, true)).join(', ') || '<span class="muted">a few teams</span>'}</span>${badge(r)}</div>`).join('') : '<p class="muted">None.</p>'}</div><div><div class="k">Decisions</div>${ds.length ? ds.map(([id, x]) => `<div class="check"><span class="grow">${plink(L.players[id])} <span class="muted">→</span> ${tlabel(x.tid, true)}</span><span class="pill">${esc(FA_WHY_LABEL[x.why] || x.why)}</span></div>`).join('') : '<p class="muted">None yet.</p>'}</div></div></section>`;
 }
+// v30a #14: same as the header's "Sim to end of free agency" (it already stops when a player wants to talk), placed on the Free agency page
+function faEndBar() {
+  if (L.phase !== 'off-fa') return '';
+  return `<div class="note" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="sm primary" id="fa-end" ${ui.busy ? 'disabled' : ''}>Sim to end of free agency</button><span class="muted">Day ${L.faDay} of 10. Stops early if a player wants to talk to you.</span></div>`;
+}
+document.addEventListener('click', e => { const b = e.target.closest('#fa-end'); if (!b || !L) return; const h = document.querySelector('#simctl [data-sim="faend"]'); if (h && !h.disabled) h.click(); });
 function faToggle() { const b = (k, n) => `<button class="sm ${ui.faTab === k ? 'primary' : ''}" data-fav="${k}">${n}</button>`; return `<div class="subtabs" style="margin-bottom:12px">${L.user != null ? b('over', 'Overview') : ''}${b('now', `Free agents · ${L.fa.length}`)}${b('up', 'Upcoming free agents')}</div>`; }
 function upcomingFA() {
   const cs = capSeason(L);
@@ -2555,6 +2598,22 @@ function draftSignDialog() {
   const after = err => { save(); render(); if (err) { $('#ds-msg').innerHTML = `<div class="msg no">${esc(err)}</div>`; return; } if ((L.r2Pending || []).length) draftSignDialog(); else closeDialog(); };
   $('#ds-all').onclick = () => { let err = null; for (const id of (L.r2Pending || []).slice()) { err = decideSecondRounder(L, id, true) || err; } after(err); };
   document.querySelectorAll('[data-ds]').forEach(b => b.onclick = () => after(decideSecondRounder(L, +b.dataset.ds, b.dataset.sg === 'tw' ? 'tw' : b.dataset.sg === '1')));
+}
+// v30a #17: one reminder after the college / pro-league seasons are simmed (right after the Finals), before the draft
+function pipeDoneDialog() {
+  const S = L.season, H = (L.pipeHist || {})[S]; if (!H) return;
+  const champ = PIPE_LGS.filter(lg => H[lg] && H[lg].ch != null).map(lg => `<div class="leader" style="grid-template-columns:minmax(0,1fr) auto"><span>${esc(PIPE_LG[lg].name)}</span><span>${pipeTl(lg, H[lg].ch, true)}</span></div>`).join('');
+  const mv = Object.values(L.players).filter(p => p.prospect && !p.retired && p.draftYear === S && p.stock && p.stock.s === S && p.stock.d);
+  const up = mv.filter(p => p.stock.d > 0).sort((a, b) => b.stock.d - a.stock.d).slice(0, 4), dn = mv.filter(p => p.stock.d < 0).sort((a, b) => a.stock.d - b.stock.d).slice(0, 4);
+  const mvRow = (p, sg) => `<div class="leader" style="grid-template-columns:minmax(0,1fr) auto"><span>${plink(p)} <span class="muted">${posLabel(p)}</span></span><span class="${sg > 0 ? 'fx-up' : 'fx-dn'}">${sg > 0 ? '+' : '\u2212'}${Math.abs(p.stock.d)} read</span></div>`;
+  dialog(`<h2>Pipeline seasons are done</h2><p>College and pro-league seasons are finished. Scouts have updated their reads from the stats, so check your board before the ${draftLabel(S)} draft.</p>
+  ${champ ? `<h3 style="margin:8px 0 4px">Champions</h3>${champ}` : ''}
+  ${up.length ? `<h3 style="margin:8px 0 4px">Stock up (${draftLabel(S)} class)</h3>${up.map(p => mvRow(p, 1)).join('')}` : ''}
+  ${dn.length ? `<h3 style="margin:8px 0 4px">Stock down</h3>${dn.map(p => mvRow(p, -1)).join('')}` : ''}
+  <div class="row" style="margin-top:12px"><button class="primary" id="pd-board">Open draft board</button><button id="pd-pipe">Open Pipeline</button><button id="x-close">Later</button></div>`);
+  $('#x-close').onclick = closeDialog;
+  $('#pd-board').onclick = () => { closeDialog(); ui.dpage = 'over'; ui.dtab = 'board'; ui.cls = S; location.hash = '#draft'; render(); };
+  $('#pd-pipe').onclick = () => { closeDialog(); location.hash = '#pipeline'; render(); };
 }
 function maybeDraftDialog(ph0) { if (ph0 === 'off-draft' && L.phase !== 'off-draft' && L.user != null && (L.r2Pending || []).length) queueDialog(draftSignDialog); maybeOptionsDialog(); }
 // v23: one popup at the start of the re-signing window: your players' option decisions and your team-option decisions
@@ -2697,11 +2756,16 @@ function liveDraft(myTurn) {
   const left = order.map((o, i) => { const p = o.pid ? L.players[o.pid] : null; const now = i === L.draftIdx; const r = p && p.draft ? p.draft.mock : null;
     return `<tr class="${now ? 'now' : ''} ${isUser(o.owner) ? 'mine' : ''} ${p ? 'click' : ''}" ${p ? `data-player="${p.id}"` : ''} ${now ? 'id="livenow"' : ''}><td>${o.rd}-${o.no}</td><td class="l">${tlabel(o.owner)}</td><td class="l">${p ? esc(p.name) : now ? '<em>On the clock</em>' : ''}</td><td class="l">${p ? posLabel(p) : ''}</td><td>${p ? p.ovr : ''}</td><td>${p ? potCell(p) : ''}</td><td title="Consensus rank before the draft" class="${r && r - (o.rd === 1 ? o.no : L.teams.length + o.no) >= 6 ? 'lo' : r && (o.rd === 1 ? o.no : L.teams.length + o.no) - r >= 6 ? 'w' : ''}">${r || ''}</td></tr>`; }).join('');
   const board = (L.user != null ? draftBoard(L, L.user, L.season) : mockOrder(L, L.season)).slice(0, 40);
-  const right = board.map((p, i) => { const r = mockRanksOf(L, p); return `<tr class="click" data-player="${p.id}"><td><strong>${i + 1}</strong></td><td><strong>${r.c || '—'}</strong></td>${r.o.map(x => `<td class="mk">${x || '—'}</td>`).join('')}<td class="l">${esc(p.name)}${flagPill(p)}</td><td class="l">${posLabel(p)}</td><td>${p.age}</td><td>${ovrTxt(p)}</td><td>${potCell(p)}</td>${myTurn ? `<td><button class="sm primary" data-draft="${p.id}">Draft</button></td>` : ''}</tr>`; }).join('');
+  // v30a #11: highlight my targets: prospects the director has near one of my remaining picks (within 2 of the slot), and my watch list
+  const mySlots = L.user != null ? order.map((o, i) => ({ o, n: i + 1 })).filter(x => !x.o.pid && isUser(x.o.owner)).map(x => x.n) : [];
+  const tgtOf = p => { if (L.user == null) return ''; const r = mockRanksOf(L, p).c || 0; return r && mySlots.some(n => Math.abs(r - n) <= 2) ? 'dir' : isWatched(L, p) ? 'watch' : ''; };
+  const tgts = board.map(p => ({ p, k: tgtOf(p) })).filter(x => x.k);
+  const tgtBar = L.user != null ? `<p class="muted" id="livetgt" style="margin:0 0 6px">${mySlots.length ? `Your next pick: <strong>#${mySlots[0]}</strong>${mySlots.length > 1 ? ` (+${mySlots.length - 1} more)` : ''}. ` : 'You have no picks left. '}${tgts.length ? `Your targets still on the board: ${tgts.slice(0, 8).map(x => esc(x.p.name)).join(', ')}${tgts.length > 8 ? ` +${tgts.length - 8}` : ''}.` : 'None of your targets are left.'}</p>` : '';
+  const right = board.map((p, i) => { const r = mockRanksOf(L, p), tk = tgtOf(p); return `<tr class="click ${tk ? 'target' : ''}" ${tk ? `data-tgtk="${tk}"` : ''} data-player="${p.id}"><td><strong>${i + 1}</strong></td><td><strong>${r.c || '—'}</strong></td>${r.o.map(x => `<td class="mk">${x || '—'}</td>`).join('')}<td class="l">${esc(p.name)}${flagPill(p)}${tk ? ` <span class="pill prot" title="${tk === 'dir' ? 'Your scouting director has him near one of your picks' : 'On your watch list'}">${tk === 'dir' ? 'Target' : '★ Watch'}</span>` : ''}</td><td class="l">${posLabel(p)}</td><td>${p.age}</td><td>${ovrTxt(p)}</td><td>${potCell(p)}</td>${myTurn ? `<td><button class="sm primary" data-draft="${p.id}">Draft</button></td>` : ''}</tr>`; }).join('');
   const made = order.filter(o => o.pid).length;
   setTimeout(() => { const n = document.getElementById('livenow'); if (n && n.parentElement) { const box = n.closest('.livebox'); if (box) box.scrollTop = Math.max(0, n.offsetTop - 120); } }, 0);
   return `<div class="grid2e"><section class="panel"><h2>Live draft · ${made} of ${order.length} picks made</h2><div class="tblwrap livebox"><table><thead><tr><th>Pick</th><th class="l">Team</th><th class="l">Selection</th><th class="l">Pos</th><th>Ovr</th><th>${potHead()}</th><th title="Consensus mock rank (green: value pick, red: reach)">Cons</th></tr></thead><tbody>${left}</tbody></table></div></section>
-  <section class="panel"><h2>${L.user != null ? "Director's board" : 'Consensus board'} · available</h2><div class="tblwrap livebox"><table><thead><tr><th>${L.user != null ? 'Board' : '#'}</th><th>Cons</th>${OUTLETS.map(o => `<th title="${esc(o.name)}">${o.short}</th>`).join('')}<th class="l">Prospect</th><th class="l">Pos</th><th>Age</th><th>Ovr</th><th>${potHead()}</th>${myTurn ? '<th></th>' : ''}</tr></thead><tbody>${right}</tbody></table></div>${myTurn ? '<p class="muted" style="margin:6px 0 0">You are on the clock.</p>' : ''}</section></div>`;
+  <section class="panel"><h2>${L.user != null ? "Director's board" : 'Consensus board'} · available</h2>${tgtBar}<div class="tblwrap livebox"><table><thead><tr><th>${L.user != null ? 'Board' : '#'}</th><th>Cons</th>${OUTLETS.map(o => `<th title="${esc(o.name)}">${o.short}</th>`).join('')}<th class="l">Prospect</th><th class="l">Pos</th><th>Age</th><th>Ovr</th><th>${potHead()}</th>${myTurn ? '<th></th>' : ''}</tr></thead><tbody>${right}</tbody></table></div>${myTurn ? '<p class="muted" style="margin:6px 0 0">You are on the clock.</p>' : ''}</section></div>`;
 }
 // ---------- history & records ----------
 function awardName(pid) { const p = L.players[pid]; return p ? plink(p) : '—'; }
@@ -3607,12 +3671,33 @@ function vInjuries() {
   ${list.length ? `<div class="tblwrap"><table class="sortable" data-sid="inj"><thead><tr><th class="l">Player</th><th class="l">Team</th><th>Pos</th><th>Ovr</th><th class="l">Injury</th><th title="Games of recovery left">Out</th><th class="l">Return</th></tr></thead><tbody>${list.map(row).join('')}</tbody></table></div>` : '<p class="muted">No injuries match.</p>'}</section>
   <section class="panel"><h2>Returning soon</h2><p class="muted" style="margin-top:-4px">Back within 3 games.</p>${soonHtml}</section></div>${suspReport()}`;
 }
+// v30a #15: type changes: show what changed per player (types added, dropped, upgraded to Elite, kept)
+function typeDiff(m) {
+  const [a, b] = String(m).split(' → '), A = a ? a.split(' + ') : [], B = b ? b.split(' + ') : [];
+  const base = x => x.replace(/^Elite /, ''), mapA = new Map(A.map(x => [base(x), x])), mapB = new Map(B.map(x => [base(x), x]));
+  const added = B.filter(x => !mapA.has(base(x))), dropped = A.filter(x => !mapB.has(base(x)));
+  const up = B.filter(x => mapA.has(base(x)) && x.startsWith('Elite ') && !mapA.get(base(x)).startsWith('Elite ')), down = B.filter(x => mapA.has(base(x)) && !x.startsWith('Elite ') && mapA.get(base(x)).startsWith('Elite '));
+  const kept = B.filter(x => mapA.has(base(x)) && !up.includes(x) && !down.includes(x));
+  const kind = added.length && dropped.length ? 'Type replaced' : added.length ? 'New type' : dropped.length ? 'Type dropped' : up.length ? 'Now Elite' : down.length ? 'No longer Elite' : 'Changed';
+  return { added, dropped, up, down, kept, kind };
+}
+function typeMoveRow(id, m, mine) {
+  const p = L.players[id]; if (!p) return '';
+  const d = typeDiff(m), chip = (x, c, tip) => `<span class="tchg ${c}" title="${tip}">${esc(x)}</span>`;
+  return `<div class="tmove ${mine ? 'mine' : ''}" data-tmove="${id}"><div>${plink(p)} <span class="muted">${posLabel(p)} · ${p.age} · ${ovrTxt(p)}</span> <span class="pill tkind">${d.kind}</span></div><div class="tchgs">${d.dropped.map(x => chip(x, 'tdrop', 'Dropped')).join('')}${d.down.map(x => chip(x, 'tdrop', 'Lost the Elite tag')).join('')}${d.added.map(x => chip(x, 'tadd', 'New')).join('')}${d.up.map(x => chip(x, 'tadd', 'Upgraded to Elite')).join('')}${d.kept.map(x => chip(x, 'tkeep', 'Unchanged')).join('')}</div></div>`;
+}
 function devReport(s) {
   const d = s.dev || {}; const mine = id => L.players[id] && L.user != null && L.players[id].team === L.user;
   const sec = (title, list, note) => list && list.length ? `<div class="panel"><h3>${title}</h3><p class="muted" style="margin:-4px 0 6px;font-size:12px">${note}</p>${list.map(([id, dd]) => { const p = L.players[id]; return p ? `<div class="leader ${mine(id) ? 'mine' : ''}" style="grid-template-columns:minmax(0,1fr) auto"><span>${plink(p)} <span class="muted">${p.team != null ? L.teams[p.team].abbr : 'FA'} · ${p.age}</span></span><span class="${dd > 0 ? 'w' : dd < 0 ? 'lo' : ''}">${dd > 0 ? '+' : ''}${dd} → ${ovrTxt(p)}</span></div>` : ''; }).join('')}</div>` : '';
-  const tm = s.typeMoves && s.typeMoves.length ? `<div class="panel"><h3>Type changes</h3><p class="muted" style="margin:-4px 0 6px;font-size:12px">Players whose game changed: aging athletes, new skills, or a second or third type for a rising star.</p>${s.typeMoves.map(([id, m]) => L.players[id] ? `<div class="${mine(id) ? 'mine' : ''}">${plink(L.players[id])} <span class="muted">${esc(m)}</span></div>` : '').join('')}</div>` : '';
+  const tm = s.typeMoves && s.typeMoves.length ? `<div class="panel" id="typechg"><h3>Type changes</h3><p class="muted" style="margin:-4px 0 6px;font-size:12px">Players whose game changed: aging athletes, new skills, or a second or third type for a rising star. <span class="tchg tadd">added</span> <span class="tchg tdrop">dropped</span> <span class="tchg tkeep">unchanged</span></p>${s.typeMoves.map(([id, m]) => typeMoveRow(id, m, mine(id))).join('')}</div>` : '';
   const body = [sec('Breakouts', d.breakouts, 'Young players who took a big step.'), sec('Late bloomers', d.bloomers, 'Second-rounders, undrafted players and slow developers who came on late.'), sec('Stalled', d.stalled, 'Young players with a big gap to their scouted potential who didn\'t improve.'), sec('Sliding', d.slides, 'Young players who went backwards.'), sec('Declining veterans', d.declines, 'Athleticism fades first, usually from 28 to 32.'), tm, (() => { const mine = L.user != null ? teamPlayers(L.user).filter(p => p.focusLog && p.focusLog.s >= L.season - 1) : []; return mine.length ? `<div class="panel"><h3>Your training focus</h3><p class="muted" style="margin:-4px 0 6px;font-size:12px">What each player's focus added this summer.</p>${mine.map(p => `<div class="leader" style="grid-template-columns:minmax(0,1fr)"><span>${plink(p)} <span class="muted">${esc(focusLogTxt(p))}</span></span></div>`).join('')}</div>` : ''; })()].filter(Boolean).join('');
   return body ? `<h2 style="margin:16px 0 8px">Development report</h2><div class="grid3" style="margin-bottom:16px">${body}</div>` : '';
+}
+// v30a #20: progression / regression report on its own page (League > Progression). Stays until the next season starts.
+function reviewBanner() { return `<div class="panel" id="revbanner" style="margin-bottom:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span>Progression &amp; regression report is ready: who improved, who declined, retirements, type changes.</span><a class="lk" href="#review" id="revlink">Open the report →</a></div>`; }
+function vReviewPage() {
+  const body = L.offSummary ? vReview() : '';
+  return `<section class="panel" id="revpage" style="margin-bottom:16px"><h2>Progression &amp; regression · ${seasonName(L.season)} offseason</h2><p class="muted" style="margin:-4px 0 0">Rating changes after the season. Available here until the next season starts.</p></section>${body || '<p class="muted">No report yet. It appears after the season ends and ratings update.</p>'}`;
 }
 function vReview() {
   const s = L.offSummary; if (!s) return '';
@@ -3889,8 +3974,8 @@ function render() {
   else {
     const v = ui.view;
     if (v === 'myteam' && L.user != null) html = vTeam(L.teams[L.user]);
-    else html = ({ preview: vPreview, weekly: vWeekly, standings: vStandings, schedule: vSchedule, stats: vStats, players: vPlayerDir, awards: vAwards, teams: vTeams, trades: vTrades, fa: vFA, draft: vDraft, coaches: vCoaches, history: vHistory, news: vNews, feed: vFeed, injuries: vInjuries, discipline: vDiscipline, pipeline: vPipeline, rules: vRules }[v] || vStandings)();
-    if (L.phase === 'off-review' && (v === 'standings' || v === 'myteam')) html = (v === 'standings' ? '' : '') + vReview() + html;
+    else html = ({ preview: vPreview, weekly: vWeekly, standings: vStandings, review: vReviewPage, schedule: vSchedule, stats: vStats, players: vPlayerDir, awards: vAwards, teams: vTeams, trades: vTrades, fa: vFA, draft: vDraft, coaches: vCoaches, history: vHistory, news: vNews, feed: vFeed, injuries: vInjuries, discipline: vDiscipline, pipeline: vPipeline, rules: vRules }[v] || vStandings)();
+    if (L.phase === 'off-review' && L.offSummary && (v === 'standings' || v === 'myteam')) html = reviewBanner() + html;   // v30a #20: the report has its own page
   }
   html = undoBar() + html;
   if (ui.backDlg && (ui.player != null || ui.coach != null || ui.gm != null || ui.view === 'teams' || ui.team != null)) html = `<div class="backdlg"><button class="sm primary" id="b-backdlg">← Back to popup</button></div>` + html;
@@ -4084,7 +4169,7 @@ function goFwd() {
 }
 function goHome() { location.hash = L && L.user != null ? '#myteam' : '#standings'; if (ui.player != null || ui.team != null || ui.coach != null || ui.game != null || ui.gm != null) { ui.gm = null; route(); } window.scrollTo(0, 0); }
 document.addEventListener('click', e => {
-  const el = e.target.closest('[data-gm],[data-attrtab],[data-twin],[data-injsev],[data-agent],[data-x],[data-histtab],[data-greatpos],[data-dtab],[data-dpage],[data-pdclear],[data-trtab],[data-tododone],[data-scoutp],[data-tgt],[data-joboffers],[data-bup],[data-bdown],[data-breset],[data-tradepick],[data-tradeforpick],[data-hirescout],[data-rfa],[data-cmpp],[data-cmpt],[data-nopause],[data-pdef],[data-hiderook],[data-fatalk],[data-fawd],[data-bookmode],[data-sftab],[data-mtab],[data-firescout],[data-scouthire],[data-snt],[data-buyterms],[data-confirm-buyout],[data-feattab],[data-besttab],[data-racec],[data-pacc],[data-pload],[data-pdtab],[data-pset],[data-ptab],[data-editcoach],[data-savecoach],[data-block],[data-protect],[data-core],[data-tgttab],[data-attall],[data-watch],[data-ptag],[data-top100],[data-signall],[data-stab],[data-skey],[data-awkey],[data-teamtab],[data-editname],[data-savename],[data-firecoach],[data-unsort],[data-player],[data-game],[data-team],[data-sort],[data-back],[data-hs],[data-hsback],[data-veto],[data-release],[data-up],[data-down],[data-offer],[data-pkyr],[data-swapadd],[data-swapdel],[data-incadd],[data-incdel],[data-review],[data-draft],[data-tradefor],[data-setmode],[data-setteam],#create,[data-confirm-release],[data-topt],[data-accept],[data-decline],[data-counter],[data-hire],[data-ncat],[data-cls],[data-r2],[data-padv],[data-tskey],[data-tsadv],[data-tssort],[data-coach],[data-fav],#setup-cancel,[data-setsize],[data-setnba],[data-setgames],[data-tconf]');
+  const el = e.target.closest('[data-gm],[data-attrtab],[data-twin],[data-injsev],[data-agent],[data-x],[data-histtab],[data-greatpos],[data-dtab],[data-dpage],[data-pdclear],[data-trtab],[data-tododone],[data-scoutp],[data-tgt],[data-joboffers],[data-bup],[data-bdown],[data-breset],[data-tradepick],[data-tradeforpick],[data-hirescout],[data-rfa],[data-cmpp],[data-cmpt],[data-nopause],[data-pdef],[data-hiderook],[data-faafford],[data-trf],[data-trwith],[data-fatalk],[data-fawd],[data-bookmode],[data-sftab],[data-mtab],[data-firescout],[data-scouthire],[data-snt],[data-buyterms],[data-confirm-buyout],[data-feattab],[data-besttab],[data-racec],[data-pacc],[data-pload],[data-pdtab],[data-pset],[data-ptab],[data-editcoach],[data-savecoach],[data-block],[data-protect],[data-core],[data-tgttab],[data-attall],[data-watch],[data-ptag],[data-top100],[data-signall],[data-stab],[data-skey],[data-awkey],[data-teamtab],[data-editname],[data-savename],[data-firecoach],[data-unsort],[data-player],[data-game],[data-team],[data-sort],[data-back],[data-hs],[data-hsback],[data-veto],[data-release],[data-up],[data-down],[data-offer],[data-pkyr],[data-swapadd],[data-swapdel],[data-incadd],[data-incdel],[data-review],[data-draft],[data-tradefor],[data-setmode],[data-setteam],#create,[data-confirm-release],[data-topt],[data-accept],[data-decline],[data-counter],[data-hire],[data-ncat],[data-cls],[data-r2],[data-padv],[data-tskey],[data-tsadv],[data-tssort],[data-coach],[data-fav],#setup-cancel,[data-setsize],[data-setnba],[data-setgames],[data-tconf]');
   if (!el || !($('#main').contains(el) || $('#modal').contains(el))) return;
   if ($('#modal').contains(el) && (el.dataset.player || el.dataset.team || el.dataset.coach)) { ui.backDlg = ui.curDlg || null; closeDialog(); }
   const d = el.dataset;
@@ -4181,7 +4266,9 @@ document.addEventListener('click', e => {
   if (d.dtab) { ui.dtab = d.dtab; render(); return; }
   if (d.dpage) { ui.dpage = d.dpage; render(); window.scrollTo(0, 0); return; }
   if (d.tododone) { ui.todoDone = !ui.todoDone; render(); return; }
+  if (d.trwith !== undefined && el.dataset.trwith !== undefined) { ui.tradeWith = +d.trwith; ui.tGive = { players: [], picks: [] }; ui.tGet = { players: [], picks: [] }; render(); window.scrollTo(0, 0); return; }
   if (d.trtab) { ui.trTab = d.trtab; render(); window.scrollTo(0, 0); return; }
+  if (d.trf !== undefined && el.dataset.trf !== undefined) { ui.trF = d.trf; render(); return; }
   if (d.scoutp) { e.stopPropagation(); scoutDialog(+d.scoutp); return; }
   if (d.tgt) { e.stopPropagation(); const p = L.players[+d.tgt]; if (!p || p.team == null) return; ui.tradeWith = p.team; ui.tGet = { players: [p.id], picks: [] }; ui.tGive = { players: [], picks: [] }; ui.tradeMsg = null; render(); window.scrollTo(0, 0); return; }
   if (d.bup || d.bdown) { e.stopPropagation(); moveBoard(+(d.bup || d.bdown), +d.bd, d.bup ? -1 : 1); return; }
@@ -4198,6 +4285,7 @@ document.addEventListener('click', e => {
   if (d.cmpt) { const t = +d.cmpt; const o = L.user != null && t !== L.user ? L.user : L.teams.find(x => x.id !== t && x.conf === L.teams[t].conf).id; compareDialog('t', t, o); return; }
   if (d.nopause) { L.pauseOffers = L.pauseOffers === false ? true : false; save(); render(); return; }
   if (d.hiderook) { ui.faHideRook = !ui.faHideRook; render(); return; }
+  if (d.faafford) { ui.faAfford = !ui.faAfford; render(); return; }
   if (d.fawd) { withdrawFAOffer(L, +d.fawd); ui.neg[+d.fawd] = { ...(ui.neg[+d.fawd] || {}), msg: 'Offer withdrawn.', ok: true }; save(); render(); return; }
   if (d.fatalk) { const p = L.players[+d.fatalk]; if (!p || !p.faTalk) { closeDialog(); render(); return; } const t0 = p.faTalk;
     if (d.ans === 'yes') { const o = (L.faOffers || {})[p.id] || {}; const r = negotiate(L, p.id, t0.amt, t0.yrs, L.user, 'signing', null, o.extra || {}); if (r.ok) { delete L.faOffers[p.id]; p.faTalk = null; ui.neg[p.id] = { amt: t0.amt, yrs: t0.yrs, msg: r.msg, ok: true }; } else ui.neg[p.id] = { amt: t0.amt, yrs: t0.yrs, msg: r.msg, ok: false }; }
@@ -4256,7 +4344,7 @@ document.addEventListener('click', e => {
   render(); window.scrollTo(0, 0);
 });
 
-const VIEWS = ['preview', 'weekly', 'myteam', 'standings', 'schedule', 'stats', 'players', 'injuries', 'discipline', 'awards', 'pipeline', 'teams', 'trades', 'fa', 'draft', 'coaches', 'history', 'news', 'feed', 'rules'];
+const VIEWS = ['preview', 'weekly', 'myteam', 'standings', 'review', 'schedule', 'stats', 'players', 'injuries', 'discipline', 'awards', 'pipeline', 'teams', 'trades', 'fa', 'draft', 'coaches', 'history', 'news', 'feed', 'rules'];
 // old tab names still work as links
 const VIEW_ALIAS = { leaders: ['stats', 'leaders'], tstats: ['stats', 'teams'], playoffs: ['standings', null] };
 function route() {
@@ -4351,7 +4439,7 @@ function afterRun(ph0) {
   if (ph0 === 'regular' && L.phase === 'regular-done') queueDialog(() => awardsDialog('mvp'));
   if (ph0 === 'playoffs' && L.phase === 'season-done') { queueDialog(championDialog); queueDialog(() => seasonReviewDialog(L.season)); }
   if (L.allStar && L.allStar.s === L.season && !L.allStar.shown) { L.allStar.shown = true; queueDialog(allStarDialog); }
-  if (ph0 === 'season-done' && L.phase === 'off-review' && L.mode === 'team') { queueDialog(yearbookDialog); queueDialog(finSummaryDialog); if (L.jobless && (L.jobOffers || []).length) queueDialog(jobOffersDialog); }
+  if (ph0 === 'season-done' && L.phase === 'off-review' && L.mode === 'team') { queueDialog(yearbookDialog); queueDialog(finSummaryDialog); if (L.jobless && (L.jobOffers || []).length) queueDialog(jobOffersDialog); if (L.pipeSeen !== L.season && L.pipeHist && L.pipeHist[L.season]) { L.pipeSeen = L.season; queueDialog(pipeDoneDialog); } }
   maybeDraftDialog(ph0);
   maybeScoutPrompt();
   if (L.user != null && (L.holdouts || []).length && L.phase === 'regular') queueDialog(holdoutDialog);

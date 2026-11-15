@@ -1,3 +1,19 @@
+# TASK_STATE — v30 text variants (plan rows 5t, 21t, 23t) — Haiku — Nov 15 2026
+
+Note: 8t (scouting report) and 7t (ticker stats/rumors) are NOT keyed: the lines are inline templates in src/app.js (scoutDlg, tickerItems). Not touched here; needs a small refactor into keys first (see PROGRESS.md).
+Rule for this run: 4 wordings per key (1-wording keys get +3; HOF speeches already had 4, so +4 themed variants each, 8 total). Same {vars}, under 140 chars.
+
+- [x] T0. Read state: repo TASK_STATE (v30c done), HAIKU-TASKS.md, plan rows 5t/21t/23t, key locations
+- [x] T1. tools/lint-v30-text.js: wordings >= 4, same {vars} as first wording, under 140 chars, no empty strings (HOF: vars must be ones the code passes)
+- [x] T2. 5t: mv.n.* (13), mv.t.* (3), mv.r.* (5) in src/league.js FLAVOR block: +3 each
+- [x] T3. 21t: hof.speech.* (9 keys) in src/nba-text.js story: +4 each, themes family, coaches, teammates, city, humor
+- [x] T4. 23t: iv.q.* new pools (10 keys) +2 each; iv.a.* answers (40 slots) +3 each; iv.news.draft +2; iv.intro.draft +1 (src/league.js). Fixed ivAnswers seed (was always 2nd wording)
+- [x] T5. node --check src/*.js; node tools/lint-v30-text.js PASS; node tools/t30c.js 30/30; variety check (4 distinct answers per slot, HOF 8 distinct, no raw braces)
+- [x] T6. HAIKU-TASKS.md + PROGRESS.md updated
+- [x] T7. Committed locally on branch v30-text-variants (4fdece1). PUSH BLOCKED: GitHub not linked to this session (add_repo asks to connect GitHub). Sent patch instead.
+- [ ] T8. 7t / 8t: deferred (need keys first). Ask Kenneth.
+
+---
 # TASK_STATE — v30c UI (items 1, 2, 5, 19, 21, 23) — Sonnet
 
 Note: repo had NO v30c logic (no 6a/5/23 entries). Kenneth chose: build minimal logic for 5 + 23 here. GitHub not linked -> commit locally, send files + patch.

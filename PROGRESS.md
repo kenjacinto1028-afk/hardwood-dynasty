@@ -1,5 +1,15 @@
 # PBL progress
 
+## v30 text variants (Nov 15 2026) — Haiku: plan rows 5t, 21t, 23t
+- [x] 5t move write-up reasons: `mv.n.*` (13), `mv.t.*` (3), `mv.r.*` (5) in `src/league.js` FLAVOR, 4 wordings each (+3). Vars: `mv.n.depth` keeps `{pos}`
+- [x] 21t Hall of Fame speeches: `hof.speech.*` (9 keys) in `src/nba-text.js` story, +4 each (8 total): family (`fam`), coaches (`coach`, `coach2`), teammates (`mates`), city (`team`), humor (`open`, `titles`, `mvp`, `close`)
+- [x] 23t interviews: `iv.q.*` for the 10 new pools (bench, future, rotation, pressure, rest, draft: dpick, dtrade, dclass, dneed, dwork) +2 each; `iv.a.*` answers for the same 10 pools, 40 slots, +3 each; `iv.intro.draft` +1, `iv.news.draft` +2. Draft questions are about the draft only
+- [x] Code fix: `ivAnswers` (league.js) seeded every answer with `1`, so with 4 wordings each answer would always show the second. Now seeded by question number + slot. Variety checked: 4 distinct answers per slot over 12 seeds
+- [x] Lint: `tools/lint-v30-text.js` (new): 82 keys, 4+ wordings, same vars (HOF: allowed vars), under 140 chars. PASS
+- [x] Tests: `node --check` all src OK; `node tools/t30c.js` 30/30
+- [ ] Not done, not keyed: 8t scouting report lines (`scoutDlg` in `src/app.js`) and 7t ticker stats/rumors (`tickerItems`). Both are inline templates. Plan: move them into keys first (small `app.js` refactor), then add variants. Waiting for Kenneth's OK.
+- Note (pre-existing, not changed): `ALL=1 node tools/lint-v30-text.js` flags 182 older keys (e.g. `iv.a.fans.*`, `fd.pipe.award`, `recap.mvp`) with fewer wordings or mismatched vars. Left alone; they are older rounds.
+
 ## v30c UI (Nov 15 2026) — Sonnet: items 1, 2, 5, 19, 21, 23
 - Note: the repo had no v30c logic (no 6a / 5 / 23 entries), so the minimal logic for 5 and 23 was written here, in `src/league.js` (end of file) + hooks. Not the full Opus pass: Haiku can add wording variants (one wording per key now) and Opus can review.
 - [x] #5 logic: `L.mv` (newest first, 300 max) + `rec.wu` on every trade: one write-up per team `{ tid, k, text, fit: [before, after], ovr: [before, after] }`. Trades: need filled (or cap, youth, future), coach fit and team overall before > after. Signings (`sign`, `resign`) and releases: reason + coach fit (no team overall). Hooks: `executeTrade`, `executeTrade3`, `signContract`, `release`. Reasons: `mvNeed` (depth at a position, stretch big, then the weakest rotation style group: play, shoot, reb, rimD, perD, ath, inside; else upgrade / depth piece), `mvWhyRelease` (injury, fit, cap, bench, spot). Text keys `mv.n.*`, `mv.t.*`, `mv.r.*` (FLAVOR, 1 wording each). Coach fit = `coachFitScore` (top 8 vs head coach), team overall = `teamStrength` rounded

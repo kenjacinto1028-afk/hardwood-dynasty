@@ -1,3 +1,32 @@
+# TASK_STATE — merge v31 overseas (Sonnet) into v30-review — Nov 15 2026
+
+- [x] M1. git apply --3way v31-abroad.patch: code clean (same base as round 2); PROGRESS.md + TASK_STATE.md conflicts kept both
+- [x] M2. Tests: node --check all, lint 100 PASS, t31-abroad 14/14, browser-v31 23/23, 3 seasons from tools/snap/nba-commish-s10 (no errors, 0 jersey dups, tw 38-48/60, abroad 45/89/116)
+- [x] M3. Committed, combined zip sent
+
+---
+# TASK_STATE — v31 overseas (cut players aged <=26 go abroad instead of retiring) — Nov 15 2026
+
+- [x] A0. Read code: startNewSeason FA cap, retirePlayer, pipeBuild P3, aiFillTwoWay, startOffseason, app.js player page + League>Players
+- [x] A1. src/league.js: ABROAD consts, sendAbroad, abroadOffseason (after computeMarket in startOffseason), startNewSeason cut rule, pipeBuild P3 club + tx/news, FLAVOR ab.go (4 wordings)
+- [x] A2. src/app.js: faTxt() label in League>Players, 'Overseas' team filter (FA filter excludes abroad), player page label, negotiable blocks abroad
+- [x] A3. tools/t31-abroad.js 13/13 (2m50s PBL 16); lint extended to ab.* (100 keys PASS)
+- [x] A4. node --check OK, lint 100 PASS, t30a 29/29, t30c 30/30, t31 14/14 (after fix: earlier abroad seasons carry over via p.abroadSeasons)
+- [x] A5. tools/runs31/v31n-nba-commish.txt: tw start 48.3 vs 46.8, FA 26.9 vs 26.7, 173 abroad at S10, save 17,411 KB vs 16,968 KB
+- [x] A6. tools/browser-v31.py.txt 23/23 (player page + League>Players Info/Stats, 1300 + 390px); fixed 'Role: Free agent' on sumCard
+- [x] A7a. PROGRESS.md + README written
+- [x] A7b. committed on branch v31-abroad; PUSH BLOCKED (GitHub not linked, add_repo asks to connect); zip + patch sent
+
+---
+
+# TASK_STATE — faster testing: tiers doc + season-10 snapshots — Nov 15 2026
+
+- [x] F1. TESTING.md (repo) + project claude/testing-tiers.md; r30.js SNAP= option
+- [x] F2. Snapshot maker tools/snap-make.js + loader tools/snap.js (load save, migrate, set globals)
+- [x] F3. tools/snap/nba-commish-s10, nba-team-s10, pbl16-commish-s10 (.json.gz); each loads + sims 1 season via r30 SNAP
+- [x] F4. PROGRESS.md, committed, zip sent
+
+---
 # TASK_STATE — v30 next steps in this session (prompts 1-3) — Nov 15 2026
 
 - [x] N1. 17 keys sc.* (5) + tk.* (12) at end of src/league.js; scoutDlg + tickerItems in src/app.js use fl() with a per-day seed (same text as before)

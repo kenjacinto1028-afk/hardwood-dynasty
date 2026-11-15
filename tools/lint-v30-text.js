@@ -10,7 +10,7 @@ const { run } = load(SRC, 3);
 const flavor = JSON.parse(run('JSON.stringify(typeof FLAVOR!=="undefined"?FLAVOR:{})'));
 const story = JSON.parse(run('JSON.stringify(typeof NBA_TEXT!=="undefined"&&NBA_TEXT.story?NBA_TEXT.story:{})'));
 const V30_POOL = 'bench|future|rotation|pressure|rest|dpick|dtrade|dclass|dneed|dwork';
-const inScope = k => ALL || new RegExp(`^(sc\\.|tk\\.|mv\\.|iv\\.(q|a)\\.(${V30_POOL})\\b|iv\\.(intro|news)\\.draft$|hof\\.speech\\.)`).test(k);
+const inScope = k => ALL || new RegExp(`^(sc\\.|ab\\.|tk\\.|mv\\.|iv\\.(q|a)\\.(${V30_POOL})\\b|iv\\.(intro|news)\\.draft$|hof\\.speech\\.)`).test(k);
 // vars the code passes for each HOF speech key (league.js hofSpeech)
 const HOF_VARS = { 'hof.speech.open': ['name', 'seasons'], 'hof.speech.team': ['team', 'n'], 'hof.speech.coach': ['c1'], 'hof.speech.coach2': ['c1', 'c2'], 'hof.speech.mates': ['list', 'top', 'rest'], 'hof.speech.fam': ['rel', 'who'], 'hof.speech.titles': ['n', 'rings'], 'hof.speech.mvp': ['n', 'mvps'], 'hof.speech.close': ['name'] };
 const sets = [['FLAVOR', flavor], ['story', story]];

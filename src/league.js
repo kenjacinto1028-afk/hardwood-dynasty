@@ -4398,7 +4398,7 @@ function startOffseason(L) {
   summary.mine = L.user != null ? summary.up.filter(([id]) => L.players[id] && L.players[id].team === L.user) : [];
   summary.down = summary.up.slice(-8).reverse(); summary.up = summary.up.slice(0, 8);
   for (const p of active(L)) {
-    if (p.prospect) continue;
+    if (p.prospect || p.abroad) continue;   // v31: players abroad retire only by abroadOffseason
     let why = null;
     if (p.careerEnd) why = 'career-ending injury';
     else if (p.tour === L.season) why = 'farewell tour';
@@ -4416,6 +4416,7 @@ function startOffseason(L) {
   scoutOffseason(L);
   for (const k in L.h2h) L.h2h[k].heat = r1(Math.max(L.h2h[k].base, L.h2h[k].heat * 0.85));
   computeMarket(L);
+  try { abroadOffseason(L); } catch (e) { console.error('abroadOffseason', e); }   // v31: before free agency, players abroad who are good enough return to L.fa
   const top = mockOrder(L, S)[0];
   if (top) logNews(L, `Mock draft: ${top.name} (${posLabel(top)}, ${NAT_NAME[top.nat]}) projects as the #1 pick`, null, 'draft');
   try { const H = L.history.find(h => h.s === S), rc = seasonRecap(L, S); if (H && rc) { H.recap = rc; logNews(L, 'Season recap: ' + rc, null, 'league'); } } catch (e) { }   // v28.4 F4
@@ -5115,6 +5116,37 @@ function tourNews(L, g) {
   for (const r of g.box) { const p = L.players[r[0]]; if (!p || p.tour !== L.season) continue; const tid = r[1] === 0 ? g.home : g.away, host = g.home;
     if (host !== tid && p.hist.some(h => h.tid === host) && !(p.tourStops || []).includes(host)) { (p.tourStops = p.tourStops || []).push(host); logNews(L, `Farewell tour: ${p.name} gets a standing ovation in his last game at ${L.teams[host].city}, where he used to play (${r[2 + IX.pts]} pts)`, tid, 'game'); } }
 }
+// ---------- v31: cut players aged 26 or younger go overseas ----------
+// At the season-start free-agent cap a young player is not retired: he leaves L.fa, stays in L.players with p.abroad = { s: season he left, n: seasons abroad before this stay }
+// and a pipeline club (EABL / APBA, picked in pipeBuild P3). He keeps developing. Each offseason (before free agency) he returns to L.fa if he is worth a look,
+// otherwise he stays abroad until 3 seasons abroad in total (p.abroadSeasons carries earlier stays if he is cut again) or age 27, then retires (deleted if he never played).
+const ABROAD = { maxAge: 26, seasons: 3, retireAge: 27, minValue: 48, newsOvr: 50 };
+const isAbroad = p => !!(p && p.abroad && !p.retired);
+function abroadClub(p) { return p && p.club ? pipeTeamName(p.club.lg, p.club.t) : ''; }
+function abroadLabel(p) { const c = abroadClub(p); return c ? `Overseas (${c})` : 'Overseas'; }
+function sendAbroad(L, p) {
+  L.fa = L.fa.filter(id => id !== p.id);
+  p.abroad = { s: L.season, n: p.abroadSeasons || 0 }; p.abroadNew = 1;   // n: seasons already abroad on earlier stays (set when he returned); abroadNew: pipeBuild writes the club, transaction and news lines once the club is set
+  p.contract = null; p.ext = null; delete p.offer;
+}
+const abroadValue = (L, p) => 0.6 * teamPotEst(L, null, p).est + 0.4 * p.ovr;   // as aiFillTwoWay (no team: league-wide scouting read)
+function abroadOffseason(L) {
+  const bl = twBenchLine(L); let back = 0, gone = 0;
+  for (const p of Object.values(L.players)) {
+    if (!isAbroad(p)) continue;
+    const yrs = p.abroad.n + L.season - p.abroad.s + 1;
+    const twOK = p.age <= 27 && twSvc(p) < 3 && abroadValue(L, p) >= ABROAD.minValue;
+    if (twOK || p.ovr >= bl) {
+      p.tx.push({ s: L.season, t: 'Returned from overseas' }); p.abroadSeasons = yrs; delete p.abroad; delete p.club; delete p.abroadNew;
+      L.fa.push(p.id); setAsk(L, p); back++;
+    } else if (yrs >= ABROAD.seasons || p.age >= ABROAD.retireAge) {
+      const played = p.real || p.hist.some(h => h.rs && h.rs.gp > 0);
+      delete p.abroad; delete p.club; retirePlayer(L, p, 'overseas'); gone++;
+      if (!played) delete L.players[p.id]; else honorRetired(L, p);
+    }
+  }
+  L.abroadLog = (L.abroadLog || []).concat({ s: L.season, back, gone }).slice(-20);
+}
 function startNewSeason(L) {
   processPending(L);
   for (const t of L.teams) for (const id of [...t.roster, ...(t.twoWay || [])]) if (L.players[id]) assignNumber(L, L.players[id], t);   // v30 review: clears number clashes in older saves (first listed keeps his)
@@ -5141,7 +5173,8 @@ function startNewSeason(L) {
  const played = p.real || p.hist.some(h => h.rs && h.rs.gp > 0); retirePlayer(L, p, 'unsigned'); if (!played) delete L.players[p.id]; else honorRetired(L, p); } }   // v27 N8: unsigned retirees get HOF / jersey review too (Gobert, 4x DPOY, had legacy 0); real players are never deleted
   // v30 review: the cap keeps young two-way prospects (ranked like aiFillTwoWay: 60% potential, 40% overall), so AI teams still have two-way candidates at season start
   if (L.fa.length > 60) { const twV = p => { try { return twEligible(L, p) ? 0.6 * teamPotEst(L, 0, p).est + 0.4 * p.ovr : p.ovr; } catch (e) { return p.ovr; } };
-    for (const [p] of L.fa.map(id => L.players[id]).map(p => [p, twV(p)]).sort((a, b) => a[1] - b[1]).slice(0, L.fa.length - 60)) { const played = p.real || p.hist.some(h => h.rs && h.rs.gp > 0); retirePlayer(L, p, 'unsigned'); if (!played) delete L.players[p.id]; else honorRetired(L, p); } }
+    for (const [p] of L.fa.map(id => L.players[id]).map(p => [p, twV(p)]).sort((a, b) => a[1] - b[1]).slice(0, L.fa.length - 60)) { if (p.age <= ABROAD.maxAge) { sendAbroad(L, p); continue; }   // v31: 26 and under go overseas instead of retiring
+      const played = p.real || p.hist.some(h => h.rs && h.rs.gp > 0); retirePlayer(L, p, 'unsigned'); if (!played) delete L.players[p.id]; else honorRetired(L, p); } }
   L.picks = L.picks.filter(k => k.s >= L.season);
   ensurePicks(L);
   for (const t of L.teams) { if (!t.owner) initFinance(L, t); t.fin = newFin(L); t.hype = Math.round((t.hype + (50 - t.hype) * 0.35) * 10) / 10; }
@@ -8213,8 +8246,8 @@ function pipeBuild(L) {
     tm.w = tm.l = tm.cw = tm.cl = 0;
   }
   // P3: free agents below the cut get a club (still signable in free agency)
-  const fa = L.fa.map(id => L.players[id]).filter(p => p && !p.retired && !p.prospect && !p.tw && p.ovr < PIPE_FX.faCut && !(p.injury > 40)).sort((a, b) => b.ovr - a.ovr);
-  const imp = { EABL: PIPE_TEAMS.EABL.map(() => 0), APBA: PIPE_TEAMS.APBA.map(() => 0) }, cap = { EABL: PIPE_FX.euroImp, APBA: PIPE_FX.asiaImp }, news = [];
+  const fa = L.fa.map(id => L.players[id]).filter(p => p && !p.retired && !p.prospect && !p.tw && p.ovr < PIPE_FX.faCut && !(p.injury > 40)).concat(Object.values(L.players).filter(p => p.abroad && !p.retired)).sort((a, b) => b.ovr - a.ovr);   // v31: players abroad always get a club
+  const imp = { EABL: PIPE_TEAMS.EABL.map(() => 0), APBA: PIPE_TEAMS.APBA.map(() => 0) }, cap = { EABL: PIPE_FX.euroImp, APBA: PIPE_FX.asiaImp }, news = [], abNews = [];
   for (const p of fa) {
     const pref = p.age >= 30 || p.ovr >= PIPE_FX.euroOvr ? ['EABL', 'APBA'] : ['APBA', 'EABL'];
     let done = false;
@@ -8222,8 +8255,15 @@ function pipeBuild(L) {
       const old = p.club; p.club = { lg, t: i, s }; c[i]++; done = true; PIPE_CNT.signs++;
       if (!(old && old.lg === lg && old.t === i && old.s === s - 1)) { (p.tx = p.tx || []).push({ s, t: `Signed with ${pipeTeamName(lg, i)} (${lg})` }); if (p.ovr >= 54 || (p.fame || 0) >= 40) news.push(p); }
       break; }
+    if (!done && p.abroad) { const lg = pref[0], c = imp[lg], i = c.map((v, k) => k).sort((a, b) => c[a] - c[b] || R() - 0.5)[0]; p.club = { lg, t: i, s }; c[i]++; done = true; (p.tx = p.tx || []).push({ s, t: `Signed with ${pipeTeamName(lg, i)} (${lg})` }); }   // v31: clubs full: least loaded team anyway
     if (!done) delete p.club;
+    if (p.abroad && p.abroadNew && p.club) {   // v31: first season overseas: transaction line (the club line above is replaced) and news for notable players
+      p.abroadNew = 0; delete p.abroadNew; const tx = p.tx; for (let k = tx.length - 1; k >= 0 && k >= tx.length - 2; k--) if (tx[k].s === s && /^Signed with /.test(tx[k].t)) { tx.splice(k, 1); break; }
+      tx.push({ s, t: `Went overseas: signed with ${pipeTeamName(p.club.lg, p.club.t)} (${p.club.lg})` });
+      if (p.ovr >= ABROAD.newsOvr || p.draft) abNews.push(p);
+    }
   }
+  for (const p of abNews.slice(0, 6)) logNews(L, fl('ab.go', { name: p.name, age: p.age, club: pipeTeamName(p.club.lg, p.club.t), lg: p.club.lg, ovr: p.ovr }, p.id), null, 'tx', 'pipe');
   for (const p of news.slice(0, 3)) logNews(L, fl('pp.sign', { name: p.name, club: pipeTeamName(p.club.lg, p.club.t), lg: p.club.lg, ovr: p.ovr }, p.id), null, 'tx', 'pipe');
   for (const p of Object.values(L.players)) if (p.club && p.club.s !== s) delete p.club;
   // fill every roster with non-prospect players (walk-ons, local pros)
@@ -8580,4 +8620,8 @@ Object.assign(FLAVOR, {
   'tk.top': ["Last game day's top score: {name} had {pts} points against {opp} ({res})", "Top scorer last game day: {name}, {pts} points against {opp} ({res})", "{name} led all scorers last game day with {pts} against {opp} ({res})", "Big night: {name} poured in {pts} points against {opp} ({res})"],
   'tk.treq': ['{name} ({abbr}, {ovr}) is reported to want a trade', 'Sources say {name} ({abbr}, {ovr}) has asked out', '{name} ({abbr}, {ovr}) wants a new team, according to reports', 'Word is {name} ({abbr}, {ovr}) would like to be traded'],
   'tk.block': ['{team} are said to be listening on offers for {name} ({ovr})', 'Sources say the {team} would move {name} ({ovr}) for the right offer', '{name} ({ovr}) is on the trade block, and the {team} are taking calls', 'The {team} have made {name} ({ovr}) available, league sources say']
+});
+// v31: young players cut at the free-agent cap go overseas
+Object.assign(FLAVOR, {
+  'ab.go': ['{name} ({ovr}, {age}) heads overseas to play for the {club} of the {lg}.', 'Unsigned {name} ({ovr}, {age}) goes abroad and joins the {club} ({lg}).', '{name} ({ovr}, {age}) takes his game overseas with the {club} of the {lg}.', 'With no deal at home, {name} ({ovr}, {age}) signs with the {club} in the {lg}.']
 });

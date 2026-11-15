@@ -1,13 +1,14 @@
 // v30 review: long sims with metrics. SRC=src SEED=n NBA=1 MODE=commish|team node tools/r30.js [seasons]
 // Prints one JSON line per season (prefix "S ") and a summary ("SUM "). Works on pre-v30 code too (v30 hooks guarded).
-const {run,ctx}=require('./load.js')(process.env.SRC||'src',+process.env.SEED||1);
+// SNAP=tools/snap/<file>.json.gz starts from a saved league instead of a new one (NBA/SIZE/MODE come from the save)
+const {run,ctx}=process.env.SNAP?require('./snap.js')(process.env.SRC||'src',+process.env.SEED||1,process.env.SNAP):require('./load.js')(process.env.SRC||'src',+process.env.SEED||1);
 const N=+process.argv[2]||20, NBA=(process.env.NBA||'1')==='1', MODE=process.env.MODE||'commish';
 run(`var R30={inj:{rs:0,po:0,rsG:0,poG:0},tw:{calls:0,no:0,pw:new Map(),noP:new Set(),askP:new Set(),byPh:{},byWhy:{}},err:[]};
 (function(){const ai=addInjury;addInjury=function(p,med){const n=ai(p,med);const po=LCUR&&LCUR.phase==='playoffs';R30.inj[po?'po':'rs']++;R30.inj[po?'poG':'rsG']+=n;return n;};
 if(typeof twWillSign==='function'){const tw=twWillSign;twWillSign=function(L,p){const r=tw(L,p);const k=L.phase+(L.phase==='regular'?(L.day>totalDays(L)*0.5?'-late':'-early'):'');const b=R30.tw.byPh[k]=R30.tw.byPh[k]||[0,0];b[0]++;R30.tw.calls++;R30.tw.askP.add(p.id);R30.tw.pw.set(p.id+':'+L.season+':'+L.phase+':'+Math.floor((L.day||0)/7),r.ok?1:0);if(!r.ok){b[1]++;R30.tw.no++;R30.tw.noP.add(p.id);R30.tw.byWhy[r.k]=(R30.tw.byWhy[r.k]||0)+1;}return r;};}
 })();var LCUR=null;`);
 const out=run(`(function(N){
-const L=newLeague({mode:'${MODE}',size:${+process.env.SIZE||30},userTeam:${MODE==='team'?5:'undefined'},games:82${NBA?",nba:true":""}});LCUR=L;
+const L=${process.env.SNAP?'SL':`newLeague({mode:'${MODE}',size:${+process.env.SIZE||30},userTeam:${MODE==='team'?5:'undefined'},games:82${NBA?",nba:true":""}})`};LCUR=L;
 const U=L.user, rows=[], t00=Date.now();
 const iv={seasons:[],dupKeys:0,dupText:0,stages:{}};
 const ivSeen=new Map();const answerIv=()=>{const I=L.iv;if(!I||I.done)return;for(const q of I.qs){const tx=ivText(L,q);const k=I.s+'|'+tx;if(ivSeen.has(k))iv.dupText++;ivSeen.set(k,1);const an=ivAnswers(L,q);if(new Set(an).size<an.length)iv.dupAns=(iv.dupAns||0)+1;}for(let i=0;i<I.qs.length;i++){try{ivAnswer(L,i,Math.floor(Math.random()*4));}catch(e){R30.err.push('ivAnswer '+e.message);}}};
@@ -53,6 +54,7 @@ for(let y=1;y<=N;y++){const t0=Date.now();R30.inj={rs:0,po:0,rsG:0,poG:0};const 
  startNewSeason(L);
  row.twCalls=R30.tw.calls-tw0.calls;row.twNo=R30.tw.no-tw0.no;
  row.weird=weird();
+ row.ab={n:Object.values(L.players).filter(p=>p.abroad&&!p.retired).length,last:(L.abroadLog||[]).slice(-1)[0]||null};   // v31: players abroad now, last offseason's returned / retired
  }catch(e){R30.err.push('S'+L.season+' '+String(e.stack).slice(0,300));row.err=String(e.message);console.log('S '+JSON.stringify(row));break;}
  row.ms=Date.now()-t0;row.kb=Math.round(JSON.stringify(L).length/1024);
  console.log('S '+JSON.stringify(row));

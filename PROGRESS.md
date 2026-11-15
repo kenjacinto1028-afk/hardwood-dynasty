@@ -1,5 +1,23 @@
 # PBL progress
 
+## v31 overseas (Nov 15 2026) — cut players aged 26 and under go abroad instead of retiring
+- [x] `startNewSeason` FA cap (60): a cut player aged <= 26 calls `sendAbroad` (league.js, above `startNewSeason`): off `L.fa`, stays in `L.players`, `p.abroad = { s, n }` (s = season he left, n = seasons already abroad on earlier stays). 27+ keep `retirePlayer(.., 'unsigned')` (deleted if never played)
+- [x] Club: `pipeBuild` P3 now also covers players abroad (same pick rule: age 30+ or OVR 48+ prefers EABL, else APBA; least-loaded team under the import cap, any least-loaded team if all full). Transaction "Went overseas: signed with X (LG)"; news `ab.go` (new FLAVOR key, 4 wordings) for OVR 50+ or drafted players, max 6 a year
+- [x] They keep developing (still in `active(L)`). Random retirement skips them
+- [x] `abroadOffseason` (called in `startOffseason` right after `computeMarket`, before free agency): returns to `L.fa` (tx "Returned from overseas", `setAsk`) if two-way eligible with value >= 48 (`0.6 * teamPotEst(L, null, p).est + 0.4 * ovr`, no team) or OVR >= `twBenchLine` (typical 13th man). Otherwise stays; retires ('overseas', deleted if never played) after 3 seasons abroad in total (`p.abroadSeasons` carries earlier stays if he is cut again) or age 27. Log: `L.abroadLog` (back / gone per offseason)
+- [x] UI (app.js): player page shows "Overseas (club name)" (header + Role), no Negotiate for players abroad; League > Players (both tabs): team column "Overseas (club)", FA filter excludes them, new "Overseas" filter option
+- [x] Old saves: no migration (fields default to absent)
+- [x] Tests: node --check all src OK; lint 100 keys PASS (now covers `ab.*`); t30a 29/29; t30c 30/30; new `tools/t31-abroad.js` 14/14; browser `tools/browser-v31.py.txt` 23/23 (desktop 1300 + 390px)
+- [x] 10 seasons NBA commissioner, SEED=21 (`tools/runs31/v31n-nba-commish.txt`, harness `tools/r30.js` now logs `ab`): two-way slots at season start (S2-S10) 48.3 vs 46.8 in v30 (`tools/runs30/v30n-nba-commish.txt`), at season end 44.3 vs 43.4, free agents at season start 26.9 vs 26.7, FAs >= 13th man 18.3 vs 20.4. 0 errors, 0 jersey dups, 0 bad rosters
+- [x] Save size / abroad count after 10 seasons: **173 players abroad**, save 17,411 KB vs 16,968 KB in v30 (+443 KB, +2.6%). Abroad count by season: 41, 70, 94, 109, 132, 140, 152, 163, 163, 173 (still growing about 10 a year at the end). Each offseason about 140 of them return to free agency and 9-18 retire
+- Open: abroad count and save size keep rising slowly; if it matters, lower `ABROAD.seasons` or raise `ABROAD.minValue`. One seed, one league type
+
+## Faster testing (Nov 15 2026)
+- [x] TESTING.md: test tiers (UI/text 2-5 min, one system 5-8 min, several systems 10 seasons, version end 20 seasons). Also project doc claude/testing-tiers.md
+- [x] Saved leagues at day 0 of season 11 in tools/snap/: nba-commish-s10, nba-team-s10 (your team 5), pbl16-commish-s10 (gzip, 1.8-3.7 MB). Loader tools/snap.js (global SL), maker tools/snap-make.js, `SNAP=... node tools/r30.js N`
+- Checked: each loads and sims a season (NBA ~45 s, PBL16 ~29 s); franchise save still gets interviews. Remake each version when save fields change
+
+
 ## v30 review round 2 (Nov 15 2026) — Opus (8t/7t done here too)
 - [x] 8t/7t: `sc.*` (5) + `tk.*` (12) keys, 4 wordings each, in src/league.js; scoutDlg + tickerItems (app.js) use fl() with a per-day seed; lint covers sc/tk (99 keys)
 - [x] Two-way drift fix: season-start FA cap ranks young two-way-eligible players by two-way value (was lowest OVR first). NBA start fill 42/60 (v29 40, round 1 34)

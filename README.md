@@ -14,6 +14,15 @@ The game is split into small files so a change rewrites one file, not 1.3 MB.
 | `src/nba-setup.js` | v30a NBA setup extras: real rookies (`nbaRookies`) + real jersey numbers (`NBA_JERSEY_CSV`, `nbaJerseys`) |
 | `src/index.template.html` | Page shell with markers `/*CSS*/ /*VENDOR*/ /*ENGINE*/ /*LEAGUE*/ /*APP*/` for the single-file build |
 
+## v31 overseas (Nov 15 2026): cut players aged 26 and under go abroad
+
+Young players cut at the season-start free-agent cap (60) no longer "retire" at 20-22. Code: `src/league.js` (helpers above `startNewSeason`: `ABROAD`, `sendAbroad`, `abroadOffseason`; club and lines in `pipeBuild` P3; call in `startOffseason` after `computeMarket`), `src/app.js` (`faTxt`, filters, player page). Test: `node tools/t31-abroad.js` (14 checks, about 3 min), browser `tools/browser-v31.py.txt` (rename to .py, serve the folder, `python3 browser-v31.py PORT`).
+- **Cut rule**: age <= 26 goes abroad (`p.abroad = { s, n }`, off `L.fa`, still in `L.players`, keeps developing). 27+ keep the old rule (retire, deleted if never played).
+- **Club**: EABL or APBA with the P3 pick rule; transaction line "Went overseas: signed with ..."; news `ab.go` (4 wordings) for OVR 50+ or drafted players.
+- **Return**: each offseason before free agency, back to `L.fa` if two-way eligible with value 48+ (same formula as `aiFillTwoWay`, no team) or OVR at least the league's typical 13th man (`twBenchLine`). Otherwise stays abroad; retires after 3 seasons abroad in total (`p.abroadSeasons` carries earlier stays) or at 27.
+- **UI**: "Overseas (club name)" on the player page and in League > Players; the Free agents filter excludes them, new Overseas filter; no Negotiate button. Not signable while abroad.
+- **Harness**: `tools/r30.js` rows now include `ab` (players abroad, last offseason's back / gone). 10-season NBA run: `tools/runs31/`.
+
 ## v30c (Sonnet, Nov 15 2026): Roster moves overview, Negotiate popup, move write-ups, Promises tabs, Hall of Fame ceremony, interview periods
 
 Logic at the end of `src/league.js`, UI in `src/app.js` (+ `src/styles.css`). Tests: `node tools/t30c.js` (logic) and `tools/browser-v30c.py.txt` (rename to `.py`, serve the folder, `python3 browser-v30c.py PORT`; 126 checks at 1300px and 390px).

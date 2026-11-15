@@ -1,5 +1,22 @@
 # PBL progress
 
+## v32f-a (Sonnet, Nov 16 2026): one universe, no real-vs-game split in the UI
+- [x] History > Seasons: one list, newest first (this league's seasons, then 2025-26 back to 1946-47), same six columns. The "Real NBA history" sub-tab is gone (an old save with that tab selected opens Seasons). Rows from the NBA data have no standings, so they are not clickable and Best record shows a dash
+- [x] History > Championships: one list, each team's NBA titles + titles won here as one number (no "in this league" text); defunct franchise (Baltimore Bullets) is a row in the same list, sorted by count
+- [x] History > Awards: NBA seasons sit in the same Awards history table below this league's; four "Most ... awards" panels (MVP, Finals MVP, DPOY, Coach of the Year) count both together (`awardLeadersAll`, `awardLeadersPanels`)
+- [x] Team pages: the "Real NBA history" panel is gone. Franchise summary shows Finals appearances, Championships and Finals losses as combined counts with the years in order (`teamFinalYears`); Finals MVPs of earlier titles are rows in Award winners (`nbaTeamHonors`). The header "Titles" tile now counts NBA + league titles (it showed league titles only, 0 for Boston next to "18× champions")
+- [x] Trophy case: one case; honors from the NBA award list are merged by award type into the same case and drawn like any other (no "(real NBA)", no "Before this league" heading)
+- [x] Dynasties & eras: no `real` class, no muted rows, no "real NBA" label or "greyed" note (`.dyncard.real` CSS removed)
+- [x] Player pages: no "est." tags, no greyed estimated rows, no "Career = real NBA + sim seasons" note; rating chart note reads "The chart starts when ratings were first tracked. Last point: rating now."; franchise wins chart note no longer lists real titles
+- [x] Other text: Legends intro, setup / How it works lines in `src/nba-text.js` and `src/app.js` ("Real teams, rosters..." -> "Teams, rosters, contracts and coaches as of Nov 2026"), draft history empty text, type comparison tooltip. Internal flags (`p.real`, `a.real`, `d.real`, `e.real`) stay in the data and are never shown
+- [x] Tests: node --check all, lint 104 PASS, t30a 29/29, new `tools/t32f-a.js` 43/43 (renders the real app.js views in node with a DOM stub: no real-vs-game text on any History tab, 30 team pages x 2 tabs, 4 player pages, trophy cases; seasons in order; title / Finals counts match the data; header tiles; old code fails 28 of these). Browser `tools/browser-v32f-a.py.txt` 36/36 (History, Awards, Dynasties, a team, a real player; 1300 + 390px, no horizontal scroll)
+- Open / caveats:
+  - Seasons list is newest first (same direction as before). Putting 1946-47 on top is a one-line sort change if you want oldest first
+  - NBA season rows have no W-L, best record or standings page yet (dash, not clickable); the team season-by-season table still lists this league's seasons only. Both are for S6 (history rebuild)
+  - Removing the "est." tag means estimated seasons in a player's table now look like any other row (they are still left out of the career line). S6 decides how filled rows are handled
+  - Left alone on purpose: "real" in the sense of genuine (e.g. "real title shot", "real minutes", hidden rookie "real rating" after summer league, "real offer" counts)
+  - `t32f-a.js` needs no browser but a league with a season: `node tools/t32f-a.js 1` sims one NBA season (~90 s); `SAVE=/tmp/s1.json` keeps it, `LOAD=/tmp/s1.json` reuses it. Browser file: copy the json to `tools/_s1.json`, serve the folder, `python3 browser-v32f-a.py PORT [SHOTS_DIR]`
+
 ## v32e round 2 (Opus, Nov 16 2026): smooth asks, realistic re-signing, de-tuned
 - [x] Ask ramp (`ASK_RAMP`, `lowAskCap` -> `{cap, hard, soft}`, `rampAmt`): 55 and under = minimum; ceiling grows ~38% a point from 56 (~1x) to 59 (~2x) to 64 (~10x), times a stable per-player factor 0.88-1.12. Hard to 59; from 60 soft (the part above the ceiling kept at 15% at 60 ... 55% at 64); 65+ open market. Removes the cliff at 60
 - [x] Market budget: the ramp is counted in `computeMarket`; part of the money not paid to low-rated players moves up (scale may rise up to 20%, `MKT_RAMP_LIFT`), the rest stays as team room. Without it, average payroll fell to ~$146M by season 4; moving all of it up made 65s ask ~$35M

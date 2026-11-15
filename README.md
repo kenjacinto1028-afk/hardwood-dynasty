@@ -14,6 +14,12 @@ The game is split into small files so a change rewrites one file, not 1.3 MB.
 | `src/nba-setup.js` | v30a NBA setup extras: real rookies (`nbaRookies`) + real jersey numbers (`NBA_JERSEY_CSV`, `nbaJerseys`) |
 | `src/index.template.html` | Page shell with markers `/*CSS*/ /*VENDOR*/ /*ENGINE*/ /*LEAGUE*/ /*APP*/` for the single-file build |
 
+## v32f-a (Sonnet, Nov 16 2026): one universe UI
+Code: `src/app.js` (blocks marked v32f: `histRows` merge in `vHistory`, `awardLeadersAll` / `awardLeadersPanels`, `teamFinalYears`, `nbaTeamHonors`, `trophyCase`), `src/nba-text.js` (wording), `src/styles.css`.
+- History: no Real NBA sub-tab. Seasons, Championships and Awards history are single lists (this league's seasons first, then 2025-26 back to 1946-47).
+- Team pages: titles, Finals appearances and Finals losses are combined counts with years; earlier Finals MVPs sit in Award winners. Trophy case, dynasties and player pages show no real / sim / est wording. Internal flags `p.real`, `a.real` stay in the data.
+- Tests: `node tools/t32f-a.js [seasons]` (43 checks, node only, DOM stub), browser `tools/browser-v32f-a.py.txt` (36 checks at 1300 and 390px; copy a saved league json to `tools/_s1.json`, serve the folder).
+
 ## v32e round 2 (Opus, Nov 16 2026): smooth asks, realistic re-signing
 
 Code: `src/league.js`.

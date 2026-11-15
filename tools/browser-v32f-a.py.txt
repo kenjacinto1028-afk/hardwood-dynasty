@@ -1,0 +1,79 @@
+# v32f-a browser check (desktop 1300 and 390px): History > Seasons / Championships / Awards (one list, no Real NBA tab), a team page (Overview + History),
+# a real player's page (career table, trophy case, rating chart note), Dynasties & eras. Needs a saved league with 1+ sim seasons:
+#   LOAD: SAVE=/tmp/nba-s1.json node tools/t32f-a.js 1      (writes the league json; ~90 s)
+# Rename to .py, copy the json into the game folder as tools/_s1.json, serve the folder (python3 -m http.server PORT), then:
+#   python3 browser-v32f-a.py PORT [SHOTS_DIR]
+import asyncio, sys, json, os
+from playwright.async_api import async_playwright
+PORT = sys.argv[1] if len(sys.argv) > 1 else '8793'
+SHOTS = sys.argv[2] if len(sys.argv) > 2 else None
+res = []
+def ok(n, c, x=''):
+    res.append(('PASS ' if c else 'FAIL ') + n + (f'  [{x}]' if x else '')); print(res[-1], file=sys.stderr, flush=True)
+async def ev(pg, js): return await pg.evaluate("(()=>{const L=window.__pbl.L,ui=window.__pbl.ui;return eval(" + json.dumps(js) + ")})()")
+async def render(pg, js='0', wait=600):
+    await ev(pg, "(()=>{" + js + ";window.__pbl.render()})()"); await pg.wait_for_timeout(wait)
+async def run(width):
+    async with async_playwright() as p:
+        try: b = await p.chromium.launch()
+        except Exception: b = await p.chromium.launch(executable_path='/usr/bin/google-chrome')
+        pg = await (await b.new_context(viewport={'width': width, 'height': 900})).new_page(); errs = []
+        pg.on('pageerror', lambda e: errs.append(str(e)))
+        await pg.goto(f'http://localhost:{PORT}/index.html'); await pg.wait_for_timeout(2000)
+        # put the saved league into the app's own storage, then reload so the app loads it like any save
+        await pg.evaluate("""async () => { const txt = await (await fetch('tools/_s1.json')).text();
+          const db = await new Promise((res, rej) => { const r = indexedDB.open('pbl-league', 1); r.onupgradeneeded = () => r.result.createObjectStore('s'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+          const put = (k, v) => new Promise((res, rej) => { const tx = db.transaction('s', 'readwrite'); tx.objectStore('s').put(v, k); tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
+          await put('league:slot-t32', txt); await put('slots', JSON.stringify([{ id: 'slot-t32', name: 't32', mode: 'commish', season: 2, phase: 'off-draft', updated: Date.now() }])); await put('current', 'slot-t32'); db.close(); }""")
+        await pg.reload(); await pg.wait_for_timeout(4500)
+        W = f'{width}px: '
+        noscroll = lambda: ev(pg, "document.documentElement.scrollWidth<=window.innerWidth+2")
+        await ev(pg, "document.querySelector('#modal') && (document.querySelector('#modal').innerHTML='')")
+        nh = await ev(pg, "L.history.length"); ok(W + 'saved NBA league loaded with a sim season', nh >= 1 and await ev(pg, "!!L.nba"), str(nh))
+        main = lambda: ev(pg, "document.querySelector('#main').innerText")
+        shot = lambda n: pg.screenshot(path=f'{SHOTS}/{n}-{width}.png') if SHOTS else asyncio.sleep(0)
+        # ---- History > Seasons ----
+        await render(pg, "ui.view='history';ui.histTab='seasons';ui.hs=null;ui.player=null;ui.team=null;ui.game=null")
+        t = await main(); btns = await ev(pg, "[...document.querySelectorAll('[data-histtab]')].map(b=>b.textContent)")
+        ok(W + 'History: no "Real NBA" anywhere on the page', 'Real NBA' not in t and 'real NBA' not in t and '(real' not in t)
+        ok(W + 'History: no Real NBA sub-tab', not any('Real' in x for x in btns), ','.join(btns))
+        rows = await ev(pg, "[...document.querySelectorAll('#main table tbody tr')].map(r=>r.cells[0].innerText.trim()).filter(x=>/^\\d{4}-\\d{2}$/.test(x))")
+        ok(W + 'Seasons table: 2026-27 first, 1946-47 last, 81 rows in order', rows[0] == '2026-27' and rows[-1] == '1946-47' and len(rows) == 81 and all(int(rows[i][:4]) == int(rows[i + 1][:4]) + 1 for i in range(len(rows) - 1)), f'{rows[:3]}..{rows[-1]} n={len(rows)}')
+        ok(W + 'Championships panel lists Boston 18 + Baltimore Bullets, no source text', await ev(pg, "(()=>{const h=[...document.querySelectorAll('#main h2')].find(x=>x.textContent==='Championships');const t=h?h.parentElement.innerText:'';return /Boston Celtics\\s*18/.test(t)&&/Baltimore Bullets/.test(t)&&!/this league|Real NBA/.test(t)})()"))
+        ok(W + 'History: no horizontal page scroll', await noscroll())
+        await shot('history')
+        # ---- Awards tab ----
+        await render(pg, "ui.histTab='awards'")
+        t = await main(); ok(W + 'Awards tab: NBA seasons in the same table, leaders panels, no real wording', '1947-48' in t and 'most mvp awards' in t.lower() and 'Real NBA' not in t and '(real' not in t)
+        ok(W + 'Awards tab: no horizontal page scroll', await noscroll())
+        # ---- Dynasties ----
+        await render(pg, "ui.histTab='dyn'")
+        ok(W + 'Dynasties & eras: no real class / greyed rows / real text', await ev(pg, "!document.querySelector('#main .dyncard.real')&&!document.querySelector('#main tr.muted')&&!/real NBA|greyed/i.test(document.querySelector('#main').innerText)"))
+        await shot('dynasties')
+        # ---- team page ----
+        tid = await ev(pg, "L.teams.find(t=>t.abbr==='BOS').id")
+        await render(pg, f"ui.view='teams';ui.team={tid};ui.teamTab='overview';ui.player=null")
+        t = await main(); ok(W + 'Team overview: combined ribbon (champions · Finals trips), no real wording', 'Real NBA' not in t and 'real' not in t.lower().replace('realistic', '') and '× champions' in t, t[:0])
+        await render(pg, f"ui.teamTab='history'")
+        t = await main(); ok(W + 'Team history: Championships with years, Finals losses, no Real NBA panel', 'Real NBA' not in t and '(real' not in t and 'championships' in t.lower() and 'finals losses' in t.lower() and 'Finals MVP:' in t)
+        c = await ev(pg, "(()=>{const m=document.querySelector('#main').innerText.match(/Championships\\s+(\\d+)/i);return m?+m[1]:null})()")
+        exp = await ev(pg, f"nbaTitlesAll(L,L.teams[{tid}])") if False else await ev(pg, f"L.teams[{tid}].titles+nbaRealTitles(L,L.teams[{tid}]).length")
+        ok(W + 'Team history: championships count = NBA + league titles', c == exp, f'{c} vs {exp}')
+        ok(W + 'Team history: no horizontal page scroll', await noscroll())
+        await shot('team')
+        # ---- real player page ----
+        pid = await ev(pg, "Object.values(L.players).filter(p=>p.real&&(p.awards||[]).some(a=>a.real&&a.a==='MVP')).sort((a,b)=>b.ovr-a.ovr)[0].id")
+        await render(pg, f"ui.view='players';ui.player={pid};ui.team=null")
+        t = await main()
+        ok(W + 'Player page: career table and trophy case, no real/sim/est wording', 'regular season' in t.lower() and 'trophy case' in t.lower() and 'Real NBA' not in t and '(real' not in t and 'est.' not in t and 'Career = ' not in t and 'sim seasons' not in t.lower())
+        ok(W + 'Player page: rating chart note has no "real"', await ev(pg, "(()=>{const x=[...document.querySelectorAll('#main h3')].find(h=>h.textContent==='Overall rating by season');return !x||!/real/i.test(x.parentElement.innerText)})()"))
+        ok(W + 'Player page: one trophy case, no "Before this league"', await ev(pg, "document.querySelectorAll('#main .trcase').length===1&&!/Before this league/.test(document.querySelector('#main').innerText)"))
+        ok(W + 'Player page: no horizontal page scroll', await noscroll())
+        await shot('player')
+        ok(W + 'no page errors', not errs, ' | '.join(errs[:2]))
+        await b.close()
+async def main():
+    for w in (1300, 390): await run(w)
+    bad = [r for r in res if r.startswith('FAIL')]
+    print('\n'.join(res)); print(f'browser-v32f-a: {len(res) - len(bad)} pass, {len(bad)} fail'); sys.exit(1 if bad else 0)
+asyncio.run(main())

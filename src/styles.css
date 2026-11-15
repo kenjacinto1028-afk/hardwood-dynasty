@@ -457,7 +457,6 @@ tr.est td{opacity:.55;font-style:italic}
 button.drc { text-align: left; width: 100%; padding: 8px 12px; }
 button.drc:hover { border-color: var(--accent); }
 .dyncard { border: 1px solid var(--line); border-radius: 8px; padding: 10px; margin: 0 0 8px; background: var(--surface); }
-.dyncard.real { background: var(--surface-2); }
 .dynhead { display: flex; gap: 10px; align-items: center; margin-bottom: 4px; }
 .pill.dyn-dynasty { background: var(--accent); color: var(--accent-ink); }
 .pill.dyn-contender, .pill.dyn-rising { background: var(--accent-soft); color: var(--ink); }

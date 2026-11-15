@@ -778,9 +778,9 @@ document.addEventListener('click', e => {
 function dynastyView() {
   const D = dynasties(L), W = dynWatch(L, 8), E = dynEras(L);
   const watch = W.length ? `<div class="tblwrap"><table><thead><tr><th class="l">Team</th><th class="l">Label</th><th>Titles (last 5)</th><th>Finals (last 5)</th><th>Score</th></tr></thead><tbody>${W.map(w => `<tr><td class="l">${tlabel(w.tid)}</td><td class="l"><span class="pill dyn-${w.label.split(' ')[0].toLowerCase()}">${esc(w.label)}</span></td><td>${w.titles}</td><td>${w.finals}</td><td>${w.v}</td></tr>`).join('')}</tbody></table></div><p class="muted" style="font-size:12px">Last 5 seasons: title 10, Finals loss 5, conference finals 2, second round 1, first round 0.5, best record 2; recent seasons count more.</p>` : '<p class="muted">Finish a season to start the watch list.</p>';
-  const dyn = D.length ? D.map(d => { const core = dynCore(L, d, 5); return `<div class="dyncard${d.real ? ' real' : ''}"><div class="dynhead">${d.tid != null && L.teams[d.tid] ? logo(d.tid, 28) : ''}<div><strong>${esc(d.name)}</strong> <span class="pill">${esc(d.tier)}</span>${d.real ? ' <span class="muted">real NBA</span>' : ''}<div class="muted">${esc(d.from)} to ${esc(d.to)} · ${d.titles} titles · ${d.finals} Finals</div></div></div><div class="muted" style="font-size:12px">Titles: ${d.seasons.map(esc).join(', ')}</div>${core.length ? `<div style="margin-top:4px;font-size:13px">Core: ${core.map(c => L.players[c.id] ? plink(L.players[c.id]) + (c.titles > 1 ? ` <span class="muted">×${c.titles}</span>` : '') : esc(c.name)).join(', ')}</div>` : ''}</div>`; }).join('') : '<p class="muted">No dynasties yet. It takes 3 titles in a short span, or back-to-back titles plus a third Finals.</p>';
-  const eras = E.map(e => `<tr${e.real ? ' class="muted"' : ''}><td class="l">${esc(e.from)}${e.to !== e.from ? ' – ' + esc(e.to) : ''}</td><td class="l">${e.open ? '<span class="muted">Open era</span>' : (e.tid != null ? tlabel(e.tid) : '')}${!e.open ? ` <span class="muted">${e.titles} title${e.titles !== 1 ? 's' : ''}</span>` : ''}</td><td class="l" style="font-size:12px">${e.champs.map(esc).join(' · ')}</td></tr>`).join('');
-  return `<div class="grid2"><section class="panel"><h2>Dynasty watch</h2>${watch}<h2 style="margin-top:16px">Dynasties</h2>${dyn}</section><section class="panel"><h2>Eras</h2><div class="tblwrap"><table><thead><tr><th class="l">Seasons</th><th class="l">Owned by</th><th class="l">Champions</th></tr></thead><tbody>${eras || '<tr><td class="l" colspan="3">No seasons yet.</td></tr>'}</tbody></table></div><p class="muted" style="font-size:12px">Blocks of 5 seasons. The era belongs to the team with the most points (title 10, Finals 5, conference finals 2, best record 2) if it won 2+ titles; otherwise it's an open era.${nbaHistOn(L) ? ' Real NBA seasons are greyed.' : ''}</p></section></div>`;
+  const dyn = D.length ? D.map(d => { const core = dynCore(L, d, 5); return `<div class="dyncard"><div class="dynhead">${d.tid != null && L.teams[d.tid] ? logo(d.tid, 28) : ''}<div><strong>${esc(d.name)}</strong> <span class="pill">${esc(d.tier)}</span><div class="muted">${esc(d.from)} to ${esc(d.to)} · ${d.titles} titles · ${d.finals} Finals</div></div></div><div class="muted" style="font-size:12px">Titles: ${d.seasons.map(esc).join(', ')}</div>${core.length ? `<div style="margin-top:4px;font-size:13px">Core: ${core.map(c => L.players[c.id] ? plink(L.players[c.id]) + (c.titles > 1 ? ` <span class="muted">×${c.titles}</span>` : '') : esc(c.name)).join(', ')}</div>` : ''}</div>`; }).join('') : '<p class="muted">No dynasties yet. It takes 3 titles in a short span, or back-to-back titles plus a third Finals.</p>';
+  const eras = E.map(e => `<tr><td class="l">${esc(e.from)}${e.to !== e.from ? ' – ' + esc(e.to) : ''}</td><td class="l">${e.open ? '<span class="muted">Open era</span>' : (e.tid != null ? tlabel(e.tid) : '')}${!e.open ? ` <span class="muted">${e.titles} title${e.titles !== 1 ? 's' : ''}</span>` : ''}</td><td class="l" style="font-size:12px">${e.champs.map(esc).join(' · ')}</td></tr>`).join('');
+  return `<div class="grid2"><section class="panel"><h2>Dynasty watch</h2>${watch}<h2 style="margin-top:16px">Dynasties</h2>${dyn}</section><section class="panel"><h2>Eras</h2><div class="tblwrap"><table><thead><tr><th class="l">Seasons</th><th class="l">Owned by</th><th class="l">Champions</th></tr></thead><tbody>${eras || '<tr><td class="l" colspan="3">No seasons yet.</td></tr>'}</tbody></table></div><p class="muted" style="font-size:12px">Blocks of 5 seasons. The era belongs to the team with the most points (title 10, Finals 5, conference finals 2, best record 2) if it won 2+ titles; otherwise it's an open era.</p></section></div>`;
 }
 function multiBtn() { return ui.busy ? [] : [['multi', 'Sim seasons…']]; }
 function renderHeader() {
@@ -995,14 +995,14 @@ function lineChartSvg(labels, series, o) {
   return `<svg class="lchart" viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${esc(o.aria || 'Line chart')}" style="max-width:${W}px;display:block">${g}${lines}${endsSvg}${xl}</svg>`;
 }
 const RACE_COLORS = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0891b2', '#db2777', '#65a30d', '#ea580c', '#475569', '#0d9488', '#9333ea', '#ca8a04', '#be123c', '#4f46e5'];
-// player page: overall rating at the end of each sim season (real NBA seasons have no rating) + now
+// player page: overall rating at the end of each season it was tracked + now
 function ovrChart(p) {
   if (p.prospect) return '';
   const rows = p.hist.filter(h => h.s != null && h.ovr != null).map(h => [h.s, h.ovr]);
   if (!p.retired && (!rows.length || rows[rows.length - 1][0] !== L.season)) rows.push([L.season, p.ovr]);
   if (rows.length < 2) return '';
   const svg = lineChartSvg(rows.map(r => seasonName(r[0]).slice(2)), [{ name: 'Overall', color: 'var(--accent)', vals: rows.map(r => r[1]), hi: 1 }], { aria: 'Overall rating by season', pr: 12, H: 180 });
-  return `<section class="panel" style="margin-bottom:16px"><h3>Overall rating by season</h3>${svg}<div class="muted" style="font-size:12px;margin-top:4px">Sim seasons only (real NBA seasons have no rating). Last point: rating now.</div></section>`;
+  return `<section class="panel" style="margin-bottom:16px"><h3>Overall rating by season</h3>${svg}<div class="muted" style="font-size:12px;margin-top:4px">The chart starts when ratings were first tracked. Last point: rating now.</div></section>`;
 }
 // standings: wins by game day (L.race, saved every 7 days) for one conference
 function raceChart() {
@@ -1020,9 +1020,8 @@ function franchiseChart(t) {
   if (inS) rows.push([L.season, t.w, t.l]);
   if (!rows.length) return '';
   const champ = new Set((L.history || []).filter(h => h.champion === t.id).map(h => h.s));
-  const real = L.nba && typeof nbaHist === 'function' ? nbaHist().filter(x => x.champ === t.abbr).map(x => x.y) : [];
   const svg = lineChartSvg(rows.map(r => seasonName(r[0]).slice(2) + (inS && r[0] === L.season ? '*' : '')), [{ name: 'Wins', color: 'var(--accent)', vals: rows.map(r => r[1]), hi: 1, tip: i => ` (${rows[i][1]}-${rows[i][2]})${champ.has(rows[i][0]) ? ' · Champions' : ''}` }], { aria: 'Franchise wins by season', lo: 0, pr: 12, H: 180 });
-  return `<section class="panel" style="margin-bottom:16px"><h3>Franchise wins by season</h3>${svg}<div class="muted" style="font-size:12px;margin-top:4px">${inS ? '* this season so far. ' : ''}${real.length ? `Real NBA titles (no season W-L in the data): ${real.length} · last ${real[real.length - 1]}-${String(real[real.length - 1] + 1).slice(2)}.` : ''}</div></section>`;
+  return `<section class="panel" style="margin-bottom:16px"><h3>Franchise wins by season</h3>${svg}<div class="muted" style="font-size:12px;margin-top:4px">${inS ? '* this season so far.' : ''}</div></section>`;
 }
 function vStandings() {
   RACE = ['regular', 'regular-done'].includes(L.phase) && L.day > 0 ? raceInfo(L) : null;
@@ -1369,7 +1368,7 @@ function fanMeter(tid) {
 }
 function teamHeader(t) {
   const gp = t.w + t.l, mine = isUser(t.id);
-  return `<section class="panel" style="margin-bottom:12px"><div class="bio"><div style="display:flex;align-items:center;gap:12px;min-width:0">${logo(t.id, 64)}<div style="min-width:0"><div class="k">${confName(t.conf)} Conference · ${L.nba ? esc(t.div) + ' Division' : t.region}${mktTxt(t)}${mine ? ' · Your team' : ''}</div><div class="big">${esc(tname(t.id))}</div>${titleRibbon(t)}${iconLine(t)}</div></div><div><div class="k">Record</div><div class="v">${t.w}-${t.l}</div>${t.w + t.l ? `<div class="muted" style="font-size:12px">Home ${t.hw || 0}-${t.hl || 0} · Away ${t.aw || 0}-${t.al || 0}</div>` : ''}</div><div><div class="k">Outlook</div><div class="v" style="font-size:16px">${modePill(t)}</div><div style="margin-top:2px">${foChip(t)}</div></div><div><div class="k">Points for / against</div><div class="v">${gp ? f1(t.pf / gp) + ' / ' + f1(t.pa / gp) : '—'}</div></div><div><div class="k">Coach</div><div class="v" style="font-size:18px">${clink(t.coach)}${hotBadge(t)}</div></div><div><div class="k">General manager</div><div class="v" style="font-size:18px">${mine ? esc(meName()) : t.gm ? glink(t.gm) : '—'}</div></div><div><div class="k">Titles</div><div class="v">${t.titles || 0}</div></div></div>${rafters(t)}${mine ? goalTracker(t) : ''}</section>`;
+  return `<section class="panel" style="margin-bottom:12px"><div class="bio"><div style="display:flex;align-items:center;gap:12px;min-width:0">${logo(t.id, 64)}<div style="min-width:0"><div class="k">${confName(t.conf)} Conference · ${L.nba ? esc(t.div) + ' Division' : t.region}${mktTxt(t)}${mine ? ' · Your team' : ''}</div><div class="big">${esc(tname(t.id))}</div>${titleRibbon(t)}${iconLine(t)}</div></div><div><div class="k">Record</div><div class="v">${t.w}-${t.l}</div>${t.w + t.l ? `<div class="muted" style="font-size:12px">Home ${t.hw || 0}-${t.hl || 0} · Away ${t.aw || 0}-${t.al || 0}</div>` : ''}</div><div><div class="k">Outlook</div><div class="v" style="font-size:16px">${modePill(t)}</div><div style="margin-top:2px">${foChip(t)}</div></div><div><div class="k">Points for / against</div><div class="v">${gp ? f1(t.pf / gp) + ' / ' + f1(t.pa / gp) : '—'}</div></div><div><div class="k">Coach</div><div class="v" style="font-size:18px">${clink(t.coach)}${hotBadge(t)}</div></div><div><div class="k">General manager</div><div class="v" style="font-size:18px">${mine ? esc(meName()) : t.gm ? glink(t.gm) : '—'}</div></div><div><div class="k">Titles</div><div class="v">${nbaHistOn(L) ? nbaTitlesAll(L, t) : (t.titles || 0)}</div></div></div>${rafters(t)}${mine ? goalTracker(t) : ''}</section>`;
 }
 // v24.1: how the starting five fits together and with the coach's systems (same numbers the game engine uses)
 function chemStrip(t) {
@@ -1452,6 +1451,7 @@ function teamHistoryBase(t) {
     for (const [k, n] of [['mvp', 'MVP'], ['fmvp', 'Finals MVP'], ['dpoy', 'Defensive POY'], ['roy', 'Rookie of the Year'], ['smoy', 'Sixth Man'], ['mip', 'Most Improved']]) if (A[k] != null && L.players[A[k]] && (k === 'fmvp' ? A.champion === tid : awardTid(A, k, A[k]) === tid)) honors.push(`<div class="leader" style="grid-template-columns:60px minmax(0,1fr)"><span class="muted">${seasonName(sKey)}</span><span>${n}: ${plink(L.players[A[k]])}</span></div>`);
     if (A.coy != null && A.coyTid === tid && findCoach(L, A.coy)) honors.push(`<div class="leader" style="grid-template-columns:60px minmax(0,1fr)"><span class="muted">${seasonName(sKey)}</span><span>Coach of the Year: ${clink(findCoach(L, A.coy))}</span></div>`);
   }
+  honors.push(...nbaTeamHonors(t));
   const coaches = [...L.teams.map(x => x.coach), ...L.coachPool, ...(L.coachArchive || [])].filter((c, i, a) => a.indexOf(c) === i && c.stints.some(st => st.tid === tid));
   const coachRows = coaches.map(c => { const recs = (c.seasons || []).filter(x => x.tid === tid); const w = recs.reduce((a, x) => a + x.w, 0), l = recs.reduce((a, x) => a + x.l, 0); const st = c.stints.filter(x => x.tid === tid); return { c, w, l, from: Math.min(...st.map(x => x.from)), txt: st.map(x => `${seasonName(x.from)}–${x.to ? seasonName(x.to) : 'now'}`).join(', '), titles: recs.filter(x => x.po === 'Champion').length }; }).sort((a, b) => a.from - b.from);
   const lead = (k, n) => { const all = Object.values(tot).sort((a, b) => b[k] - a[k]); const top = all.slice(0, 5);
@@ -1460,8 +1460,8 @@ function teamHistoryBase(t) {
   const hofs = (L.hof || []).filter(h => h.teams.includes(tid));
   return `<div class="grid2"><section class="stack"><div class="panel"><h3>Season by season</h3>${rows || curRow ? `<div class="tblwrap"><table><thead><tr><th class="l">Season</th><th>W-L</th><th>Pct</th><th>Home</th><th>Away</th><th title="Conference seed">Seed</th><th class="l">Playoffs</th><th class="l">Coach</th><th class="l">Plan</th><th class="l">Top player</th></tr></thead><tbody>${curRow}${rows}</tbody></table></div>` : '<p class="muted">Completed seasons appear here.</p>'}${live ? '<p class="muted" style="margin:6px 0 0;font-size:12px">* current season</p>' : ''}</div>
     <h3 style="margin:4px 0 0">Franchise leaders · completed seasons, only games played for this team</h3><div class="grid3">${lead('pts', 'Points')}${lead('reb', 'Rebounds')}${lead('ast', 'Assists')}${lead('gp', 'Games played')}${lead('stl', 'Steals')}${lead('blk', 'Blocks')}</div></section>
-  <section class="stack"><div class="panel"><h3>Franchise summary</h3><div class="kv"><span class="k2">Seasons</span><span>${seasons.length}</span><span class="k2">All-time record</span><span>${W}-${Lo}${W + Lo ? ' (' + pct(W, W + Lo) + ')' : ''}</span><span class="k2">Playoff appearances</span><span>${made}</span><span class="k2">Finals appearances</span><span>${finals}</span><span class="k2">Championships</span><span>${nbaHistOn(L) ? `${nbaTitlesAll(L, t)} <span class="muted">(${nbaRealTitles(L, t).length} real, ${t.titles || 0} in this league)</span>` : t.titles || 0}</span><span class="k2">Best season</span><span>${bestSeason ? `${seasonName(bestSeason.h.s)}, ${bestSeason.st.w}-${bestSeason.st.l}` : '—'}</span></div></div>
-  ${nbaHistOn(L) ? nbaTeamPanel(t) : ''}<div class="panel"><h3>Award winners</h3>${honors.join('') || '<p class="muted">None yet.</p>'}</div>
+  <section class="stack"><div class="panel"><h3>Franchise summary</h3><div class="kv"><span class="k2">Seasons</span><span>${seasons.length}</span><span class="k2">All-time record</span><span>${W}-${Lo}${W + Lo ? ' (' + pct(W, W + Lo) + ')' : ''}</span><span class="k2">Playoff appearances</span><span>${made}</span>${(() => { const F = teamFinalYears(t); return `<span class="k2">Finals appearances</span><span>${finals + F.rf}</span><span class="k2">Championships</span><span>${F.won.length}${F.won.length ? ` <span class="muted">${F.won.join(', ')}</span>` : ''}</span><span class="k2">Finals losses</span><span>${F.lost.length}${F.lost.length ? ` <span class="muted">${F.lost.join(', ')}</span>` : ''}</span>`; })()}<span class="k2">Best season</span><span>${bestSeason ? `${seasonName(bestSeason.h.s)}, ${bestSeason.st.w}-${bestSeason.st.l}` : '—'}</span></div></div>
+  <div class="panel"><h3>Award winners</h3>${honors.join('') || '<p class="muted">None yet.</p>'}</div>
   <div class="panel"><h3>Head coaches</h3>${coachRows.length ? coachRows.map(x => `<div class="leader" style="grid-template-columns:minmax(0,1fr) auto"><span>${clink(x.c)} <span class="muted">${x.txt}</span></span><span class="muted">${x.w}-${x.l}${x.titles ? ' · ' + x.titles + ' title' + (x.titles > 1 ? 's' : '') : ''}</span></div>`).join('') : '<p class="muted">—</p>'}</div>
   ${t.retired.length ? `<div class="panel"><h3>Retired numbers</h3>${t.retired.map(r => `<div class="leader" style="grid-template-columns:44px minmax(0,1fr) auto"><span class="v">#${r.num}</span><span>${L.players[r.pid] ? plink(L.players[r.pid]) : esc(r.name)}</span><span class="muted">${seasonName(r.s)}</span></div>`).join('')}</div>` : ''}
   ${hofs.length ? `<div class="panel"><h3>Hall of Famers</h3>${hofs.map(h => `<div>${L.players[h.pid] ? plink(L.players[h.pid]) : esc(h.name)} <span class="muted">class of ${draftLabel(h.s)}</span></div>`).join('')}</div>` : ''}</section></div>`;
@@ -1758,7 +1758,7 @@ function strWeak(p) {
 function compsHtml(p) {
   let c; try { c = compsFor(L, L.user, p); } catch (e) { return ''; }
   if (!c) return '';
-  const row = (lbl, x) => `<div class="leader" style="grid-template-columns:56px minmax(0,1fr)"><span class="k2">${lbl}</span><span>${x.ovr} · ${esc(x.tierN)} · ${x.league ? plink(L.players[x.league.pid]) + (x.league.retired ? ' <span class="muted">(retired)</span>' : '') : '—'} · <span title="A real NBA player of this type and tier">NBA: ${x.nba ? esc(x.nba.name) : '—'}</span></span></div>`;
+  const row = (lbl, x) => `<div class="leader" style="grid-template-columns:56px minmax(0,1fr)"><span class="k2">${lbl}</span><span>${x.ovr} · ${esc(x.tierN)} · ${x.league ? plink(L.players[x.league.pid]) + (x.league.retired ? ' <span class="muted">(retired)</span>' : '') : '—'} · <span title="An NBA player of this type and tier">NBA: ${x.nba ? esc(x.nba.name) : '—'}</span></span></div>`;
   const sw = strWeak(p);
   return `<div class="comps" style="margin-top:6px"><div class="k">Comps</div>${row('Floor', c.floor)}${row('Ceiling', c.ceil)}<div class="muted" style="margin-top:4px">Strengths: ${sw.str.length ? esc(sw.str.join(', ')) : '—'} · Weaknesses: ${sw.weak.length ? esc(sw.weak.join(', ')) : '—'}</div></div>`;
 }
@@ -1904,24 +1904,24 @@ function advTable(p, key, past) {
     return `<tr>${label}<td>${s.gp}</td>${c('ts', pct(tsPct(s), 1))}${c('efg', pct(efgPct(s), 1))}${c('usg', s.usgDen ? f1(usg(s)) : '—')}<td>${s.tov ? (s.ast / s.tov).toFixed(2) : '—'}</td><td>${s.fga ? pct(s.tpa / s.fga, 1) : '—'}</td><td>${s.fga ? pct(s.fta / s.fga, 1) : '—'}</td>${c('gmsc', f1(gmscPg(s)))}${c('eff', f1(effPg(s)))}${s.noPm ? '<td>—</td><td>—</td>' : c('pmg', sgn(pmPg(s)), pmPg(s) > 0 ? 'w' : pmPg(s) < 0 ? 'lo' : '') + `<td>${(s.pm || 0) > 0 ? '+' : ''}${s.pm || 0}</td>`}${['obpm', 'dbpm', 'bpm'].map(k => c(k, s[k] != null ? sgn(s[k]) : '—', s[k] > 0 ? 'w' : s[k] < 0 ? 'lo' : '')).join('')}</tr>`; };
   const rowsH = p.hist.filter(h => h[key] && h[key].gp).map(h => row(`<td class="l" data-v="${yr(h.s)}">${seasonName(h.s)}</td><td class="l">${teamsTxt(h)}</td>`, h[key], key === 'rs' ? leadsFor(p.id, h.s) : null)).join('');
   const cur = row(`<td class="l" data-v="${yr(L.season)}">${seasonName(L.season)}*</td><td class="l">${p.team != null ? L.teams[p.team].abbr : '—'}</td>`, p.stats[key], key === 'rs' && p.stats.rs ? leadsFor(p.id, L.season) : null);
-  const rowsP = past.map(r => row(`<td class="l" data-v="${pastYr(r)}">${r.season}</td><td class="l">${r.team || '—'}${estTag(r)}</td>`, Object.assign(realStat(r), { noPm: 1 })).replace('<tr>', r.est ? '<tr class="est">' : '<tr>')).join('');
+  const rowsP = past.map(r => row(`<td class="l" data-v="${pastYr(r)}">${r.season}</td><td class="l">${r.team || '—'}${estTag(r)}</td>`, Object.assign(realStat(r), { noPm: 1 }))).join('');
   const all = sumStats([...past.filter(r => !r.est).map(realStat), ...p.hist.map(h => h[key]), p.stats[key]]);
   if (!rowsP && !rowsH && !cur) return '<p class="muted">No games yet.</p>';
   return `<div class="tblwrap"><table class="sortable" data-sid="p-${key}-adv"><thead><tr><th class="l">Season</th><th class="l">Team</th><th>GP</th>${ks.map(k => `<th title="${COL_TIPS[k]}">${ACOLS.find(c => c[0] === k)[1]}</th>`).join('')}</tr></thead><tbody>${rowsP}${rowsH}${cur}${all ? row('<td class="l"><strong>Career</strong></td><td></td>', all).replace('<tr>', '<tr class="nosort">') : ''}</tbody></table></div>`;
 }
 function careerTable(p, key, tot, past) {
   past = past || [];
-  const rowsP = past.map(r => statRow(`<td class="l" data-v="${pastYr(r)}">${r.season}</td><td class="l">${r.team || '—'}${estTag(r)}</td><td>${pastAge(p, r)}</td><td>—</td>`, realStat(r), tot).replace('<tr>', r.est ? '<tr class="est">' : '<tr>'));
+  const rowsP = past.map(r => statRow(`<td class="l" data-v="${pastYr(r)}">${r.season}</td><td class="l">${r.team || '—'}${estTag(r)}</td><td>${pastAge(p, r)}</td><td>—</td>`, realStat(r), tot));
   const rowsH = p.hist.filter(h => h[key] && h[key].gp).map(h => statRow(`<td class="l" data-v="${yr(h.s)}">${seasonName(h.s)}</td><td class="l">${teamsTxt(h)}</td><td>${h.age}</td><td>${h.ovr}</td>`, h[key], tot, key === 'rs' ? leadsFor(p.id, h.s) : null));
   const cur = p.stats[key] && p.stats[key].gp ? statRow(`<td class="l" data-v="${yr(L.season)}">${seasonName(L.season)}*</td><td class="l">${p.team != null ? L.teams[p.team].abbr : '—'}</td><td>${p.age}</td><td>${ovrTxt(p)}</td>`, p.stats[key], tot, key === 'rs' ? leadsFor(p.id, L.season) : null) : '';
   const all = sumStats([...past.filter(r => !r.est).map(realStat), ...p.hist.map(h => h[key]), p.stats[key]]);
   if (!rowsP.length && !rowsH.length && !cur) return '<p class="muted">No games yet.</p>';
   return `<div class="tblwrap"><table class="sortable" data-sid="p-${key}-${tot ? 'tot' : 'pg'}"><thead><tr><th class="l">Season</th><th class="l">Team</th><th>Age</th><th>Ovr</th>${STAT_HEAD}</tr></thead><tbody>${rowsP.join('')}${rowsH.join('')}${cur}${all ? statRow('<td class="l"><strong>Career</strong></td><td></td><td></td><td></td>', all, tot).replace('<tr>', '<tr class="nosort">') : ''}</tbody></table></div>`;
 }
-// v28.7 F5: real NBA rows inside the one career table
+// v28.7 F5: earlier seasons inside the one career table
 const pastYr = r => parseInt(r.season, 10) || 0;
 function pastAge(p, r) { const a = p.age - (yr(L.season) - pastYr(r)); return a > 15 && a < 50 ? a : '—'; }
-const estTag = r => r.est ? ' <span class="est-tag" title="Estimated: no real earlier seasons found for this player">est.</span>' : '';
+const estTag = r => '';
 function realStat(r) { const s = nbaStatOf(r); if (r.usg && (s.fga + s.fta + s.tov)) s.usgDen = 100 * (s.fga + 0.44 * s.fta + s.tov) / r.usg; return s; }
 // v27.12 H4: real past seasons (stars: every real season; role players: "est." rows + the real 2025-26 line) shown before the sim seasons
 const nbaPast = p => (L && L.nba && typeof nbaPastRows === 'function' && p && p.real) ? nbaPastRows(p) : [];
@@ -1933,8 +1933,7 @@ function statPanel(p, key) {
   const tabs = [['pg', 'Per game'], ['tot', 'Totals'], ['adv', 'Advanced']].map(([k, n]) => `<button class="sm ${t === k ? 'primary' : ''}" data-ptab="${key}:${k}">${n}</button>`).join('');
   const past = key === 'rs' ? nbaPast(p) : (L && L.nba && typeof nbaPoRows === 'function' && p && p.real) ? nbaPoRows(p) : [];
   const body = t === 'adv' ? advTable(p, key, past) : careerTable(p, key, t === 'tot', past);
-  const est = past.some(r => r.est), ap = t === 'adv' && past.some(r => r.ap);
-  const notes = [key === 'rs' ? '* current season, in progress · <span class="lead-legend"></span> led the league that season (qualified players)' : '* current season, in progress', est ? 'est. = estimated real season (no real record found); left out of the career line' : '', past.length ? 'Career = real NBA + sim seasons' : ''].filter(Boolean).join(' · ');
+  const notes = [key === 'rs' ? '* current season, in progress · <span class="lead-legend"></span> led the league that season (qualified players)' : '* current season, in progress', ].filter(Boolean).join(' · ');
   return `<section class="panel" style="margin-bottom:16px"><h3>${key === 'rs' ? 'Regular season' : 'Playoffs'}</h3><div class="subtabs">${tabs}</div>${body}<p class="muted" style="margin:6px 0 0;font-size:12px">${notes}</p></section>`;
 }
 function vPlayer(p) {
@@ -3093,7 +3092,7 @@ function draftHistory() {
   const grades = yrs.map(S => { const g = ((L.draftGrades || {})[S] || { teams: {} }).teams[tid]; return `<div class="leader" style="grid-template-columns:minmax(0,1fr) auto"><span>${draftLabel(S)} draft <span class="muted">${ps.filter(p => p.draft.s === S).length} pick${ps.filter(p => p.draft.s === S).length > 1 ? 's' : ''}</span></span><span class="v">${g ? g.g : '—'}</span></div>`; }).join('');
   const head = '<th>Draft</th><th>Pick</th><th class="l">Player</th><th class="l">Pos</th><th class="l">Now</th><th title="Consensus mock rank on draft day">Mock</th><th>Ovr</th><th title="Best overall rating so far">Peak</th><th>GP</th><th>PPG</th>';
   return `<section class="panel"><div class="row" style="margin-bottom:8px">${sel}</div><div class="grid2e" style="align-items:start"><div><h3>Best picks</h3>${best.length ? best.map(p => `<div class="leader" style="grid-template-columns:minmax(0,1fr) auto"><span>${plink(p)} <span class="muted">${draftLabel(p.draft.s)} · #${p.draft.rd === 1 ? p.draft.no : (p.draft.no || 0) + L.teams.length}</span></span><span class="v">peak ${peak(p)}</span></div>`).join('') : '<p class="muted">No picks yet.</p>'}</div><div><h3>Draft grades</h3>${grades || '<p class="muted">No drafts yet.</p>'}</div></div></section>
-  <section class="panel"><h2>${esc(tname(tid))} picks · ${ps.length}</h2>${ps.length ? `<div class="tblwrap"><table class="sortable" data-sid="dhist"><thead><tr>${head}</tr></thead><tbody>${ps.sort((a, b) => b.draft.s - a.draft.s || a.draft.rd - b.draft.rd || (a.draft.no || 99) - (b.draft.no || 99)).map(row).join('')}</tbody></table></div>` : '<p class="muted">No drafts in this league yet: history starts with the first draft you sim.</p>'}</section>`;
+  <section class="panel"><h2>${esc(tname(tid))} picks · ${ps.length}</h2>${ps.length ? `<div class="tblwrap"><table class="sortable" data-sid="dhist"><thead><tr>${head}</tr></thead><tbody>${ps.sort((a, b) => b.draft.s - a.draft.s || a.draft.rd - b.draft.rd || (a.draft.no || 99) - (b.draft.no || 99)).map(row).join('')}</tbody></table></div>` : '<p class="muted">No drafts yet: this list fills in with the first draft you sim.</p>'}</section>`;
 }
 // Live draft: every pick as it's made on the left, your director's board (or the consensus) on the right
 function liveDraft(myTurn) {
@@ -3137,25 +3136,29 @@ function yearbookDialog() {
 function hofSpeechHtml(h) { const p = L.players[h.pid]; if (!p || typeof hofSpeech !== 'function') return ''; let t = ''; try { t = hofSpeech(L, p); } catch (e) { } return t ? `<details class="hofsp" style="margin:0 0 8px"><summary class="muted" style="cursor:pointer;font-size:12px">Speech</summary><p style="margin:4px 0 0;font-size:13px">${esc(t)}</p></details>` : ''; }
 function vHistory() {
   if (ui.hs != null) return vSeasonHistory(L.history.find(h => h.s === ui.hs));
-  const rows = L.history.slice().reverse().map(h => `<tr class="click" data-hs="${h.s}"><td class="l">${seasonName(h.s)}</td><td class="l">${h.champion != null ? tlabel(h.champion, true) : '—'}</td><td class="l">${h.runnerUp != null ? tlabel(h.runnerUp) : '—'}</td><td class="l">${h.awards.mvp != null ? esc(L.players[h.awards.mvp]?.name || '') : '—'}</td><td class="l">${h.awards.fmvp != null ? esc(L.players[h.awards.fmvp]?.name || '') : '—'}</td><td class="l">${h.standings[0] ? tlabel(h.standings[0].tid) + ' ' + h.standings[0].w + '-' + h.standings[0].l : ''}</td></tr>`).join('');
+  // v32f: one list, newest first: this league's seasons, then the NBA seasons back to 1946-47
+  const simRow = h => ({ s: h.s, html: `<tr class="click" data-hs="${h.s}"><td class="l">${seasonName(h.s)}</td><td class="l">${h.champion != null ? tlabel(h.champion, true) : '—'}</td><td class="l">${h.runnerUp != null ? tlabel(h.runnerUp) : '—'}</td><td class="l">${h.awards.mvp != null && L.players[h.awards.mvp] ? plink(L.players[h.awards.mvp]) : '—'}</td><td class="l">${h.awards.fmvp != null && L.players[h.awards.fmvp] ? plink(L.players[h.awards.fmvp]) : '—'}</td><td class="l">${h.standings[0] ? tlabel(h.standings[0].tid) + ' ' + h.standings[0].w + '-' + h.standings[0].l : ''}</td></tr>` });
+  const pastRow = h => ({ s: h.y - 2025, html: `<tr><td class="l">${nbaSeasonLbl(h.y)}</td><td class="l">${nbaTeamCell(h.champ, h.champTm, true)}</td><td class="l">${nbaTeamCell(h.ru, h.ruTm)}</td><td class="l">${nbaNameCell(h.mvp)}</td><td class="l">${nbaNameCell(h.fmvp)}</td><td class="l"><span class="muted">—</span></td></tr>` });
+  const rows = [...L.history.map(simRow), ...(nbaHistOn(L) ? nbaHist().map(pastRow) : [])].sort((a, b) => b.s - a.s).map(x => x.html).join('');
   const ttl = t => nbaHistOn(L) ? nbaTitlesAll(L, t) : (t.titles || 0);
-  const titles = L.teams.slice().sort((a, b) => ttl(b) - ttl(a)).filter(t => ttl(t));
+  const titles = L.teams.filter(t => ttl(t)).map(t => ({ n: ttl(t), html: `<div class="leader" style="grid-template-columns:minmax(0,1fr) auto"><span>${tlabel(t.id, true)}</span><span class="v">${ttl(t)}</span></div>` }));
+  if (nbaHistOn(L)) { const known = new Set(L.teams.map(nbaAbOf)), gone = {}; for (const h of nbaHist()) if (h.champ && !known.has(h.champ)) gone[h.champ] = (gone[h.champ] || 0) + 1; for (const [ab, n] of Object.entries(gone)) titles.push({ n, html: `<div class="leader" style="grid-template-columns:minmax(0,1fr) auto"><span>${esc(NBA_OLD[ab] || ab)}</span><span class="v">${n}</span></div>` }); }
+  titles.sort((a, b) => b.n - a.n);
   const hof = (L.hof || []).slice().reverse();
   const rivals = rivalPairs(L).map(q => Object.assign({ kinds: q.kinds }, h2h(L, q.lo, q.hi))).sort((a, b) => b.heat - a.heat).slice(0, 8);
   const extra = `<div class="grid2e" style="margin-top:16px"><section class="panel"><h2>Hall of Fame${hof.length ? ' <a class="lk" href="#hofc" style="font-weight:400;font-size:13px">Ceremony →</a>' : ''}</h2>${hof.length ? hof.map(h => `<div class="leader" style="grid-template-columns:minmax(0,1fr) auto"><span>${L.players[h.pid] ? plink(L.players[h.pid]) : esc(h.name)} <span class="muted">${h.teams.map(id => L.teams[id].abbr).join(', ')}</span>${hofPre(h.pid)}</span><span class="muted">class of ${draftLabel(h.s)}</span></div>${hofSpeechHtml(h)}`).join('') : '<p class="muted">No inductees yet. Players are considered when they retire, based on their production, awards and titles.</p>'}</section>
   <section class="panel"><h2>Top rivalries</h2>${rivals.length ? rivals.map(r => `<div class="leader" style="grid-template-columns:minmax(0,1fr) auto"><span>${tlabel(r.lo)} vs ${tlabel(r.hi)} <span class="muted">${r.kinds.map(k => RIV_LABEL[k]).join(' · ')}</span></span><span class="muted">${r.wLo}-${r.wHi}${r.poLo + r.poHi ? ' · playoffs ' + r.poLo + '-' + r.poHi : ''}</span></div>`).join('') : '<p class="muted">None yet.</p>'}</section></div>`;
-  const htab = ['seasons', 'dyn', 'book', 'awards', 'greats', 'records', 'ach', ...(nbaHistOn(L) ? ['nba', 'legends'] : [])].includes(ui.histTab) ? ui.histTab : 'seasons';
-  const hsub = `<div class="subtabs" style="margin-bottom:12px">${[['seasons', 'Seasons'], ['dyn', 'Dynasties & eras'], ...(nbaHistOn(L) ? [['nba', 'Real NBA history'], ['legends', 'Legends']] : []), ['book', 'History book'], ['awards', 'Awards and Hall of Fame'], ['greats', 'All-time greats'], ['records', 'League records'], ['ach', 'Achievements']].map(([k, n]) => `<button class="sm ${htab === k ? 'primary' : ''}" data-histtab="${k}">${n}</button>`).join('')}</div>`;
+  const htab = ['seasons', 'dyn', 'book', 'awards', 'greats', 'records', 'ach', ...(nbaHistOn(L) ? ['legends'] : [])].includes(ui.histTab) ? ui.histTab : 'seasons';
+  const hsub = `<div class="subtabs" style="margin-bottom:12px">${[['seasons', 'Seasons'], ['dyn', 'Dynasties & eras'], ...(nbaHistOn(L) ? [['legends', 'Legends']] : []), ['book', 'History book'], ['awards', 'Awards and Hall of Fame'], ['greats', 'All-time greats'], ['records', 'League records'], ['ach', 'Achievements']].map(([k, n]) => `<button class="sm ${htab === k ? 'primary' : ''}" data-histtab="${k}">${n}</button>`).join('')}</div>`;
   if (htab === 'dyn') return hsub + dynastyView();
-  if (htab === 'nba') return hsub + nbaHistoryView();
   if (htab === 'legends') return hsub + legendsView();
-  if (htab === 'awards') return hsub + awardsHistory() + extra;
+  if (htab === 'awards') return hsub + awardsHistory() + awardLeadersPanels() + extra;
   if (htab === 'greats') return hsub + greatsView();
   if (htab === 'book') return hsub + historyBook();
   if (htab === 'ach') return hsub + achievementsView();
   if (htab === 'records') return hsub + records();
   return hsub + `<div class="grid2"><section class="panel"><h2>League history</h2>${rows ? `<div class="tblwrap"><table><thead><tr><th class="l">Season</th><th class="l">Champion</th><th class="l">Runner-up</th><th class="l">MVP</th><th class="l">Finals MVP</th><th class="l">Best record</th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="muted">Seasons are added here when each offseason starts.</p>'}</section>
-  <section class="panel"><h2>Championships</h2>${titles.length ? titles.map(t => `<div class="leader" style="grid-template-columns:minmax(0,1fr) auto"><span>${tlabel(t.id, true)}${nbaHistOn(L) && t.titles ? ` <span class="muted">${t.titles} in this league</span>` : ''}</span><span class="v">${ttl(t)}</span></div>`).join('') : '<p class="muted">No champions yet.</p>'}${nbaHistOn(L) ? '<p class="muted" style="font-size:12px;margin:8px 0 0">Real NBA titles (1947-2026) plus titles won in this league.</p>' : ''}</section></div>
+  <section class="panel"><h2>Championships</h2>${titles.length ? titles.map(t => t.html).join('') : '<p class="muted">No champions yet.</p>'}</section></div>
   ${yearbookSection()}`;
 }
 // History book: the league season by season, any franchise season by season, and your GM career
@@ -3247,37 +3250,44 @@ function awardCell(A, key) {
 function awardsHistory() {
   const seasons = Object.keys(L.awards || {}).map(Number).filter(x => L.awards[x].mvp != null || L.awards[x].fmvp != null).sort((a, b) => b - a);
   const cols = [['mvp', 'MVP'], ['dpoy', 'Defensive POY'], ['roy', 'Rookie of the Year'], ['smoy', 'Sixth Man'], ['mip', 'Most Improved'], ['coy', 'Coach of the Year'], ['fmvp', 'Finals MVP']];
-  return `<section class="panel" style="margin-top:16px"><h2>Awards history</h2>${seasons.length ? `<div class="tblwrap"><table><thead><tr><th class="l">Season</th>${cols.map(([k, n]) => `<th class="l">${trIcon(k, n)}</th>`).join('')}</tr></thead><tbody>${seasons.map(x => { const A = L.awards[x]; return `<tr><td class="l">${L.history.some(h => h.s === x) ? `<a class="lk" data-hs="${x}">${seasonName(x)}</a>` : seasonName(x)}</td>${cols.map(([k]) => `<td class="l">${k === 'fmvp' && A.fmvp == null ? '<span class="muted">' + (x === L.season && L.phase !== 'season-done' && !L.phase.startsWith('off') ? 'Playoffs' : '—') + '</span>' : awardCell(A, k)}</td>`).join('')}</tr>`; }).join('')}</tbody></table></div>` : '<p class="muted">Award winners are added here at the end of each regular season.</p>'}<p class="muted" style="margin:6px 0 0;font-size:12px">Open the Awards tab for each season's top-10 races, or a season above for All-League and All-Defense teams.</p></section>`;
+  // v32f: the NBA seasons before this league sit in the same table, below this league's seasons
+  const pastAw = nbaHistOn(L) ? nbaHist().slice().reverse().map(h => `<tr><td class="l">${nbaSeasonLbl(h.y)}</td>${cols.map(([k]) => `<td class="l">${nbaNameCell(h[k])}</td>`).join('')}</tr>`).join('') : '';
+  return `<section class="panel" style="margin-top:16px"><h2>Awards history</h2>${seasons.length || pastAw ? `<div class="tblwrap"><table><thead><tr><th class="l">Season</th>${cols.map(([k, n]) => `<th class="l">${trIcon(k, n)}</th>`).join('')}</tr></thead><tbody>${seasons.map(x => { const A = L.awards[x]; return `<tr><td class="l">${L.history.some(h => h.s === x) ? `<a class="lk" data-hs="${x}">${seasonName(x)}</a>` : seasonName(x)}</td>${cols.map(([k]) => `<td class="l">${k === 'fmvp' && A.fmvp == null ? '<span class="muted">' + (x === L.season && L.phase !== 'season-done' && !L.phase.startsWith('off') ? 'Playoffs' : '—') + '</span>' : awardCell(A, k)}</td>`).join('')}</tr>`; }).join('')}${pastAw}</tbody></table></div>` : '<p class="muted">Award winners are added here at the end of each regular season.</p>'}<p class="muted" style="margin:6px 0 0;font-size:12px">Open the Awards tab for each season's top-10 races, or a season above for All-League and All-Defense teams.</p></section>`;
 }
 // v27 H1: real NBA seasons 1946-47 to 2025-26 (data in nba-2026.js, not saved)
-function nbaTeamCell(ab, then) {
+function nbaTeamCell(ab, then, strong) {
   const t = L.teams.find(x => nbaAbOf(x) === ab);
   if (!t) return esc(NBA_OLD[ab] || then || ab);
-  return tlabel(t.id) + (then && then !== tname(t.id) ? ` <span class="muted">${esc(then)}</span>` : '');
+  return tlabel(t.id, strong) + (then && then !== tname(t.id) ? ` <span class="muted">${esc(then)}</span>` : '');
 }
 function nbaNameCell(v) {
   if (!v) return '<span class="muted">—</span>';
-  if (!nbaNameCell.m || nbaNameCell.L !== L) { nbaNameCell.m = {}; nbaNameCell.L = L; for (const p of Object.values(L.players)) if (p.real) nbaNameCell.m[p.name] = p; }
+  if (!nbaNameCell.m || nbaNameCell.L !== L) { nbaNameCell.m = {}; nbaNameCell.L = L; for (const p of Object.values(L.players)) if (p.real || !nbaNameCell.m[p.name]) nbaNameCell.m[p.name] = p; }
   return nbaNames(v).map(n => nbaNameCell.m[n] ? plink(nbaNameCell.m[n]) : esc(n)).join(' / ');
 }
-function nbaHistoryView() {
-  const H = nbaHist(), ft = ui.nbaHT != null && L.teams[ui.nbaHT] ? L.teams[ui.nbaHT] : null;
-  const rows = H.slice().reverse().filter(h => !ft || h.champ === nbaAbOf(ft) || h.ru === nbaAbOf(ft));
-  const body = rows.map(h => `<tr><td class="l">${nbaSeasonLbl(h.y)}</td><td class="l"><strong>${nbaTeamCell(h.champ, h.champTm)}</strong></td><td class="l">${nbaTeamCell(h.ru, h.ruTm)}</td>${NBA_AWN.map(([k]) => `<td class="l">${nbaNameCell(h[k])}</td>`).join('')}</tr>`).join('');
-  const tl = L.teams.map(t => [t, nbaRealTitles(L, t)]).filter(x => x[1].length).sort((a, b) => b[1].length - a[1].length || a[0].abbr.localeCompare(b[0].abbr));
-  const lead = (k, n) => `<div class="panel"><h3>Most ${esc(n)} awards</h3>${nbaAwardLeaders(k, 5).map(([nm, c], i) => `<div class="leader"><span class="muted">${i + 1}</span><span>${nbaNameCell(nm)}</span><span class="v">${c}</span></div>`).join('')}</div>`;
-  return `<div class="grid2"><section class="panel"><h2>Real NBA history · 1946-47 to 2025-26</h2><div class="row" style="margin-bottom:10px"><label>Team <select id="nbah-t"><option value="">All seasons</option>${L.teams.slice().sort((a, b) => tname(a.id).localeCompare(tname(b.id))).map(t => `<option value="${t.id}" ${ft && ft.id === t.id ? 'selected' : ''}>${esc(tname(t.id))}</option>`).join('')}</select></label>${ft ? `<span class="muted">${nbaRealTitles(L, ft).length} titles in ${rows.length} Finals</span>` : ''}</div>
-  <div class="tblwrap"><table><thead><tr><th class="l">Season</th><th class="l">Champion</th><th class="l">Runner-up</th>${NBA_AWN.map(([k, n]) => `<th class="l">${trIcon(k, n)}</th>`).join('')}</tr></thead><tbody>${body || '<tr><td class="l" colspan="10">No Finals appearances.</td></tr>'}</tbody></table></div>
-  <p class="muted" style="font-size:12px;margin:8px 0 0">1946-47 to 1948-49 were BAA seasons. Teams show today's franchise, with the name they had then. Awards are blank before they existed. This league's own seasons are under Seasons.</p></section>
-  <section class="stack"><div class="panel"><h3>Real NBA titles</h3>${tl.map(([t, x]) => `<div class="leader" style="grid-template-columns:minmax(0,1fr) auto"><span>${tlabel(t.id, true)} <span class="muted">last ${nbaSeasonLbl(x[x.length - 1].y)}</span></span><span class="v">${x.length}</span></div>`).join('')}<div class="leader" style="grid-template-columns:minmax(0,1fr) auto"><span class="muted">Defunct: Baltimore Bullets (1947-54)</span><span class="v">1</span></div></div>
-  ${lead('mvp', 'MVP')}${lead('fmvp', 'Finals MVP')}${lead('dpoy', 'Defensive POY')}${lead('coy', 'Coach of the Year')}</section></div>`;
+// v32f: most wins of one award, this league's winners and the NBA seasons counted together
+function awardLeadersAll(k, top) {
+  const c = {}; for (const [n, x] of nbaAwardLeaders(k, 9999)) c[n] = x;
+  for (const A of Object.values(L.awards || {})) { const id = A[k]; const nm = k === 'coy' ? (id != null && findCoach(L, id) ? findCoach(L, id).name : null) : (id != null && L.players[id] ? L.players[id].name : null); if (nm) c[nm] = (c[nm] || 0) + 1; }
+  return Object.entries(c).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, top || 5);
 }
-function nbaTeamPanel(t) {
-  const F = nbaRealFinals(L, t); if (!F.length) return `<div class="panel"><h3>Real NBA history</h3><p class="muted">No NBA titles or Finals trips before this league.</p></div>`;
-  const ab = nbaAbOf(t), won = F.filter(h => h.champ === ab), lost = F.filter(h => h.ru === ab);
-  const yrs = list => list.map(h => nbaSeasonLbl(h.y)).join(', ');
-  const fmvps = won.filter(h => h.fmvp).map(h => `<div class="leader" style="grid-template-columns:60px minmax(0,1fr)"><span class="muted">${nbaSeasonLbl(h.y)}</span><span>Finals MVP: ${nbaNameCell(h.fmvp)}${h.champTm && h.champTm !== tname(t.id) ? ` <span class="muted">${esc(h.champTm)}</span>` : ''}</span></div>`).join('');
-  return `<div class="panel"><h3>Real NBA history</h3><div class="kv"><span class="k2">NBA titles</span><span>${won.length}${won.length ? ` <span class="muted">${yrs(won)}</span>` : ''}</span><span class="k2">Finals losses</span><span>${lost.length}${lost.length ? ` <span class="muted">${yrs(lost)}</span>` : ''}</span></div>${fmvps ? `<div style="margin-top:8px">${fmvps}</div>` : ''}</div>`;
+function awardLeadersPanels() {
+  if (!nbaHistOn(L)) return '';
+  const lead = (k, n) => `<div class="panel"><h3>Most ${esc(n)} awards</h3>${awardLeadersAll(k, 5).map(([nm, c], i) => `<div class="leader"><span class="muted">${i + 1}</span><span>${nbaNameCell(nm)}</span><span class="v">${c}</span></div>`).join('')}</div>`;
+  return `<div class="grid2e" style="margin-top:16px">${lead('mvp', 'MVP')}${lead('fmvp', 'Finals MVP')}${lead('dpoy', 'Defensive POY')}${lead('coy', 'Coach of the Year')}</div>`;
+}
+// v32f: a team's title and Finals years, NBA seasons and this league's seasons in one list (oldest first)
+function teamFinalYears(t) {
+  const F = nbaHistOn(L) ? nbaRealFinals(L, t) : [], ab = nbaAbOf(t);
+  const won = [...F.filter(h => h.champ === ab).map(h => [h.y - 2025, nbaSeasonLbl(h.y)]), ...L.history.filter(h => h.champion === t.id).map(h => [h.s, seasonName(h.s)])].sort((a, b) => a[0] - b[0]).map(x => x[1]);
+  const lost = [...F.filter(h => h.ru === ab).map(h => [h.y - 2025, nbaSeasonLbl(h.y)]), ...L.history.filter(h => h.runnerUp === t.id).map(h => [h.s, seasonName(h.s)])].sort((a, b) => a[0] - b[0]).map(x => x[1]);
+  return { won, lost, rf: F.length };
+}
+// v32f: Finals MVPs of this franchise's earlier titles, as rows for the team's Award winners panel
+function nbaTeamHonors(t) {
+  if (!nbaHistOn(L)) return [];
+  const ab = nbaAbOf(t);
+  return nbaHist().filter(h => h.champ === ab && h.fmvp).reverse().map(h => `<div class="leader" style="grid-template-columns:60px minmax(0,1fr)"><span class="muted">${nbaSeasonLbl(h.y)}</span><span>Finals MVP: ${nbaNameCell(h.fmvp)}${h.champTm && h.champTm !== tname(t.id) ? ` <span class="muted">${esc(h.champTm)}</span>` : ''}</span></div>`);
 }
 function vSeasonHistory(h) {
   if (!h) { ui.hs = null; return vHistory(); }
@@ -3325,7 +3335,7 @@ const lgAw = a => ['MVP', 'Finals MVP', 'Champion', 'DPOY', 'All-NBA 1st', 'All-
 function legendsView() {
   const lg = nbaLegends(), rows = lg.map(x => { const r = x.rs, reb = lgReb(r);
     return `<tr class="click" data-legend="${esc(x.name)}"><td class="l"><strong>${esc(x.name)}</strong></td><td>${x.pos}</td><td>${x.from.slice(0, 4)}-${x.to.slice(0, 4)}</td><td class="l">${x.teams.join('/')}</td><td>${r.gp}</td><td>${r.pts != null ? r.pts.toLocaleString() : '—'}</td><td>${reb != null ? reb.toLocaleString() : '—'}</td><td>${r.ast != null ? r.ast.toLocaleString() : '—'}</td><td>${r.gp && r.pts != null ? f1(r.pts / r.gp) : '—'}</td><td>${x.hof || '—'}</td><td class="l">${esc(lgAw(x.aw))}</td></tr>`; }).join('');
-  return `<h2 style="margin-top:20px">Legends</h2><p class="muted">${lg.length} retired greats with their real career totals. Click a name for the career line and awards.</p><div class="panel"><div class="tblwrap"><table class="sortable" data-sid="legends"><thead><tr><th class="l">Name</th><th>Pos</th><th>Years</th><th class="l">Teams</th><th>GP</th><th>PTS</th><th>REB</th><th>AST</th><th>PPG</th><th>HOF</th><th class="l">Top awards</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+  return `<h2 style="margin-top:20px">Legends</h2><p class="muted">${lg.length} retired greats with their career totals. Click a name for the career line and awards.</p><div class="panel"><div class="tblwrap"><table class="sortable" data-sid="legends"><thead><tr><th class="l">Name</th><th>Pos</th><th>Years</th><th class="l">Teams</th><th>GP</th><th>PTS</th><th>REB</th><th>AST</th><th>PPG</th><th>HOF</th><th class="l">Top awards</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
 function legendDialog(name) {
   const x = nbaLegends().find(l => l.name === name); if (!x) return; const r = x.rs, g = r.gp || 1, reb = lgReb(r);
@@ -3537,12 +3547,13 @@ const trChip = y => `<span class="trchip">${y}</span>`;
 // Player pages: one trophy or medal per award type, with ×N and the years as chips
 function trophyCase(p) {
   const ys = {}; for (const a of p.awards || []) if (TROPHY_OF[a.a]) (ys[a.a] = ys[a.a] || []).push(a.s);
-  const ks = Object.keys(TROPHY_OF).filter(k => ys[k]); const real = p.real && nbaHistOn(L) && !(p.awards || []).some(a => a.real) ? nbaRealHonors(p.name) : [];   // v27 H3: stars carry their real awards in p.awards
-  const realHtml = real.length ? `<div class="trcase">${real.map(h => `<div class="tritem" title="${esc(h.n)} (real NBA)"><div class="trart">${trophySvg(h.k, 64, h.ys.length > 1 ? '×' + h.ys.length : nbaSeasonLbl(h.ys[0]))}</div><div class="trname">${esc(h.n)}${h.ys.length > 1 ? ` <strong>×${h.ys.length}</strong>` : ''}</div><div class="trchips">${h.ys.map(y => trChip(nbaSeasonLbl(y))).join('')}</div></div>`).join('')}</div><p class="muted" style="font-size:12px;margin:6px 0 0">Real NBA awards before this league began.</p>` : '';
-  if (!ks.length) return realHtml ? `<section class="panel" style="margin-bottom:16px"><h3>Trophy case</h3>${realHtml}</section>` : '';
+  // stars carry every award in p.awards; other players take theirs from the NBA award list (v32f: one case, merged by type)
+  if (p.real && nbaHistOn(L) && !(p.awards || []).some(a => a.real)) for (const h of nbaRealHonors(p.name)) { const nm = Object.keys(TROPHY_OF).find(k => TROPHY_OF[k] === h.k); if (nm) for (const y of h.ys) (ys[nm] = ys[nm] || []).push(y - 2025); }
+  const ks = Object.keys(TROPHY_OF).filter(k => ys[k]);
+  if (!ks.length) return '';
   const short = k => k.replace('Defensive Player of the Year', 'DPOY').replace('Sixth Man of the Year', 'Sixth Man').replace('Most Improved Player', 'Most Improved').replace(' Team', '').replace('Champion', 'Champions');
   return `<section class="panel" style="margin-bottom:16px"><h3>Trophy case</h3><div class="trcase">${ks.map(k => { const s = ys[k].slice().sort((a, b) => a - b), med = !!MEDAL_OF[TROPHY_OF[k]];
-    return `<div class="tritem" title="${esc(k)}"><div class="trart">${trophySvg(TROPHY_OF[k], med ? 54 : 64, med ? '' : s.length > 1 ? '×' + s.length : seasonName(s[0]))}</div><div class="trname">${esc(short(k))}${s.length > 1 ? ` <strong>×${s.length}</strong>` : ''}</div><div class="trchips">${s.map(x => trChip(seasonName(x))).join('')}</div></div>`; }).join('')}</div>${realHtml ? '<h3 style="margin-top:12px">Before this league</h3>' + realHtml : ''}</section>`;
+    return `<div class="tritem" title="${esc(k)}"><div class="trart">${trophySvg(TROPHY_OF[k], med ? 54 : 64, med ? '' : s.length > 1 ? '×' + s.length : seasonName(s[0]))}</div><div class="trname">${esc(short(k))}${s.length > 1 ? ` <strong>×${s.length}</strong>` : ''}</div><div class="trchips">${s.map(x => trChip(seasonName(x))).join('')}</div></div>`; }).join('')}</div></section>`;
 }
 // Award popups: one trophy per win, each with its year
 function trophyRow(kind, seasons, size) {
@@ -4057,7 +4068,7 @@ function vReview() {
 function vRules() {
   return `<section class="panel" style="max-width:840px"><h2>How ${L && L.nba ? 'the NBA 2026-27 league' : 'the Pacific Basketball League'} works</h2>
   ${L && L.nba && typeof NBA_TEXT !== 'undefined' ? `<h3>NBA mode</h3><ul>${NBA_TEXT.how.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
-  <p>${L && L.nba ? 'Thirty teams in the East and West conferences, six divisions of five. Real 2026-27 rosters and contracts.' : 'Sixteen teams in two conferences: North (Luzon) and South (the Visayas and Mindanao).'} Each team plays ${SEASON_GAMES} games (the season length is chosen when the league is created), mostly against its own conference. Games are simulated possession by possession with four 12-minute quarters, a 24-second shot clock and 5-minute overtimes.</p>
+  <p>${L && L.nba ? 'Thirty teams in the East and West conferences, six divisions of five. 2026-27 rosters and contracts.' : 'Sixteen teams in two conferences: North (Luzon) and South (the Visayas and Mindanao).'} Each team plays ${SEASON_GAMES} games (the season length is chosen when the league is created), mostly against its own conference. Games are simulated possession by possession with four 12-minute quarters, a 24-second shot clock and 5-minute overtimes.</p>
   <h3>Players</h3><p>Height, weight and wingspan shape athleticism, rebounding and defense. Each player has an archetype for his position, such as Pass-first PG or Rim protector. Players rated 80+ can carry a second archetype, 88+ a third, and the best get an Elite version. Each player also has a personality (Loyal, Money-first, Wants to win or Balanced) that shapes contract talks.</p>
   <h3>Usage</h3><p>Every possession has a primary ball handler. Players with high ball dominance (built from handling, passing, scoring and IQ) handle it more, so they shoot more, get to the line more, assist more and turn it over more. Isolation coaches lean even harder on their top option, while motion offenses spread it around. USG% is the share of team possessions a player uses on the floor.</p>
   <h3>Rotations</h3><p>Coaches run tight, balanced or deep rotations. Tight rotations ride the starters, deep ones spread minutes, and a strong bench takes minutes from the starters on any team. Stars (78+) get extra minutes. In the last 5 minutes of close games the closers play. In the last 2 minutes the defense brings in its best defenders and a trailing team brings in its scorers. In blowouts the key players rest, which also lowers their injury risk.</p>
@@ -4139,7 +4150,7 @@ function vSetup(note) {
   if (s.team >= size) s.team = 0;
   const keep = L; L = fake; for (const k in logoCache) delete logoCache[k];
   const html = `<section class="panel" style="max-width:980px;margin:0 auto"><h2>New league</h2>${note ? `<div class="note">${note}</div>` : ''}<p>${nba ? `${NBA_TEXT.setup} A ${g}-game season.` : size === 30 ? `Thirty teams in two conferences of 15: the 16 Philippine teams plus 14 from capital cities around the region. A ${g}-game season. Top 6 per conference make the playoffs; seeds 7–10 play in.` : `Sixteen teams in two conferences: North (Luzon) and South (the Visayas and Mindanao). ${g}-game seasons. Top 3 per conference make the playoffs; seeds 4–5 play in.`} ${nba ? '' : 'Every player starts new to the league, on contracts based on his rating.'}</p>
-  <h3>League</h3><div class="choice"><button data-setnba="0" class="${!nba ? 'on' : ''}"><strong>Pacific Basketball League</strong><br><span class="muted">Fictional league, generated players</span></button><button data-setnba="1" class="${nba ? 'on' : ''}"><strong>NBA 2026-27</strong><br><span class="muted">Real teams, rosters, contracts and coaches (Nov 2026). East / West, 6 divisions, play-in 7–10</span></button></div>
+  <h3>League</h3><div class="choice"><button data-setnba="0" class="${!nba ? 'on' : ''}"><strong>Pacific Basketball League</strong><br><span class="muted">Fictional league, generated players</span></button><button data-setnba="1" class="${nba ? 'on' : ''}"><strong>NBA 2026-27</strong><br><span class="muted">Teams, rosters, contracts and coaches as of Nov 2026. East / West, 6 divisions, play-in 7–10</span></button></div>
   ${nba ? '' : `<div class="choice"><button data-setsize="30" class="${size === 30 ? 'on' : ''}"><strong>30 teams</strong><br><span class="muted">Philippines plus 14 capital cities in the region</span></button><button data-setsize="16" class="${size === 16 ? 'on' : ''}"><strong>16 teams (classic)</strong><br><span class="muted">The original Philippine league</span></button></div>`}
   <h3>Season length</h3><div class="choice">${[[82, 'Full season', 'The default. About 156 days, a little slower to sim.'], [66, 'Medium', 'A shorter season with the same rules.'], [58, 'Short (classic)', 'The original length.']].map(([n, nm, d]) => `<button data-setgames="${n}" class="${g === n ? 'on' : ''}"><strong>${n} games</strong> <span class="muted">· ${nm}</span><br><span class="muted">${d}</span></button>`).join('')}</div>
   <div class="choice"><button data-setmode="commish" class="${s.mode === 'commish' ? 'on' : ''}"><strong>Commissioner</strong><br><span class="muted">Watch the league run itself. You can review and veto AI trades.</span></button>
@@ -4498,7 +4509,6 @@ function bindView() {
   on('#greatteam', 'change', e => { ui.greatTeam = +e.target.value; render(); });
   on('#bookteam', 'change', e => { ui.bookTeam = +e.target.value; render(); });
   on('#yb-s', 'change', e => { ui.ybS = +e.target.value; render(); });
-  on('#nbah-t', 'change', e => { ui.nbaHT = e.target.value === '' ? null : +e.target.value; render(); });
   on('#dh-team', 'change', e => { ui.dhTeam = +e.target.value; render(); });   // v28.7 R2
   on('#yb-t', 'change', e => { ui.ybT = +e.target.value; render(); });
   on('#staffteam', 'change', e => { ui.staffTeam = e.target.value === '' ? null : +e.target.value; render(); });

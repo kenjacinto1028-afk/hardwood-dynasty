@@ -1,14 +1,14 @@
 // v27 NBA-mode text (Haiku edits THIS file only). Plain words, under 140 characters per line.
 // setup: New league screen, NBA choice. how: "How it works" → NBA mode lines (one <li> each). flavor: replaces FLAVOR keys in NBA mode (same {vars}). sl: coach slider trade-off text (K4).
 const NBA_TEXT = {
-  setup: 'The real NBA at the start of the 2026-27 season: 30 teams, real rosters and contracts. Ratings come from 2025-26 stats. Top 6 per conference make the playoffs; seeds 7-10 play in.',
+  setup: 'The NBA at the start of the 2026-27 season: 30 teams, with their rosters and contracts. Ratings come from 2025-26 stats. Top 6 per conference make the playoffs; seeds 7-10 play in.',
   how: [
     'Ratings come from each player\'s 2025-26 stats, adjusted for age and team.',
-    'Contracts are the real ones, with a different amount each season.',
+    'Contracts are the signed deals, with a different amount each season.',
     'Salary cap $165.0M, tax line $200.4M, hard apron $221.7M, floor $148.5M.',
-    'Rookie contracts follow the real scale, set by draft slot.',
-    'Draft classes from 2027 on are generated, not real.',
-    'Current injuries carry over from real life.',
+    'Rookie contracts follow the league scale, set by draft slot.',
+    'Draft classes from 2027 on are generated.',
+    'Current injuries carry over.',
   ],
   flavor: {
     'hof.induct': ['{name} is inducted into the Hall of Fame', '{name} enters the Hall of Fame', 'Hall of Fame: {name} is inducted', '{name} will join the Hall of Fame'],

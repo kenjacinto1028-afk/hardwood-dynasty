@@ -1,3 +1,16 @@
+# TASK_STATE — v32f-a (one universe UI): remove real-vs-game split — Nov 16 2026
+
+- [x] G0. Grep src for real/Real NBA/historical wording + the split panels — grep of app/league/engine/nba-setup/nba-text; only app.js and nba-text.js had user-facing real-vs-game text
+- [x] G1. History tab: drop Real NBA sub-tab, merge into Seasons / Championships — src/app.js vHistory merged list (simRow + pastRow), Championships list, awards table + leaders, Real NBA tab removed
+- [x] G2. Team pages: merge Real NBA panel into team titles / Finals / history — src/app.js teamFinalYears, nbaTeamHonors, summary counts; header Titles tile combined
+- [x] G3. Trophy case one case, no "(real NBA)" — src/app.js trophyCase one case merged by award type
+- [x] G4. Dynasties & eras: no `real` class / greyed rows — src/app.js dynastyView + styles.css: no real class / muted rows
+- [x] G5. Player pages + chart note, other user-facing text — src/app.js chart notes, est tags, legends text, setup text; src/nba-text.js wording
+- [x] G6. tools/t32f-a.js + node --check, lint, t30a quick — tools/t32f-a.js 43/43; node --check, lint 104 PASS, t30a 29/29
+- [x] G7. Browser check History + team + real player (1300 + 390) — tools/browser-v32f-a.py.txt 36/36 (1300 + 390px)
+- [x] G8. PROGRESS.md + README, commit, zip (GitHub not linked) — PROGRESS.md + README written, committed; push blocked (GitHub not linked), zip sent
+
+---
 # TASK_STATE — v32e2 (Opus): smooth asks, realistic re-signing, de-tune — Nov 15 2026
 
 - [x] F0. Measure real salaries vs market value by OVR (new NBA league) — real NBA salaries by OVR: 60-61 med $10.9M, 62-63 $19.3M, 64-65 $16.1M; market value had a cliff 59 $2.3M -> 60 $8.7M

@@ -2005,7 +2005,7 @@ function vPlayer(p) {
 // v24.3: career line against each team (regular season and playoffs together)
 function vsPanel(p) {
   if (p.prospect) return '';
-  const rows = Object.keys(p.vs || {}).map(k => ({ t: +k, o: p.vs[k] })).filter(x => x.o.gp && L.teams[x.t]).sort((a, b) => L.teams[a.t].city.localeCompare(L.teams[b.t].city));
+  const rows = Object.keys(p.vs || {}).map(k => ({ t: +k, o: typeof vsUnpack === 'function' ? vsUnpack(p.vs[k]) : p.vs[k] })).filter(x => x.o.gp && L.teams[x.t]).sort((a, b) => L.teams[a.t].city.localeCompare(L.teams[b.t].city));
   if (!rows.length) return '<section class="panel" style="margin-bottom:16px"><h3>Against each team</h3><p class="muted">No games recorded against any team yet.</p></section>';
   const f = (n, g) => g ? (n / g).toFixed(1) : '—', pc = (m, a) => a ? (m / a * 100).toFixed(1) : '—';
   // v24.4: best and worst opponents (5+ games): by points per game and by win rate

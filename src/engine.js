@@ -1222,7 +1222,7 @@ function rolesFresh(league, t) { if (t.roleKey !== t.roster.join(',') + '|' + (t
 function roleOf(league, p) { if (p.team == null) return null; const t = league.teams[p.team]; if (t) rolesFresh(league, t); return p.roleT === p.team ? p.role : null; }
 // fit role ranges to the minutes on offer: one shared shift (lambda) times each role's flexibility, clamped to the range; bisection.
 // list: [{ id, k, w }] (w = optional extra lean, minutes). Returns { id: minutes }.
-const RM_LIFT = [6.5, 4.5, 3, 10.5, -1.5, -3, 0];   // v32g: sixth man 5.5 -> 10.5, franchise star 5.5 -> 6.5 (with the long-run placement in planRotation, sixth men land ~25 instead of ~22.7). v32c: a normal game's plan: top roles above their range by about what blowouts and foul trouble take off, rotation / bench a bit under (blowout garbage time adds it back), so season averages land in the ranges   // short-handed nights: stars stretch 1.5 at most (calc), the bench takes the rest   // plan a bit above the role so the minutes played (after blowout rest and foul trouble) land in it
+const RM_LIFT = [5.5, 4.5, 3, 10.5, -1.5, -3, 0];   // v32h: franchise star 6.5 -> 5.5 (with the sixth man entering earlier, 6-6.5 pushed them to ~38 early in a season; 5.5 averages ~34-35 over full seasons). v32g: sixth man 5.5 -> 10.5, franchise star 5.5 -> 6.5 (with the long-run placement in planRotation, sixth men land ~25 instead of ~22.7). v32c: a normal game's plan: top roles above their range by about what blowouts and foul trouble take off, rotation / bench a bit under (blowout garbage time adds it back), so season averages land in the ranges   // short-handed nights: stars stretch 1.5 at most (calc), the bench takes the rest   // plan a bit above the role so the minutes played (after blowout rest and foul trouble) land in it
 function roleMinutes(list, coach, playoff, total) {
   total = total || 240;
   const style = (coach && coach.rot) || 'Balanced', lean = style === 'Tight' ? 0.9 : style === 'Deep' ? 0.55 : 0.75;   // top roles aim high: blowout rest takes ~1.5 min off them
@@ -1246,6 +1246,7 @@ function roleMinutes(list, coach, playoff, total) {
 // 4 quarters x 4 blocks of 3 minutes, 5 ids each) that replaces the coach's plan; a player out that night gets a stand-in for his
 // blocks (v32g); a chart that can't be fixed that way falls back to the coach's.
 const ROT_BLK = 3;   // chart block length (minutes)
+const SIX_EARLY = 4;   // v32h: most minutes the sixth man's partner sits early (per half)
 const PAT_C = new WeakMap();
 const PAT_FIRST = [[2, 3], [2, 3], [1, 2], [3, 4], [0, 2], [1, 4]];   // slots that sit first (SF + PF most often, as in the classic pattern)
 function coachPat(c) {
@@ -1270,10 +1271,20 @@ function planRotation(g) {
   const plan = Array.from({ length: 48 }, () => [null, null, null, null, null]), busy = Array.from({ length: 48 }, () => new Set());
   const put = (p, s, a, b) => { for (let m = Math.max(0, a); m < Math.min(48, b); m++) { plan[m][s] = p; busy[m].add(p.id); } };
   const st = g.court.slice(), onSt = new Set(st.filter(Boolean).map(p => p.id));
+  // v32h: plan the sixth man first. The starter he pairs with (best position fit, not a star) sits a couple of minutes earlier
+  // each half and comes back earlier, so the sixth man's run starts before the rest of the starters' rest pattern
+  // (the window where any starter sits was the limit on his minutes).
+  const six = g.players.filter(p => !onSt.has(p.id) && !g.out.has(p.id)).sort((a, b) => T(b.id) - T(a.id))[0];
+  let pair = -1, sh = 0;
+  if (six && T(six.id) >= 18) {
+    let bv = -1; st.forEach((p, s) => { if (!p || (g.stars && g.stars.has(p.id))) return; const v = slotFit(six, s) + (pat.first.includes(s) ? 0.05 : 0) - T(p.id) / 400; if (v > bv) { bv = v; pair = s; } });
+    sh = clamp(Math.round(T(six.id) - 21), 1, SIX_EARLY);
+  }
   st.forEach((p, s) => {
     if (!p) return;
     const t = clamp(Math.round(T(p.id)), 0, 48), star = g.stars && g.stars.has(p.id);
     let o1 = (pat.first.includes(s) ? pat.e1 : pat.e2) + jit() + (star ? 1 : 0), o3 = o1 + (R() - 0.4) * 0.8;
+    if (s === pair) { o1 -= sh; o3 -= sh; }
     o1 = clamp(Math.round(o1), 3, 12); o3 = clamp(Math.round(o3), 3, 12);
     if (o1 + o3 > t) { o1 = Math.floor(t / 2); o3 = t - o1; }
     let rest = t - o1 - o3;
@@ -2350,6 +2361,7 @@ function applyGame(league, game) {
     // v24.3: career line against each opponent (regular season and playoffs together)
     if (row[2] > 0) {
       const opp = tid === game.home ? game.away : game.home, vs = p.vs = p.vs || {};
+      if (Array.isArray(vs[opp]) && typeof vsUnpack === 'function') vs[opp] = vsUnpack(vs[opp]);   // v32h: a packed line (retired player back in the league)
       const o = vs[opp] = vs[opp] || { gp: 0, w: 0, min: 0, pts: 0, fgm: 0, fga: 0, tpm: 0, tpa: 0, ftm: 0, fta: 0, reb: 0, ast: 0, stl: 0, blk: 0, tov: 0 };
       o.gp++; if ((tid === game.home) === (game.hs > game.as)) o.w++;
       o.min += row[2 + IX.min]; o.pts += row[2 + IX.pts]; o.fgm += row[2 + IX.fgm]; o.fga += row[2 + IX.fga]; o.tpm += row[2 + IX.tpm]; o.tpa += row[2 + IX.tpa]; o.ftm += row[2 + IX.ftm]; o.fta += row[2 + IX.fta];

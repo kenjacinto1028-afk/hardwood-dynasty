@@ -17,6 +17,16 @@ var V32E={asks:null,exp:[],sign:[]};
  const sf=startFA;startFA=function(L){const r=sf(L);try{V32E.asks=V32E.askRep(L);}catch(e){V32E.asks={err:e.message};}return r;};
  const sc=signContract;signContract=function(L,p,tid,amt,yrs,type,opt,extra){const t=L.teams[tid];if((type==='signing'||type==='re-sign')&&L.phase!=='regular')(V32E.con=V32E.con||[]).push({o:p.ovr,a:p.age,amt,type});if(type==='signing'&&p.team==null)V32E.sign.push({pid:p.id,tid,amt,mval:p.mval,ask:p.ask,ovr:p.ovr,age:p.age,ring:(p.awards||[]).filter(a=>a.a==='Champion').length,st:t.status||t.mode,ph:L.phase});return sc.apply(this,arguments);};
 })();
+
+// v32h: hard-cap audit: the first event that puts a team's payroll for the cap season over the hard cap (signing type, trade, options/extensions, draft)
+var V32H={over:{},ev:[]};
+(function(){
+ const chk=(L,ev)=>{try{const cs=capSeason(L);for(const t of L.teams){const k=t.id+'|'+cs,o=payNoFloor(L,t,cs)>APRON+0.5;if(o&&!V32H.over[k])V32H.ev.push({s:L.season,ph:L.phase,ev,t:t.abbr,u:t.id===L.user,pay:+payNoFloor(L,t,cs).toFixed(1)});V32H.over[k]=o;}}catch(e){}};
+ const sc=signContract;signContract=function(L,p,tid,amt,yrs,type){const r=sc.apply(this,arguments);chk(L,'sign:'+type);return r;};
+ const et=executeTrade;executeTrade=function(L){const r=et.apply(this,arguments);chk(L,'trade');return r;};
+ const sr=startResign;startResign=function(L){chk(L,'pre-resign');const r=sr.apply(this,arguments);chk(L,'resign/options');return r;};
+ const sn=startNewSeason;startNewSeason=function(L){chk(L,'pre-season');return sn.apply(this,arguments);};
+})();
 // v32g: mid-level use (offseason + season), unsigned 65+ free agents after free agency
 var V32G={sg:[]};
 (function(){const sc=signContract;signContract=function(L,p,tid,amt,yrs,type,opt,extra){try{if(type==='signing'&&typeof contractHit==='function'){const t=L.teams[tid],pre=payroll(L,t),hit=contractHit(amt,false);if(hit>0)V32G.sg.push({tid,amt,o:p.ovr,a:p.age,how:pre+hit<=CAP+1e-6?'room':'mle',ph:L.phase==='regular'?'rs':'off'});}}catch(e){}return sc.apply(this,arguments);};})();
@@ -76,6 +86,7 @@ for(let y=1;y<=N;y++){const t0=Date.now();R30.inj={rs:0,po:0,rsG:0,poG:0};const 
    payCut:{wf:L.winFirst&&L.winFirst.s===L.season?{n:L.winFirst.n,cands:L.winFirst.cands||0}:null,n:pc.length,news:(L.log||[]).filter(e=>e.k==='paycut'&&e.season>=L.season-1).length,who:pc.map(x=>L.players[x.pid].name+' '+x.ovr+' a'+x.age+' r'+x.ring+' '+L.teams[x.tid].abbr+' $'+x.amt+'/'+x.mval)},
    contracts:(()=>{const by={};for(const c of V32E.con||[]){const k=c.o<=55?'<=55':c.o<=59?'56-59':c.o<=64?'60-64':c.o<=69?'65-69':c.o<=74?'70-74':'75+';(by[k]=by[k]||[]).push(c.amt);}const o={};for(const k in by){const a=by[k].sort((x,y)=>x-y);o[k]={n:a.length,p25:a[Math.floor((a.length-1)*.25)],med:a[Math.floor(a.length/2)],p75:a[Math.floor((a.length-1)*.75)],max:a[a.length-1]};}V32E.con=[];return o;})(),
    payroll:(()=>{const v=L.teams.map(t=>payroll(L,t,L.season+1));return {avg:+(v.reduce((a,b)=>a+b,0)/v.length).toFixed(1),min:+Math.min(...v).toFixed(1),max:+Math.max(...v).toFixed(1),overTax:v.filter(x=>x>TAXLINE).length};})(),
+   capOver:(()=>{const e=V32H.ev.filter(x=>x.s===L.season);V32H.ev=V32H.ev.filter(x=>x.s!==L.season);const mx=Math.max(...L.teams.map(t=>payNoFloor(L,t,L.season+1)));return {n:e.length,maxNext:+mx.toFixed(1),ev:e.slice(0,6)};})(),
    why:L.resignLog&&L.resignLog.s===L.season?L.resignLog.out:null,why60:L.resignLog&&L.resignLog.s===L.season?L.resignLog.o60:null,
    trades:{all:tr.length,dump:tr.filter(r=>r.kind==='dump').length,exp:tr.filter(r=>r.kind==='exp').length,wk:tr.reduce((o,r)=>{if(r.wk)o[r.wk]=(o[r.wk]||0)+1;return o;},{})}};V32E.sign=[];}catch(e){row.v32e={err:String(e.message)};}
  try{const sg=V32G.sg,m=sg.filter(x=>x.how==='mle'),fa65=(L.fa||[]).map(id=>L.players[id]).filter(p=>p&&!p.retired&&!p.prospect&&p.ovr>=65);

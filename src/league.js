@@ -1297,7 +1297,15 @@ function tradeCheck(L, a, b, aGive, bGive) {
   const wd = (T, n, give) => T.id === L.user ? 0 : waiveDead(L, T, give.players, n - Math.max(15, T.roster.length));   // dead money from cutting non-minimum players to get back to 15
   const aNew = aPay - aOut + hitTo(bGive.players, a) + wd(A, aN, aGive), bNew = bPay - bOut + hitTo(aGive.players, b) + wd(B, bN, bGive);
   for (const [T, pay, nw] of [[A, aPay, aNew], [B, bPay, bNew]]) if (T.id !== L.user && T.owner && T.owner.tight && nw > pay + 0.5 && nw > T.owner.limit) return `${T.abbr}'s owner is cutting costs and won't add payroll`;
-  return salaryBand(A, aPay, aNew, aOut, hitTo(bGive.players, a)) || salaryBand(B, bPay, bNew, bOut, hitTo(aGive.players, b));
+  const band = salaryBand(A, aPay, aNew, aOut, hitTo(bGive.players, a)) || salaryBand(B, bPay, bNew, bOut, hitTo(aGive.players, b)); if (band) return band;
+  // v32h: an AI team doesn't take on salary that leaves next season's committed payroll over the hard cap (it would have to shed it)
+  const nx = cs + 1, nHit = ids => ids.reduce((x, id) => x + capHit(L, L.players[id], nx), 0);
+  for (const [T, inn, out] of [[A, bGive.players, aGive.players], [B, aGive.players, bGive.players]]) {
+    if (T.id === L.user) continue;
+    const before = payNoFloor(L, T, nx), after = before + nHit(inn) - nHit(out);
+    if (after > APRON + 1e-6 && after > before + 0.5) return `${T.abbr} would be over the ${money(APRON)} hard cap next season (${money(after)})`;
+  }
+  return null;
 }
 const TRADE_OPEN = 0.25, TRADE_CLOSE = 0.7;
 function tradeOpenDay(L) { return Math.floor(totalDays(L) * TRADE_OPEN); }
@@ -4810,7 +4818,8 @@ function startResign(L) {
     } else if (c.opt === 'TO') {
       if (t.id === L.user) { L.teamOptions.push(p.id); continue; }
       const want = rotationOf(L, t).some(x => x.id === p.id) || (p.age <= 24 && p.scout >= 72);
-      if (want && (p.mval >= c.amt * 0.8 || c.amt <= MINSAL)) { c.opt = null; p.tx.push({ s: S, t: `${t.abbr} exercised his team option` }); }
+      if (want && (p.mval >= c.amt * 0.8 || c.amt <= MINSAL) && (c.amt <= MINSAL || payNoFloor(L, t, S + 1) <= APRON + 1e-6)) { c.opt = null;   // v32h: not if it leaves the team over the hard cap
+         p.tx.push({ s: S, t: `${t.abbr} exercised his team option` }); }
       else { c.exp = S; c.opt = null; p.tx.push({ s: S, t: `${t.abbr} declined his team option` }); logNews(L, `${t.abbr} declined ${p.name}'s ${money(c.amt)} team option`, t.id, 'tx'); }
     }
   }
@@ -4829,12 +4838,15 @@ function startResign(L) {
       let offer = Math.min(maxForTeam(L, p, t.id), (superOK(L, p) ? Math.max(p.mval, p.mvalRaw || 0) : p.mval) * Math.max(needMult(L, t, p), demPay(p)) * (p.age >= 30 ? Math.max(0.85, 1 - 0.03 * (p.age - 29)) : 1) * modeSpend(t, p) * wetPay(p) * (t.mode === 'contend' && p.ovr >= 70 ? 1.08 : 1));
       const hg = p.draftTid === t.id && p.ask >= 10;
       if (icon) offer = Math.max(offer, p.ask);
-      const keep = icon && p.age >= 33 ? Math.max(MINSAL, Math.min(p.ask, r1(p.mval * 1.05))) : t.mode === 'contend' && p.ovr >= 78 ? Math.min(maxForTeam(L, p, t.id), r1(Math.max(p.ask, Math.min(p.ask * 1.2, p.mval * 1.1)))) : p.ask;   // v18: premium only for stars, capped near value   // contenders pay a premium to keep their core
+      let keep = icon && p.age >= 33 ? Math.max(MINSAL, Math.min(p.ask, r1(p.mval * 1.05))) : t.mode === 'contend' && p.ovr >= 78 ? Math.min(maxForTeam(L, p, t.id), r1(Math.max(p.ask, Math.min(p.ask * 1.2, p.mval * 1.1)))) : p.ask;   // v18: premium only for stars, capped near value   // contenders pay a premium to keep their core
       const iconStay = icon >= 1 && p.ovr >= 58 && !(p.morale != null && p.morale < 25) && !(rs.leave && R() < 0.5) && (icon === 2 || R() < 0.75);   // v27 L2: an icon re-signs (Bird rights, owner signs off); v32e: sometimes even an icon leaves
       const fits = (canFit(L, t, keep, hg, 're-sign') || keep <= MINSAL) && ownerOK(L, t, keep), pays = offer >= p.ask * rs.pay;
-      const out = iconStay ? null : rs.leave ? 'p:' + rs.leave : !want ? 't:team' : !pays ? 't:price' : !fits ? 't:cap' : null;
+      // v32h: an icon re-signs under the hard cap too (a hometown discount of up to 25% if needed); if even that won't fit, he leaves
+      let iconOk = iconStay && fits;
+      if (iconStay && !fits) { const room = r1(APRON - payroll(L, t)); if (room >= Math.max(MINSAL, keep * 0.75) && ownerOK(L, t, room)) { keep = room; iconOk = true; } }
+      const out = iconOk ? null : iconStay ? 't:cap' : rs.leave ? 'p:' + rs.leave : !want ? 't:team' : !pays ? 't:price' : !fits ? 't:cap' : null;
       resignLog(L, p, out);
-      if (iconStay) signContract(L, p, t.id, keep, Math.min(yrsFor(p, keep), p.age >= 34 ? 1 : p.age >= 31 ? 2 : 4), 're-sign');
+      if (iconOk) signContract(L, p, t.id, keep, Math.min(yrsFor(p, keep), p.age >= 34 ? 1 : p.age >= 31 ? 2 : 4), 're-sign');
       else if (!out) signContract(L, p, t.id, keep, yrsFor(p, keep), 're-sign');
       else if (rs.leave) { p.tx.push({ s: S, t: `Turned down ${t.abbr}: ${RESIGN_WHY[rs.leave]}` }); if (rs.leave === 'win') p.tx.push({ s: S, t: `Wants to join a contender` }); if (p.ovr >= 68) logNews(L, flL(L, 'news.leave', { name: p.name, team: t.abbr, why: RESIGN_WHY[rs.leave] }), t.id, 'tx', 'walk'); }
       else {
@@ -5381,6 +5393,23 @@ function abroadOffseason(L) {
   }
   L.abroadLog = (L.abroadLog || []).concat({ s: L.season, back, gone }).slice(-20);
 }
+// v32h: save pruning at each new season. The per-opponent "this season" line (p.vs[team].cs) is replaced on the first game of a
+// season anyway, so a stale one is dropped (it was ~28% of p.vs); retired players drop mood/discipline/daily caches they no longer use.
+// Nothing shown in the game is lost.
+function pruneSave(L) {
+  let n = 0;
+  for (const p of Object.values(L.players)) {
+    if (p.vs) for (const k in p.vs) { const o = p.vs[k]; if (o && o.cs && o.cs.s !== L.season) { delete o.cs; n++; } }
+    if (p.retired) {
+      for (const k of ['moraleParts', 'disc', 'dl']) if (p[k] !== undefined) { delete p[k]; n++; }
+      if (p.vs) for (const k in p.vs) if (!Array.isArray(p.vs[k])) { p.vs[k] = vsPack(p.vs[k]); n++; }   // career lines vs each team kept, packed (no key names)
+    }
+  }
+  return n;
+}
+const VS_K = ['gp', 'w', 'min', 'pts', 'fgm', 'fga', 'tpm', 'tpa', 'ftm', 'fta', 'reb', 'ast', 'stl', 'blk', 'tov'], VS_PO = ['gp', 'w', 'min', 'pts', 'reb', 'ast'];
+function vsPack(o) { const a = VS_K.map(k => o[k] || 0); if (o.po) a.push(VS_PO.map(k => o.po[k] || 0)); return a; }
+function vsUnpack(a) { if (!Array.isArray(a)) return a; const o = {}; VS_K.forEach((k, i) => o[k] = a[i] || 0); if (Array.isArray(a[VS_K.length])) { o.po = {}; VS_PO.forEach((k, i) => o.po[k] = a[VS_K.length][i] || 0); } return o; }
 function startNewSeason(L) {
   processPending(L);
   for (const t of L.teams) for (const id of [...t.roster, ...(t.twoWay || [])]) if (L.players[id]) assignNumber(L, L.players[id], t);   // v30 review: clears number clashes in older saves (first listed keeps his)
@@ -5392,6 +5421,7 @@ function startNewSeason(L) {
   for (const t of L.teams) if (t.id !== L.user && t.coach) slAdapt(L, t);   // v27 K1: AI coaches lean their sliders toward their roster each summer
   if (L.nba && typeof nbaSchedAmt === 'function') for (const p of active(L)) { nbaSchedAmt(L, p); if (p.uf) { p.uf = 1 + (p.uf - 1) * 0.75; if (Math.abs(p.uf - 1) < 0.03) delete p.uf; } if (p.rmb) { p.rmb *= 0.75; if (Math.abs(p.rmb) < 0.5) delete p.rmb; } }   // R1: real usage fades
   L.day = 0; L.games = []; L.po = null; L.offSummary = null; L.draftOrder = null; L.faDay = null;
+  try { pruneSave(L); } catch (e) { }   // v32h
   for (const t of L.teams) { Object.assign(t, { w: 0, l: 0, hw: 0, hl: 0, aw: 0, al: 0, pf: 0, pa: 0, cw: 0, cl: 0, streak: 0, last10: '', trs: null, tpo: null, zr: null, zrOpp: null, pt: null, coachFrom: { w: 0, l: 0 } }); t.dead = (t.dead || []).filter(d => d.exp >= L.season); t.coachOwed = (t.coachOwed || []).filter(d => d.thru >= L.season); }
   L.extPrompt = false; L.offers = []; L.teamOptions = [];
   L.trainReset = L.trainReset || [];   // v25.3: your players whose focus was cleared by a team change (listed at the top of the training check)

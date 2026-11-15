@@ -1,3 +1,14 @@
+# TASK_STATE — v32h (Opus): cleanup from v32 review — Nov 16 2026
+
+- [x] H0. Read code: planRotation sixth-man stints, hard cap checks (rookie scale, player options), save size (what grows) — done
+- [x] H1. Sixth man: plan his stints before the starters' rest pattern; target 24-28 every season — engine.js planRotation: the sixth man's partner starter sits up to SIX_EARLY (4) min earlier each half; 60 days: sixth 25.2 -> 26.0, starters 27.8 -> 28.0
+- [x] H2. Hard cap: hard-capped teams can't go over via rookie-scale picks / player options (NBA rule); AI + user handled — league.js: tradeCheck blocks AI teams going over APRON next season; icon re-sign must fit (up to 25% hometown discount, else leaves t:cap); AI team option declined if over APRON; player options stay the player's right; r30 capOver audit
+- [x] H3. Save pruning: cut per-season growth (old box scores/logs/history detail) without losing visible history — league.js pruneSave (startNewSeason): stale p.vs[t].cs dropped, retired moraleParts/disc/dl, retired p.vs packed (vsPack/vsUnpack); 3-season save 8715 -> 7270 KB
+- [x] H4. tools/t32h.js — 10/10
+- [x] H5. Tests: node --check, lint 104, t30a 21/21, t30c 30/30, t32b 20, t32c 15, t32e 21, t32g 23, t32h 11; 10 seasons (tools/runs32/v32h-nba-*.txt): 0 errors, save S10 14.3 MB (was 17.4), max next-season payroll = hard cap
+- [x] H6. Plan docs (drop fantasy/betting: v32-plan, v32-prompts, v32-interim-prompts), PROGRESS + README, commit, zip
+
+---
 # TASK_STATE — v32g (Opus): open items + v32 review (S7) — Nov 16 2026
 
 Part A

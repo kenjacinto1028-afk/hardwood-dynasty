@@ -14,6 +14,13 @@ The game is split into small files so a change rewrites one file, not 1.3 MB.
 | `src/nba-setup.js` | v30a NBA setup extras: real rookies (`nbaRookies`) + real jersey numbers (`NBA_JERSEY_CSV`, `nbaJerseys`) |
 | `src/index.template.html` | Page shell with markers `/*CSS*/ /*VENDOR*/ /*ENGINE*/ /*LEAGUE*/ /*APP*/` for the single-file build |
 
+## v32h (Opus, Nov 16 2026): cleanup
+
+- `planRotation` (engine.js): sixth man's partner starter sits up to `SIX_EARLY` min earlier each half. `RM_LIFT[0]` 5.5.
+- Hard cap (league.js): `tradeCheck` checks next season's committed payroll for AI teams; `startResign` icons re-sign under the hard cap (`iconOk`), AI team options need room.
+- `pruneSave(L)` (from `startNewSeason`): drops stale `p.vs[t].cs`, packs retired players' `p.vs` with `vsPack` (`vsUnpack` reads either form; engine and the player page use it).
+- Tests: `node tools/t32h.js` (11).
+
 ## v32g (Opus, Nov 16 2026): open items + v32 review (S7)
 Code: `src/engine.js`, `src/league.js`, `src/app.js`.
 - **Sixth man minutes** (engine): `planRotation` gives the first man off the bench (18+ min planned) one long run per half, sliding to whichever slot opens; the gap fill weights minutes owed more than position fit; `planEven` evens bench minutes (extends a stint of a player still owed minutes). `RM_LIFT` sixth 5.5 -> 10.5, franchise star 5.5 -> 6.5.

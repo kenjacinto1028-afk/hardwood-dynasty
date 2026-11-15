@@ -1,5 +1,22 @@
 # PBL progress
 
+## v32h (Opus, Nov 16 2026): cleanup from the v32 review
+- [x] Sixth man first (`planRotation`, engine.js): the starter he pairs with (best position fit, not a star) sits up to `SIX_EARLY` (4) minutes earlier each half and comes back earlier, so the sixth man's run starts before the rest of the starters' rest pattern. Franchise star lift `RM_LIFT` 6.5 -> 5.5 (6-6.5 pushed them to ~38 early in a season)
+- [x] Hard cap (league.js): AI teams can't take on trade salary that leaves next season's committed payroll over the hard cap (`tradeCheck`; your team may, your call); icons re-sign under the hard cap (hometown discount up to 25%, else he leaves, logged `t:cap`); AI team options declined if picking them up leaves the team over. Player options stay the player's right. Rookie deals and RFA matches were already checked
+- [x] Save pruning (`pruneSave`, each new season): stale per-opponent "this season" lines dropped; retired players' per-team career lines packed (`vsPack` / `vsUnpack`, read back the same) and mood/discipline/daily caches dropped. Nothing shown in the game is lost
+- [x] Report: `tools/r30.js` row `v32e.capOver` (first event that puts a team over the hard cap, max committed payroll for next season)
+- [x] Tests: node --check, lint 104 PASS, t30a quick 21/21, t30c 30/30, t32b 20/20, t32c 15/15, t32e 21/21, t32g 23/23, new `tools/t32h.js` 11/11
+- [x] 10 seasons NBA SEED=21 (`tools/runs32/v32h-nba-*.txt`) vs v32g:
+  - Sixth men: commish 23.3-26.3 (avg 24.8, under 24 in 1 of 10; v32g avg 23.9, 7 of 10), franchise 23.4-26.6 (avg 25.0, 2 of 10; v32g 24.9, 1 of 10)
+  - Franchise stars 33.2-35.3 (v32g 34.3-35.7); starters 26.7-27.7 (same)
+  - Next-season committed payroll right after free agency: max 221.7 (= hard cap) every summer (v32g review: up to 236). Over-cap events only in seasons 1-2 (starting contracts) and one in-season signing (OKC S6, franchise)
+  - Save at S10: 14,292 / 14,409 KB (v32g 17,441 / 17,529): -18%; growth ~1.05 MB a season (was ~1.3)
+  - Payroll avg 162-178, re-sign 60+ 0.58-0.76; 0 errors; roster problems: your team at 16 once (franchise S10, harness only)
+- Open:
+  - Sixth men still dip under 24 in 1-2 of 10 seasons (gap minutes when starters' targets are high)
+  - Franchise stars sit at the low end of 34-37 (3-4 of 20 seasons at 33.2-33.9); the early-season test limits raising their lift
+  - First-season over-cap teams come from the starting contracts (OKC, NYK, DEN, SAS); they shed it over time
+
 ## v32g (Opus, Nov 16 2026): open items + v32 review (S7)
 - [x] Sixth men: plan fix (`planRotation` long run per half for the first man off the bench, owed-minutes gap fill, `planEven`; `RM_LIFT` sixth 10.5, fs 6.5). 20 seasons: sixth 24.3 avg (23.3-25.6, was ~22.5); other roles in range (fs 34.1-35.5, star 32.1-33.2, starter 26.3-27.8, rot 16.7-17.9, bench 10.1-11.9, dev 6.7-7.8)
 - [x] Mid-level is a real cap exception (`MLE_REAL`): over the cap, one above-minimum free agent a season up to $15M, under the tax line, never past the hard cap; AI and you; re-signing still to the hard cap. "Use mid-level" unticked over the cap = refused with a reason; popup warnings. Win-first and coaching targets follow it. 4-13 mid-level signings a season ($6-18M avg)

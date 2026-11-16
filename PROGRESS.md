@@ -1,5 +1,34 @@
 # PBL progress
 
+## v34 (Opus, Nov 16 2026): tuning follow-ups + scouting overhaul
+- [x] A1 payroll: AI re-sign rates up (`RESIGN_K`: want rot .97 / young .92 / top-10 .92 / 26- .85 / other 60+ .75, leave chances x0.55, pay .6-.88 of ask); an owner stretches past his limit to keep his own 62+ player (`resignOwnerOK`: +$8M / 68+ +$18M / 75+ +$30M; a 98 OVR walked over $7M in the trace); a team under the floor keeps its own 56+ (.95). Floor: a big gap (8%+ of the floor) takes 3-year dumps, from teams just above the floor too, and 2-year floor deals; `maxSign` 7. Hard cap, ask ramp, floor charge unchanged
+- [x] A2 MVP: voter fatigue `AW_ADV.fat1` .05 (last season's MVP), `fat2` .10 (2+ in a row), `fatOld` .02 (MVP 2-3 seasons back). WS kept at 40%: on the same 10 seasons (`tools/t34-awgrid.js`, `tools/runs32/v34-awgrid.txt`, each set with its own MVP history) every WS-30% set picked a WS #12 MVP once and led WS 5/10; v33d weights + fatigue (set G) 6/10, top-3 10/10, 7 winners, most 2. **Differs from your "WS ~30%"**, say if you want 30% anyway
+- [x] A3 top ratings (`nbaTopCap` in `nbaBalance`, NBA): ceilings 97 (98 for a generational talent), anyone above eased back, past 2 players at 95+ the extras lose 1-2
+- [x] A4 young asks (`lowAskCap`): 25-and-under 55- = minimum, 56-59 at most 2.4x the minimum (`ASK_YOUNG_X`), whatever the league shift; under 60 never $10M
+- [x] B: `tools/t32f.js` passes the row's team to `hxBpmOf` (code was right; per-stint BPM since v33d) 21/21. Legends "Top awards" from `NBA_HX.aw` (All-NBA 1st, All-Star) + season list (MVP, Finals MVP, DPOY); titles stay from the legend record (not in the history data). `hxAwKey`: exact name, else last name + first initial with awards in his career years. 9 legends change (old NBA_LGD errors: Tony Parker 3x All-NBA 1st -> 0, Carmelo 2 -> 0, Jerry Lucas 1 -> 3)
+- [x] C scouting (your answers: Medium pro fog, one director with 2 ratings, budget levels, AI fog in draft + FA only):
+  - Director: draft rating (as before) + pro rating (`s.pro`; old saves get one near the draft rating); both shown in director tables / popup; salary on both
+  - Department level (`SCOUT_LV`, staff budget): Standard (included, = before) / Expanded $0.8M (reads 15% tighter, 4 assignments, 6 interviews) / Elite $2M (30% tighter, 5, 7). Yours: Draft > Scouting, same window as hiring. AI picks each offseason by staff room (rebuild / tank go up first)
+  - Pro fog (franchise mode, not commissioner): other teams' players and free agents show your staff's read (OVR with "~", ratings; median miss 1, max 6); own and two-way players exact; tighter with a better pro rating, bigger department, watch list, a player who played for you, later in the season. New "Pro scouting report" panel on their player page (sc.pro / sc.prostr / sc.prowk / sc.proconf, 7 wordings each)
+  - AI: free-agent bids use its own read (`teamOvr` + value x 0.8-1.25); draft as before; trades on true values
+  - Draft accuracy: outlet ranks and your board rank stored at the draft (`p.draft.mo`, `p.draft.ub`); "Mock drafts vs what players became" table on the scouting page (rank correlation with peak OVR + top-10 hits per list; outlet / board columns fill for drafts from v34 on)
+- [x] Fixes found on the way: `linkify` crashed on two players with the same name (pre-existing; news / discipline panels); my own v34 draft edit had cut `p.rookieSeason` (ROY empty) - caught in the award run, fixed before the final runs
+- [x] Tests: t34 19/19 (new), t33d 17/17, t33b 30/30 (55s check now 26+, A4), t32e 21/21, t32f 21/21, t32h 11/11, t30a 29/0, lint 110 PASS, browser `tools/browser-v34.py.txt` 34/34 (1300 + 390). **t33c 22/23**: team WS vs wins corr 0.934 on SEED 21 (bar 0.94); SEED 22 / 23 0.966 / 0.969 (one-season noise, bar not lowered)
+- [x] 20 seasons SEED=21 commish (`tools/runs32/v34-*.txt`, `tools/v34sum.py.txt`):
+  | | NBA v33d | NBA v34 | PBL16 v33d | PBL16 v34 |
+  |---|---|---|---|---|
+  | payroll avg | 166.9 | 169.9 (S1-14 167-185) | 132.0 | 129.6 |
+  | seasons <= 2 under floor (after FA) | 17/20 | 19/20 (S16: 15) | 15/20 | 12/20 (S6-7: 11, 13) |
+  | 60+ re-sign rate | 0.55-0.87 | 0.59-0.79 | 0.55-0.79 | 0.41-0.87 |
+  | top PER | 33-46 | 33-40 | <= 43.8 | <= 40 |
+  | top WS | <= 19.3 | <= 21.2 | <= 19.6 | <= 17.1 |
+  | players 95+ (top 3) | 1 (98-99 S2-13) | 0-2, 99 once | - | - |
+  | young 56-59 ask max | 3.0 | 2.1 | 3.2 | 2.0 |
+  0 errors; hard-cap crossings S1 start contracts + 1 trade in S2 (TOR $226.4M); under-60 $10M asks 0
+- [x] Awards, 10 seasons from the NBA save (`tools/runs32/v34-awards-*.txt`): MVP = WS leader 7/10, top-3 9/10, 7 winners (most 3); DPOY top-5 DWS 9/10; ROY min 26.4 mpg
+- [x] Saves remade (`tools/snap`: nba-commish, pbl16-commish via r30 SNAPOUT, nba-team via snap-make)
+- Open: NBA payroll 169.9 is just under 170-185 (S15-20 drop to 150-171: one season S16 with 15 teams under the floor after FA, cause not traced). PBL floor misses the target (12/20, was 15/20): after free agency there are no 56+ free agents left (diagnosed on the PBL save), so floor teams can only take dumps; spikes at S6-7. Next lever: let floor teams sign 55- players above the minimum, or offer sheets / trades for salary. PBL top PER (40) has no rating cap (nbaTopCap is NBA only). One hard-cap crossing by trade (S2 TOR) not traced. t33c WS/wins 0.934 on one seed. Table sorting may still order by true OVR on pro-fog columns (not checked)
+
 ## Haiku (Nov 16 2026): 7t / 8t wordings
 - [x] Scouting report (`sc.*`, 5 keys) and ticker (`tk.*`, 12 keys) in `src/league.js` FLAVOR: +3 wordings each, 7 per key. Same `{vars}`, under 140 characters, `'won\'t'` escaped. No code change. Checks: node --check OK, lint 106 PASS, t30c 30/30
 

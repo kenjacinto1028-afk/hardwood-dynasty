@@ -29,14 +29,14 @@ for (const nba of [true, false]) {
     const res={};const set=f=>{for(const p of active(L))p.ovr=clamp(Math.round(f(base[p.id])),25,99);computeMarket(L);};
     set(o=>o+4);const p59=active(L).filter(p=>!p.prospect&&p.ovr===59);
     res.up={shift:L.askShift,m:mkt(L),lift:L.marketLift,p59min:p59.filter(p=>rampAmt(L,p,30)<=MINSAL+1e-6).length,p59:p59.length,u60:rule(L).u60};
-    set(o=>o-3);const p55=active(L).filter(p=>!p.prospect&&p.ovr===55);
+    set(o=>o-3);const p55=active(L).filter(p=>!p.prospect&&p.ovr===55&&p.age>25);   /* v34 A4: 25-and-under 55s stay at the minimum whatever the shift */
     res.dn={shift:L.askShift,m:mkt(L),lift:L.marketLift,p55up:p55.filter(p=>rampAmt(L,p,30)>MINSAL+1e-6).length,p55:p55.length,u60:rule(L).u60};
     const mean=Object.values(base).reduce((a,b)=>a+b,0)/Object.keys(base).length;set(o=>mean+(o-mean)*0.75);
     res.sq={shift:L.askShift,m:mkt(L),lift:L.marketLift,u60:rule(L).u60};
     set(o=>o);res.back=L.askShift;return res;`);
   chk(`${tag} B stronger league (+4): shift +3.5..+4.5`, b.up.shift >= 3.5 && b.up.shift <= 4.5, b.up.shift);
   chk(`${tag} B stronger league: a 59 now asks the minimum`, b.up.p59 >= 3 && b.up.p59min === b.up.p59, `${b.up.p59min}/${b.up.p59}`);
-  chk(`${tag} B weaker league (-3): shift -2.5..-3.5, most 55s ask above the minimum (a 58 before)`, b.dn.shift <= -2.5 && b.dn.shift >= -3.5 && b.dn.p55 > 2 && b.dn.p55up >= b.dn.p55 * 0.6, `${b.dn.shift}, ${b.dn.p55up}/${b.dn.p55}`);
+  chk(`${tag} B weaker league (-3): shift -2.5..-3.5, most 26+ 55s ask above the minimum (a 58 before; v34: 25-and-under stay at the minimum)`, b.dn.shift <= -2.5 && b.dn.shift >= -3.5 && b.dn.p55 > 2 && b.dn.p55up >= b.dn.p55 * 0.6, `${b.dn.shift}, ${b.dn.p55up}/${b.dn.p55}`);
   for (const [k, v] of [['stronger', b.up], ['weaker', b.dn], ['squeezed', b.sq]]) chk(`${tag} B ${k} league still spends the budget (93-101%), under 60 never $10M+`, v.m >= r.b * 0.93 && v.m <= r.b * 1.01 && v.u60 === 0, `${v.m.toFixed(1)} lift ${v.lift} shift ${v.shift} u60 ${v.u60}`);
   chk(`${tag} B back to the start ratings: shift 0 (within one 0.25 step)`, Math.abs(b.back) <= 0.25, b.back);   // v33d: generated block ratings changed the sample (3 players at 59, -0.25 on one seed)
 }

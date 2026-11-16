@@ -1,0 +1,18 @@
+import sys, json, statistics as st
+for f in sys.argv[1:]:
+    rows=[json.loads(l[2:]) for l in open(f) if l.startswith('S ')]
+    rows=[r for r in rows if 'err' not in r]
+    pay=[r['v32e']['payroll'] for r in rows]
+    rs=[r['v32e']['resign'] for r in rows]
+    print('==',f,len(rows),'seasons')
+    print(' payroll avg', round(st.mean(p['avg'] for p in pay),1), 'per season', [round(p['avg']) for p in pay])
+    print(' min team', [round(p['min']) for p in pay], 'underFloor', [p['underFloor'] for p in pay], '<=2:', sum(p['underFloor']<=2 for p in pay))
+    print(' maxNext', max(p['max'] for p in pay))
+    print(' resign rate', [r['rate'] for r in rs], 'rate60', [r.get('rate60') for r in rs])
+    print(' top PER', [r['adv']['per'][0]['per'] for r in rows if r.get('adv')], 'top WS', [r['adv']['ws'][0]['ws'] for r in rows if r.get('adv')])
+    print(' ovrTop', [r['adv']['ovrTop'][:3] for r in rows if r.get('adv')])
+    y=[]
+    for r in rows:
+        b=r['v32e']['asks']['bands'].get('56-59|<=25'); y.append(b['max'] if b else None)
+    print(' 56-59<=25 max ask', y, 'under60ask10', sum(r['v32e']['asks']['under60ask10N'] for r in rows))
+    print(' lgOvr', round(st.mean(r['v32g']['lgOvr'] for r in rows),1))

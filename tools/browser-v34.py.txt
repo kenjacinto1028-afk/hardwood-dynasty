@@ -1,0 +1,76 @@
+# v34 browser check (scouting overhaul + legends' Top awards); base: v33e browser check (1300 + 390px): retired legends' trophy case (All-NBA / All-Defense / All-Star rows from NBA_HX.aw), the single-file build,
+# and the v33d floor messages ("payroll-floor deal", "Paid above his value", floor salary-dump news).
+# Rename to .py, serve the game folder (python3 -m http.server PORT), then: python3 browser-v33e.py PORT [PAGE] [SAVE]
+#   PAGE default index.html (use pbl-single.html after `python3 -I build.py --single .`); SAVE default tools/_s1.json (gunzip of tools/snap/nba-commish-s10.json.gz).
+#   For the floor checks use a league played into free agency (SAVE=tools/_fa.json; see PROGRESS v33e).
+import asyncio, sys, json
+from playwright.async_api import async_playwright
+PORT = sys.argv[1] if len(sys.argv) > 1 else '8795'
+PAGE = sys.argv[2] if len(sys.argv) > 2 else 'index.html'
+SAVE = sys.argv[3] if len(sys.argv) > 3 else 'tools/_t1.json'   # gunzip -c tools/snap/nba-team-s10.json.gz > tools/_t1.json (franchise save)
+res = []
+def ok(n, c, x=''):
+    res.append(('PASS ' if c else 'FAIL ') + n + (f'  [{x}]' if x else '')); print(res[-1], file=sys.stderr, flush=True)
+async def ev(pg, js): return await pg.evaluate("(()=>{const L=window.__pbl.L,ui=window.__pbl.ui;return eval(" + json.dumps(js) + ")})()")
+async def render(pg, js='0', wait=700):
+    await ev(pg, "(()=>{" + js + ";window.__pbl.render()})()"); await pg.wait_for_timeout(wait)
+async def run(width):
+    async with async_playwright() as p:
+        b = await p.chromium.launch()
+        pg = await (await b.new_context(viewport={'width': width, 'height': 900})).new_page(); errs = []
+        pg.on('pageerror', lambda e: errs.append(str(e)))
+        await pg.goto(f'http://localhost:{PORT}/{PAGE}'); await pg.wait_for_timeout(2000)
+        await pg.evaluate("""async (f) => { const txt = await (await fetch(f)).text();
+          const db = await new Promise((res, rej) => { const r = indexedDB.open('pbl-league', 1); r.onupgradeneeded = () => r.result.createObjectStore('s'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+          const put = (k, v) => new Promise((res, rej) => { const tx = db.transaction('s', 'readwrite'); tx.objectStore('s').put(v, k); tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
+          await put('league:slot-t34', txt); await put('slots', JSON.stringify([{ id: 'slot-t34', name: 't34', mode: 'team', season: 11, phase: 'regular', updated: Date.now() }])); await put('current', 'slot-t34'); }""", SAVE)
+        await pg.reload(); await pg.wait_for_timeout(6000)
+        W = f'{width}px: '
+        noscroll = lambda: ev(pg, "document.documentElement.scrollWidth<=window.innerWidth+2")
+        clr = "ui.player=null;ui.game=null;ui.team=null;ui.coach=null;ui.gm=null;ui.hs=null"
+        await ev(pg, "document.querySelector('#modal') && (document.querySelector('#modal').innerHTML='')")
+        ok(W + 'franchise save loaded', await ev(pg, "L.user!=null&&L.mode==='team'&&typeof proOvr==='function'"))
+        # legends: Top awards from NBA_HX.aw
+        await render(pg, "history.replaceState(null,'','#history');" + clr + ";ui.view='history';ui.histTab='legends'", 1200)
+        rows = await ev(pg, "Object.fromEntries([...document.querySelectorAll('#main tr[data-legend]')].map(r=>[r.dataset.legend,r.lastElementChild.innerText]))")
+        ok(W + 'Legends: Jordan Top awards 5x MVP, 10x All-NBA 1st, 14x All-Star', all(x in rows.get('Michael Jordan', '') for x in ['5× MVP', '10× All-NBA 1st', '14× All-Star']), rows.get('Michael Jordan', ''))
+        ok(W + 'Legends: Tony Parker shows no All-NBA 1st (old list had 3)', 'All-NBA 1st' not in rows.get('Tony Parker', 'x All-NBA 1st'), rows.get('Tony Parker', ''))
+        ok(W + 'Legends list: no sideways scroll', await noscroll())
+        await pg.click('tr[data-legend="Michael Jordan"]'); await pg.wait_for_timeout(500)
+        ok(W + 'Legend dialog trophy case still there', await ev(pg, "document.querySelectorAll('#modal .trcase .tritem').length") >= 3)
+        await pg.click('#x-close'); await pg.wait_for_timeout(200)
+        # pro fog: other team's player vs own player
+        oid = await ev(pg, "(()=>{const p=active(L).filter(p=>!p.prospect&&p.team!=null&&p.team!==L.user&&proOvr(L,L.user,p)!==p.ovr).sort((a,b)=>b.ovr-a.ovr)[0];return p.id})()")
+        mid = await ev(pg, "rosterOf(L,L.teams[L.user])[0].id")
+        await render(pg, clr + f";ui.player={oid}", 900)
+        t = (await ev(pg, "document.querySelector('#main').innerText")).lower()   # headings are upper-cased by CSS
+        ok(W + 'other team player: Pro scouting report panel', 'pro scouting report' in t and 'our read:' in t)
+        ok(W + 'other team player: ~ read marker shown', await ev(pg, "[...document.querySelectorAll('#main .rdq')].some(e=>e.textContent==='~')"))
+        ok(W + 'other team player page: no sideways scroll', await noscroll())
+        await pg.screenshot(path=f'/tmp/v34-pro-{width}.png')
+        await render(pg, clr + f";ui.player={mid}", 900)
+        t = await ev(pg, "document.querySelector('#main').innerText")
+        ok(W + 'own player: exact (no report, no ~)', 'pro scouting report' not in t.lower() and not await ev(pg, "[...document.querySelectorAll('#main .rdq')].some(e=>e.textContent==='~')"))
+        # scouting page: department + accuracy
+        await render(pg, "history.replaceState(null,'','#draft');" + clr + ";ui.view='draft';ui.dpage='scout'", 1200)
+        t = await ev(pg, "document.querySelector('#main').innerText")
+        ok(W + 'Scouting: department buttons (Standard / Expanded / Elite)', all(x in t for x in ['Standard', 'Expanded', 'Elite']) and 'pro ' in t)
+        ok(W + 'Scouting: department locked during the season', await ev(pg, "[...document.querySelectorAll('#main [aria-label=\"Scouting department level\"] button')].every(b=>b.disabled||b.classList.contains('primary'))"))
+        ok(W + 'Scouting: mocks vs outcomes table', 'mock drafts vs what players became' in t.lower() and await ev(pg, "draftAccuracy(L).length>0"))
+        ok(W + 'Scouting page: no sideways scroll', await noscroll())
+        await pg.screenshot(path=f'/tmp/v34-scout-{width}.png', full_page=True)
+        # department change in the window (offseason)
+        r = await ev(pg, "(()=>{const ph=L.phase;L.phase='off-fa';L.teams[L.user].staffBudget=99;window.__pbl.render();const b=document.querySelector('#main [data-x=\"slv:1\"]');if(!b){L.phase=ph;return 'no button'}b.click();const lv=L.teams[L.user].scoutLv;L.phase=ph;L.teams[L.user].scoutLv=0;return lv})()")
+        await pg.wait_for_timeout(400)
+        ok(W + 'Scouting: Expanded button works in the offseason', r == 1, str(r))
+        # staff: Draft / Pro columns
+        await render(pg, "history.replaceState(null,'','#coaches');" + clr + ";ui.view='coaches';ui.stab='scouts'", 1000)
+        t = await ev(pg, "document.querySelector('#main').innerText")
+        ok(W + 'Scouting directors: Draft and Pro columns', await ev(pg, "[...document.querySelectorAll('#main th')].filter(e=>/^(draft|pro)$/i.test(e.textContent.trim())).length>=4") and 'two ratings' in t)
+        ok(W + 'Scouting directors: no sideways scroll', await noscroll())
+        ok(W + 'no page errors', not errs, '; '.join(errs[:3]))
+        await b.close()
+async def main():
+    for w in (1300, 390): await run(w)
+    print('\n'.join(res)); print(f"{sum(r.startswith('PASS') for r in res)}/{len(res)} pass")
+asyncio.run(main())

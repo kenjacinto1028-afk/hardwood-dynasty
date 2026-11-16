@@ -1,0 +1,19 @@
+== new scoring: 10 seasons
+S11: MVP Shai Gilgeous-Alexander (OKC 68-14, 32.8 mpg, PER 30.1, WS 15.4, BPM 9.7) [WS rank 2] | DPOY Alex Sarr (WAS 73-9, 28.3 mpg, PER 24.6, WS 12.3, BPM 8, DWS 5.4) [DWS rank 2] | ROY Conor Brennan | 6MOY Jabari Jessup | MIP Kendall Pruitt
+S12: MVP AJ Dybantsa (WAS 72-10, 31.6 mpg, PER 30.3, WS 14.2, BPM 11) [WS rank 4] | DPOY Lamar Howard (HOU 47-35, 33.2 mpg, PER 25.3, WS 12.7, BPM 8.1, DWS 6.7) [DWS rank 1] | ROY Desmond Foster | 6MOY Sergio Llull | MIP Mert Aydin
+S13: MVP Aday Mara (OKC 65-17, 33.2 mpg, PER 32.4, WS 16.5, BPM 10.4) [WS rank 1] | DPOY Victor Wembanyama (SAS 50-32, 34.3 mpg, PER 32.3, WS 14.1, BPM 11.1, DWS 5.8) [DWS rank 4] | ROY Eric Barrows | 6MOY Jabari Hayes | MIP Davide Ferrari
+S14: MVP Keon Whitfield (MIL 56-26, 34.5 mpg, PER 36.6, WS 20.5, BPM 11.7) [WS rank 1] | DPOY Lamar Howard (HOU 58-24, 32.5 mpg, PER 29.2, WS 15, BPM 11.2, DWS 6.6) [DWS rank 1] | ROY Gavin Lavoie | 6MOY Cameron Boozer | MIP Moritz Fischer
+S15: MVP Keon Whitfield (MIL 62-20, 32.8 mpg, PER 37.1, WS 17.7, BPM 12.4) [WS rank 1] | DPOY Lamar Howard (HOU 57-25, 33.5 mpg, PER 27.8, WS 14.8, BPM 9.7, DWS 6.1) [DWS rank 1] | ROY Jerome Yap | 6MOY Allen Graves | MIP Xavier Yancey
+S16: MVP Cooper Flagg (DAL 58-24, 33.6 mpg, PER 29.7, WS 15.5, BPM 10.8) [WS rank 2] | DPOY Darragh Keane (CLE 61-21, 34.7 mpg, PER 19.5, WS 11.3, BPM 5.1, DWS 6.9) [DWS rank 1] | ROY Kobe Stewart | 6MOY Hunter Mitchell | MIP Marvin Walker
+S17: MVP Santiago Lopez (HOU 68-14, 34.3 mpg, PER 36.3, WS 17.6, BPM 14.8) [WS rank 1] | DPOY Santiago Lopez (HOU 68-14, 34.3 mpg, PER 36.3, WS 17.6, BPM 14.8, DWS 7.2) [DWS rank 1] | ROY Garrett Kingsley | 6MOY Calvin Drummond | MIP Kobe Stewart
+S18: MVP RJ Zamora (SAC 54-28, 35.9 mpg, PER 32, WS 16, BPM 11.4) [WS rank 1] | DPOY Santiago Lopez (HOU 55-27, 32 mpg, PER 34.7, WS 11.7, BPM 13.4, DWS 5) [DWS rank 3] | ROY Wendell Cummings | 6MOY Mario Juric | MIP Jared Sanders
+S19: MVP RJ Zamora (SAC 50-32, 32.4 mpg, PER 33.7, WS 16.1, BPM 11.9) [WS rank 1] | DPOY Mert Aydin (LAC 48-34, 32.4 mpg, PER 26.4, WS 7.8, BPM 8.5, DWS 4.4) [DWS rank 7] | ROY Cooper Thybulle | 6MOY Mario Juric | MIP Wendell Cummings
+S20: MVP RJ Zamora (SAC 58-24, 33.2 mpg, PER 35.1, WS 18.5, BPM 12.8) [WS rank 1] | DPOY Santiago Lopez (HOU 44-38, 33.5 mpg, PER 34.1, WS 10.2, BPM 14, DWS 5.6) [DWS rank 2] | ROY Obinna Ogunleye | 6MOY Calvin Drummond | MIP Cody Vaughn
+  MVP = WS leader: 7/10 | MVP top-3 in WS: 9/10 | DPOY top-5 in DWS: 9/10
+  MIP from the MVP top 5: 0/10
+  mvp: 7 different winners in 10; most by one player 3 (RJ Zamora); min MPG 31.6; low-minute winners: none
+  dpoy: 6 different winners in 10; most by one player 3 (Lamar Howard); min MPG 28.3; low-minute winners: ['Alex Sarr 28.3']
+  roy: 10 different winners in 10; most by one player 1 (Conor Brennan); min MPG 26.4; low-minute winners: none
+  smoy: 8 different winners in 10; most by one player 2 (Calvin Drummond); min MPG 25.8; low-minute winners: none
+  mip: 10 different winners in 10; most by one player 1 (Kendall Pruitt); min MPG 26.7; low-minute winners: none
+  same winner as the other scoring would pick (ladder leader, same season): mvp 8/10, dpoy 10/10, roy 9/10, smoy 10/10, mip 10/10

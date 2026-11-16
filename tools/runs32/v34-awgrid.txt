@@ -1,0 +1,19 @@
+G {"s":11,"v33d":["AJ Dybantsa",1],"A":["AJ Dybantsa",1],"B":["AJ Dybantsa",1],"C":["AJ Dybantsa",1],"D":["AJ Dybantsa",1],"E":["AJ Dybantsa",1],"F":["AJ Dybantsa",1],"G":["AJ Dybantsa",1],"H":["AJ Dybantsa",1]}
+G {"s":12,"v33d":["Keon Whitfield",1],"A":["Keon Whitfield",1],"B":["Keon Whitfield",1],"C":["Keon Whitfield",1],"D":["Keon Whitfield",1],"E":["Keon Whitfield",1],"F":["Keon Whitfield",1],"G":["Keon Whitfield",1],"H":["Keon Whitfield",1]}
+G {"s":13,"v33d":["Keon Whitfield",1],"A":["Keon Whitfield",1],"B":["Keon Whitfield",1],"C":["Keon Whitfield",1],"D":["Keon Whitfield",1],"E":["Keon Whitfield",1],"F":["Keon Whitfield",1],"G":["Keon Whitfield",1],"H":["Keon Whitfield",1]}
+G {"s":14,"v33d":["Keon Whitfield",3],"A":["Keon Whitfield",3],"B":["Keon Whitfield",3],"C":["Keon Whitfield",3],"D":["RJ Zamora",1],"E":["RJ Zamora",1],"F":["Keon Whitfield",3],"G":["RJ Zamora",1],"H":["Keon Whitfield",3]}
+G {"s":15,"v33d":["Mert Aydin",2],"A":["Keon Whitfield",15],"B":["Tunde Eboue",12],"C":["Tunde Eboue",12],"D":["Tunde Eboue",12],"E":["Tunde Eboue",12],"F":["Tunde Eboue",12],"G":["Mert Aydin",2],"H":["Tunde Eboue",12]}
+G {"s":16,"v33d":["Tunde Eboue",1],"A":["Tunde Eboue",1],"B":["Tunde Eboue",1],"C":["Tunde Eboue",1],"D":["Tunde Eboue",1],"E":["Tunde Eboue",1],"F":["Tunde Eboue",1],"G":["Tunde Eboue",1],"H":["Tunde Eboue",1]}
+G {"s":17,"v33d":["RJ Zamora",1],"A":["Tunde Eboue",2],"B":["RJ Zamora",1],"C":["RJ Zamora",1],"D":["Keon Whitfield",2],"E":["Keon Whitfield",2],"F":["RJ Zamora",1],"G":["RJ Zamora",1],"H":["RJ Zamora",1]}
+G {"s":18,"v33d":["Mert Aydin",2],"A":["Mert Aydin",2],"B":["Mert Aydin",2],"C":["Mert Aydin",2],"D":["Mert Aydin",2],"E":["Mert Aydin",2],"F":["Mert Aydin",2],"G":["Mert Aydin",2],"H":["Mert Aydin",2]}
+G {"s":19,"v33d":["Tariq Bryant",2],"A":["Tariq Bryant",2],"B":["Tariq Bryant",2],"C":["Tariq Bryant",2],"D":["Tariq Bryant",2],"E":["Tariq Bryant",2],"F":["Tariq Bryant",2],"G":["Tariq Bryant",2],"H":["Tariq Bryant",2]}
+G {"s":20,"v33d":["Elijah Sutton",3],"A":["Elijah Sutton",3],"B":["Elijah Sutton",3],"C":["Elijah Sutton",3],"D":["Elijah Sutton",3],"E":["Elijah Sutton",3],"F":["Elijah Sutton",3],"G":["Elijah Sutton",3],"H":["Elijah Sutton",3]}
+SUM {"set":"v33d","n":10,"wsLeader":5,"top3":10,"winners":7,"most":3}
+SUM {"set":"A","n":10,"wsLeader":4,"top3":9,"winners":6,"most":4}
+SUM {"set":"B","n":10,"wsLeader":5,"top3":9,"winners":7,"most":3}
+SUM {"set":"C","n":10,"wsLeader":5,"top3":9,"winners":7,"most":3}
+SUM {"set":"D","n":10,"wsLeader":5,"top3":9,"winners":7,"most":3}
+SUM {"set":"E","n":10,"wsLeader":5,"top3":9,"winners":7,"most":3}
+SUM {"set":"F","n":10,"wsLeader":5,"top3":9,"winners":7,"most":3}
+SUM {"set":"G","n":10,"wsLeader":6,"top3":10,"winners":7,"most":2}
+SUM {"set":"H","n":10,"wsLeader":5,"top3":9,"winners":7,"most":3}

@@ -1,3 +1,22 @@
+# TASK_STATE — v34 tuning follow-ups + scouting overhaul (Opus) — Nov 16 2026
+
+Kenneth's C answers (Nov 16): pro fog Medium (OVR/ratings as your staff's read ±1-4, own roster exact, stats exact); one director with draft + pro ratings; scouting budget 3-5 levels (staff budget, accuracy + assignment slots); AI uses fogged reads in draft + FA bids, trades stay true.
+
+- [x] A0. Baseline (v33f code): t33d 17/17, t33b 30/30, t33c 23/23, t32e 21/21, t32f 20/21 (known), t32h 11/11 (t32e+ ran partly on edited code); /home/claude/scr/v34sum.py summarizes r30 runs
+- [x] A1. RESIGN_K (2 rounds), resignOwnerOK, floor keep-own, big-gap 3-yr dumps / 2-yr deals; NBA 169.9, PBL floor 12/20 (open)
+- [x] A2. fatigue .05/.10/.02, WS kept 40% (grid set G; WS 30% sets worse); award run MVP WS leader 7/10, 7 winners
+- [x] A3. nbaTopCap (NBA_BAL t95 2, cap 97, capGen 98) at the end of nbaBalance (adv rows: check in D1 runs)
+- [x] A4. lowAskCap: 25-and-under under 60: 55- (also after shift) minimum, 56-59 <= ASK_YOUNG_X 2.4x min, unshifted ramp
+- [x] B1. t32f: test now passes the row's team to hxBpmOf (code was right: per-stint BPM since v33d); 21/21
+- [x] B2. hx-fn.js hxAwKey (name match: exact, else last name + first initial in career years) / hxHonors(name, from, to) / hxTopAwards; app.js legendsView + legendCase; nba-history.js tail re-appended. 9 legends' counts change (NBA_LGD errors, e.g. Tony Parker 3x All-NBA 1st -> 0)
+- [x] C1. league.js SCOUT_LV (Standard free / Expanded $0.8M / Elite $2M: reads x1/.85/.7, 3/4/5 slots, 5/6/7 interviews), setScoutLv (window + staff room 'dept'), aiScoutLv (offseason), staffCost/staffRoom; scout.pro (genScout, aging, migrate); app.js director tables Draft/Pro, scoutDeptHtml
+- [x] C2. proFogOn/proSd/proErr/proOvr/proAttr/teamOvr/proValK (league.js); ovrTxt '~' + attrNum (app.js); faRound pov = teamOvr, W x proValK
+- [x] C3. lvK in readSd/teamPotEst/scoutReport; p.draft.mo (outlet ranks) + p.draft.ub (your board, L.boardRank at startDraft); draftAccuracy + draftAccHtml (scouting page)
+- [x] C4. FLAVOR sc.pro / sc.prostr / sc.prowk / sc.proconf (7 each, lint 110 PASS); proReport + proScoutPanel (player page); tools/t34.js 19/19
+- [x] D1. t34 19/19, t33b 30/30, t33c 22/23 (seed noise), others pass; browser-v34 34/34; 20+20 seasons tools/runs32/v34-*; awards; saves remade
+- [x] D2. PROGRESS + README + TESTING, commit, zip (GitHub not linked for push)
+
+---
 # TASK_STATE — Haiku 7t / 8t wordings (+3 per key) — Nov 16 2026
 
 - [x] H1. Clone (GitHub not linked for add_repo; public HTTPS clone worked). Read HAIKU-TASKS.md, TASK_STATE, lint and t30c; sc.*/tk.* already keyed (v30 N1), 4 wordings each

@@ -38,8 +38,8 @@ const B = R(`let bad=[];for(const h of nbaHist()){const y=h.y;const win=Object.e
  if(h.champ&&win&&win[0]!==h.champ)bad.push(y+' champ '+h.champ+'/'+win[0]);if(h.ru&&lose&&lose[0]!==h.ru)bad.push(y+' ru '+h.ru+'/'+lose[0]);}return bad;`);
 chk('franchise seasons agree with in-game champions and runners-up (active franchises)', B.length === 0, B.slice(0, 5).join('; '));
 
-// ---------- C game-formula BPM on history rows ----------
-const C = R(`let n=0,has=0,diff=0;for(const p of Object.values(L.players)){if(!p.real)continue;for(const r of [...(nbaRealRows(p)||[]),...(nbaEstRows(p)||[])]){if(!r||!(r.mp>=500)||r.season==='2025-26')continue;n++;const b=hxBpmOf(p.name,+r.season.slice(0,4));if(b){has++;if(r.bpm===b[2])diff++;}}}
+// ---------- C game-formula BPM on history rows (v34: per team stint for traded seasons, as hxBpmOf since v33d) ----------
+const C = R(`let n=0,has=0,diff=0;for(const p of Object.values(L.players)){if(!p.real)continue;for(const r of [...(nbaRealRows(p)||[]),...(nbaEstRows(p)||[])]){if(!r||!(r.mp>=500)||r.season==='2025-26')continue;n++;const b=hxBpmOf(p.name,+r.season.slice(0,4),r.team);if(b){has++;if(r.bpm===b[2])diff++;}}}
  const lg=nbaLegends();return {n,has,same:diff,leg:lg.filter(l=>l.rs&&NBA_HX.bpmLeg[hxNorm(l.name)]&&l.rs.bpm===NBA_HX.bpmLeg[hxNorm(l.name)][2]).length,legN:lg.length};`);
 chk('history player rows (500+ min) use game-formula BPM', C.has / Math.max(1, C.n) >= 0.95 && C.same === C.has, C.has + ' of ' + C.n + ', set ' + C.same);
 chk('legend careers use game-formula BPM', C.leg === C.legN, C.leg + ' / ' + C.legN);

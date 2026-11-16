@@ -2851,7 +2851,7 @@ function vTrades() {
   if (ui.trTab === 'offers') return trSub + offers;
   if (ui.trTab === 'block') return trSub + tradingBlockPanel();
   if (ui.trTab === 'center') return trSub + `${builder}${L.user != null ? trade3Panel() : ''}${L.user != null && open ? targetsPanel('trade') : ''}${buyersSellersPanel()}${pend}` + (L.user == null && !pend ? '<p class="muted">Trades between AI teams show in Completed trades.</p>' : '');
-  return trSub + `<section class="panel"><h2>Completed trades</h2>${trFbar}${hist.length ? `<div class="tblwrap"><table><thead><tr><th class="l">When</th><th class="l">Team</th><th class="l">Got</th><th class="l">Team</th><th class="l">Got</th></tr></thead><tbody>${hist.map(t => `<tr><td class="l">${seasonName(t.s)} ${esc(t.when)}</td><td class="l">${tlink(t.a)}</td><td class="l wrap">${t.aIn ? giveLinks(t.aIn, t.aIn.picks) : esc(t.aGets)}</td><td class="l">${tlink(t.b)}</td><td class="l wrap">${t.bIn ? giveLinks(t.bIn, t.bIn.picks) : esc(t.bGets)}</td></tr>${t.multi ? `<tr><td class="l muted">3-team</td><td class="l">${tlink(t.c)}</td><td class="l wrap" colspan="3">${t.cIn ? giveLinks(t.cIn, t.cIn.picks) : esc(t.cGets)}</td></tr>` : ''}${t.why || t.grades || t.wu ? `<tr><td></td><td class="l muted" colspan="4" style="font-size:12px">${wuHtml(t.wu)}${t.grades ? `How each side saw it: ${L.teams[t.a].abbr} ${t.grades.a}, ${L.teams[t.b].abbr} ${t.grades.b}${t.multi ? `, ${L.teams[t.c].abbr} ${t.grades.c}` : ''}. ` : ''}${esc(t.why || '')}</td></tr>` : ''}`).join('')}</tbody></table></div>` : `<p class="muted">${ui.trF ? 'No trades of this kind yet.' : 'No trades yet.'}</p>`}</section>`;
+  return trSub + `<section class="panel"><h2>Completed trades</h2>${trFbar}${hist.length ? `<div class="tblwrap"><table><thead><tr><th class="l">When</th><th class="l">Team</th><th class="l">Got</th><th class="l">Team</th><th class="l">Got</th></tr></thead><tbody>${hist.map(t => `<tr><td class="l">${seasonName(t.s)} ${esc(t.when)}</td><td class="l">${tlink(t.a)}</td><td class="l wrap">${t.aIn ? giveLinks(t.aIn, t.aIn.picks) : esc(t.aGets)}</td><td class="l">${tlink(t.b)}</td><td class="l wrap">${t.bIn ? giveLinks(t.bIn, t.bIn.picks) : esc(t.bGets)}</td></tr>${t.multi ? `<tr><td class="l muted">3-team</td><td class="l">${tlink(t.c)}</td><td class="l wrap" colspan="3">${t.cIn ? giveLinks(t.cIn, t.cIn.picks) : esc(t.cGets)}</td></tr>` : ''}${t.why || t.grades || t.wu ? `<tr><td></td><td class="l muted" colspan="4" style="font-size:12px"><div class="whyrow">${wuHtml(t.wu)}${t.grades ? `How each side saw it: ${L.teams[t.a].abbr} ${t.grades.a}, ${L.teams[t.b].abbr} ${t.grades.b}${t.multi ? `, ${L.teams[t.c].abbr} ${t.grades.c}` : ''}. ` : ''}${esc(t.why || '')}</div></td></tr>` : ''}`).join('')}</tbody></table></div>` : `<p class="muted">${ui.trF ? 'No trades of this kind yet.' : 'No trades yet.'}</p>`}</section>`;
 }
 
 // ---------- free agency ----------
@@ -3353,6 +3353,12 @@ function legendsView() {
     return `<tr class="click" data-legend="${esc(x.name)}"><td class="l"><strong>${esc(x.name)}</strong></td><td>${x.pos}</td><td>${x.from.slice(0, 4)}-${x.to.slice(0, 4)}</td><td class="l">${x.teams.join('/')}</td><td>${r.gp}</td><td>${r.pts != null ? r.pts.toLocaleString() : '—'}</td><td>${reb != null ? reb.toLocaleString() : '—'}</td><td>${r.ast != null ? r.ast.toLocaleString() : '—'}</td><td>${r.gp && r.pts != null ? f1(r.pts / r.gp) : '—'}</td><td>${x.hof || '—'}</td><td class="l">${esc(lgAw(x.aw))}</td></tr>`; }).join('');
   return `<h2 style="margin-top:20px">Legends</h2><p class="muted">${lg.length} retired greats with their career totals. Click a name for the career line and awards.</p><div class="panel"><div class="tblwrap"><table class="sortable" data-sid="legends"><thead><tr><th class="l">Name</th><th>Pos</th><th>Years</th><th class="l">Teams</th><th>GP</th><th>PTS</th><th>REB</th><th>AST</th><th>PPG</th><th>HOF</th><th class="l">Top awards</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
+// v33e: retired legends' trophy case: All-NBA / All-Defense / All-Star seasons from NBA_HX.aw (history data)
+function legendCase(name) {
+  if (typeof hxHonors !== 'function') return '';
+  const h = hxHonors(name), ys = {}; for (const [k, n] of [['m1', 'All-League 1st Team'], ['m2', 'All-League 2nd Team'], ['m3', 'All-League 3rd Team'], ['d1', 'All-Defense 1st Team'], ['d2', 'All-Defense 2nd Team'], ['as', 'All-Star']]) if (h[k]) ys[n] = h[k];
+  return trophyCaseHtml(ys, y => hxLbl(y)).replace('<section class="panel" style="margin-bottom:16px">', '<section class="panel" style="margin:12px 0">');
+}
 function legendDialog(name) {
   const x = nbaLegends().find(l => l.name === name); if (!x) return; const r = x.rs, g = r.gp || 1, reb = lgReb(r);
   const pg = v => v == null ? '—' : f1(v / g), tot = v => v == null ? '—' : v.toLocaleString();
@@ -3362,7 +3368,7 @@ function legendDialog(name) {
   <div class="tblwrap"><table><thead><tr><th></th><th>GP</th><th>Min</th><th>PTS</th><th>REB</th><th>AST</th><th>STL</th><th>BLK</th><th>FG%</th><th>3P%</th><th>FT%</th><th>TS%</th><th>PER</th><th>WS</th></tr></thead><tbody>
   <tr><td class="l">Totals</td><td>${tot(r.gp)}</td><td>${tot(r.mp)}</td><td>${tot(r.pts)}</td><td>${tot(reb)}</td><td>${tot(r.ast)}</td><td>${tot(r.stl)}</td><td>${tot(r.blk)}</td><td>${r.fga && r.fgm != null ? pct(r.fgm, r.fga) : '—'}</td><td>${r.tpa && r.tpm != null ? pct(r.tpm, r.tpa) : '—'}</td><td>${r.fta && r.ftm != null ? pct(r.ftm, r.fta) : '—'}</td><td>${r.ts != null ? pct(r.ts, 1) : '—'}</td><td>${r.per != null ? f1(r.per) : '—'}</td><td>${r.ws != null ? f1(r.ws) : '—'}</td></tr>
   <tr><td class="l">Per game</td><td></td><td>${r.mp ? f1(r.mp / g) : '—'}</td><td>${pg(r.pts)}</td><td>${pg(reb)}</td><td>${pg(r.ast)}</td><td>${pg(r.stl)}</td><td>${pg(r.blk)}</td><td colspan="7"></td></tr></tbody></table></div>
-  <h3 style="margin-top:12px">Awards</h3><div>${aw || '<span class="muted">None recorded.</span>'}</div><p class="muted" style="font-size:12px">Regular season. Blank = not tracked in that era.</p><p><button id="x-close" class="sm">Close</button></p>`);
+  <h3 style="margin-top:12px">Awards</h3><div>${aw || '<span class="muted">None recorded.</span>'}</div>${legendCase(x.name)}<p class="muted" style="font-size:12px">Regular season. Blank = not tracked in that era.</p><p><button id="x-close" class="sm">Close</button></p>`);
   $('#x-close').onclick = closeDialog;
 }
 document.addEventListener('click', e => { const r = e.target.closest('[data-legend]'); if (r) legendDialog(r.dataset.legend); });
@@ -3582,11 +3588,15 @@ function trophyCase(p) {
   const ys = {}; for (const a of p.awards || []) if (TROPHY_OF[a.a]) (ys[a.a] = ys[a.a] || []).push(a.s);
   // stars carry every award in p.awards; other players take theirs from the NBA award list (v32f: one case, merged by type)
   if (p.real && nbaHistOn(L) && !(p.awards || []).some(a => a.real)) for (const h of nbaRealHonors(p.name)) { const nm = Object.keys(TROPHY_OF).find(k => TROPHY_OF[k] === h.k); if (nm) for (const y of h.ys) (ys[nm] = ys[nm] || []).push(y - 2025); }
+  return trophyCaseHtml(ys, seasonName);
+}
+// v33e: shared by player pages and retired legends (ys = award name -> seasons; lbl turns a season into its chip text)
+function trophyCaseHtml(ys, lbl) {
   const ks = Object.keys(TROPHY_OF).filter(k => ys[k]);
   if (!ks.length) return '';
   const short = k => k.replace('Defensive Player of the Year', 'DPOY').replace('Sixth Man of the Year', 'Sixth Man').replace('Most Improved Player', 'Most Improved').replace(' Team', '').replace('Champion', 'Champions');
   return `<section class="panel" style="margin-bottom:16px"><h3>Trophy case</h3><div class="trcase">${ks.map(k => { const s = ys[k].slice().sort((a, b) => a - b), med = !!MEDAL_OF[TROPHY_OF[k]];
-    return `<div class="tritem" title="${esc(k)}"><div class="trart">${trophySvg(TROPHY_OF[k], med ? 54 : 64, med ? '' : s.length > 1 ? '×' + s.length : seasonName(s[0]))}</div><div class="trname">${esc(short(k))}${s.length > 1 ? ` <strong>×${s.length}</strong>` : ''}</div><div class="trchips">${s.map(x => trChip(seasonName(x))).join('')}</div></div>`; }).join('')}</div></section>`;
+    return `<div class="tritem" title="${esc(k)}"><div class="trart">${trophySvg(TROPHY_OF[k], med ? 54 : 64, med ? '' : s.length > 1 ? '×' + s.length : lbl(s[0]))}</div><div class="trname">${esc(short(k))}${s.length > 1 ? ` <strong>×${s.length}</strong>` : ''}</div><div class="trchips">${s.map(x => trChip(lbl(x))).join('')}</div></div>`; }).join('')}</div></section>`;
 }
 // Award popups: one trophy per win, each with its year
 function trophyRow(kind, seasons, size) {

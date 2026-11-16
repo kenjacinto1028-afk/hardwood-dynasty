@@ -117,6 +117,8 @@ table.sortable th:not(.nosort) { cursor: pointer; }
 table.sortable th:not(.nosort):hover { color: var(--ink); }
 td.l, th.l { text-align: left; }
 td.wrap { white-space: normal; min-width: 160px; }
+/* v33e: trade reason / grade lines (Completed trades) wrap inside the visible width instead of running off the table */
+.whyrow { white-space: normal; max-width: min(640px, calc(100vw - 195px)); }
 tr.click { cursor: pointer; } tr.click:hover td { background: var(--surface-2); }
 tr.sep td { border-bottom: 2px solid var(--muted); }
 tr.mine td { background: var(--accent-soft); }

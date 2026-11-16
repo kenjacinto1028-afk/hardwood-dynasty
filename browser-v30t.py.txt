@@ -1,0 +1,173 @@
+# v30 T UI checks: Season to-do list (panel, header chip, auto-checks, tick, hide, reminders, optional sim stop),
+# nothing in commissioner mode or during autopilot, old saves, desktop 1300 + 390px, plus the Knicks logo (differs from the Kings).
+# Rename to .py, serve the artifact folder (python3 -m http.server PORT), then: python3 browser-v30t.py PORT
+import asyncio, sys, json
+from playwright.async_api import async_playwright
+PORT = sys.argv[1] if len(sys.argv) > 1 else '8789'
+res = []
+def ok(n, c, x=''):
+    res.append(('PASS ' if c else 'FAIL ') + n + (f'  [{x}]' if x else '')); print(res[-1], file=sys.stderr, flush=True)
+CLR = "document.querySelector('#modal').innerHTML=''"
+# app.js is one closure: L and helpers come through window.__pbl (v30 test hook); engine / league globals are direct
+async def ev(pg, js): return await pg.evaluate("(()=>{const L=window.__pbl.L,{logo,logoBody,hexContrast,pipeLogo,todo}=window.__pbl.v30;return eval(" + json.dumps(js) + ")})()")
+async def go(pg, h):
+    await ev(pg, CLR); await ev(pg, "window.__pbl.ui.player=null;window.__pbl.ui.game=null;window.__pbl.ui.coach=null"); await ev(pg, "location.hash='#standings'"); await pg.wait_for_timeout(200)
+    await ev(pg, f"location.hash='#{h}'"); await pg.wait_for_timeout(600)
+async def noscroll(pg): return await ev(pg, "document.documentElement.scrollWidth <= window.innerWidth + 1")
+async def start(pg, mode, nba=False):
+    await pg.goto(f'http://localhost:{PORT}/index.html'); await pg.wait_for_timeout(2500)
+    if nba: await pg.click('[data-setnba="1"]'); await pg.wait_for_timeout(300)
+    await pg.click(f'[data-setmode="{mode}"]')
+    if await ev(pg, "!!document.querySelector('[data-setgames=\"58\"]')"): await pg.click('[data-setgames="58"]')
+    await pg.click('#create'); await pg.wait_for_timeout(4500); await ev(pg, CLR)
+async def simwait(pg):
+    for i in range(120):
+        await pg.wait_for_timeout(500)
+        if not await ev(pg, "window.__pbl.ui.busy"): break
+    await pg.wait_for_timeout(400)
+async def chipn(pg): return await ev(pg, "(document.querySelector('#todochip')||{textContent:''}).textContent")
+async def rows(pg): return await ev(pg, "document.querySelectorAll('#todo .todo-row').length")
+async def st(pg, id): return await ev(pg, f"todo.list().find(x=>x.id==='{id}')")
+
+async def main():
+  async with async_playwright() as p:
+    b = await p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
+    ctx = await b.new_context(viewport={'width': 1300, 'height': 900})
+    pg = await ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
+    # ================= franchise mode (PBL) =================
+    await start(pg, 'team')
+    ok('toast appears when the phase starts', await ev(pg, "(()=>{const t=document.getElementById('todotoast');return !!t&&!t.hidden&&t.textContent.includes('Season start')})()"))
+    await go(pg, 'myteam')
+    ok('panel at the top of My team, Season start group', await ev(pg, "(()=>{const m=document.querySelector('#main'),t=document.querySelector('#todo');return !!t&&t.textContent.includes('Season start')&&m.innerHTML.indexOf('id=\"todo\"')<m.innerHTML.indexOf('class=\"subtabs\"')})()"))
+    n0 = await rows(pg); ok('Season start has 10 items', n0 == 10, n0)
+    ok('each row: tick, text with tooltip, Open, Hide', await ev(pg, "[...document.querySelectorAll('#todo .todo-row')].every(r=>r.querySelector('input[data-todo-tick]')&&r.querySelector('.todo-t').title.length>5&&r.querySelector('[data-todo-go]')&&r.querySelector('[data-todo-hide]'))"))
+    ok('star on the roster-legal item', await ev(pg, "!!document.querySelector('#todo [data-todo-id=\"s1i\"] .todo-star')"))
+    c0 = await chipn(pg); ok('header chip shows the open count', c0.startswith('To-do') and any(ch.isdigit() for ch in c0), c0)
+    open0 = await ev(pg, "todo.open()"); ok('chip number = open items in the phase', str(open0) in c0, (open0, c0))
+    # --- auto-checks
+    ok('auto: s1g (core player) is open, then done after marking one', (await st(pg, 's1g'))['done'] is False)
+    await ev(pg, "(()=>{const t=L.teams[L.user];const p=rosterOf(L,L.teams[L.user])[0];p.core=true;window.__pbl.render()})()"); await pg.wait_for_timeout(300)
+    ok('auto: core player ticks s1g', (await st(pg, 's1g'))['done'] is True)
+    ok('auto: s1c needs 3 watched prospects', (await st(pg, 's1c'))['done'] is False)
+    await ev(pg, "(()=>{const ids=Object.values(L.players).filter(p=>p.prospect&&!p.retired).slice(0,3).map(p=>p.id);L.watch=ids;window.__pbl.render()})()"); await pg.wait_for_timeout(300)
+    ok('auto: 3 watched prospects tick s1c', (await st(pg, 's1c'))['done'] is True)
+    ok('auto: s1i follows the roster rule', (await st(pg, 's1i'))['done'] == (await ev(pg, "!userRosterProblem(L)&&twOf(L,L.teams[L.user]).length>=TW_MAX")))
+    ok('auto: s1f (lineup) open until the Lineup tab is opened', (await st(pg, 's1f'))['done'] is False)
+    await ev(pg, "(()=>{const b=document.querySelector('#main [data-twin=\"rot|Lineup & rotation\"]');if(b)b.click()})()"); await pg.wait_for_timeout(500)
+    ok('auto: opening Lineup & rotation ticks s1f', (await st(pg, 's1f'))['done'] is True)
+    await ev(pg, "(()=>{const b=document.querySelector('#main [data-twin=\"rot|Rotation & roles\"]');if(b)b.click()})()"); await pg.wait_for_timeout(300)
+    ok('auto rows show "(auto)" and a disabled tick when the game checked them', await ev(pg, "(()=>{const r=document.querySelector('#todo [data-todo-id=\"s1g\"]');return r.classList.contains('done')&&r.querySelector('input').disabled&&r.textContent.includes('(auto)')})()"))
+    # --- hand tick
+    before = await ev(pg, "todo.open()")
+    await pg.click('#todo input[data-todo-tick="s1a"]'); await pg.wait_for_timeout(300)
+    ok('hand tick marks the item done and lowers the chip count', (await st(pg, 's1a'))['done'] is True and await ev(pg, "todo.open()") == before - 1 and str(before - 1) in await chipn(pg))
+    await pg.click('#todo input[data-todo-tick="s1a"]'); await pg.wait_for_timeout(300)
+    ok('un-tick works', (await st(pg, 's1a'))['done'] is False)
+    # --- hide
+    n1 = await rows(pg); before = await ev(pg, "todo.open()")
+    await pg.click('#todo [data-todo-hide="s1b"]'); await pg.wait_for_timeout(300)
+    ok('Hide removes the row and the count', await rows(pg) == n1 - 1 and await ev(pg, "todo.open()") == before - 1)
+    ok('Show hidden (1) brings it back, greyed', await ev(pg, "(()=>{const b=document.querySelector('#todo [data-todo-hidden]');return !!b&&b.textContent.includes('(1)')})()"))
+    await pg.click('#todo [data-todo-hidden]'); await pg.wait_for_timeout(300)
+    ok('hidden row shown with Unhide', await ev(pg, "!!document.querySelector('#todo [data-todo-id=\"s1b\"].hid [data-todo-hide]')") and await rows(pg) == n1)
+    # --- remembered after reload
+    await ev(pg, "window.__pbl.save()"); await pg.wait_for_timeout(600)
+    await pg.reload(); await pg.wait_for_timeout(3000); await ev(pg, CLR); await go(pg, 'myteam')
+    ok('hide + ticks remembered after reload', await ev(pg, "todo.state().hide.s1b===1&&todo.state().seen.lineup===1&&(todo.list().find(x=>x.id==='s1b')).hidden"))
+    await pg.click('#todo [data-todo-hidden]') if await ev(pg, "!!document.querySelector('#todo [data-todo-hidden]')") else None
+    await pg.click('#todo [data-todo-hide="s1b"]'); await pg.wait_for_timeout(300)   # unhide
+    # --- all phases view
+    await pg.click('#todo [data-todo-all]'); await pg.wait_for_timeout(300)
+    ok('All phases shows all six groups', await ev(pg, "document.querySelectorAll('#todo .todo-g').length")==6)
+    await pg.click('#todo [data-todo-all]'); await pg.wait_for_timeout(300)
+    # --- Open button runs the link
+    await pg.click('#todo [data-todo-go="s1e"]'); await pg.wait_for_timeout(500)
+    ok('Open on the training item opens the Training check', await ev(pg, "!!document.querySelector('#modal h2')&&document.querySelector('#modal h2').textContent.includes('Training')"))
+    await pg.click('#tc-keep'); await pg.wait_for_timeout(400)
+    ok('confirming the Training check ticks s1e', (await st(pg, 's1e'))['done'] is True)
+    # --- phases move on: Early season group + toast
+    await ev(pg, CLR)
+    await ev(pg, "(()=>{L.day=8;window.__pbl.render()})()"); await pg.wait_for_timeout(400)
+    ok('day 8 -> Early season group with its own toast', await ev(pg, "todo.group()")=='early' and await ev(pg, "(()=>{const t=document.getElementById('todotoast');return !t.hidden&&t.textContent.includes('Early season')})()"))
+    await go(pg, 'myteam'); ok('Early season panel has 3 items', await rows(pg) == 3, await rows(pg))
+    # --- reminders + optional stop
+    dl = await ev(pg, "deadlineDay(L)")
+    await ev(pg, "L.day=deadlineDay(L)-5;window.__pbl.render()"); await pg.wait_for_timeout(300)
+    await ev(pg, "L.day=deadlineDay(L)-3;window.__pbl.render()"); await pg.wait_for_timeout(400)
+    ok('reminder 3 days before the trade deadline', await ev(pg, "(()=>{const t=document.getElementById('todotoast');return !t.hidden&&t.textContent.includes('Trade deadline in 3 days')})()"))
+    ok('mid group: deadline interview item only shows when open', await ev(pg, "todo.list('mid').some(x=>x.id==='s3e')")==bool(await ev(pg, "!!ivOpen(L)")))
+    await ev(pg, "L.day=1;window.__pbl.render()")
+    ok('stop is off by default: sim end unchanged', await ev(pg, "todo.stopEnd(deadlineDay(L))")==dl)
+    await go(pg, 'myteam'); await pg.click('#todo-stop'); await pg.wait_for_timeout(200)
+    ok('stop setting saved', await ev(pg, "L.todo.stop")==True)
+    ok('stop on + a star item open: sim ends 3 days before the deadline', await ev(pg, "todo.stopEnd(deadlineDay(L))")==dl-3)
+    ok('stop on: ends at the last-week start when going to the season end', await ev(pg, "(()=>{L.todo.stopped.dl=1;const r=todo.stopEnd(L.schedule.length);return r===L.schedule.length-7})()"))
+    await ev(pg, "L.todo.stopped={}")
+    await ev(pg, "(()=>{for(const id of ['s1i','s3a','s3e'])todo.state().tick[id]=1;})()")
+    ok('stop on but no star item open: no stop', await ev(pg, "todo.stopEnd(deadlineDay(L))")==dl)
+    await ev(pg, "(()=>{delete todo.state().tick.s3a;L.todo.stopped={}})()")
+    # real sim click: pauses 3 days before the deadline with a dialog (other interrupts, like interviews, are dismissed first)
+    await ev(pg, CLR); await ev(pg, "(()=>{L.day=10;window.__pbl.ui.preOK=null;if(L.iv)L.iv.done=true;L.mtg=null;window.__pbl.render()})()"); await pg.wait_for_timeout(300)
+    paused = False
+    for i in range(8):
+        await pg.click('#simctl [data-sim="deadline"]'); await simwait(pg)
+        paused = await ev(pg, "(()=>{const h=document.querySelector('#modal h2');return !!h&&h.textContent.includes('Sim paused')})()")
+        if paused or await ev(pg, "L.day")>=dl-3: break
+        await ev(pg, CLR); await ev(pg, "(()=>{if(L.iv)L.iv.done=true;L.mtg=null})()")
+    d1 = await ev(pg, "L.day"); ok('Sim to deadline paused 3 days early', d1 == dl - 3, (d1, dl))
+    ok('pause dialog lists the open star items', paused and await ev(pg, "document.querySelector('#modal').textContent.includes('★')"))
+    await pg.click('#x-close'); await pg.wait_for_timeout(300)
+    for i in range(6):
+        await ev(pg, CLR); await ev(pg, "(()=>{if(L.iv)L.iv.done=true;L.mtg=null})()")
+        await pg.click('#simctl [data-sim="deadline"]'); await simwait(pg)
+        if await ev(pg, "L.day")>= dl: break
+        await ev(pg, CLR)
+    ok('keep simming goes on to the deadline (stops only once)', await ev(pg, "L.day")>= dl and not await ev(pg, "!!document.querySelector('#modal h2')&&document.querySelector('#modal h2').textContent.includes('Sim paused')"), await ev(pg, "L.day"))
+    await ev(pg, CLR)
+    # --- phases later
+    ok('group is late after the deadline', await ev(pg, "todo.group()")=='late')
+    # --- old save: no L.todo
+    await ev(pg, "(()=>{delete L.todo;window.__pbl.render()})()"); await pg.wait_for_timeout(300)
+    ok('old save without L.todo renders fine', await ev(pg, "!!document.querySelector('#todochip')&&!document.querySelector('#todochip').hidden"))
+    # --- autopilot: nothing
+    st0 = await ev(pg, "JSON.stringify(todo.state())")
+    await ev(pg, "(()=>{autoBegin(L,1,true);window.__pbl.render()})()"); await pg.wait_for_timeout(300)
+    ok('autopilot: chip hidden, no panel, to-do off', await ev(pg, "todo.on()")==False and await ev(pg, "document.querySelector('#todochip').hidden"))
+    ok('autopilot: no toast and the sim stop does nothing', await ev(pg, "(()=>{const t=document.getElementById('todotoast');return !t||t.hidden})()") and await ev(pg, "todo.stopEnd(200)")==200)
+    await ev(pg, "(()=>{let g=0;while(autoStep(L)&&g++<200000){}autoEnd(L);window.__pbl.render()})()"); await pg.wait_for_timeout(500)
+    ok('after autopilot the list works again (state untouched while it ran)', await ev(pg, "todo.on()")==True and await ev(pg, "!!L.todo"))
+    # --- 390px
+    await pg.set_viewport_size({'width': 390, 'height': 844}); await pg.wait_for_timeout(300)
+    await ev(pg, "(()=>{L.day=0;L.todo.toast={};window.__pbl.ui.todoAll=true})()"); await go(pg, 'myteam')
+    ok('390px: My team with all phases open, no sideways scroll', await noscroll(pg), await ev(pg, "document.documentElement.scrollWidth"))
+    ok('390px: header chip visible and inside the screen', await ev(pg, "(()=>{const r=document.querySelector('#todochip').getBoundingClientRect();return r.width>0&&r.right<=window.innerWidth+1})()"))
+    await ev(pg, "(()=>{L.todo.toast={};window.__pbl.render();})()"); await pg.wait_for_timeout(300)
+    ok('390px: toast fits the screen', await ev(pg, "(()=>{const t=document.getElementById('todotoast');if(t.hidden)return true;const r=t.getBoundingClientRect();return r.left>=0&&r.right<=window.innerWidth+1})()"))
+    ok('390px: rows wrap (no row wider than the panel)', await ev(pg, "(()=>{const p=document.querySelector('#todo').getBoundingClientRect();return [...document.querySelectorAll('#todo .todo-row')].every(r=>r.getBoundingClientRect().right<=p.right+1)})()"))
+    await go(pg, 'standings'); ok('390px: standings no sideways scroll (chip in header)', await noscroll(pg))
+    await pg.set_viewport_size({'width': 1300, 'height': 900})
+    # ================= commissioner mode =================
+    await ctx.close(); ctx = await b.new_context(viewport={'width': 1300, 'height': 900}); pg = await ctx.new_page(); pg.on('pageerror', lambda e: errs.append(str(e)))
+    await start(pg, 'commish'); await go(pg, 'standings')
+    ok('commissioner: league has no user team', await ev(pg, "L.user==null&&L.mode==='commish'"))
+    ok('commissioner: no chip, no panel, no toast, no L.todo', await ev(pg, "(()=>{const c=document.querySelector('#todochip'),t=document.getElementById('todotoast');return (!c||c.hidden)&&!document.querySelector('#todo')&&(!t||t.hidden)&&!L.todo&&todo.on()===false})()"))
+    await ev(pg, "(()=>{L.day=10;window.__pbl.render()})()"); await pg.wait_for_timeout(300)
+    ok('commissioner: still nothing after the day moves', await ev(pg, "!L.todo&&todo.stopEnd(100)===100"))
+    # ================= NBA franchise + Knicks logo =================
+    await ctx.close(); ctx = await b.new_context(viewport={'width': 1300, 'height': 900}); pg = await ctx.new_page(); pg.on('pageerror', lambda e: errs.append(str(e)))
+    await start(pg, 'team', True); await go(pg, 'myteam')
+    ok('NBA franchise: to-do panel and chip work', await ev(pg, "!!document.querySelector('#todo')&&!document.querySelector('#todochip').hidden")and await rows(pg)==10)
+    nyk = await ev(pg, "logo(L.teams.find(t=>t.abbr==='NYK').id,64)"); sac = await ev(pg, "logo(L.teams.find(t=>t.abbr==='SAC').id,64)")
+    import re
+    em = lambda h: re.search(r'<g fill="[^"]+" transform="translate\(23 10\) scale\(\.54\)">(.*?)</g><rect', h, re.S).group(1)
+    ok('Knicks emblem differs from the Kings emblem (not the same art)', em(nyk) != em(sac) and 'KNICKS' in nyk and 'KINGS' in sac)
+    ok('Knicks small logo draws the new skyline emblem', await ev(pg, "(()=>{const h=logo(L.teams.find(t=>t.abbr==='NYK').id,18);return h.includes('scale(.76)')&&!h.includes('<text')&&h.includes('M48 92 V32 L56 6')})()"))
+    ok('Knicks is the only team using the skyline', await ev(pg, "Object.entries(NBA_TEXT.emblem).filter(([k,v])=>v.motif==='skyline').map(x=>x[0]).join()")=='NYK')
+    await ev(pg, "L.todo.fold=false")
+    ok('no page errors', not errs, errs[:2])
+    await b.close()
+  print('\n'.join(res)); f = sum(1 for r in res if r.startswith('FAIL')); print(f'{len(res)-f} pass, {f} fail')
+try:
+    asyncio.run(main())
+except Exception as e:
+    ok('test run completed', False, str(e)[:240]); print('\n'.join(res)); f = sum(1 for r in res if r.startswith('FAIL')); print(f'{len(res)-f} pass, {f} fail')

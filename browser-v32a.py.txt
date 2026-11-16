@@ -1,0 +1,54 @@
+# v32a browser check: extension flow (years left = 5) and draft-offer flow (Negotiate opens trade center, accepting clears the other offers).
+# Rename to .py, serve the game folder (python3 -m http.server PORT), then: python3 browser-v32a.py PORT
+import asyncio, sys, json
+from playwright.async_api import async_playwright
+PORT = sys.argv[1] if len(sys.argv) > 1 else '8791'
+res = []
+def ok(n, c, x=''):
+    res.append(('PASS ' if c else 'FAIL ') + n + (f'  [{x}]' if x else '')); print(res[-1], file=sys.stderr, flush=True)
+async def ev(pg, js): return await pg.evaluate("(()=>{const L=window.__pbl.L,ui=window.__pbl.ui;return eval(" + json.dumps(js) + ")})()")
+async def main():
+    async with async_playwright() as p:
+        b = await p.chromium.launch(); pg = await (await b.new_context(viewport={'width': 1300, 'height': 900})).new_page(); errs = []
+        pg.on('pageerror', lambda e: errs.append(str(e)))
+        await pg.goto(f'http://localhost:{PORT}/index.html'); await pg.wait_for_timeout(2500)
+        await pg.click('[data-setmode="team"]'); await pg.click('[data-setnba="1"]'); await pg.click('[data-setgames="58"]'); await pg.click('#create'); await pg.wait_for_timeout(4500)
+        await ev(pg, "document.querySelector('#modal').innerHTML=''")
+        # ---- extension: put an expiring star on my team, extend 4 years with the real dialog
+        pid = await ev(pg, "(()=>{L.phase='regular';L.day=5;const t=L.teams[L.user];const p=rosterOf(L,t).sort((a,b)=>b.ovr-a.ovr)[0];p.contract.exp=L.season;p.contract.len=3;p.contract.opt=null;p.ext=null;ui.player=p.id;window.__pbl.render();return p.id})()")
+        await pg.wait_for_timeout(500)
+        ok('extendable player has a Negotiate button', await ev(pg, "!!document.querySelector('#negbar [data-nego]')"))
+        await pg.click('#negbar [data-nego]'); await pg.wait_for_timeout(500)
+        await ev(pg, "(()=>{const y=document.querySelector('#neg-yrs');y.value='4';y.dispatchEvent(new Event('change',{bubbles:true}))})()"); await pg.wait_for_timeout(400)
+        for _ in range(3):
+            if await ev(pg, f"L.players[{pid}].ext"): break
+            m = await ev(pg, "(document.querySelector('#negdlg .msg')||{textContent:''}).textContent"); import re
+            mm = re.search(r'\$([0-9.]+)M/yr for 4 year', m)
+            if mm: await ev(pg, f"(()=>{{const a=document.querySelector('#neg-amt');a.value='{mm.group(1)}';a.dispatchEvent(new Event('change',{{bubbles:true}}))}})()"); await pg.wait_for_timeout(300)
+            await pg.click('#negdlg [data-offer], #modal [data-offer]'); await pg.wait_for_timeout(600)
+        info = await ev(pg, f"(()=>{{const p=L.players[{pid}];return {{ext:p.ext&&p.ext.yrs,left:yrsLeft(L,p)}}}})()")
+        ok('4-year extension kept 4 years, 5 years left', info['ext'] == 4 and info['left'] == 5, json.dumps(info))
+        await ev(pg, "document.querySelector('#modal').innerHTML='';ui.negOpen=null;ui.player=" + str(pid) + ";window.__pbl.render()"); await pg.wait_for_timeout(500)
+        txt = await ev(pg, "document.querySelector('#main').textContent")
+        ok('player page shows years left from the extension (not expiring)', '5 years left' in txt or 'Extension: 4 yr' in txt, '5 years left' if '5 years left' in txt else '')
+        await ev(pg, "location.hash='#payroll'"); await pg.wait_for_timeout(600)
+        ok('payroll page renders clean', await ev(pg, "!/undefined|NaN/.test(document.querySelector('#main').textContent)"))
+        # ---- draft offers: two offers for my pick; Negotiate opens trade center; accept clears the other
+        await ev(pg, "(()=>{L.phase='off-draft';L.draftOrder=L.draftOrder||[];})()")
+        setup = await ev(pg, "(()=>{const t=L.teams[L.user];L.phase='regular';const idx=0;return null})()")
+        made = await ev(pg, """(()=>{const U=L.user;const picks=L.picks.filter(k=>k.owner===U&&k.s===L.season);const cur=picks[0];if(!cur)return 0;
+          const others=L.teams.filter(t=>t.id!==U).slice(0,2);const mk=(t,id)=>{const th=L.picks.find(k=>k.owner===t.id&&k.s===L.season);return {a:t.id,b:U,aGive:{players:[],picks:[th.id]},bGive:{players:[],picks:[cur.id]},id,draft:true,slotIdx:5,ttl:5,why:'test'}};
+          L.offers=[mk(others[0],'v1'),mk(others[1],'v2')];ui.trTab='offers';location.hash='#trades';window.__pbl.render();return L.offers.length})()""")
+        await pg.wait_for_timeout(600)
+        ok('two draft offers shown', made == 2 and await ev(pg, "document.querySelectorAll('[data-counter]').length") == 2)
+        await pg.click('[data-counter="v1"]'); await pg.wait_for_timeout(600)
+        ok('Negotiate opened the trade center with the offer loaded', await ev(pg, "ui.trTab==='center' && ui.tGive && ui.tGive.picks.length>=1 && !!document.querySelector('#main')"), await ev(pg, "ui.trTab"))
+        await ev(pg, "ui.trTab='offers';window.__pbl.render()"); await pg.wait_for_timeout(500)
+        await ev(pg, "(()=>{const o=L.offers.find(x=>x.id==='v1');if(o){L.draftOrder=L.draftOrder||[]}})()")
+        before = await ev(pg, "L.offers.length")
+        await ev(pg, "(()=>{acceptOffer(L,'v1');window.__pbl.render()})()"); await pg.wait_for_timeout(500)
+        ok('after accepting one, the other offer for that pick is gone from Offers for you', await ev(pg, "L.offers.filter(o=>o.id==='v2').length===0 && document.querySelectorAll('[data-counter=\"v2\"]').length===0"), f'{before} -> ' + str(await ev(pg, 'L.offers.length')))
+        ok('no page errors', not errs, ';'.join(errs)[:200])
+        await b.close()
+    print('\n'.join(res)); print(f"{sum(r.startswith('PASS') for r in res)}/{len(res)}")
+asyncio.run(main())

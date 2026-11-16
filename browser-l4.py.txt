@@ -1,0 +1,33 @@
+# v27 L4 checks (icon badge, header line, untouchable pill). Serve the folder, then: python3 browser-l4.py PORT
+import asyncio, sys
+from playwright.async_api import async_playwright
+PORT = sys.argv[1] if len(sys.argv) > 1 else '8781'
+res = []
+def ok(n, c, x=''): res.append(('PASS ' if c else 'FAIL ') + n + (f'  [{x}]' if x else ''))
+async def main():
+    async with async_playwright() as p:
+        b = await p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
+        pg = await (await b.new_context(viewport={'width': 1300, 'height': 900})).new_page()
+        errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
+        await pg.goto(f'http://localhost:{PORT}/index.html'); await pg.wait_for_timeout(2500)
+        await pg.click('[data-setmode="team"]'); await pg.click('[data-setnba="1"]'); await pg.wait_for_timeout(300); await pg.click('#create'); await pg.wait_for_timeout(4500)
+        await pg.evaluate("document.querySelector('#modal').innerHTML=''")
+        T = "(()=>{const L=window.__pbl.L;return L.teams.find(t=>t.abbr==='GSW').id})()"
+        gsw = await pg.evaluate(T)
+        # Curry player page
+        await pg.evaluate("(()=>{const L=window.__pbl.L;const p=Object.values(L.players).find(p=>p.name==='Stephen Curry');window.__pbl.ui.player=p.id;window.__pbl.render()})()"); await pg.wait_for_timeout(500)
+        t = await pg.evaluate("document.querySelector('#main').innerText")
+        ok('Curry page: Franchise icon badge', 'Franchise icon' in t)
+        # GSW team page header line
+        await pg.evaluate(f"(()=>{{const U=window.__pbl.ui;U.player=null;U.view='teams';U.team={gsw};window.__pbl.render()}})()"); await pg.wait_for_timeout(600)
+        t = await pg.evaluate("document.querySelector('#main').innerText")
+        ok('GSW header: icon line names Curry', 'Franchise icon: Stephen Curry' in t, t[:160].replace('\n',' | '))
+        # trade-status pill text via statusPill
+        s = await pg.evaluate("(()=>{const L=window.__pbl.L;const p=Object.values(L.players).find(p=>p.name==='Stephen Curry');const s=tradeStatus(L,p);return s?(s.k+' '+(s.icon?'Untouchable: '+s.why.toLowerCase():s.why)):''})()")
+        ok('Untouchable: franchise icon pill', 'Untouchable: franchise icon' in s, s[:120])
+        # news on icon trade
+        n = await pg.evaluate("(()=>{const L=window.__pbl.L;const p=Object.values(L.players).find(p=>p.name==='Stephen Curry');const a=L.teams.find(t=>t.abbr==='GSW').id,b=L.teams.find(t=>t.abbr==='HOU').id;const k0=L.log.length;const f=L.fa;try{logNews(L,'x',a,'trade')}catch(e){};return L.log[0].text})()")
+        ok('no page errors', not errs, str(errs[:2]))
+        await b.close()
+    print('\n'.join(res))
+asyncio.run(main())

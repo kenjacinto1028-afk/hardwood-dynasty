@@ -33,10 +33,33 @@ function hxAwards(y, kind) { return NBA_HX.aw.filter(r => r[0] === y && (!kind |
 // v33e: a player's All-NBA / All-Defense / All-Star seasons (start years) from NBA_HX.aw, for retired legends' trophy cases
 const HX_HONOR_KIND = { AN1: 'm1', AN2: 'm2', AN3: 'm3', AD1: 'd1', AD2: 'd2', AS: 'as' };
 let HX_HONOR_C = null;
-function hxHonors(name) {
+// v34 B: a legend's name can be spelled differently in NBA_HX.aw (accents, Jr., short first names): exact normalized name first,
+// else the one award name with the same last name + first initial and award years inside his career (none or several: no match)
+let HX_AWN = null;
+const hxBare = k => k.replace(/ (jr|sr|ii|iii|iv)$/, '').split(' ');
+function hxAwKey(name, from, to) {
+  const k = hxNorm(name); if (typeof NBA_HX === 'undefined') return k;
+  if (!HX_AWN) { HX_AWN = new Map(); for (const r of NBA_HX.aw) { const n = hxNorm(r[2]); if (!HX_AWN.has(n)) HX_AWN.set(n, []); HX_AWN.get(n).push(r[0]); } }
+  if (HX_AWN.has(k)) return k;
+  const a = hxBare(k), last = a[a.length - 1], fi = (a[0] || '')[0];
+  const c = [...HX_AWN.entries()].filter(([n, ys]) => { const b = hxBare(n); return n !== k && b[b.length - 1] === last && (b[0] || '')[0] === fi && (from == null || ys.some(y => y >= from - 1 && y <= to)); });
+  return c.length === 1 ? c[0][0] : k;
+}
+function hxHonors(name, from, to) {
   if (typeof NBA_HX === 'undefined') return {};
   if (!HX_HONOR_C) { HX_HONOR_C = {}; for (const r of NBA_HX.aw) { const k = HX_HONOR_KIND[r[1]]; if (!k) continue; const o = HX_HONOR_C[hxNorm(r[2])] = HX_HONOR_C[hxNorm(r[2])] || {}; (o[k] = o[k] || []).push(r[0]); } for (const o of Object.values(HX_HONOR_C)) for (const k in o) o[k].sort((a, b) => a - b); }
-  return HX_HONOR_C[hxNorm(name)] || {};
+  return HX_HONOR_C[hxAwKey(name, from, to)] || {};
+}
+// v34 B: a legend's top awards for the Legends list: All-NBA 1st / All-Star from NBA_HX.aw, MVP / Finals MVP / DPOY from the season list
+// (same name matching); championships aren't in the history data, so they stay from the legend's own record (NBA_LGD)
+function hxTopAwards(l) {
+  if (typeof NBA_HX === 'undefined' || !l) return l ? l.aw || {} : {};
+  const from = hxYr(l.from), to = hxYr(l.to), k = hxAwKey(l.name, from, to), h = hxHonors(l.name, from, to), out = {};
+  const hs = typeof nbaHist === 'function' ? nbaHist() : [], is = n => n && (hxNorm(n) === k || hxNorm(n) === hxNorm(l.name));
+  const mvp = hs.filter(x => is(x.mvp)).length, fm = hs.filter(x => is(x.fmvp)).length, dp = hs.filter(x => is(x.dpoy)).length;
+  if (mvp) out.MVP = mvp; if (fm) out['Finals MVP'] = fm; if ((l.aw || {}).Champion) out.Champion = l.aw.Champion; if (dp) out.DPOY = dp;
+  if (h.m1) out['All-NBA 1st'] = h.m1.length; if (h.as) out['All-Star'] = h.as.length;
+  return out;
 }
 // sim seasons with a franchise (one universe: they add to the real totals)
 const HX_FL_STAT = { G: s => s.gp, MP: s => Math.round((s.min || 0) / 60), PTS: s => s.pts, TRB: s => (s.orb || 0) + (s.drb || 0), AST: s => s.ast, STL: s => s.stl, BLK: s => s.blk, '3P': s => s.tpm };

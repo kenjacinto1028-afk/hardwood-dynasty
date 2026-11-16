@@ -26,6 +26,14 @@ function hxBestRecord(y) { let best = null; for (const ab in NBA_HX.fs) for (con
 function hxRetired(ab) { return NBA_HX.ret.filter(r => r[0] === ab); }
 function hxHof() { return NBA_HX.hof.slice().sort((a, b) => (b[1] || 0) - (a[1] || 0)); }
 function hxAwards(y, kind) { return NBA_HX.aw.filter(r => r[0] === y && (!kind || r[1] === kind)); }
+// v33e: a player's All-NBA / All-Defense / All-Star seasons (start years) from NBA_HX.aw, for retired legends' trophy cases
+const HX_HONOR_KIND = { AN1: 'm1', AN2: 'm2', AN3: 'm3', AD1: 'd1', AD2: 'd2', AS: 'as' };
+let HX_HONOR_C = null;
+function hxHonors(name) {
+  if (typeof NBA_HX === 'undefined') return {};
+  if (!HX_HONOR_C) { HX_HONOR_C = {}; for (const r of NBA_HX.aw) { const k = HX_HONOR_KIND[r[1]]; if (!k) continue; const o = HX_HONOR_C[hxNorm(r[2])] = HX_HONOR_C[hxNorm(r[2])] || {}; (o[k] = o[k] || []).push(r[0]); } for (const o of Object.values(HX_HONOR_C)) for (const k in o) o[k].sort((a, b) => a - b); }
+  return HX_HONOR_C[hxNorm(name)] || {};
+}
 // sim seasons with a franchise (one universe: they add to the real totals)
 const HX_FL_STAT = { G: s => s.gp, MP: s => Math.round((s.min || 0) / 60), PTS: s => s.pts, TRB: s => (s.orb || 0) + (s.drb || 0), AST: s => s.ast, STL: s => s.stl, BLK: s => s.blk, '3P': s => s.tpm };
 function hxSimTeamTotals(L, tid, ty) {

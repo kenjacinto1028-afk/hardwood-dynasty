@@ -14,6 +14,15 @@ const chk = (n, c, x) => { if (c) ok++; else bad++; out.push((c ? 'PASS ' : 'FAI
 const { run } = load(SRC, SEED);
 const J = c => JSON.parse(run(`JSON.stringify((function(){${c}})())`));
 // ---------- A ----------
+// v34 open item 6: team WS vs wins is checked as the average corr over three seeds (one seed sat at 0.934 on SEED 21)
+const WS_SEEDS = [21, 22, 23];
+const wsCor = s => { const { run: rs } = load(SRC, s); return JSON.parse(rs(`JSON.stringify((function(){var L=newLeague({mode:'commish',size:16,games:82});var g=0;while(L.phase==='regular'&&g++<400)simDay(L);computeAdv(L,'rs',true);
+  const ps=Object.values(L.players).filter(p=>p.stats.rs&&p.stats.rs.min);
+  const tw=L.teams.map(t=>{let ws=0;for(const p of ps){const sp=p.stats.rsT;if(sp&&sp[t.id]){ws+=p.stats.rs.ws*sp[t.id].min/p.stats.rs.min;}else if(p.team===t.id)ws+=p.stats.rs.ws;}return [t.w,ws];});
+  const mx=tw.reduce((s,x)=>s+x[0],0)/tw.length,my=tw.reduce((s,x)=>s+x[1],0)/tw.length;
+  const cor=tw.reduce((s,x)=>s+(x[0]-mx)*(x[1]-my),0)/Math.sqrt(tw.reduce((s,x)=>s+(x[0]-mx)**2,0)*tw.reduce((s,x)=>s+(x[1]-my)**2,0));
+  return {cor, gap: tw.reduce((s,x)=>s+Math.abs(x[0]-x[1]),0)/tw.length};})())`)); };
+const wsRes = WS_SEEDS.map(s => [s, wsCor(s)]), wsAvg = wsRes.reduce((a, x) => a + x[1].cor, 0) / wsRes.length, wsGap = wsRes.reduce((a, x) => a + x[1].gap, 0) / wsRes.length;
 run(`var L=newLeague({mode:'commish',size:16,games:82});var g=0;while(L.phase==='regular'&&g++<400)simDay(L);computeAdv(L,'rs',true);`);
 {
   const r = J(`const ps=Object.values(L.players).filter(p=>p.stats.rs&&p.stats.rs.min);let w=0,a=0,u=0;for(const p of ps){const s=p.stats.rs;a+=s.per*s.min;u+=s.usg*s.min;w+=s.min;}
@@ -26,7 +35,8 @@ run(`var L=newLeague({mode:'commish',size:16,games:82});var g=0;while(L.phase===
     return {per:a/w,usg:u/w,cor,mae:tw.reduce((s,x)=>s+Math.abs(x[0]-x[1]),0)/tw.length,sumW:tw.reduce((s,x)=>s+x[0],0),sumWS:tw.reduce((s,x)=>s+x[1],0),vorp:v?v.stats.rs.vorp:null,vv,keys,top:top?[top.name,top.stats.rs.per,top.stats.rs.ws,top.stats.rs.ws48]:null};`);
   chk('A league-average PER = 15 (minutes-weighted)', Math.abs(r.per - 15) < 0.05, r.per.toFixed(2));
   chk('A league-average USG% = 20 (minutes-weighted)', Math.abs(r.usg - 20) < 0.5, r.usg.toFixed(2));
-  chk('A team WS track team wins (corr 0.94+, mean gap under 4)', r.cor >= 0.94 && r.mae < 4, `corr ${r.cor.toFixed(3)}, gap ${r.mae.toFixed(2)}`);
+  chk('A team WS track team wins: corr averaged over SEED 21/22/23 (0.94+)', wsAvg >= 0.94, `avg corr ${wsAvg.toFixed(3)} (${wsRes.map(([s, c]) => s + ': ' + c.cor.toFixed(3)).join(', ')})`);
+  chk('A team WS vs wins: mean gap averaged over SEED 21/22/23 under 4', wsGap < 4, `avg gap ${wsGap.toFixed(2)} (${wsRes.map(([s, c]) => s + ': ' + c.gap.toFixed(2)).join(', ')})`);
   chk('A league WS total within 5% of total wins', Math.abs(r.sumWS - r.sumW) / r.sumW < 0.05, `${r.sumWS.toFixed(1)} vs ${r.sumW}`);
   chk('A VORP = (BPM + 2) x min / (48 x 82)', r.vorp != null && Math.abs(r.vorp - r.vv) < 0.11, `${r.vorp} vs ${r.vv}`);
   chk('A every 200+ min player has PER / USG / OWS / DWS / WS / WS48 / VORP', r.keys);

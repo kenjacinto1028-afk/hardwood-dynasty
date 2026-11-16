@@ -1,27 +1,10 @@
 # PBL progress
 
-## v36a (Opus, Nov 16 2026): NBA payroll levers, NBA top cap, owner cash of yearly deals, forced PBL cap test
-- [x] C owner cash: `cashPayroll` charges the season's scheduled amount (`schedAmt`: real yearly deals `contract.sched`, v35a renegotiated raises), not `contract.amt`. New NBA league, S2: cash $154.4M -> $165.8M a team (= cap payroll). t30a 29/0; 20-season owner cash (new r30 `cash` row): avg $50M (S1) -> $90M, 1-2 teams below 0 in S1-6 (lowest -$46M, S4), none after S7
-- [x] B NBA top cap: `NBA_BAL` t95 2 -> 1, cap 97 -> 96, capGen 98 -> 97; the 95+ extras now end under 95 (they lost 1 and stayed 95+); `nbaTopCap` / `leagueTopCap` repeat the nudge (growTo stopped short: a generational 99 stayed 98 over a 97 cap). Top OVR S11-20 now 91-94 (v35a 94-97). **Top PER not fixed**: 35-42.6, 8/20 over 39 (v35a 34-40.4, 5/20). The PER leaders are OVR 83-91 players (Sterling Ellery 84: PER 37-41.6 five seasons; Theo Lacroix 90: 42.6 with 7.9 WS; Flagg 90: 40.9), so the rating cap can't reach them. Top WS <= 21.1 (one season), else <= 20.8
-- [x] A2 re-sign: `resignWantP` raises want to `RESIGN_K.mid60` 0.95 (`mid60old` 0.8 for 33+ under 68) for a 60+ player in the top 9 of a team that is not tanking and stays under the tax with his ask (rebuild / age cuts don't apply). Tank and taxpayers unchanged
-- [x] A1 early free agency: `FA_EARLY` / `faEarly` (faRound): days 1-3, a middle team (not tank / rebuild, under the tax, $3M+ cap room or the mid-level) bids his ask x1.05 on a 60+ player who'd be in its top 10, cutting a minimum player if full. Room, mid-level, ask ramp, hard cap, floor fill and renegotiation unchanged
-- [x] Why payroll doesn't move: NBA free agency opens with only 3-4 players at 60+ (S11 save: 3), so A1 has almost nothing to buy; one summer on the same random stream, base vs A: payroll $160.0M vs $159.9M, 60+ kept 39 vs 40 of 45. Re-signs are at the ask, below value (60-64: $13.3M vs mval $15.6M; 65+: 41.2 vs 43.2). The league's own market settles near $160-165M after the real starting contracts run out (S1 185 -> S9 158 in every run)
-- [x] 10 seasons from the NBA save (`tools/runs32/v36a-nba-snap10-ab-base.txt` B+C, `-ab-a.txt` +A1+A2): 60+ lost 91 -> 74 of ~400 (team didn't want him 23 -> 21, cap 23 -> 14, price 19 -> 10); payroll 164.7 -> 159.8 (random streams diverge from S12; the same-stream summer is equal)
-- [x] D forced PBL cap (`tools/t36.js`): star set to 96-97 -> 92-93 after a season + summer (cap = mean + 3.6 sd), generational 99 -> at most the generational cap (97 on the old save, 99 on the new one: that league's sd is wider)
-- [x] Tests (new saves): t36 13/13 (new: D, A1, A2, B, C), t34 19/19, t33b 30/30, t33d 17/17, t32e 21/21, t32h 11/11, t30a 29/0, lint PASS
-- [x] 20 seasons SEED=21 commish (`tools/runs32/v36a-*commish.txt`, `python3 tools/v34sum.py.txt <file>`, now also prints 60+ losses by reason and owner cash):
-  | | NBA v35a | NBA v36a | PBL16 v35b | PBL16 v36a |
-  |---|---|---|---|---|
-  | payroll avg | 166.5 (S10-19 154-165) | 166.8 (S10-19 155-169) | 132.8 | 132.5 |
-  | 60+ lost / expiring | 216 / 875 (25%) | 213 / 825 (26%) | 122 / 489 (25%) | 106 / 488 (22%) |
-  | "team didn't want him" | 68 | 51 | 25 | 16 |
-  | cap / owner (t:cap) | 56 | 67 | 36 | 33 |
-  | seasons <= 2 under floor | 20/20 | 20/20 | 20/20 | 20/20 (max 2) |
-  | top PER / top WS | 34.4-40.4 / <= 19.4 | 35-42.6 / <= 21.1 | 28.9-38.7 / <= 16.9 | 29.1-33.8 / <= 19.8 |
-  | top OVR S11-20 | 94-97 | 91-94 | 83-88 | 87-91 |
-  0 errors, hard-cap crossings S1 start deals only (NBA). The final nbaTopCap change (extras under 95) came after the 20-season run: 3 seasons from the new save (`tools/runs32/v36a-nba-snap10-3s-topcap.txt`) payroll 166-170, top OVR 93-94, top PER 36.5 / 40.9 / 39.6
-- [x] Saves remade (`tools/snap`: nba-commish + pbl16-commish via r30 SNAPOUT, nba-team via snap-make)
-- Open (your call): **NBA payroll still 166.8** (target 170-185). Both levers did what they say (fewer "didn't want him" losses), but the money isn't there to spend: few 60+ free agents and re-signs at the ask. Next levers: re-sign at value (Bird-rights price = max(ask, mval)), or raise the market-value scale ~5-8%. **Top PER**: not a rating problem; needs a look at why some OVR 83-91 players post PER 40+ (profile / usage / efficiency in the engine, or the PER scale), which also touches the awards (v36b). The t:cap losses rose 56 -> 67 (cap or owner limit; C makes some early owners poorer)
+## v34 follow-ups (Opus, Nov 16 2026): open items 6 + 8
+- [x] Item 6, t33c: team WS vs wins is checked as the average over SEED 21 / 22 / 23 (`tools/t33c.js`, block A). Corr 0.934 / 0.966 / 0.969 = avg 0.956 (bar 0.94). The mean gap is averaged the same way: 4.20 / 2.71 / 2.86 = avg 3.26 (bar 4). The gap was also on SEED 21 alone, and that seed fails it (4.20), so both checks now use the 3-seed average. Tests: t33c 24/24 (was 22/23)
+- [x] Item 8, MVP weights: asked Kenneth. He kept 40% WS. No change to `AW_ADV` (set G). The 30% grid (`tools/t34-awgrid.js`) was not run
+- [x] Tests: t34 19/19, t33c 24/24
+- Open: none from v34 items 6 / 8. The t33c 3-seed run takes about 80 s (was 40 s)
 
 ## v35b (Opus, Nov 16 2026): PBL top-rating cap + pro-fog sorting
 - [x] Item 4, PBL top ratings: new `leagueTopCap` (league.js, called each summer after `leagueGravity` when not NBA mode; `PBL_TOP`). League-relative: ceiling = rostered mean + 3.6 sd (PBL mean 59, sd 8.8: about OVR 91; generational talent mean + 4.2 sd, about 96); past 2 players above mean + 3.2 sd (about 87) the extras, youngest first, lose 1-2 OVR (and a point of pot). Ratings, pot and ceil above the cap are pulled down. NBA mode keeps `nbaTopCap`

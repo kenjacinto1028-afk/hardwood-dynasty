@@ -1,17 +1,15 @@
-# TASK_STATE — v36a NBA payroll + NBA PER + owner cash of yearly deals + forced PBL cap test (Opus) — Nov 16 2026
+# TASK_STATE — v34 open items 6 + 8 (t33c multi-seed, MVP weights) — Nov 16 2026
 
-- [x] 0. Clone, read PROGRESS (v35b/v35a/v34), TESTING, v36-prompts. Baseline = tools/runs32/v35a-nba-commish.txt (payroll 166.5, top PER 34.4-40.4, WS <= 19.4; why60 losses t:team 1-9 + t:cap 1-7 a summer)
-- [x] 1. C: schedAmt + cashPayroll (league.js) use contract.sched; new NBA league S2: cash 154.4 -> 165.8 avg (= cap payroll 165.7)
-- [x] 2. B: NBA_BAL t95 2->1, cap 97->96, capGen 98->97 (league.js); S11 save: Wemby 97 (32), gen Fraser 95; PER 39.6 also from OVR 80-84 (S19-20), not rating-driven
-- [x] 3. A2: resignWantP mid60 .95 / mid60old .8 (RESIGN_K) for 60+ top-9 players, team not tanking, payroll+ask <= TAXLINE; S11 summer o60 kept 40/45
-- [x] 4. A1: FA_EARLY + faEarly (league.js faRound): days 1-3 middle teams bid ask x1.05 on 60+ top-10 fits (room/MLE/ramp/hard cap kept). S11 FA has only 3 60+ FAs (pool tiny), so A1 moves little; A2 is the lever
-- [x] 5. tools/t36.js 13/13 (D forced PBL 96 -> 92, gen 99 -> 97; A1, A2, B, C). Found: growTo stops short, a gen 99 stayed 98 over capG 97 -> nbaTopCap / leagueTopCap repeat the nudge (league.js). r30 row cash + v34sum why60 / owner cash lines
-- [x] 6. 10 seasons from NBA save, B+C base vs +A1+A2 (tools/runs32/v36a-nba-snap10-ab-*.txt): 60+ lost 91 -> 74 of ~400 (t:team 23->21, t:cap 23->14, t:price 19->10); payroll 164.7 -> 159.8 (streams diverge; one summer same stream: 160.0 vs 159.9, kept 39 vs 40). FA pool has ~3-4 60+ players; re-signs at ask (60-64: 13.3 vs mval 15.6) -> levers do not move payroll
-- [x] 7. Tests (new saves): t36 13/13, t34 19/19, t33b 30/30, t33d 17/17, t32e 21/21, t32h 11/11, t30a 29/0, lint PASS. t36 B found extras at 95+ only lost 1 (96->95): nbaTopCap now takes them under 95 (league.js); 3-season NBA check after
-- [x] 8. 20 seasons (tools/runs32/v36a-*): NBA payroll 166.8 (v35a 166.5; S10-19 155-169), 60+ lost 213/825 (t:team 68->51, t:cap 56->67), top PER 35-42.6 (8/20 > 39) with top OVR 91-96 -> PER outliers are OVR 83-91 players (Ellery 84 PER 41.6), not the top cap. PBL 132.5, floor 20/20, 60+ lost 122->106, top PER <= 33.8. Owner cash NBA: 1-2 teams negative S1-6 (min -46), avg 50->90; 0 errors. Saves remade (3)
-- [x] 9. PROGRESS + README + TESTING, commit, zips
+- [x] 0. Clone repo, read PROGRESS v34 (open: t33c WS/wins 0.934 on SEED 21; MVP WS 40% vs 30%)
+- [x] 1. tools/t33c.js: team WS vs wins averaged over SEED 21/22/23 (corr 0.956: 0.934 / 0.966 / 0.969, bar 0.94; mean gap avg 3.26, bar 4). Gap also averaged (SEED 21 alone was 4.20). t33c 24/24 (was 22/23)
+- [x] 2. Asked Kenneth: KEEP 40% WS (no change to AW_ADV; set G stays)
+- [x] 3. SKIPPED (Kenneth kept 40%). Was: if 30%: AW_ADV.mvp gs .35 ws .30 ws48 .10 per .05 bpm .20; fat1 .07 fat2 .14; run `tools/t34-awgrid.js 10`, report WS leader / top-3 / winners vs set G
+- [x] 4. Tests: t33c 24/24, t34 19/19
+- [x] 5. PROGRESS.md: new top section "v34 follow-ups" (items 6 + 8)
+- [x] 6. Zipped only changed files: /home/claude/outputs/pbl-v34-followups.zip (tools/t33c.js, PROGRESS.md, TASK_STATE.md). Not committed (no commit requested)
 
 ---
+
 # TASK_STATE — v35b PBL top-rating cap + pro-fog sorting (Opus) — Nov 16 2026
 
 - [x] 0. Clone, read PROGRESS (v34/v35a), TESTING

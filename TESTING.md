@@ -40,3 +40,5 @@ v33e: browser check for legends' trophy cases, the single-file build and the flo
 v34: `node tools/t34.js` (scouting, young asks, top cap, legends awards; uses tools/snap/nba-team-s10.json.gz). Browser: `tools/browser-v34.py.txt` on the franchise save (`gunzip -c tools/snap/nba-team-s10.json.gz > tools/_t1.json`). Run summary: `tools/v34sum.py.txt` (payroll, floor, re-sign, top PER / WS, young asks).
 
 v35b: pro-fog sort check `tools/browser-v35b.py.txt` (same loader as browser-v34, franchise save `tools/_t1.json`); PBL top-cap check: `SEED=21 SNAP=tools/snap/pbl16-commish-s10.json.gz node tools/r30.js 10` (cap shows only in a new league's later seasons: `SEED=21 NBA=0 SIZE=16 MODE=commish node tools/r30.js 20`), then `python3 tools/v34sum.py.txt <file>`.
+
+v36a: `node tools/t36.js` (forced PBL top cap on the PBL save, NBA re-sign / early FA / top cap / owner cash on the NBA save; ~1 min). `tools/v34sum.py.txt` also prints 60+ re-sign losses by reason and owner cash (r30 `cash` row).

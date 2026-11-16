@@ -16,3 +16,12 @@ for f in sys.argv[1:]:
         b=r['v32e']['asks']['bands'].get('56-59|<=25'); y.append(b['max'] if b else None)
     print(' 56-59<=25 max ask', y, 'under60ask10', sum(r['v32e']['asks']['under60ask10N'] for r in rows))
     print(' lgOvr', round(st.mean(r['v32g']['lgOvr'] for r in rows),1))
+    # v36a: 60+ re-sign losses by reason (team side t:*, player side p:*), owner cash
+    w=[r['v32e'].get('why60') or {} for r in rows]
+    tot={}
+    for x in w:
+        for k,v in x.items():
+            if k not in ('n','kept'): tot[k]=tot.get(k,0)+v
+    print(' why60 lost', sum(x.get('n',0)-x.get('kept',0) for x in w), 'of', sum(x.get('n',0) for x in w), dict(sorted(tot.items(),key=lambda kv:-kv[1])), 't:team per season', [x.get('t:team',0) for x in w])
+    c=[r['cash'] for r in rows if r.get('cash')]
+    if c: print(' owner cash avg', [round(x['avg']) for x in c], 'min', [round(x['min']) for x in c], 'neg teams', [x['neg'] for x in c])

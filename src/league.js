@@ -3375,7 +3375,9 @@ function financeGame(L, g) {
   const ratio = price / (marketPrice(L, home) * (g.playoff ? 1.5 : 1));
   if (ratio > 1.1) hypeBump(home, -(ratio - 1.1) * 2 * hk);
 }
-function cashPayroll(L, t, cs) { cs = cs == null ? capSeason(L) : cs; let s = 0; for (const p of rosterOf(L, t)) if (p.contract && p.contract.exp >= cs) s += p.contract.amt; for (const d of t.dead || []) if (d.exp >= cs) s += d.amt; for (const fp of t.floorPaid || []) if (fp.s === cs) s += Math.min(fp.amt, Math.max(0, MINPAY - s)); return s; }
+// v36a C: the season's scheduled amount (real yearly deals, v35a renegotiated raises), not the base amount
+function schedAmt(c, cs) { const a = c.sched && c.s0 != null ? c.sched[cs - c.s0] : null; return a != null ? a : c.amt; }
+function cashPayroll(L, t, cs) { cs = cs == null ? capSeason(L) : cs; let s = 0; for (const p of rosterOf(L, t)) if (p.contract && p.contract.exp >= cs) s += schedAmt(p.contract, cs); for (const d of t.dead || []) if (d.exp >= cs) s += d.amt; for (const fp of t.floorPaid || []) if (fp.s === cs) s += Math.min(fp.amt, Math.max(0, MINPAY - s)); return s; }
 const STAFF_BASE = { 3: 15, 2: 12, 1: 9.5 }, INTERIM_PAY = 0.5;
 // Owner's budget for the head coach, the scouting director and money still owed to fired staff (a hard limit on new hires)
 function staffBudgetFor(L, t) { return r1(clamp(STAFF_BASE[t.market] + (t.owner ? t.owner.wealth * 0.1 : 0) + Math.max(0, t.cash || 0) * 0.01, 7, 20)); }
@@ -4486,7 +4488,7 @@ function leagueGravity(L, delta) {
 }
 // v27 P4: league gravity (NBA mode). After each summer's development, gently pull the counts back toward the real league's shape:
 // about 30 players at 75+, 8-10 at 85+, 4-5 at 90+. Random picks among the eligible players, small steps, so the counts move but don't run away.
-const NBA_BAL = { t75: 29, t85: [8, 10], t90: [4, 5], k75: 0.2, max75: 1.6, oldAge: 32, youngAge: 26, youngK: 1, primeK: 0.5, t95: 2, cap: 97, capGen: 98 };   // v34 A3: very few 95+ (t95), none 98+ except a generational talent (cap / capGen); v27 U12: 75+ target 29, firmer pull near the target, smaller steps far from it (was 30 / 0.15 / 3.5: settled at ~34); U13: players 33+ are left to their natural decline
+const NBA_BAL = { t75: 29, t85: [8, 10], t90: [4, 5], k75: 0.2, max75: 1.6, oldAge: 32, youngAge: 26, youngK: 1, primeK: 0.5, t95: 1, cap: 96, capGen: 97 };   // v36a B: one 95+ player, ceiling 96 (97 generational): top PER ran 34-40.4 (5/20 over 39) with 96-97s; v34 A3 was t95 2 / 97 / 98. v34 A3: very few 95+ (t95), none 98+ except a generational talent (cap / capGen); v27 U12: 75+ target 29, firmer pull near the target, smaller steps far from it (was 30 / 0.15 / 3.5: settled at ~34); U13: players 33+ are left to their natural decline
 function nbaBalance(L, delta) {
   const all = active(L).filter(p => !p.prospect && !p.retired), cnt = x => all.filter(p => p.ovr >= x).length, B = NBA_BAL;
   const nudge = (p, d) => { const o = p.ovr; growTo(p, o + d, Math.max(p.age, 25)); p.ovr = ovr(p); if (p.ovr > p.pot) p.pot = p.ovr; if (delta) delta[p.id] = (delta[p.id] || 0) + p.ovr - o; };
@@ -4511,12 +4513,12 @@ function nbaTopCap(L, all, nudge) {
   const B = NBA_BAL;
   for (const p of all) {
     const cap = p.gen ? B.capGen : B.cap;
-    if (p.ovr > cap) nudge(p, cap - p.ovr - (p.gen ? 0 : rnd(0, 1)));
+    for (let i = 0; i < 6 && p.ovr > cap; i++) nudge(p, cap - p.ovr - (p.gen ? 0 : rnd(0, 1)));   // v36a: growTo can stop short (a 99 generational talent stayed 98 over a 97 cap): repeat
     if (p.pot > cap) p.pot = Math.max(p.ovr, cap);
     if (p.ceil != null && p.ceil > cap) p.ceil = Math.max(p.ovr, cap);
   }
   const top = all.filter(p => p.ovr >= 95).sort((a, b) => a.age - b.age || R() - 0.5);
-  for (const p of top.slice(0, Math.max(0, top.length - B.t95))) { nudge(p, -rnd(1, 2)); if (p.pot > p.ovr + 1) p.pot--; }
+  for (const p of top.slice(0, Math.max(0, top.length - B.t95))) { nudge(p, -rnd(1, 2)); for (let i = 0; i < 6 && p.ovr >= 95; i++) nudge(p, 94 - p.ovr - rnd(0, 1)); if (p.pot > p.ovr + 1) p.pot = Math.min(p.pot - 1, 95); }   // v36a: the extras end under 95 (a 96 lost 1 and stayed 95+)
 }
 // v35b: the PBL version of nbaTopCap. The league has no real-NBA scale, so the cap follows the league: rostered mean + K x sd
 // (mean 59, sd 8.8 -> ceiling ~91, ~96 for a generational talent). Past nTop players above mean + kTop x sd (~87) the extras (youngest first) lose 1-2.
@@ -4530,7 +4532,7 @@ function leagueTopCap(L, delta) {
   const nudge = (p, d) => { const o = p.ovr; growTo(p, o + d, Math.max(p.age, 25)); p.ovr = ovr(p); if (p.ovr > p.pot) p.pot = p.ovr; if (delta) delta[p.id] = (delta[p.id] || 0) + p.ovr - o; };
   for (const p of all) {
     const c = p.gen ? capG : cap;
-    if (p.ovr > c) nudge(p, c - p.ovr - (p.gen ? 0 : rnd(0, 1)));
+    for (let i = 0; i < 6 && p.ovr > c; i++) nudge(p, c - p.ovr - (p.gen ? 0 : rnd(0, 1)));   // v36a: repeat (growTo can stop short)
     if (p.pot > c) p.pot = Math.max(p.ovr, c);
     if (p.ceil != null && p.ceil > c) p.ceil = Math.max(p.ovr, c);
   }
@@ -5357,7 +5359,7 @@ function wetPay(p) { if (p.wet == null) return 1; return 1 + WET_PAY[p.wet] * tr
 //   Loyalty cuts all of them.
 // v34 A1: Bird-rights money stays: teams want more of their own 58+ players (was rot .92 / young .85 / top-10 .75 / 26- .6 / 60+ .3, tax x.75),
 // players leave less often (x leave) and teams go a bit lower against the ask (pay: was .7-.95)
-const RESIGN_K = { floor: 0.95, rot: 0.97, young: 0.92, top10: 0.92, y26: 0.85, o60: 0.75, tax: 0.9, leave: 0.55, pay: [0.6, 0.88], own75: 30, own68: 18, own62: 8 };   // round 2 (10 seasons from the S10 save: NBA +4M with round 1)
+const RESIGN_K = { floor: 0.95, rot: 0.97, young: 0.92, top10: 0.92, y26: 0.85, o60: 0.75, tax: 0.9, leave: 0.55, pay: [0.6, 0.88], own75: 30, own68: 18, own62: 8, mid60: 0.95, mid60old: 0.8 };   // v36a: mid60 / mid60old (middle teams under the tax)   // round 2 (10 seasons from the S10 save: NBA +4M with round 1)
 const RESIGN_WHY = { money: 'wants more money', win: 'wants to win', role: 'wants a bigger role', mood: 'unhappy with the team', coach: 'poor fit with the coach', fresh: 'wanted a fresh start' };
 // v34 A1: Bird rights: an owner stretches past his limit to keep his own good players (a 98 OVR walked over $7M in the trace); hard cap still holds
 function resignOwnerOK(L, t, p, amt) {
@@ -5372,6 +5374,8 @@ function resignWantP(L, t, p, icon) {
   let w = inRot ? K.rot : (p.age <= 24 && p.scout >= 70) ? K.young : rk <= 10 && p.ovr >= 58 ? K.top10 : p.age <= 26 && p.ovr >= 58 ? K.y26 : p.ovr >= 60 ? K.o60 : p.ovr >= 56 ? 0.3 : 0.15;
   if (t.mode === 'tank' && p.age >= 28) w *= 0.3; else if (t.mode === 'rebuild' && p.age >= 30) w *= 0.6;
   if (p.age >= 33 && p.ovr < 68) w *= 0.6;
+  // v36a A2: a middle team (not tanking, still under the tax with him) keeps its own 60+ rotation player (top 9); the rebuild / age cuts above don't apply
+  if (p.ovr >= 60 && t.mode !== 'tank' && (inRot || rk <= 8) && payroll(L, t, capSeason(L)) + (p.ask || 0) <= TAXLINE) w = Math.max(w, p.age >= 33 && p.ovr < 68 ? K.mid60old : K.mid60);
   if (p.ovr >= 56 && payNoFloor(L, t, capSeason(L)) < MINPAY) w = Math.max(w, RESIGN_K.floor);   // v34: a team under the floor keeps its own players (the free-agent pool past day 1 has almost no 56+ left)
   if (payroll(L, t, capSeason(L)) > TAXLINE && (p.ask || 0) >= 10 && t.status !== 'allin') w *= K.tax;
   return clamp(w, 0, 0.97);
@@ -5536,6 +5540,10 @@ function cuttable(L, t) {
   const rot = new Set(rotationOf(L, t).map(p => p.id));
   return rosterOf(L, t).filter(p => !rot.has(p.id) && capHit(L, p) === 0 && !(p.contract && p.contract.type === 'rookie' && p.age <= 21)).sort((a, b) => a.ovr - b.ovr)[0];
 }
+// v36a A1: the first FA days, a middle team (not tanking / rebuilding, under the tax, with cap room or the mid-level) bids on 60+ players
+// it would play (top 10) at their ask, instead of only when he'd be a top-8 man (NBA payroll 166.5 vs 170-185)
+const FA_EARLY = { on: true, days: 3, ovr: 60, ask: 1.05, room: 3 };
+function faEarly(L, t, p) { return FA_EARLY.on && L.phase === 'off-fa' && (L.faDay || 1) <= FA_EARLY.days && p.ovr >= FA_EARLY.ovr && t.mode !== 'tank' && t.mode !== 'rebuild' && payroll(L, t) < TAXLINE && faRoom(L, t) >= FA_EARLY.room; }
 function faRound(L, lastCall, minOvr) {
   const signedToday = {}, multi = L.phase === 'off-fa';
   const fas = L.fa.map(id => L.players[id]).filter(p => !p.retired && p.ovr >= (minOvr || 0)).sort((a, b) => b.mval - a.mval);
@@ -5555,8 +5563,10 @@ function faRound(L, lastCall, minOvr) {
       if (p.pers === 'Mentor' && mentorsOf(L, t).length >= MENTOR_MAX) continue;   // v16: at most 2 mentors per team
       const mentorFit = p.pers === 'Mentor' && wantsMentor(L, t) && p.ovr >= ovrAt(11) - 2;
       const pov = teamOvr(L, t.id, p);   // v34: its staff's read (draft read for unrevealed rookies, pro read otherwise)
-      const rotationWorthy = pov >= ovrAt(short > 0 ? 9 : 7) - 1 || mentorFit;
+      const early = faEarly(L, t, p);   // v36a A1: a middle team uses its room / mid-level on a 60+ player in the first days
+      const rotationWorthy = pov >= ovrAt(short > 0 || early ? 9 : 7) - 1 || mentorFit;
       if (n < 13) W = rotationWorthy ? null : MINSAL;
+      else if (early && rotationWorthy && (n < 15 || (cut = cuttable(L, t)))) W = null;
       else if ((n < softMax || (short > 0 && n < 15)) && rotationWorthy) W = null;
       else if (FLOOR_FILL.on && short > FLOOR_FILL.minGap && n >= 15 && rotationWorthy && (cut = floorCut(L, t, p))) W = null;   // v33d: a floor team opens a spot (a minimum player)
       else if (pov >= ovrAt(5)) { cut = n >= 15 ? cuttable(L, t) : null; if (n >= 15 && !cut) continue; W = null; }
@@ -5570,6 +5580,7 @@ function faRound(L, lastCall, minOvr) {
         if (V244.b2 && (p.sprem || 1) > 1) W *= 1 + 0.9 * ((p.sprem || 1) - 1);   // v24.4: a real bidding war for a star
         if (V244.b2 && isRFA(L, p) && p.rfa.tid !== t.id && payroll(L, L.teams[p.rfa.tid]) + W > TAXLINE) W *= 1.08;   // v24.4: offer sheets aimed at teams that would have to pay tax to match
         if ((p.accPrem || 0) <= 2 && (p.fame || 0) < 35) W = Math.min(W, p.mval * Math.max(1.3, p.dem || 1));    // no bidding wars over players without accolades; a hot archetype tops out at 1.5x value    // no bidding wars over players without accolades
+        if (early) W = Math.max(W, Math.min(maxForTeam(L, p, t.id), (p.ask || 0) * FA_EARLY.ask));   // v36a A1: bid his ask now (room, mid-level, ramp and hard cap still apply below)
       }
       let room;
       if (V244.b2) { needsCache[t.id] = needsCache[t.id] || teamNeeds(L, t); room = b2Room(L, t, p, needsCache[t.id]); if (W > MINSAL) W = b2Bid(L, t, Math.min(W, room), payroll(L, t)); }

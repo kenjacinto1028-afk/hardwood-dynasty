@@ -14,6 +14,13 @@ The game is split into small files so a change rewrites one file, not 1.3 MB.
 | `src/nba-setup.js` | v30a NBA setup extras: real rookies (`nbaRookies`) + real jersey numbers (`NBA_JERSEY_CSV`, `nbaJerseys`) |
 | `src/index.template.html` | Page shell with markers `/*CSS*/ /*VENDOR*/ /*ENGINE*/ /*LEAGUE*/ /*NBA*/ /*APP*/` for the single-file build (`python3 -I build.py --single . [out.html]`, v33e) |
 
+## v36a (Opus, Nov 16 2026): NBA payroll levers, NBA top cap, owner cash, forced PBL cap test
+- Owner cash now charges each season's scheduled salary (real yearly deals, renegotiated raises)
+- NBA re-sign: middle teams under the tax keep their 60+ rotation players (0.95); early free agency: middle teams bid the ask on 60+ players days 1-3
+- NBA top cap: one 95+ player, ceiling 96 (97 generational); caps now land exactly (repeat nudge)
+- NBA payroll 166.8 and top PER up to 42.6 are still off target (causes in PROGRESS.md v36a)
+- Tests: new `tools/t36.js` + t34, t33b, t33d, t32e, t32h, t30a; runs `tools/runs32/v36a-*.txt`
+
 ## v35a (Opus, Nov 16 2026): payroll floor, floor spikes, hard-cap hole
 - Floor teams: dumps can't push the other team under the floor; 55- one-year floor deals (under $10M); end-of-FA renegotiation of own contracts (this season only). PBL 20/20 seasons with <= 2 teams under the floor (was 12/20), NBA 20/20 (was 19/20)
 - Hard cap: holdout raises at season start were checked against next season's cap; fixed (holdoutCheck after the phase turns 'regular')

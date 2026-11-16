@@ -1,0 +1,47 @@
+# v33d: per-stint box plus-minus for traded players in NBA history (the game's rows are per team; v32i stored one BPM per season).
+# Same math as the season BPM in tools/hx-build.py.txt (computeBPM in league.js): the stint's own box line per 100 possessions,
+# standardized with that season's league values (NBA_HX.bref.ref: pace, means, spreads) plus that team's adjustment (NBA_HX.bref.adj).
+# Writes NBA_HX.bpmRows[name]['year|TEAM'] = [OBPM, DBPM, BPM] next to the season value and prints a check (minutes-weighted stints vs season).
+#   python3 -I tools/hx-bpmstint.py.txt BREF_DATA_DIR GAME_DIR      (BREF_DATA_DIR = sumitrodatta/bball-reference-datasets/Data)
+import sys, json, math, re, unicodedata, collections
+import pandas as pd
+BR, GAME = sys.argv[1].rstrip('/') + '/', sys.argv[2]
+LAST = 2026; LG = ('NBA', 'BAA'); MULTI = ('TOT', '2TM', '3TM', '4TM', '5TM')
+FR = {}
+for code, abbs in {'ATL': 'TRI MLH STL ATL', 'BOS': 'BOS', 'BKN': 'NJN NYN BRK', 'CHA': 'CHH CHA CHO', 'NOP': 'NOH NOK NOP', 'CHI': 'CHI', 'CLE': 'CLE', 'DAL': 'DAL', 'DEN': 'DEN', 'DET': 'FTW DET', 'GSW': 'PHW SFW GSW', 'HOU': 'SDR HOU', 'IND': 'IND', 'LAC': 'BUF SDC LAC', 'LAL': 'MNL LAL', 'MEM': 'VAN MEM', 'MIA': 'MIA', 'MIL': 'MIL', 'MIN': 'MIN', 'NYK': 'NYK', 'OKC': 'SEA OKC', 'ORL': 'ORL', 'PHI': 'SYR PHI', 'PHX': 'PHO', 'POR': 'POR', 'SAC': 'ROC CIN KCO KCK SAC', 'SAS': 'SAS', 'TOR': 'TOR', 'UTA': 'NOJ UTA', 'WAS': 'CHP CHZ BAL CAP WSB WAS'}.items():
+    for a in abbs.split(): FR[a] = code   # same franchise codes as tools/hx-build.py.txt
+def nrm(n): return re.sub(r'\s+', ' ', re.sub(r"[.'’`,-]", '', unicodedata.normalize('NFKD', str(n)).encode('ascii', 'ignore').decode().lower())).strip()
+def fixbox(d):   # as tools/hx-build.py.txt: rebounds split 30/70 when only the total exists, missing columns 0
+    orb, drb, trb = d.get('orb'), d.get('drb'), d.get('trb')
+    if (orb is None or (isinstance(orb, float) and math.isnan(orb))) and trb is not None and not (isinstance(trb, float) and math.isnan(trb)): orb, drb = 0.3 * trb, 0.7 * trb
+    z = lambda x: 0 if x is None or (isinstance(x, float) and math.isnan(x)) else x
+    return {k: z(d.get(k)) for k in ['pts', 'ast', 'tov', 'fga', 'fg', 'fta', 'ft', 'stl', 'blk', 'pf', 'mp']} | {'orb': z(orb), 'drb': z(drb)}
+tot = pd.read_csv(BR + 'Player Totals.csv'); tot = tot[tot.lg.isin(LG) & (tot.season <= LAST)]
+for c in ['orb', 'drb', 'trb', 'stl', 'blk', 'tov', 'pf', 'mp', 'fga', 'fg', 'fta', 'ft', 'pts', 'ast']: tot[c] = pd.to_numeric(tot[c], errors='coerce')
+path = GAME + '/src/nba-history.js'; src = open(path).read()
+i = src.index('const NBA_HX = ') + len('const NBA_HX = '); j = src.index(';\n', i)
+H = json.loads(src[i:j]); ref, adj, rows = H['bref']['ref'], H['bref']['adj'], H['bpmRows']
+traded = tot[tot.team.isin(MULTI)][['season', 'player_id']].drop_duplicates()
+tkeys = set(zip(traded.season, traded.player_id))
+n = 0; chk = []
+for r in tot[~tot.team.isin(MULTI)].to_dict('records'):
+    y = int(r['season']); y0 = y - 1
+    if (y, r['player_id']) not in tkeys: continue
+    k = nrm(r['player']); R = ref.get(str(y0)); A = (adj.get(str(y0)) or {}).get(FR.get(r['team'], r['team']))
+    if k not in rows or not R or not A: continue
+    b = fixbox(r)
+    if not b['mp'] or b['mp'] <= 0: continue
+    pp48, mo, so, md, sd = R; poss = b['mp'] / 48 * pp48; q = 100 / poss
+    o = q * (0.55 * b['pts'] + 0.8 * b['ast'] + 0.65 * b['orb'] - 0.9 * b['tov'] - 0.32 * (b['fga'] - b['fg']) - 0.15 * (b['fta'] - b['ft']))
+    d = q * (0.32 * b['drb'] + 1.4 * b['stl'] + 0.9 * b['blk'] - 0.25 * b['pf'])
+    ob = round((o - mo) / so * 2.6 + A[0], 1); db = round((d - md) / sd * 1.5 + A[1], 1)
+    rows[k][f"{y0}|{FR.get(r['team'], r['team'])}"] = [ob, db, round(ob + db, 1)]; n += 1
+    chk.append((k, str(y0), b['mp'], ob + db))
+# check: minutes-weighted stint BPM vs the season value (small samples swing more; the season line pools them)
+g = collections.defaultdict(lambda: [0, 0]);
+for k, y, m, v in chk: g[(k, y)][0] += m; g[(k, y)][1] += m * v
+diffs = [abs(s / m - rows[k][y][2]) for (k, y), (m, s) in g.items() if m >= 500 and y in rows[k]]
+diffs.sort()
+src = src[:i] + json.dumps(H, separators=(',', ':'), ensure_ascii=False) + src[j:]
+open(path, 'w').write(src)
+print('stint BPM rows', n, '| traded seasons', len(g), '| |weighted stints - season| 500+ min: median', round(diffs[len(diffs) // 2], 2) if diffs else None, 'p90', round(diffs[int(len(diffs) * 0.9)], 2) if diffs else None, '| bytes', len(src.encode()))

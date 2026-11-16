@@ -1,0 +1,44 @@
+# v32 version-end report: python3 tools/v32r-sum.py.txt tools/runs32/v32r-*.txt   (one line per season from tools/r30.js; summary block per file)
+import json, sys
+def med_band(b, band, age=None):
+    ks = [k for k in b if k.startswith(band + '|') and (age is None or k.endswith('|' + age))]
+    n = sum(b[k]['n'] for k in ks)
+    return (None, 0) if not n else (sum(b[k]['med'] * b[k]['n'] for k in ks) / n, n)
+for f in sys.argv[1:]:
+    rows = [json.loads(l[2:]) for l in open(f) if l.startswith('S ')]
+    sm = [json.loads(l[4:]) for l in open(f) if l.startswith('SUM ')]
+    print('==', f, f'({len(rows)} seasons)')
+    print('S  | sec  | MB   | lgOvr | 9RPG 1.5BPG | MPG fs/star/st/6th/rot/bn/dev | young<=25 asks: <=55 at min / 56-59 med (max) | re-sign all/60+ | win-first | exp/dump | payroll avg (min-max) | maxNext | err')
+    for r in rows:
+        v = r.get('v32') or {}; e = r.get('v32e') or {}; g = r.get('v32g') or {}; br = v.get('byRole') or {}
+        b = ((e.get('asks') or {}).get('bands')) or {}
+        y55 = b.get('<=55|<=25') or {}; y59 = b.get('56-59|<=25') or {}
+        rs = e.get('resign') or {}; tr = e.get('trades') or {}; pay = e.get('payroll') or {}; wf = ((e.get('payCut') or {}).get('wf') or {}).get('n')
+        print('%-2s | %4.0f | %4.1f | %5s | %4s %4s | %s | %s/%s / %s (%s) | %s/%s | %s | %s/%s | %s (%s-%s) | %s | %s' % (
+            r['s'], (r.get('ms') or 0) / 1000, (r.get('kb') or 0) / 1024, g.get('lgOvr'), v.get('rpg9'), v.get('bpg15'),
+            '/'.join(str(br.get(k, '-')) for k in ['fs', 'star', 'starter', 'sixth', 'rot', 'bench', 'dev']),
+            y55.get('min'), y55.get('n'), y59.get('med'), y59.get('max'), rs.get('rate'), rs.get('rate60'), wf, tr.get('exp'), tr.get('dump'),
+            pay.get('avg'), pay.get('min'), pay.get('max'), (e.get('capOver') or {}).get('maxNext'), (r.get('err') or '') ))
+    def col(fn):
+        out = []
+        for r in rows:
+            try:
+                x = fn(r)
+                if x is not None: out.append(x)
+            except Exception: pass
+        return out
+    def rng(a): return '-' if not a else f'{min(a)}-{max(a)} (avg {sum(a)/len(a):.1f})'
+    print('SUMMARY')
+    print('  9+ RPG', rng(col(lambda r: r['v32']['rpg9'])), '| 1.5+ BPG', rng(col(lambda r: r['v32']['bpg15'])))
+    for k in ['fs', 'star', 'starter', 'sixth', 'rot', 'bench', 'dev']: print('  mpg', k, rng(col(lambda r, k=k: r['v32']['byRole'][k])))
+    print('  young <=55 not at min', sum(col(lambda r: r['v32e']['asks']['bands']['<=55|<=25']['n'] - r['v32e']['asks']['bands']['<=55|<=25']['min'])),
+          '| young 56-59 max ask', max(col(lambda r: r['v32e']['asks']['bands']['56-59|<=25']['max'])) if col(lambda r: r['v32e']['asks']['bands']['56-59|<=25']['max']) else '-',
+          '| under 60 asking 10M+', sum(col(lambda r: r['v32e']['asks']['under60ask10N'])))
+    print('  re-sign all', rng(col(lambda r: r['v32e']['resign']['rate'])), '| 60+', rng(col(lambda r: r['v32e']['resign']['rate60'])))
+    print('  win-first pay cuts', rng(col(lambda r: r['v32e']['payCut']['wf']['n'])), 'total', sum(col(lambda r: r['v32e']['payCut']['wf']['n'])))
+    print('  expiring trades', rng(col(lambda r: r['v32e']['trades']['exp'])), '| salary dumps', rng(col(lambda r: r['v32e']['trades']['dump'])))
+    print('  payroll avg', rng(col(lambda r: r['v32e']['payroll']['avg'])), '| lowest team', rng(col(lambda r: r['v32e']['payroll']['min'])), '| max next season', max(col(lambda r: r['v32e']['capOver']['maxNext']) or [0]))
+    print('  league OVR', rng(col(lambda r: r['v32g']['lgOvr'])), '| MLE signings', rng(col(lambda r: r['v32g']['mle'])), '| FA 65+ unsigned', sum(col(lambda r: r['v32g']['fa65'])))
+    print('  save MB S1/S10/S20', [round(r['kb'] / 1024, 1) for r in rows if r['s'] in (1, 10, 20)], '| sec/season', rng(col(lambda r: round(r['ms'] / 1000))))
+    print('  roster problems', sum(len(r['start'].get('rosterBad') or []) for r in rows), '| weird', sum(len(r.get('weird') or []) for r in rows),
+          '| errors', sum(len(s.get('err') or []) for s in sm), (sm[0].get('err') if sm else 'no SUM line (run not finished)'))

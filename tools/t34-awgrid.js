@@ -12,6 +12,12 @@ const SETS = {
   E: { mvp: W30, mvpTeam: .5, fat1: .10, fat2: .20, fatOld: .04 },
   F: { mvp: { gs: .40, ws: .30, ws48: .05, per: .05, bpm: .20 }, mvpTeam: .5, fat1: .05, fat2: .10, fatOld: .02 },
   G: { mvp: W33D, mvpTeam: .5, fat1: .05, fat2: .10, fatOld: .02 },
+  // v36: WS 35% sets (ws48 .10, per .05 fixed; gs + bpm = .50)
+  W1: { mvp: { gs: .30, ws: .35, ws48: .10, per: .05, bpm: .20 }, mvpTeam: .5, fat1: .05, fat2: .10, fatOld: .02 },
+  W2: { mvp: { gs: .35, ws: .35, ws48: .10, per: .05, bpm: .15 }, mvpTeam: .5, fat1: .05, fat2: .10, fatOld: .02 },
+  W3: { mvp: { gs: .25, ws: .35, ws48: .10, per: .05, bpm: .25 }, mvpTeam: .5, fat1: .05, fat2: .10, fatOld: .02 },
+  W4: { mvp: { gs: .30, ws: .35, ws48: .10, per: .05, bpm: .20 }, mvpTeam: .5, fat1: .07, fat2: .14, fatOld: .03 },
+  W5: { mvp: { gs: .35, ws: .35, ws48: .10, per: .05, bpm: .15 }, mvpTeam: .5, fat1: .07, fat2: .14, fatOld: .03 },
   H: { mvp: { gs: .30, ws: .30, ws48: .10, per: .05, bpm: .25 }, mvpTeam: .5, fat1: .05, fat2: .12, fatOld: .02 } };
 run(`var GR=[];var SETS=${JSON.stringify(SETS)};var SH={};for(const k in SETS)SH[k]={};var CUR=null;
 (function(){const ms=mvpStreak,mr=mvpRecent;
@@ -24,4 +30,4 @@ run(`var GR=[];var SETS=${JSON.stringify(SETS)};var SH={};for(const k in SETS)SH
 const rows = [];
 for (let y = 1; y <= N; y++) { const r = run(`(function(){const L=SL;let g=0;while(L.phase==='regular'&&g++<400)simDay(L);processPending(L);startPlayoffs(L);g=0;while(L.phase==='playoffs'&&g++<400)simPlayoffDay(L);startOffseason(L);runLottery(L);startDraft(L);g=0;while(L.phase==='off-draft'&&g++<200)aiDraftPick(L);if(L.phase==='off-resign')startFA(L);g=0;while(L.phase==='off-fa'&&g++<60)faDay(L);processPending(L);startNewSeason(L);return JSON.stringify(GR.shift()||null);})()`); console.log('G ' + r); rows.push(JSON.parse(r)); }
 for (const k of Object.keys(SETS)) { const w = rows.map(r => r && r[k]).filter(Boolean), c = {}; w.forEach(x => c[x[0]] = (c[x[0]] || 0) + 1);
-  console.log('SUM ' + JSON.stringify({ set: k, n: w.length, wsLeader: w.filter(x => x[1] === 1).length, top3: w.filter(x => x[1] <= 3).length, winners: Object.keys(c).length, most: Math.max(...Object.values(c)) })); }
+  console.log('SUM ' + JSON.stringify({ set: k, n: w.length, wsLeader: w.filter(x => x[1] === 1).length, top3: w.filter(x => x[1] <= 3).length, winners: Object.keys(c).length, most: Math.max(...Object.values(c)), worstRank: Math.max(...w.map(x => x[1])) })); }

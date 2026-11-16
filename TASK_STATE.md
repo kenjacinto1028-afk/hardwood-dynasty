@@ -1,3 +1,17 @@
+# TASK_STATE — v36 MVP WS 35% + t33c multi-seed check (Nov 17 2026)
+
+- [x] 0. Clone, read PROGRESS (v34 section; v36a section NOT in PROGRESS.md, only in TESTING.md + tools/t36.js) + TESTING. B already in repo (t33c WS_SEEDS 21/22/23, bar 0.94, from v34 follow-ups)
+- [x] A1. tools/t34-awgrid.js: add WS-35% sets (W1-W5: gs / bpm / fatigue vary; ws48 .10, per .05 fixed), keep G as baseline — added W1-W5 + worstRank in SUM
+- [x] A2a. Grid run 1 (tools/runs32/v36-awgrid.txt): all W1-W5 = G: WS leader 5/10, top-3 8/10, 8 winners, worst rank 4. Misses S14 (Mitsos #3, fatigue vs Johnson 3-peat), S17 Ellery #4, S18 Hines #4, S19 #3, S20 #2
+- [x] A2b. New tools/t36-awsnap.js (dump league at award time, re-score sets offline in 5 s; matches the grid run). Grids on SEED 21 seasons: 136 + 400 random + 111 in-spec sets. Sets meeting all targets exist (r75/r116/r120 6/9/8) but all use ws48 .20 (WS family 55%, gs .10-.22); in-spec (ws48 .10, per .05) max = WS leader 6, top-3 8 (S17/S18 WS rank-4 winners are near-ties: WS #1-#4 within 0.5-1.0)
+- [x] A2c. Hold-out SEED 22 (G there: leader 8, top-3 10). 647 sets scored on both. gs/bpm split barely matters, fatigue does. Chosen in-spec: gs .25 ws .35 ws48 .10 per .05 bpm .25, fat .10/.15/.05 -> seed 21: leader 6, top-3 8, 9 winners (most 2), worst rank 4; seed 22: 7 / 10 / 7 winners, worst 3. Top-3 9+ on seed 21 only with ws48 .20 sets (WS family 55%) — not used
+- [x] A3. src/league.js AW_ADV set (node --check ok)
+- [ ] A4. tools/t33c-awards.js 10 seasons -> tools/runs32/v36-awards-*.txt, report vs v34-awards-report.txt
+- [x] B1. t33c 3-seed check already in repo (v34 follow-ups); re-run on current code: avg corr 0.956 (0.934/0.966/0.969), gap 3.26, t33c 24/24. No code change
+- [x] T. Tests: t33c 24/24, t33d 17/17 (weights check updated), t34 19/19
+- [x] P. PROGRESS.md + TESTING.md + TASK_STATE, zips: /home/claude/outputs/pbl-v36-src.zip, pbl-v36-tools.zip (not committed, no commit requested)
+
+---
 # TASK_STATE — v34 open items 6 + 8 (t33c multi-seed, MVP weights) — Nov 16 2026
 
 - [x] 0. Clone repo, read PROGRESS v34 (open: t33c WS/wins 0.934 on SEED 21; MVP WS 40% vs 30%)

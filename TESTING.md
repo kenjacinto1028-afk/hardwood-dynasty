@@ -42,3 +42,5 @@ v34: `node tools/t34.js` (scouting, young asks, top cap, legends awards; uses to
 v35b: pro-fog sort check `tools/browser-v35b.py.txt` (same loader as browser-v34, franchise save `tools/_t1.json`); PBL top-cap check: `SEED=21 SNAP=tools/snap/pbl16-commish-s10.json.gz node tools/r30.js 10` (cap shows only in a new league's later seasons: `SEED=21 NBA=0 SIZE=16 MODE=commish node tools/r30.js 20`), then `python3 tools/v34sum.py.txt <file>`.
 
 v36a: `node tools/t36.js` (forced PBL top cap on the PBL save, NBA re-sign / early FA / top cap / owner cash on the NBA save; ~1 min). `tools/v34sum.py.txt` also prints 60+ re-sign losses by reason and owner cash (r30 `cash` row).
+
+v36: MVP weight tuning on frozen seasons: `SNAP=tools/snap/nba-commish-s10.json.gz SEED=21 node tools/t36-awsnap.js dump 10 /tmp/awsnap` (~15 min), then `node tools/t36-awsnap.js grid /tmp/awsnap [sets.json|-] [show]` (seconds per run; sets.json = `{name:{mvp:{gs,ws,ws48,per,bpm},mvpTeam,fat1,fat2,fatOld}}`; `show` prints the top-5 ladder with WS rank). Hold-out: dump a second run with SEED=22.

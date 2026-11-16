@@ -1,0 +1,24 @@
+G {"s":11,"v33d":["Cooper Flagg",1],"A":["Cooper Flagg",1],"B":["Cooper Flagg",1],"C":["Cooper Flagg",1],"D":["Cooper Flagg",1],"E":["Cooper Flagg",1],"F":["Cooper Flagg",1],"G":["Cooper Flagg",1],"W1":["Cooper Flagg",1],"W2":["Cooper Flagg",1],"W3":["Cooper Flagg",1],"W4":["Cooper Flagg",1],"W5":["Cooper Flagg",1],"H":["Cooper Flagg",1]}
+G {"s":12,"v33d":["Victor Wembanyama",1],"A":["Cooper Flagg",4],"B":["Victor Wembanyama",1],"C":["Victor Wembanyama",1],"D":["Victor Wembanyama",1],"E":["Victor Wembanyama",1],"F":["Victor Wembanyama",1],"G":["Victor Wembanyama",1],"W1":["Victor Wembanyama",1],"W2":["Victor Wembanyama",1],"W3":["Victor Wembanyama",1],"W4":["Victor Wembanyama",1],"W5":["Victor Wembanyama",1],"H":["Victor Wembanyama",1]}
+G {"s":13,"v33d":["Otis Johnson",1],"A":["Otis Johnson",1],"B":["Otis Johnson",1],"C":["Otis Johnson",1],"D":["Otis Johnson",1],"E":["Otis Johnson",1],"F":["Otis Johnson",1],"G":["Otis Johnson",1],"W1":["Otis Johnson",1],"W2":["Otis Johnson",1],"W3":["Otis Johnson",1],"W4":["Otis Johnson",1],"W5":["Otis Johnson",1],"H":["Otis Johnson",1]}
+G {"s":14,"v33d":["Otis Johnson",1],"A":["Otis Johnson",1],"B":["Otis Johnson",1],"C":["Otis Johnson",1],"D":["Stelios Mitsos",3],"E":["Stelios Mitsos",3],"F":["Stelios Mitsos",3],"G":["Stelios Mitsos",3],"W1":["Stelios Mitsos",3],"W2":["Stelios Mitsos",3],"W3":["Otis Johnson",1],"W4":["Stelios Mitsos",3],"W5":["Stelios Mitsos",3],"H":["Otis Johnson",1]}
+G {"s":15,"v33d":["Otis Johnson",1],"A":["Otis Johnson",1],"B":["Landon Pruitt",4],"C":["Landon Pruitt",4],"D":["Otis Johnson",1],"E":["Otis Johnson",1],"F":["Otis Johnson",1],"G":["Otis Johnson",1],"W1":["Otis Johnson",1],"W2":["Otis Johnson",1],"W3":["Landon Pruitt",4],"W4":["Otis Johnson",1],"W5":["Otis Johnson",1],"H":["Landon Pruitt",4]}
+G {"s":16,"v33d":["Landon Pruitt",1],"A":["Landon Pruitt",1],"B":["Landon Pruitt",1],"C":["Landon Pruitt",1],"D":["Landon Pruitt",1],"E":["Landon Pruitt",1],"F":["Landon Pruitt",1],"G":["Landon Pruitt",1],"W1":["Landon Pruitt",1],"W2":["Landon Pruitt",1],"W3":["Landon Pruitt",1],"W4":["Landon Pruitt",1],"W5":["Landon Pruitt",1],"H":["Landon Pruitt",1]}
+G {"s":17,"v33d":["Sterling Ellery",4],"A":["Sterling Ellery",4],"B":["Sterling Ellery",4],"C":["Sterling Ellery",4],"D":["Sterling Ellery",4],"E":["Sterling Ellery",4],"F":["Sterling Ellery",4],"G":["Sterling Ellery",4],"W1":["Sterling Ellery",4],"W2":["Sterling Ellery",4],"W3":["Sterling Ellery",4],"W4":["Sterling Ellery",4],"W5":["Sterling Ellery",4],"H":["Sterling Ellery",4]}
+G {"s":18,"v33d":["Marcus Hines",4],"A":["Sterling Ellery",9],"B":["Sterling Ellery",9],"C":["Marcus Hines",4],"D":["Marcus Hines",4],"E":["Marcus Hines",4],"F":["Marcus Hines",4],"G":["Marcus Hines",4],"W1":["Marcus Hines",4],"W2":["Marcus Hines",4],"W3":["Marcus Hines",4],"W4":["Marcus Hines",4],"W5":["Marcus Hines",4],"H":["Marcus Hines",4]}
+G {"s":19,"v33d":["Sterling Ellery",3],"A":["Sterling Ellery",3],"B":["Sterling Ellery",3],"C":["Sterling Ellery",3],"D":["Sterling Ellery",3],"E":["Sterling Ellery",3],"F":["Sterling Ellery",3],"G":["Sterling Ellery",3],"W1":["Sterling Ellery",3],"W2":["Sterling Ellery",3],"W3":["Sterling Ellery",3],"W4":["Sterling Ellery",3],"W5":["Sterling Ellery",3],"H":["Sterling Ellery",3]}
+G {"s":20,"v33d":["Caleb Cummings",2],"A":["Caleb Cummings",2],"B":["Caleb Cummings",2],"C":["Caleb Cummings",2],"D":["Caleb Cummings",2],"E":["Caleb Cummings",2],"F":["Caleb Cummings",2],"G":["Caleb Cummings",2],"W1":["Caleb Cummings",2],"W2":["Caleb Cummings",2],"W3":["Caleb Cummings",2],"W4":["Caleb Cummings",2],"W5":["Caleb Cummings",2],"H":["Caleb Cummings",2]}
+SUM {"set":"v33d","n":10,"wsLeader":6,"top3":8,"winners":7,"most":3,"worstRank":4}
+SUM {"set":"A","n":10,"wsLeader":5,"top3":7,"winners":5,"most":3,"worstRank":9}
+SUM {"set":"B","n":10,"wsLeader":5,"top3":7,"winners":6,"most":3,"worstRank":9}
+SUM {"set":"C","n":10,"wsLeader":5,"top3":7,"winners":7,"most":2,"worstRank":4}
+SUM {"set":"D","n":10,"wsLeader":5,"top3":8,"winners":8,"most":2,"worstRank":4}
+SUM {"set":"E","n":10,"wsLeader":5,"top3":8,"winners":8,"most":2,"worstRank":4}
+SUM {"set":"F","n":10,"wsLeader":5,"top3":8,"winners":8,"most":2,"worstRank":4}
+SUM {"set":"G","n":10,"wsLeader":5,"top3":8,"winners":8,"most":2,"worstRank":4}
+SUM {"set":"W1","n":10,"wsLeader":5,"top3":8,"winners":8,"most":2,"worstRank":4}
+SUM {"set":"W2","n":10,"wsLeader":5,"top3":8,"winners":8,"most":2,"worstRank":4}
+SUM {"set":"W3","n":10,"wsLeader":5,"top3":7,"winners":7,"most":2,"worstRank":4}
+SUM {"set":"W4","n":10,"wsLeader":5,"top3":8,"winners":8,"most":2,"worstRank":4}
+SUM {"set":"W5","n":10,"wsLeader":5,"top3":8,"winners":8,"most":2,"worstRank":4}
+SUM {"set":"H","n":10,"wsLeader":5,"top3":7,"winners":7,"most":2,"worstRank":4}

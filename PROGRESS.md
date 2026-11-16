@@ -1,5 +1,15 @@
 # PBL progress
 
+## v36 (Nov 17 2026): MVP win shares 35% + t33c multi-seed
+- [x] A MVP weights (`AW_ADV`, src/league.js): WS 35% (your pick), game score .25, BPM .25, WS/48 .10, PER .05 (the last two unchanged); team record 0.5 kept; voter fatigue up to `fat1` .10 / `fat2` .15 / `fatOld` .05 (was .05 / .10 / .02). Why fatigue moved: on SEED 21 seasons the gs / bpm split barely changes anything (all splits of .50 give the same winners); fatigue does
+- Search: `tools/t34-awgrid.js` (W1-W5 added, run 1: all five WS-35% sets = old set G: leader 5/10, top-3 8/10, 8 winners, worst rank 4), then new `tools/t36-awsnap.js` (dumps the league at award time, re-scores sets offline in seconds, same result as the live grid). 647 sets on two 10-season runs (SEED 21 and a hold-out SEED 22): `tools/runs32/v36-awgrid-offline.txt`
+- Chosen set (in-spec, ws48 / per fixed): SEED 21 seasons leader 6, top-3 8, 9 winners (most 2), worst rank 4; SEED 22 hold-out leader 7, top-3 10, 7 winners, worst rank 3. Old set G: 5 / 8 / 8 and 8 / 10 / 7
+- **Real award run** (`tools/t33c-awards.js 10`, `tools/runs32/v36-awards-new.txt`, report `v36-awards-report.txt`): MVP = WS leader 6/10, top-3 9/10, 6 winners (most 3, Ellery), no winner below WS rank 4; DPOY top-5 DWS 10/10. All four targets met. (v34 report is on the old save, so not a same-season compare; DPOY here has 3 winners, Marcus Hines 7/10, DPOY scoring untouched: path of this league, worth a look)
+- Caveat: the SEED 21 save has near-tied stars (S17 / S18: WS #1-#4 within 1 WS), so top-3 9+ there is partly luck. Sets that hit 9+ on the offline seasons all use WS/48 .20 (WS family 55%, game score .10-.22), e.g. gs .21 per .10 bpm .14 ws48 .20, fat .04/.06/.012 (9 / 10 on the two seeds); not used because you said rest to game score / BPM. Say if you want it
+- [x] B t33c team WS vs wins averaged over SEED 21 / 22 / 23 was already in the repo (v34 follow-ups); re-run: avg corr 0.956 (0.934 / 0.966 / 0.969, bar 0.94), mean gap 3.26. No code change
+- [x] Tests: t33c 24/24, t33d 17/17 (weights check updated to the v36 values), t34 19/19
+- Note: there is no v36a section in PROGRESS.md (only TESTING.md / `tools/t36.js` mention v36a); not run, not in the brief
+
 ## v34 follow-ups (Opus, Nov 16 2026): open items 6 + 8
 - [x] Item 6, t33c: team WS vs wins is checked as the average over SEED 21 / 22 / 23 (`tools/t33c.js`, block A). Corr 0.934 / 0.966 / 0.969 = avg 0.956 (bar 0.94). The mean gap is averaged the same way: 4.20 / 2.71 / 2.86 = avg 3.26 (bar 4). The gap was also on SEED 21 alone, and that seed fails it (4.20), so both checks now use the 3-seed average. Tests: t33c 24/24 (was 22/23)
 - [x] Item 8, MVP weights: asked Kenneth. He kept 40% WS. No change to `AW_ADV` (set G). The 30% grid (`tools/t34-awgrid.js`) was not run

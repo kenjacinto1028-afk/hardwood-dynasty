@@ -1,0 +1,16 @@
+== v36: 10 seasons
+S11: MVP Cooper Flagg (DAL 61-21, 35 mpg, PER 34.9, WS 17, BPM 12) [WS rank 1] | DPOY Marcus Hines (PHX 40-42, 32.8 mpg, PER 28.3, WS 12, BPM 9.7, DWS 6.3) [DWS rank 1] | ROY Vincent Rhodes | 6MOY Gabe Jenkins | MIP Omari Bryant
+S12: MVP Victor Wembanyama (SAS 48-34, 33.2 mpg, PER 37.9, WS 16.1, BPM 13.4) [WS rank 1] | DPOY Victor Wembanyama (SAS 48-34, 33.2 mpg, PER 37.9, WS 16.1, BPM 13.4, DWS 6) [DWS rank 1] | ROY Zion Easley | 6MOY Connor McKenzie | MIP Nikos Vasileiou
+S13: MVP Otis Johnson (MIA 61-21, 32.6 mpg, PER 29.1, WS 15.3, BPM 9.3) [WS rank 1] | DPOY Marcus Hines (PHX 42-40, 35.2 mpg, PER 30.9, WS 14.6, BPM 10.9, DWS 6.9) [DWS rank 1] | ROY Stelios Mitsos | 6MOY Edgaras Lekavicius | MIP Jared Thornton
+S14: MVP Marcus Hines (PHX 53-29, 36.3 mpg, PER 29.3, WS 14, BPM 10.1) [WS rank 2] | DPOY Marcus Hines (PHX 53-29, 36.3 mpg, PER 29.3, WS 14, BPM 10.1, DWS 6.1) [DWS rank 1] | ROY Theo Lacroix | 6MOY Derek Foster | MIP Tre Nettles
+S15: MVP Otis Johnson (MIA 57-25, 31.4 mpg, PER 32.7, WS 17.4, BPM 11.4) [WS rank 1] | DPOY Victor Wembanyama (SAS 50-32, 33.4 mpg, PER 30.1, WS 14.1, BPM 9.3, DWS 5.8) [DWS rank 1] | ROY Jaka Zupan | 6MOY Mason Kilgore | MIP Otis Mitchell
+S16: MVP Sterling Ellery (LAC 61-21, 32.9 mpg, PER 43, WS 16, BPM 15.3) [WS rank 2] | DPOY Marcus Hines (PHX 59-23, 32.7 mpg, PER 33.2, WS 16.3, BPM 12, DWS 6.3) [DWS rank 1] | ROY Andre Quarles | 6MOY Andre Quarles | MIP Lance Brewer
+S17: MVP Stelios Mitsos (CHA 64-18, 33.9 mpg, PER 37, WS 15.2, BPM 12.9) [WS rank 4] | DPOY Landon Pruitt (BKN 63-19, 33.1 mpg, PER 35.4, WS 17.2, BPM 11.8, DWS 6) [DWS rank 1] | ROY Tyler Bryant | 6MOY Andre Quarles | MIP Parker Mabry
+S18: MVP Sterling Ellery (LAC 61-21, 31.4 mpg, PER 43.4, WS 22.6, BPM 14.8) [WS rank 1] | DPOY Marcus Hines (PHX 52-30, 32.4 mpg, PER 31, WS 11.5, BPM 11, DWS 5.5) [DWS rank 3] | ROY Malcolm Jenkins | 6MOY Calvin Sheffield | MIP Eric Abernathy
+S19: MVP Sterling Ellery (LAC 60-22, 31 mpg, PER 43.7, WS 18.6, BPM 15.4) [WS rank 1] | DPOY Marcus Hines (PHX 45-37, 31.8 mpg, PER 29.8, WS 9.8, BPM 10.5, DWS 5.8) [DWS rank 1] | ROY Brent Akins | 6MOY Edgaras Lekavicius | MIP Marcus Greer
+S20: MVP Stelios Mitsos (CHA 56-26, 33.8 mpg, PER 40.3, WS 17.7, BPM 14.7) [WS rank 2] | DPOY Marcus Hines (PHX 43-39, 31.8 mpg, PER 31, WS 9.5, BPM 10.8, DWS 5.2) [DWS rank 2] | ROY Ante Matic | 6MOY Rokas Kazlauskas | MIP Brent Harris
+  MVP = WS leader: 6/10 | MVP top-3 in WS: 9/10 | DPOY top-5 in DWS: 10/10
+  MIP from the MVP top 5: 0/10
+  mvp: 6 different winners in 10; most by one player 3 (Sterling Ellery); min MPG 31; low-minute winners: none
+  dpoy: 3 different winners in 10; most by one player 7 (Marcus Hines); min MPG 31.8; low-minute winners: none
+  roy: 10 different winners in 10; most by one player 1 (Vincent Rhodes); min MPG 23.4; low-minute winners: none

@@ -1079,10 +1079,10 @@ function vWeekly() {
 function vPreview() {
   const S = L.season;
   const act = Object.values(L.players).filter(p => p.team != null && !p.retired);
-  const best = act.slice().sort((a, b) => b.ovr - a.ovr).slice(0, 12);
+  const best = act.slice().sort((a, b) => ovrNum(b) - ovrNum(a)).slice(0, 12);
   const lastTid = p => { const h = p.hist.filter(x => x.s === S - 1).pop(); return h ? h.tid : undefined; };
-  const movers = act.filter(p => { const lt = lastTid(p); return lt !== undefined && lt !== p.team; }).sort((a, b) => b.ovr - a.ovr).slice(0, 12);
-  const rookies = act.filter(p => p.rookieSeason === S).sort((a, b) => b.ovr - a.ovr || b.scout - a.scout).slice(0, 10);
+  const movers = act.filter(p => { const lt = lastTid(p); return lt !== undefined && lt !== p.team; }).sort((a, b) => ovrNum(b) - ovrNum(a)).slice(0, 12);
+  const rookies = act.filter(p => p.rookieSeason === S).sort((a, b) => ovrNum(b) - ovrNum(a) || b.scout - a.scout).slice(0, 10);
   const deals = []; for (const p of act) for (const c of p.contracts) if (c.s === S && ['signing', 're-sign', 'extension'].includes(c.type) && c.amt > MINSAL) deals.push({ p, c });
   deals.sort((a, b) => b.c.amt - a.c.amt);
   const newCoaches = L.teams.filter(t => { const st = t.coach.stints[t.coach.stints.length - 1]; return st && st.tid === t.id && st.from === S && S > 1; });
@@ -1212,7 +1212,7 @@ function vTeams() {
   const groups = big ? (L.nba ? NBA_DIV_ORDER : DIV_ORDER)[conf].map(d => [d + ' Division', L.teams.filter(t => t.div === d)]) : [...new Set(L.teams.filter(t => t.conf === conf).map(t => t.region))].map(r => [r, L.teams.filter(t => t.conf === conf && t.region === r)]);
   const tabs = `<div class="subtabs" style="margin-bottom:12px">${['North', 'South'].map(c => `<button class="sm ${c === conf ? 'primary' : ''}" data-tconf="${c}">${confName(c)} conference</button>`).join('')}</div>`;
   const card = t => {
-    const ps = teamPlayers(t.id).sort((a, b) => b.ovr - a.ovr);
+    const ps = teamPlayers(t.id).sort((a, b) => ovrNum(b) - ovrNum(a));
     const pay = payroll(L, t);
     return `<div class="panel" style="cursor:pointer" data-team="${t.id}"><div class="row" style="justify-content:space-between;flex-wrap:nowrap"><strong style="display:flex;align-items:center;min-width:0">${logo(t.id, 30)}${esc(tname(t.id))}</strong><span class="muted">${t.w}-${t.l}</span></div><div class="muted" style="margin-top:6px">${confName(t.conf)}${t.div ? ' · ' + esc(t.div) : ''}${mktTxt(t)} · ${modePill(t)}${(t.divTitles || []).length ? ` · ${t.divTitles.length}× division champs` : ''}</div><div class="muted">Coach ${clink(t.coach)} (${t.coach.ovr})</div><div class="muted">${OFF_SYS[t.coach.off].name} / ${DEF_SYS[t.coach.def].name}</div><div style="margin-top:6px">Best: ${esc(ps[0].name)} <span class="muted">${posLabel(ps[0])} · ${ps[0].ovr}</span></div><div class="muted">Payroll ${money(pay)} · room ${money(Math.max(0, CAP - pay))}</div></div>`;
   };
@@ -1606,6 +1606,7 @@ function pval(p, k) {
   switch (k) {
     case 'name': return p.name; case 'team': return p.team == null ? 'FA' : L.teams[p.team].abbr; case 'pos': return p.pos;
     case 'sal': return p.contract ? p.contract.amt : 0;
+    case 'ovr': return ovrNum(p);   // v35b: your scouts' read
     case 'pot': return commish() ? p.pot : p.scout;
     case 'usg': return usg(s);
     case 'ts': return s && s.fga ? tsPct(s) : -1; case 'efg': return s && s.fga ? efgPct(s) : -1;
@@ -1678,7 +1679,7 @@ function vPlayerDir() {
   const nm = v => `<td data-v="${v}">${v}</td>`;
   const teamTd = q => `<td class="l" data-v="${q.team == null ? 'ZZ' : L.teams[q.team].abbr}">${q.team == null ? faTxt(q) : tlabel(q.team)}</td>`;
   const tr = q => `<tr class="click ${isUser(q.team) ? 'mine' : ''}" data-player="${q.id}">`;
-  ps.sort((a, b) => b.ovr - a.ovr);
+  ps.sort((a, b) => ovrNum(b) - ovrNum(a));
   let head, rows;
   if (tab === 'info') {
     head = [['Player', 'l'], ['Team', 'l'], ['Age'], ['Pos', 'l'], ['Archetype', 'l'], ['Ovr'], ['Pot'], ['Fit'], ['Mood'], ['Ath'], ['Off'], ['Def'], ['IQ'], ['Contract'], ['Yrs'], ['Opt', 'l']];
@@ -2489,7 +2490,7 @@ function holdoutDialog() {
 }
 // v15: hidden prospect ratings. In franchise mode you see your director's read (marked ?) until summer league; commissioners see the truth.
 function scoutPill(p) { return (p.tour === L.season && !p.retired ? ' <span class="pill" title="Farewell tour: he retires after this season">Final season</span>' : '') + (p.team == null && isRFA(L, p) ? ` <span class="pill" style="background:#e7eefb;color:#2f5d9e" title="Restricted: ${esc(L.teams[p.rfa.tid].abbr)} can match any offer sheet within 2 days">Restricted · ${esc(L.teams[p.rfa.tid].abbr)}</span>` : '') + L.user != null && hiddenFor(L, p) && !p.prospect ? ' <span class="pill" style="background:#fff3d6;color:#8a5a00" title="Rookie: ratings are scouting reads until summer league (after free agency). His real rating may be higher or lower.">Rookie · not final</span>' : ''; }
-function ovrNum(p) { return L.user != null && hiddenFor(L, p) ? ovrRead(L, L.user, p) : p.ovr; }
+function ovrNum(p) { return L.user != null && hiddenFor(L, p) ? ovrRead(L, L.user, p) : L.user != null && proFogOn(L, L.user, p) ? proOvr(L, L.user, p) : p.ovr; }   // v35b: sort / filter by your scouts' read (same number the cell shows); own players exact
 function ovrTxt(p) { return L.user != null && hiddenFor(L, p) ? `${ovrRead(L, L.user, p)}<span class="rdq" title="Your scouting director's read. Real ratings are revealed after summer league.">?</span>` : L.user != null && proFogOn(L, L.user, p) ? `${proOvr(L, L.user, p)}<span class="rdq" title="Your pro scouts' read (about ±${Math.max(1, Math.round(proSd(L, L.user, p) * 1.3))}). Only your own players' ratings are exact.">~</span>` : p.ovr; }
 function attrNum(p, k) { return L.user != null && hiddenFor(L, p) ? attrRead(L, L.user, p, k) : L.user != null ? proAttr(L, L.user, p, k) : p[k]; }   // v34: pro fog for players outside your team
 // v16: plain labels for what moves his price (+ raises it, - lowers it)
@@ -2739,7 +2740,7 @@ function foPanel(t) {
 function foChip(t) { const f = foOf(L, t); return `<span class="pill" title="How much they value picks. Belief ${Math.round(f.belief * 100)}%: how much they think a trade changes a team's future.">${FO_STYLE[f.style].label}</span>`; }
 function assetList(tid, sel, side) {
   const cs = capSeason(L);
-  const ps = teamPlayers(tid).sort((a, b) => b.ovr - a.ovr);
+  const ps = teamPlayers(tid).sort((a, b) => ovrNum(b) - ovrNum(a));
   const ks = L.picks.filter(k => k.owner === tid && k.s >= L.season && !pickUsed(L, k)).sort((a, b) => a.s - b.s || a.rd - b.rd);
   const mineT = tid === L.user;
   return `${fbar('tr-' + side, { age: false, sortHint: false })}<div class="tblwrap"><table class="sortable" data-sid="tr-${side}" data-flist="tr-${side}"><thead><tr><th class="nosort"></th><th class="l">Player</th><th class="l">Pos</th><th>Age</th><th>Ovr</th><th>${commish() ? 'Pot' : 'Pot*'}</th><th>Per year</th><th title="Seasons left, counting ${cs === L.season ? 'this season' : 'next season'}">Yrs left</th><th class="l" title="PO = player option, TO = team option on the final year">Opt</th></tr></thead><tbody>${ps.map(p => { const c = p.contract, yl = c ? Math.max(0, c.exp - cs + 1) : 0;
@@ -2757,7 +2758,7 @@ function statusPill(p) { const s = tradeStatus(L, p); const ic = s && s.k === 'p
 const BLOCK_WHY = ['Shopped by you', 'Looking to shed salary', 'Want draft picks or young players', 'Upgrading at his position', 'Clearing minutes for younger players', 'Wants a bigger role elsewhere', 'Contract is expiring'];
 function tradingBlockPanel() {
   const all = Object.values(L.players).filter(p => p.team != null && !p.retired).map(p => ({ p, s: tradeStatus(L, p) })).filter(x => x.s);
-  const shop = all.filter(x => x.s.k === 'block').sort((a, b) => b.p.ovr - a.p.ovr), prot = all.filter(x => x.s.k === 'protect').sort((a, b) => a.p.team - b.p.team || b.p.ovr - a.p.ovr);
+  const shop = all.filter(x => x.s.k === 'block').sort((a, b) => ovrNum(b.p) - ovrNum(a.p)), prot = all.filter(x => x.s.k === 'protect').sort((a, b) => a.p.team - b.p.team || ovrNum(b.p) - ovrNum(a.p));
   const cs = capSeason(L);
   const rows = shop.map(({ p, s }) => { const c = p.contract, yl = c ? yrsLeft(L, p, cs) : 0, mine = isUser(p.team);
     return `<tr ${frow(p)} class="${mine ? 'mine' : ''}"><td class="l"><a class="lk" data-player="${p.id}">${esc(p.name)}</a>${injPill(p)}${scoutPill(p)}<div class="archtag">${esc(archLabel(p))}</div></td><td class="l">${tlabel(p.team)}</td><td class="l">${posLabel(p)}</td><td>${p.age}</td><td>${ovrTxt(p)}</td><td data-v="${c ? c.amt : 0}">${c ? money(c.amt) : '—'}</td><td>${c ? (yl || 'exp') : '—'}</td><td class="l">${c && c.opt ? c.opt : '—'}</td><td class="l wrapt">${mine ? `<select data-bwhy="${p.id}" aria-label="Why he's on the block">${BLOCK_WHY.map(w => `<option ${(p.blockWhy || BLOCK_WHY[0]) === w ? 'selected' : ''}>${esc(w)}</option>`).join('')}</select>` : esc(s.why)}</td><td>${mine ? '' : `<button class="sm" data-tradefor="${p.id}">Trade for</button>`}</td></tr>`; }).join('');
@@ -2799,7 +2800,7 @@ function trade3Panel() {
   const others = L.teams.filter(t => t.id !== L.user), teams = [L.user, t3.x, t3.y], cs = capSeason(L);
   const sel = (id, cur, not) => `<select id="${id}">${others.filter(t => t.id !== not).map(t => `<option value="${t.id}" ${t.id === cur ? 'selected' : ''}>${esc(tname(t.id))} · ${MODE_LABEL[t.mode]}</option>`).join('')}</select>`;
   const dest = (kind, id, tid) => { const key = (kind === 'players' ? 'p:' : 'k:') + id, cur = t3.mv[key]; return `<select class="sm" data-t3="${key}"><option value="">Stays</option>${teams.filter(x => x !== tid).map(o => `<option value="${o}" ${cur === o ? 'selected' : ''}>→ ${esc(L.teams[o].abbr)}</option>`).join('')}</select>`; };
-  const col = tid => { const ps = teamPlayers(tid).sort((a, b) => b.ovr - a.ovr), ks = L.picks.filter(k => k.owner === tid && k.s >= L.season && !pickUsed(L, k)).sort((a, b) => a.s - b.s || a.rd - b.rd);
+  const col = tid => { const ps = teamPlayers(tid).sort((a, b) => ovrNum(b) - ovrNum(a)), ks = L.picks.filter(k => k.owner === tid && k.s >= L.season && !pickUsed(L, k)).sort((a, b) => a.s - b.s || a.rd - b.rd);
     return `<div class="panel" style="padding:8px 10px"><h3>${tlabel(tid, true)}</h3><div class="tblwrap"><table><tbody>${ps.map(p => { const ts = tradeStatus(L, p), locked = tradeRestricted(L, p) || (tid !== L.user && ts && ts.k === 'protect'); return `<tr><td class="l"><a class="lk" data-player="${p.id}">${esc(p.name)}</a>${injPill(p)}${tagChips(p)}<div class="muted" style="font-size:12px">${posLabel(p)} · ${p.age} · ${ovrTxt(p)}${p.contract ? ' · ' + money(capHit(L, p, cs)) : ''}</div></td><td>${locked ? `<span class="muted" title="${tradeRestricted(L, p) ? 'Signed as a free agent: can\'t be traded yet' : 'Protected'}">—</span>` : dest('players', p.id, tid)}</td></tr>`; }).join('')}${ks.map(k => { const mvd = t3.mv['k:' + k.id] != null, pv = (t3.prot && t3.prot[k.id]) || 0; return `<tr><td class="l muted">${esc(pickLabel(L, pv ? pickKV(k, pv) : k))} pick<div>${pickChip(k)}${mvd && k.rd === 1 && !k.prot && !draftSlotOf(L, k) ? ` <select class="sm" data-t3prot="${k.id}" title="Protection"><option value="0">No prot.</option>${protOpts(L).map(n => `<option value="${n}" ${pv === n ? 'selected' : ''}>Top-${n}</option>`).join('')}</select>` : ''}</div></td><td>${dest('picks', k.id, tid)}</td></tr>`; }).join('')}</tbody></table></div></div>`; };
   const moves = t3moves(), S = sides3(L, teams, moves);
   const S3x = sides3to(L, teams, moves);
@@ -2942,7 +2943,7 @@ document.addEventListener('click', e => { const b = e.target.closest('#fa-end');
 function faToggle() { const b = (k, n) => `<button class="sm ${ui.faTab === k ? 'primary' : ''}" data-fav="${k}">${n}</button>`; return `<div class="subtabs" style="margin-bottom:12px">${L.user != null ? b('over', 'Overview') : ''}${b('now', `Free agents · ${L.fa.length}`)}${b('up', 'Upcoming free agents')}</div>`; }
 function upcomingFA() {
   const cs = capSeason(L);
-  const ps = Object.values(L.players).filter(p => p.team != null && p.contract && !p.ext && (p.contract.exp === cs || (p.contract.opt && p.contract.exp === cs + 1))).sort((a, b) => b.ovr - a.ovr);
+  const ps = Object.values(L.players).filter(p => p.team != null && p.contract && !p.ext && (p.contract.exp === cs || (p.contract.opt && p.contract.exp === cs + 1))).sort((a, b) => ovrNum(b) - ovrNum(a));
   const kind = p => p.contract.exp === cs ? (p.contract.type === 'rookie' ? 'Rookie deal ends' : 'Expiring') : p.contract.opt === 'PO' ? 'Player option' : 'Team option';
   return `<section class="panel"><h2>Upcoming free agents · ${ps.length}</h2><p class="muted" style="margin-top:-4px"><span class="tipword" title="Players whose deals end after ${cs === L.season ? 'this season' : 'next season'}, plus players whose final year is an option that could make them free agents. Players who already signed an extension are left out.">Contracts ending after ${seasonName(cs)}</span></p>
   ${fbar('ufa')}<div class="tblwrap"><table class="sortable" data-sid="ufa" data-flist="ufa"><thead><tr><th class="l">Player</th><th class="l">Team</th><th class="l">Pos</th><th>Age</th><th>Ovr</th><th>${potHead()}</th><th>Salary</th><th class="l">Status</th><th class="l">Personality</th></tr></thead><tbody>${ps.map(p => `<tr class="click" data-player="${p.id}" ${frow(p)}><td class="l">${esc(p.name)}${injPill(p)}${scoutPill(p)}</td><td class="l">${tlabel(p.team)}</td><td class="l">${posLabel(p)}</td><td>${p.age}</td><td><strong>${ovrTxt(p)}</strong></td><td>${potCell(p)}</td><td>${money(p.contract.amt)}</td><td class="l">${kind(p)}</td><td class="l muted">${esc(persShort(p))}</td></tr>`).join('') || '<tr><td class="l muted" colspan="9">None.</td></tr>'}</tbody></table></div></section>`;
@@ -4080,7 +4081,7 @@ function vInjuries() {
   const sev = ui.injSev || '', tf = ui.injTeam == null ? '' : String(ui.injTeam);
   const all = Object.values(L.players).filter(p => !p.retired && p.injury > 0 && (p.team != null || (L.fa || []).includes(p.id)));
   const band = p => isDTD(p) ? 'dtd' : p.injSE ? 'se' : p.injury >= 25 ? 'long' : p.injury >= 5 ? 'mid' : 'short';
-  const list = all.filter(p => (!sev || band(p) === sev) && (tf === '' || (tf === 'fa' ? p.team == null : String(p.team) === tf))).sort((a, b) => (a.team == null) - (b.team == null) || b.ovr - a.ovr);
+  const list = all.filter(p => (!sev || band(p) === sev) && (tf === '' || (tf === 'fa' ? p.team == null : String(p.team) === tf))).sort((a, b) => (a.team == null) - (b.team == null) || ovrNum(b) - ovrNum(a));
   const R0 = new Map(all.map(p => [p.id, injReturn(p)]));
   const soon = L.phase === 'regular' ? all.filter(p => p.team != null && !isDTD(p) && R0.get(p.id) && R0.get(p.id).day != null && R0.get(p.id).games <= 3).sort((a, b) => R0.get(a.id).day - R0.get(b.id).day || b.ovr - a.ovr) : [];
   const cnt = k => all.filter(p => p.team != null && band(p) === k).length;

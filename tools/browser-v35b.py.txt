@@ -1,0 +1,74 @@
+# v35b sort check (pro fog: sort by your scouts' read). Base: browser-v34 loader. Rename to .py; serve the game folder; python3 browser-v35b.py PORT [PAGE] [SAVE]
+# v34 browser check (scouting overhaul + legends' Top awards); base: v33e browser check (1300 + 390px): retired legends' trophy case (All-NBA / All-Defense / All-Star rows from NBA_HX.aw), the single-file build,
+# and the v33d floor messages ("payroll-floor deal", "Paid above his value", floor salary-dump news).
+# Rename to .py, serve the game folder (python3 -m http.server PORT), then: python3 browser-v33e.py PORT [PAGE] [SAVE]
+#   PAGE default index.html (use pbl-single.html after `python3 -I build.py --single .`); SAVE default tools/_s1.json (gunzip of tools/snap/nba-commish-s10.json.gz).
+#   For the floor checks use a league played into free agency (SAVE=tools/_fa.json; see PROGRESS v33e).
+import asyncio, sys, json
+from playwright.async_api import async_playwright
+PORT = sys.argv[1] if len(sys.argv) > 1 else '8795'
+PAGE = sys.argv[2] if len(sys.argv) > 2 else 'index.html'
+SAVE = sys.argv[3] if len(sys.argv) > 3 else 'tools/_t1.json'   # gunzip -c tools/snap/nba-team-s10.json.gz > tools/_t1.json (franchise save)
+res = []
+def ok(n, c, x=''):
+    res.append(('PASS ' if c else 'FAIL ') + n + (f'  [{x}]' if x else '')); print(res[-1], file=sys.stderr, flush=True)
+async def ev(pg, js): return await pg.evaluate("(()=>{const L=window.__pbl.L,ui=window.__pbl.ui;return eval(" + json.dumps(js) + ")})()")
+async def render(pg, js='0', wait=700):
+    await ev(pg, "(()=>{" + js + ";window.__pbl.render()})()"); await pg.wait_for_timeout(wait)
+async def run(width):
+    async with async_playwright() as p:
+        br = await p.chromium.launch()
+        pg = await (await br.new_context(viewport={'width': width, 'height': 900})).new_page(); errs = []
+        pg.on('pageerror', lambda e: errs.append(str(e)))
+        await pg.goto(f'http://localhost:{PORT}/{PAGE}'); await pg.wait_for_timeout(2000)
+        await pg.evaluate("""async (f) => { const txt = await (await fetch(f)).text();
+          const db = await new Promise((res, rej) => { const r = indexedDB.open('pbl-league', 1); r.onupgradeneeded = () => r.result.createObjectStore('s'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+          const put = (k, v) => new Promise((res, rej) => { const tx = db.transaction('s', 'readwrite'); tx.objectStore('s').put(v, k); tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
+          await put('league:slot-t34', txt); await put('slots', JSON.stringify([{ id: 'slot-t34', name: 't34', mode: 'team', season: 11, phase: 'regular', updated: Date.now() }])); await put('current', 'slot-t34'); }""", SAVE)
+        await pg.reload(); await pg.wait_for_timeout(6000)
+        W = f'{width}px: '
+        clr = "ui.player=null;ui.game=null;ui.team=null;ui.coach=null;ui.gm=null;ui.hs=null"
+        noscroll = lambda: ev(pg, "document.documentElement.scrollWidth<=window.innerWidth+2")
+        await ev(pg, "document.querySelector('#modal') && (document.querySelector('#modal').innerHTML='')")
+        ok(W + 'franchise save loaded', await ev(pg, "L.user!=null&&L.mode==='team'&&typeof proOvr==='function'"))
+        ok(W + 'fog is on (other team differs from true OVR)', await ev(pg, "active(L).some(p=>!p.prospect&&p.team!=null&&p.team!==L.user&&proOvr(L,L.user,p)!==p.ovr)"))
+        ovr_cells = "[...document.querySelectorAll('#main table tbody tr')].filter(r=>r.cells[IDX]).map(r=>parseFloat(r.cells[IDX].dataset.v!=null?r.cells[IDX].dataset.v:r.cells[IDX].textContent)).filter(x=>!isNaN(x))"
+        mono = lambda a, d: all((a[i] - a[i + 1]) * d >= 0 for i in range(len(a) - 1))
+        # League > Players > Info: default order and clicking Ovr (both ways), data-v equals the shown number
+        await render(pg, "history.replaceState(null,'','#players');" + clr + ";ui.view='players';ui.pdTab='info';ui.pfTeam='all';ui.tsorts={}", 1500)
+        idx = await ev(pg, "[...document.querySelectorAll('#main thead th')].findIndex(e=>e.textContent.trim().startsWith('Ovr'))")
+        a = await ev(pg, ovr_cells.replace('IDX', str(idx)))
+        ok(W + 'League>Players: default order follows shown Ovr', len(a) > 100 and mono(a, 1), f'{len(a)} rows')
+        shown = await ev(pg, "[...document.querySelectorAll('#main table tbody tr')].every(r=>{const c=r.cells[%d];return !c||c.dataset.v==null||parseFloat(c.dataset.v)===parseFloat(c.textContent)})" % idx)
+        ok(W + 'League>Players: Ovr data-v = shown number (~ rows included)', shown)
+        ok(W + 'League>Players: shows ~ reads', await ev(pg, "[...document.querySelectorAll('#main .rdq')].some(e=>e.textContent==='~')"))
+        await pg.click(f'#main table thead th:nth-child({idx + 1})'); await pg.wait_for_timeout(600)
+        a = await ev(pg, ovr_cells.replace('IDX', str(idx)))
+        ok(W + 'League>Players: click Ovr sorts by shown read', len(a) > 100 and (mono(a, 1) or mono(a, -1)), f'{a[:4]}')
+        await pg.click(f'#main table thead th:nth-child({idx + 1})'); await pg.wait_for_timeout(600)
+        b = await ev(pg, ovr_cells.replace('IDX', str(idx)))
+        ok(W + 'League>Players: second click reverses', len(b) > 100 and mono(b, 1 if mono(a, -1) else -1) and a != b, f'{b[:4]}')
+        ok(W + 'League>Players: no sideways scroll', await noscroll())
+        # same page, Attributes tab
+        await render(pg, "ui.pdTab='attr';ui.tsorts={}", 1200)
+        idx = await ev(pg, "[...document.querySelectorAll('#main thead th')].findIndex(e=>e.textContent.trim().startsWith('Ovr'))")
+        a = await ev(pg, ovr_cells.replace('IDX', str(idx)))
+        ok(W + 'League>Players Attributes: default order follows shown Ovr', len(a) > 100 and mono(a, 1))
+        # Stats > Players (basic table, header sort by ovr)
+        await render(pg, "history.replaceState(null,'','#stats');" + clr + ";ui.view='stats';ui.statTab='players';ui.pAdv=false;ui.pDef=false;ui.psort='ovr';ui.pdir=-1;ui.pfTeam='all';ui.pAll=true", 1500)
+        idx = await ev(pg, "[...document.querySelectorAll('#main thead th')].findIndex(e=>e.textContent.trim().startsWith('Ovr'))")
+        if idx >= 0:
+            a = await ev(pg, ovr_cells.replace('IDX', str(idx)))
+            ok(W + 'Stats>Players: sort by Ovr follows shown read', len(a) > 20 and mono(a, 1), f'{len(a)} rows')
+        else:
+            ok(W + 'Stats>Players: Ovr column', False, 'no column')
+        # Free agents: default Ovr order follows the shown read (table with an Asking column)
+        await render(pg, "history.replaceState(null,'','#fa');" + clr + ";ui.view='fa';ui.faTab='now';ui.faSort='ovr';ui.faAfford=false;ui.faHideRook=false;ui.tsorts={}", 1500)
+        a = await ev(pg, "(()=>{const t=[...document.querySelectorAll('#main table')].filter(t=>[...t.rows[0].cells].some(c=>c.textContent.trim().startsWith('Ovr'))&&[...t.rows[0].cells].some(c=>c.textContent.trim()==='Asking')).sort((x,y)=>y.tBodies[0].rows.length-x.tBodies[0].rows.length)[0];if(!t)return [];const i=[...t.rows[0].cells].findIndex(e=>e.textContent.trim().startsWith('Ovr'));return [...t.tBodies[0].rows].filter(r=>r.cells[i]).map(r=>parseFloat(r.cells[i].textContent)).filter(x=>!isNaN(x))})()")
+        ok(W + 'Free agents: Ovr order follows shown read', len(a) > 10 and mono(a, 1), f'{len(a)} rows')
+        ok(W + 'no page errors', not errs, '; '.join(errs[:3]))
+        await br.close()
+async def main():
+    for w in (1300, 390): await run(w)
+    print('\n'.join(res)); print(f"{sum(r.startswith('PASS') for r in res)}/{len(res)} pass")
+asyncio.run(main())

@@ -4518,6 +4518,26 @@ function nbaTopCap(L, all, nudge) {
   const top = all.filter(p => p.ovr >= 95).sort((a, b) => a.age - b.age || R() - 0.5);
   for (const p of top.slice(0, Math.max(0, top.length - B.t95))) { nudge(p, -rnd(1, 2)); if (p.pot > p.ovr + 1) p.pot--; }
 }
+// v35b: the PBL version of nbaTopCap. The league has no real-NBA scale, so the cap follows the league: rostered mean + K x sd
+// (mean 59, sd 8.8 -> ceiling ~91, ~96 for a generational talent). Past nTop players above mean + kTop x sd (~87) the extras (youngest first) lose 1-2.
+const PBL_TOP = { k: 3.6, kGen: 4.2, kTop: 3.2, nTop: 2 };
+function leagueTopCap(L, delta) {
+  const ro = []; for (const t of L.teams) for (const id of t.roster) { const p = L.players[id]; if (p && !p.retired) ro.push(p); }
+  if (ro.length < 20) return null;
+  const m = ro.reduce((a, p) => a + p.ovr, 0) / ro.length, sd = Math.sqrt(ro.reduce((a, p) => a + (p.ovr - m) ** 2, 0) / ro.length), B = PBL_TOP;
+  const cap = Math.round(m + B.k * sd), capG = Math.round(m + B.kGen * sd), hi = Math.round(m + B.kTop * sd);
+  const all = active(L).filter(p => !p.prospect && !p.retired);
+  const nudge = (p, d) => { const o = p.ovr; growTo(p, o + d, Math.max(p.age, 25)); p.ovr = ovr(p); if (p.ovr > p.pot) p.pot = p.ovr; if (delta) delta[p.id] = (delta[p.id] || 0) + p.ovr - o; };
+  for (const p of all) {
+    const c = p.gen ? capG : cap;
+    if (p.ovr > c) nudge(p, c - p.ovr - (p.gen ? 0 : rnd(0, 1)));
+    if (p.pot > c) p.pot = Math.max(p.ovr, c);
+    if (p.ceil != null && p.ceil > c) p.ceil = Math.max(p.ovr, c);
+  }
+  const top = all.filter(p => p.ovr >= hi).sort((a, b) => a.age - b.age || R() - 0.5);
+  for (const p of top.slice(0, Math.max(0, top.length - B.nTop))) { nudge(p, -rnd(1, 2)); if (p.pot > p.ovr + 1) p.pot--; }
+  return { cap, capG, hi };
+}
 // v27 K1: an AI coach moves each slider 15% of the way toward a target: half his system default, half what his top 8 do well
 function slAdapt(L, t) {
   const c = t.coach; slSync(c); const s = c.sl || slSeed(c, 6), d = slDefault(c), r = rosterOf(L, t).sort((a, b) => b.ovr - a.ovr).slice(0, 8); if (!r.length) return;
@@ -4929,7 +4949,7 @@ function startOffseason(L) {
     if (p.team != null || p.ovr >= 60) { summary.up.push([p.id, p.ovr - before]); }
     if (r.posChanged && p.team != null) { summary.posMoves.push([p.id, r.posChanged]); p.tx.push({ s: S, t: `Position change: ${r.posChanged}` }); }
   }
-  if (NBA_ON) nbaBalance(L, delta);   // v27 P4: keep the NBA-like spread of stars
+  if (NBA_ON) nbaBalance(L, delta); else leagueTopCap(L, delta);   // v35b: PBL top cap relative to the league   // v27 P4: keep the NBA-like spread of stars
   leagueGravity(L, delta);   // v33a: keep the league's average near its starting level
   // development report: breakouts, stalls, late bloomers, slides and declines (visible outcomes of the hidden paths)
   { const all = active(L).filter(p => !p.prospect && delta[p.id] != null && (p.team != null || p.ovr >= 55));

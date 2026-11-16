@@ -1,3 +1,13 @@
+# TASK_STATE — v35b PBL top-rating cap + pro-fog sorting (Opus) — Nov 16 2026
+
+- [x] 0. Clone, read PROGRESS (v34/v35a), TESTING
+- [x] 4a. Baseline from snap (current code, SEED=21): top PER 33.9-38.9, WS <= 14.8, top OVR 85-88 (/home/claude/scr/pbl-base.txt); the PER ~40 in v34 came late (OVR 92-94)
+- [x] 4b. PBL_TOP leagueTopCap (league.js): cap mean+3.6sd, gen 4.2sd, >2 players above mean+3.2sd lose 1-2. 10 seasons: top PER 29.6-38.9, WS <= 14.8; 20 new-league seasons (pbl20-new.txt): top PER 28.9-38.7, WS <= 16.9, top OVR 83-89 (v35a same league without the cap: 86-89, rows identical to S15 -> cap rarely binds), floor <=1 under all 20
+- [x] 7a. app.js: ovrNum uses proOvr when fogged (frow data-ro, FA sort, League>Players data-v, filters); sorts at 10 lines + pval ovr use ovrNum. Attr cells already attrNum
+- [x] 7b. t34 19/19, lint 110, t30a 29/0, browser-v34 34/34, browser-v35b 24/24 (old app.js fails 3/12 per width)
+- [x] 8. PROGRESS + TESTING, commit, zip
+
+---
 # TASK_STATE — v35a floor + payroll + hard cap (Opus) — Nov 16 2026
 
 - [x] 0. Clone + merge Kenneth's v34 upload (PROGRESS v34, t34, runs32/v34-*, v34sum, saves); baseline = tools/runs32/v34-*.txt

@@ -1,5 +1,20 @@
 # PBL progress
 
+## v35b (Opus, Nov 16 2026): PBL top-rating cap + pro-fog sorting
+- [x] Item 4, PBL top ratings: new `leagueTopCap` (league.js, called each summer after `leagueGravity` when not NBA mode; `PBL_TOP`). League-relative: ceiling = rostered mean + 3.6 sd (PBL mean 59, sd 8.8: about OVR 91; generational talent mean + 4.2 sd, about 96); past 2 players above mean + 3.2 sd (about 87) the extras, youngest first, lose 1-2 OVR (and a point of pot). Ratings, pot and ceil above the cap are pulled down. NBA mode keeps `nbaTopCap`
+- [x] Check 1, 10 seasons PBL16 from `tools/snap/pbl16-commish-s10.json.gz`, SEED=21 (`tools/runs32/v35b-pbl16-snap10-before.txt` = code before, `v35b-pbl16-snap10.txt` = with the cap): this save's best player is only 88, below the cap, so S11-17 are identical (top PER 34.5-38.9); S18-20 differ only by the random stream (top PER 33.9 / 36 before, 33.8 / 32.3 / 29.6 after). Before: top PER 33.9-38.9, WS <= 14.8; after: 29.6-38.9, WS <= 14.8
+- [x] Check 2, the late-league case needs a new league (the v34 PER 40 came with OVR 92-94 in S15-20): 20 seasons new PBL16, SEED=21 (`tools/runs32/v35b-pbl16-commish.txt`, v35a / v34 for comparison):
+  | | v34 | v35a | v35b |
+  |---|---|---|---|
+  | top PER | 28.7-40 | <= 38.7 | 28.9-38.7 (S10-20: 33.4-38.7) |
+  | top WS | <= 17.1 | <= 16.9 | <= 16.9 |
+  | top OVR S11-20 | 87-94 | 86-89 | 83-88 |
+  | payroll avg / <= 2 under floor | 129.6 / 12 of 20 | 132.8 / 20 of 20 | 132.8 / 20 of 20 (max 1) |
+  **The cap rarely binds**: v35a's PBL league (same seed, no cap) already had top OVR 86-89 and top PER <= 38.7, so the v34 case (OVR 92-94, PER 40) did not come back, and v35b's rows match v35a through S15 (S16-20 differ by the random stream). S1 shows the starting league's 98 (S2 94, S3 89); the cap pulls those down after the first summer. Top PER 35-38.7 in S10-17, 33.4-35.5 in S18-20, 29-34 in S2-8. Treat it as insurance for leagues that grow a 92+ star, not a measured change
+- [x] Item 7, pro fog sorting: `ovrNum` (app.js) now returns your scouts' read (`proOvr`) for fogged players, the same number the cell shows (own players exact). That fixes the Ovr `data-v` on League > Players (Info / Attributes), the row filters (min Ovr, `data-ro`) and Free agents order. Also by shown read: League > Players default order, Stats > Players Ovr sort (`pval('ovr')`), home page best / movers / rookies, cap projection, trade partner list, trade block, expiring contracts, injury report. Attribute cells already used `attrNum` (`proAttr`) and sort by their text. Not changed: Pot (own scouted value), Fit and Mood (already your read / not fogged)
+- [x] Tests: `tools/t34.js` 19/19, lint 110 PASS, `tools/t30a.js` 29/0, node --check (league, app); browser `tools/browser-v34.py.txt` 34/34 (1300 + 390); new sort check `tools/browser-v35b.py.txt` 24/24 (1300 + 390): ordered by shown Ovr on League > Players (default, click, click again), Attributes tab, Stats > Players, Free agents; `data-v` = shown number. On the old app.js the same check fails 3 of 12 at each width (data-v, Stats sort, FA order)
+- Open: the cap is untested on a league with a 92+ star (none appeared in these runs); a forced test would be to set one star to 96 and sim a summer. The sd-based cap tightens if the league compresses. Top PER sits at 29-34 in S2-8 (below your 35-38); that is the league's talent level, not the cap (v35a identical). Raising it would mean allowing more 88+ players, your call. Saves in `tools/snap` not remade (no save fields changed)
+
 ## v35a (Opus, Nov 16 2026): payroll floor, floor spikes, hard-cap hole
 - [x] Floor trace: `tools/r30.js` `FLOORLOG=1` prints an `F` row after free agency (each under-floor team's paid contracts with expiry/type, minimum players, who left, 56+ / 50-55 free agents left, money expiring next summer, renegotiations). Reproduces v34 exactly (same src + SEED=21)
 - [x] Spike causes:

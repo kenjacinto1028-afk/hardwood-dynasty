@@ -12,7 +12,10 @@ The game is split into small files so a change rewrites one file, not 1.3 MB.
 | `src/app.js` | UI: views, dialogs, click handlers, saves |
 | `src/nba-2026.js` | v27 NBA mode: real 2026-27 rosters (`NBA26`) + real history (`NBA_HIST`) + converter. Built from project docs `claude/nba/nba-compact.json`, `claude/nba/hist.txt` + `claude/nba/conv.js`; edit those, then rebuild |
 | `src/nba-setup.js` | v30a NBA setup extras: real rookies (`nbaRookies`) + real jersey numbers (`NBA_JERSEY_CSV`, `nbaJerseys`) |
-| `src/index.template.html` | Page shell with markers `/*CSS*/ /*VENDOR*/ /*ENGINE*/ /*LEAGUE*/ /*APP*/` for the single-file build |
+| `src/index.template.html` | Page shell with markers `/*CSS*/ /*VENDOR*/ /*ENGINE*/ /*LEAGUE*/ /*NBA*/ /*APP*/` for the single-file build (`python3 -I build.py --single . [out.html]`, v33e) |
+
+## v33e (Sonnet, Nov 16 2026): UI follow-ups
+- Legend popup trophy case (All-League / All-Defense / All-Star seasons): `hxHonors` (hx-fn.js and its copy in nba-history.js) + `trophyCaseHtml` / `legendCase` (app.js). Single-file build: `build.py --single`. Completed trades: reason lines wrap (`.whyrow`). Test: `tools/browser-v33e.py.txt`. Details and open items: PROGRESS.md v33e
 
 ## v33d (Opus, Nov 16 2026): payroll floor, balance, MVP win shares
 - Payroll floor (league.js): `FLOOR_FILL` settings; `floorAbsorb(L, B)` (a team under the floor takes a short overpaid / burden deal from a team well above the floor into cap room, nothing back, picks as `salaryDump`; trade `floor: true`, kind dump), `floorSign(L, B)` (late FA: 56+ free agents on 1-2 year `'payroll'` deals up to the gap, at most 2.5x value + 4; 55 and under never, 56-59 at 25 or younger at most 2.2x the minimum, under 60 below $10M), `floorCut`, `floorGap` / `floorPend`, `floorFill(L, lastCall)` (called in `faDay`). `faRound`: a team under the floor may bid above value (`fl` offers: same limits, pays its bid, 1-2 years) and open a roster spot with `floorCut`. `meetPayrollFloor` stays the backstop.
@@ -223,7 +226,7 @@ All in `src/app.js` (helpers sit just above `negExtrasOld`), a few lines in `src
 1. Find the code to change in the right `src/` file (search by function name; see the project's `README.md` for a map of where things live).
 2. Change it with `edit_version` and `path: "src/league.js"` (old_text/new_text edits).
 3. Keep script order: vendor, engine, league, app. Top-level names are shared across the scripts.
-4. For a standalone offline file, stitch the files into `src/index.template.html` at the markers (see `SOURCE-LAYOUT.md` in the project for `build.py`).
+4. For a standalone offline file: `python3 -I build.py --single . pbl-single.html` (stitches `src/index.template.html` with every `src/` file, v33e). Re-run after any change in `src/`.
 
 ## v24.3 changes (on top of v24.2)
 

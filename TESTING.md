@@ -34,3 +34,5 @@ v33d: the 20-season run can write the commissioner saves on the way: `SEED=21 NB
 Caveats
 - A saved league goes stale when save fields change; `migrateLeague` covers most of it, but remake each version.
 - Slow problems (rating climb, contract inflation) still need the 20-season run at the end of a version.
+
+v33e: browser check for legends' trophy cases, the single-file build and the floor messages: `tools/browser-v33e.py.txt` (rename to .py, serve the folder, `python3 browser-v33e.py PORT [PAGE] [SAVE]`). Saves it needs are not committed (big): `gunzip -c tools/snap/nba-commish-s10.json.gz > tools/_s1.json` for the legends part; for the floor part play S11 into free agency day 11 from that snap (`faDay(L)` loop after the offseason calls, as in tools/snap-make.js) and write the league JSON to tools/_fa.json. Single file: `python3 -I build.py --single . pbl-single.html`, then pass `pbl-single.html` as PAGE.

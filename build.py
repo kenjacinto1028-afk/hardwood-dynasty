@@ -7,6 +7,10 @@ Usage: python3 build.py <nba_dir> <game_dir> [--check]
   game_dir = game folder holding src/nba-2026.js
   --check  = build to memory and compare with the current src/nba-2026.js (no write)
 
+Single-file page (v33e): python3 build.py --single <game_dir> [out.html]
+  Stitches src/index.template.html + styles.css + vendor-faces, engine, league, then (/*NBA*/) nba-2026, nba-text,
+  nba-setup, nba-history (same order as index.html), then app.js. Default out: <game_dir>/pbl-single.html.
+
 Output order (same as the live file):
   header comment, NBA26 (one team per line), NBA_HIST, NBA_PROS, NBA_CAR, NBA_CAR2, NBA_CARPO, NBA_LGD, conv.js.
 NBA_CAR2 / NBA_CARPO (v28.5 F5 role-player + playoff rows) come from careers/car2.json / carpo.json when present,
@@ -72,7 +76,33 @@ def build(nba, game):
     return '\n'.join(out) + '\n'
 
 
+SINGLE_JS = {'/*VENDOR*/': ['vendor-faces.js'], '/*ENGINE*/': ['engine.js'], '/*LEAGUE*/': ['league.js'],
+             '/*NBA*/': ['nba-2026.js', 'nba-text.js', 'nba-setup.js', 'nba-history.js'], '/*APP*/': ['app.js']}
+
+
+def single(game, out):
+    """One offline HTML file: the template with every src file inlined at its marker."""
+    src = os.path.join(game, 'src')
+    rd = lambda f: open(os.path.join(src, f), encoding='utf-8').read()
+    page = rd('index.template.html')
+    for mk in ['/*CSS*/'] + list(SINGLE_JS):
+        if page.count(mk) != 1:
+            sys.exit('marker %s must appear once in index.template.html (found %d)' % (mk, page.count(mk)))
+    body = lambda fs: '\n'.join(rd(f).rstrip('\n') for f in fs).replace('</script', '<\\/script')
+    page = page.replace('/*CSS*/', rd('styles.css').replace('</style', '<\\/style'))   # str.replace: no escape handling in the data
+    for mk, fs in SINGLE_JS.items():
+        page = page.replace(mk, body(fs))
+    open(out, 'w', encoding='utf-8', newline='').write(page)
+    print('built', out, len(page.encode()), 'bytes')
+
+
 def main():
+    if '--single' in sys.argv:
+        a = [x for x in sys.argv[1:] if not x.startswith('--')]
+        if not a:
+            sys.exit(__doc__)
+        single(a[0], a[1] if len(a) > 1 else os.path.join(a[0], 'pbl-single.html'))
+        return
     a = [x for x in sys.argv[1:] if not x.startswith('--')]
     if len(a) != 2:
         sys.exit(__doc__)

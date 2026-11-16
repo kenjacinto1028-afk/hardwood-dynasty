@@ -1,3 +1,13 @@
+# TASK_STATE — v33e UI follow-ups (Sonnet) — Nov 16 2026
+
+- [x] 1. Legends trophy cases: All-NBA / All-Defense / All-Star rows from NBA_HX.aw (app.js, hx-fn.js if needed) — hxHonors (hx-fn.js, re-appended to nba-history.js), trophyCaseHtml + legendCase (app.js), shown in legendDialog
+- [x] 2. Single-file build: nba-history.js (+ nba-2026 / nba-text / nba-setup, missing too) in index.template.html + build.py `single` — built 4.0 MB, browser-v33e 52/52 on it
+- [x] 3. v33d floor / dump messages at 390px (payroll-floor deal, Paid above his value, floor dump news) — real FA league; fixed Completed trades why-rows (.whyrow); tools/browser-v33e.py.txt
+- [ ] 4. 7t / 8t FLAVOR keys: NOT done, no OK from Kenneth on record (HAIKU-TASKS.md still says "Needs Kenneth's OK")
+- [x] 5. Browser tests for touched pages (base browser-v33c / v33d), node --check, lint
+- [x] 6. PROGRESS + README, commit, zip (GitHub not linked)
+
+---
 # TASK_STATE — v33d payroll floor + balance + awards (Opus) — Nov 16 2026
 
 - [x] A1. Trace (/home/claude/scr/d1.js, S11 from NBA save): floor teams fill rosters with minimum vets (FA pool past top 8 is all ~$1.3-5M value); non-contenders stop at the cap (b2Ceiling = CAP for hopeful/rising/retool, so no mid-level). Hard cap: v33b S1 events = real 2026 deals already over for the next cap year; holes: tradeCheck hitTo used base amount (no kicker / schedule / pending extension), holdout raises checked this year + base amount only
@@ -308,9 +318,9 @@ Note: PROGRESS.md had no 6a entry. Box score already had MIN + pm (engine BX), b
 (previous section, v30a logic — done)
 # TASK_STATE — v30a logic (items 13, 22, 24, 25, 10)
 
-- [x] 1. Explore code — two-way: league.js signTwoWay/aiFillTwoWay; needs: rosterNeeds; playoffs: engine.js nextRound + seasonOdds; rookies: nbaPopulate; numbers: assignNumber
-- [x] 2. #13 — league.js twWillSign/twBenchLine (reason text), signTwoWay check, own 2nd-rounders exempt, aiFillTwoWay skips refusers + weekly retry in twoWayDay
-- [x] 3. #22 — league.js rosterNeeds: RN_PHYS (ath) capped at "summer" when roster has 15
+- [x] 1. Explore code — two-way: league.js signTwoWay/aiFillTwoWay; needs: rosterNeeds; playoffs: engine.js nextRound + seasonOdds; rookies: nbaPopulate; numbers: assignNumber — hxHonors (hx-fn.js, re-appended to nba-history.js), trophyCaseHtml + legendCase (app.js), shown in legendDialog
+- [x] 2. #13 — league.js twWillSign/twBenchLine (reason text), signTwoWay check, own 2nd-rounders exempt, aiFillTwoWay skips refusers + weekly retry in twoWayDay — built 4.0 MB, browser-v33e 52/52 on it
+- [x] 3. #22 — league.js rosterNeeds: RN_PHYS (ath) capped at "summer" when roster has 15 — real FA league; fixed Completed trades why-rows (.whyrow); tools/browser-v33e.py.txt
 - [x] 4. #24 — engine.js PO_BIG_BEST=7 in nextRound; league.js seasonOdds best of 7; app.js bracket labels + help text
 - [x] 5. #25 — src/nba-setup.js nbaRookies: real players with 0 service get rookieSeason = season 1 (55 players)
 - [x] 6. #10 — src/nba-setup.js nbaJerseys (CSV embedded), hooked in engine.js newLeague; index.html + tools/load.js load it; app.js accepts "00"

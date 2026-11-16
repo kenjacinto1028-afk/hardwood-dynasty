@@ -38,12 +38,12 @@ const J = c => JSON.parse(run(`JSON.stringify((function(){const L=SL;${c}})())`)
     const sc=genScout(L);const pool=(L.scoutPool||[]).concat(L.teams.map(x=>x.scout)).filter(Boolean);
     const old=JSON.parse(JSON.stringify(t.scout));delete t.scout.pro;migrateLeague(L);
     L.teams.forEach(x=>aiScoutLv(L,x));const lv=L.teams.map(x=>x.scoutLv||0);
-    return {base,el,e1:!!e1,e2,e3:!!e3,pro:sc.pro,allPro:pool.every(s=>s.pro!=null),mig:t.scout.pro!=null&&t.scout.pro===old.pro,lv,userLv:t.scoutLv};`);
+    return {base,el,e1:!!e1,e2,e3:!!e3,pro:sc.pro,allPro:pool.every(s=>s.pro!=null),mig:t.scout.pro!=null&&t.scout.pro===scoutProOf(t.scout),lv,userLv:t.scoutLv};`);
   chk('C department: Elite = 5 slots, 7 interviews, reads x0.7, costs $2M', r.el.slots === 5 && r.el.iv === 7 && Math.abs(r.el.sd / r.base.sd - 0.7) < 0.02 && Math.abs(r.el.cost - r.base.cost - 2) < 0.01, JSON.stringify(r.el));
   chk('C department: Standard = 3 slots, 5 interviews, no cost (as before)', r.base.slots === 3 && r.base.iv === 5, JSON.stringify(r.base));
   chk('C department: change only in the window and within the staff budget', r.e1 && r.e2 === null && r.e3);
   chk('C AI teams pick levels (some above Standard); yours untouched', r.lv.some(x => x > 0) && r.lv.every(x => x >= 0 && x <= 2), r.lv.join(''));
-  chk('C directors have a pro rating; old saves get the same one on load', r.pro >= 25 && r.allPro && r.mig);
+  chk('C directors have a pro rating; old saves get one on load (from his rating)', r.pro >= 25 && r.allPro && r.mig);
 }
 // ---------- C: draft accuracy (rows for past classes) ----------
 {

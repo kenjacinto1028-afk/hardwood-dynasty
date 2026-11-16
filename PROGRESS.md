@@ -1,5 +1,29 @@
 # PBL progress
 
+## v35a (Opus, Nov 16 2026): payroll floor, floor spikes, hard-cap hole
+- [x] Floor trace: `tools/r30.js` `FLOORLOG=1` prints an `F` row after free agency (each under-floor team's paid contracts with expiry/type, minimum players, who left, 56+ / 50-55 free agents left, money expiring next summer, renegotiations). Reproduces v34 exactly (same src + SEED=21)
+- [x] Spike causes:
+  - PBL S6-7 (11, 13 under): a league-wide salary trough (avg $108-112M vs the $120M floor). No 56+ free agents after day 1, floor rosters full of cheap rookie / minimum deals, few teams above the floor to dump salary
+  - NBA S16 (15 under, all $135-147.7M vs $148.5M): an expiry echo ($1.2B of extensions ran out into S16 vs $0.4B at S11; league avg $150.5M). Floor dumps did run every day, but the v34 big-gap rule took them from teams just above the floor, which then fell under (14-16 under on every FA day). Not 2-year floor deals / 3-year dumps
+- [x] Fixes (league.js, floor fill):
+  - `floorAbsorb`: the team dumping salary must stay at or above the floor after the deal (S16 save: 15 -> 0 under)
+  - `floorSign`: once the 56+ pool is gone, 55- players (48+, and better than the minimum player cut for them) on 1-year floor deals above the minimum, under $10M (`FLOOR_FILL.lowOvr` / `lowMax`); 25-and-under 55-59 at most 2.4x the minimum (`youngMax` = `ASK_YOUNG_X`, was 2.2); small gaps sign at the minimum + $0.2M or more instead of skipping
+  - `floorRenego` (your pick): at the end of free agency a team still under the floor gives its own players a raise for this season only, using cap room (real NBA renegotiation; not rookie-scale or two-way deals; best players first; same under-60 / young limits). Stored as a yearly amount (`contract.sched` / `s0`, `contract.reneg`); player line "Renegotiated: ..." and one news line per team. PBL: 0-9 a season (24 in 20 seasons); NBA rarely
+- [x] Hard cap: the S2 TOR $226.4M was not a trade (the audit logs a crossing at the next checked event). `holdoutCheck` ran inside `startNewSeason` after the season number went up but before the phase turned 'regular', so `capSeason` was next season: Quickley's holdout raise (32.5 -> 47) was checked against the wrong year's hard cap and the new deal ran one season too long. It now runs after `L.phase = 'regular'`. r30 audit also checks `startNewSeason` (before/after cap numbers) and lists the teams in a trade
+- [x] NBA payroll (item 3): tried over-cap middle (hopeful) teams paying a wanted own 58+ player his full ask (`RESIGN_K`). Same 10 seasons from the new save, A/B identical (163.4 both): 60+ players lost on price are 1-2 a summer, so it never changed an outcome. Reverted. **Still under target** (166.5 vs 170-185): S10-19 run $154-165M. Losses are now team-side ("didn't want him", cap/owner), and free agency has no 56+ players left to spend on
+- [x] Tests: t34 19/19, t33b 30/30, t33d 17/17, t32e 21/21, t32h 11/11, t30a 29/0
+- [x] 20 seasons SEED=21 commish (`tools/runs32/v35a-*.txt`, summary `python3 tools/v34sum.py.txt <file>`):
+  | | NBA v34 | NBA v35a | PBL16 v34 | PBL16 v35a |
+  |---|---|---|---|---|
+  | payroll avg | 169.9 | 166.5 (S1-9 166-185, S10-19 154-165) | 129.6 | 132.8 |
+  | seasons <= 2 under floor (after FA) | 19/20 (S16: 15) | 20/20 (max 2) | 12/20 (S6-7: 11, 13) | 20/20 (max 1) |
+  | lowest team | 112 (S16) | 140 (S20) | 87 | 119 |
+  | hard-cap crossings | S1 start deals + S2 TOR | S1 start deals only | 0 | 0 |
+  | top PER / top WS | 33-40 / <= 21.2 | 34-40 / <= 19.4 | <= 40 / <= 17.1 | <= 38.7 / <= 16.9 |
+  0 errors; under-60 $10M asks 0
+- [x] Saves remade (`tools/snap`: nba-commish + pbl16-commish via r30 SNAPOUT, nba-team via snap-make)
+- Open: NBA payroll 166.5 (target 170-185). Options: middle teams use cap room / the mid-level on 60+ players earlier in free agency, or softer "team didn't want him" for 60+ rotation players on teams under the tax. Not done (would need your call). The renegotiated raise counts on the cap but `cashPayroll` (owner cash) still uses the base amount
+
 ## v34 (Opus, Nov 16 2026): tuning follow-ups + scouting overhaul
 - [x] A1 payroll: AI re-sign rates up (`RESIGN_K`: want rot .97 / young .92 / top-10 .92 / 26- .85 / other 60+ .75, leave chances x0.55, pay .6-.88 of ask); an owner stretches past his limit to keep his own 62+ player (`resignOwnerOK`: +$8M / 68+ +$18M / 75+ +$30M; a 98 OVR walked over $7M in the trace); a team under the floor keeps its own 56+ (.95). Floor: a big gap (8%+ of the floor) takes 3-year dumps, from teams just above the floor too, and 2-year floor deals; `maxSign` 7. Hard cap, ask ramp, floor charge unchanged
 - [x] A2 MVP: voter fatigue `AW_ADV.fat1` .05 (last season's MVP), `fat2` .10 (2+ in a row), `fatOld` .02 (MVP 2-3 seasons back). WS kept at 40%: on the same 10 seasons (`tools/t34-awgrid.js`, `tools/runs32/v34-awgrid.txt`, each set with its own MVP history) every WS-30% set picked a WS #12 MVP once and led WS 5/10; v33d weights + fatigue (set G) 6/10, top-3 10/10, 7 winners, most 2. **Differs from your "WS ~30%"**, say if you want 30% anyway

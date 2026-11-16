@@ -14,6 +14,12 @@ The game is split into small files so a change rewrites one file, not 1.3 MB.
 | `src/nba-setup.js` | v30a NBA setup extras: real rookies (`nbaRookies`) + real jersey numbers (`NBA_JERSEY_CSV`, `nbaJerseys`) |
 | `src/index.template.html` | Page shell with markers `/*CSS*/ /*VENDOR*/ /*ENGINE*/ /*LEAGUE*/ /*NBA*/ /*APP*/` for the single-file build (`python3 -I build.py --single . [out.html]`, v33e) |
 
+## v35a (Opus, Nov 16 2026): payroll floor, floor spikes, hard-cap hole
+- Floor teams: dumps can't push the other team under the floor; 55- one-year floor deals (under $10M); end-of-FA renegotiation of own contracts (this season only). PBL 20/20 seasons with <= 2 teams under the floor (was 12/20), NBA 20/20 (was 19/20)
+- Hard cap: holdout raises at season start were checked against next season's cap; fixed (holdoutCheck after the phase turns 'regular')
+- NBA payroll still 166.5 (target 170-185); the "full ask for middle teams" re-sign lever had no effect and was reverted
+- Tests: t34, t33b, t33d, t32e, t32h, t30a; floor trace `FLOORLOG=1 node tools/r30.js`; runs `tools/runs32/v35a-*.txt`. Details: PROGRESS.md v35a
+
 ## v34 (Opus, Nov 16 2026): tuning + scouting overhaul
 - Re-sign: `RESIGN_K`, `resignOwnerOK` (league.js). Floor: `FLOOR_FILL.dumpYrsBig / bigGapK`. Top ratings: `NBA_BAL.t95 / cap / capGen`, `nbaTopCap`. Young asks: `ASK_YOUNG_X` in `lowAskCap`. MVP fatigue: `AW_ADV.fat1 / fat2 / fatOld`, `mvpStreak`, `mvpRecent`.
 - Scouting: `SCOUT_LV`, `setScoutLv`, `aiScoutLv`, `scout.pro`; pro fog `PRO_FOG`, `proFogOn / proSd / proOvr / proAttr / teamOvr / proValK / proReport`; `draftAccuracy`. UI: `ovrTxt` "~", `attrNum`, `proScoutPanel`, `scoutDeptHtml`, `draftAccHtml` (app.js). Legends: `hxAwKey`, `hxHonors(name, from, to)`, `hxTopAwards` (hx-fn.js, re-appended to nba-history.js).

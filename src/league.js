@@ -5744,7 +5744,7 @@ function meetPayrollFloor(L, t) {
 //    attached; it fits in cap room, no salary goes back), 2) from FA day FLOOR_FILL.signDay it signs free agents rated 60+ to short
 //    deals (1-2 years) up to the gap, paying above value if needed (at most prem x value + plus; the money is owed anyway).
 // The floor charge (meetPayrollFloor) stays as the backstop. Your team is never touched. Owner limits don't apply below the floor.
-const FLOOR_FILL = { on: true, absorbDay: 2, signDay: 5, minGap: 0.5, maxSign: 7, prem: 2.5, plus: 4, dumpYrs: 2, dumpYrsBig: 3, bigGapK: 0.08, minOvr: 56, youngMax: 2.2 };   // v34 A1: a big gap (8%+ of the floor) takes 3-year dumps
+const FLOOR_FILL = { on: true, absorbDay: 2, signDay: 5, minGap: 0.5, maxSign: 7, prem: 2.5, plus: 4, dumpYrs: 2, dumpYrsBig: 3, bigGapK: 0.08, minOvr: 56, youngMax: ASK_YOUNG_X, lowOvr: 48, lowMax: ASK_REL.u60 };   // v35a: youngMax = the ask cap (2.4x); lowOvr / lowMax: 55- floor deals (1 year, under $10M)   // v34 A1: a big gap (8%+ of the floor) takes 3-year dumps
 function floorPend(L, t) { const cs = capSeason(L); let s = 0; for (const tr of L.pending || []) if (tr.floor && tr.b === t.id) for (const id of tr.aGive.players) s += capHit(L, L.players[id], cs); return s; }
 function floorGap(L, t) { return MINPAY - payNoFloor(L, t) - floorPend(L, t); }
 function floorAbsorb(L, B) {
@@ -5760,6 +5760,7 @@ function floorAbsorb(L, B) {
       const c = p.contract; if (!c || c.amt <= MINSAL * 2 || top.has(p.id)) continue;
       const hit = capHit(L, p, cs), yl = c.exp - cs + 1;
       if (hit < 3 || hit > Math.min(room, gap + 8) || yl > dumpY || yl < 1) continue;
+      if (payA - hit < MINPAY + 0.5) continue;   // v35a: the team dumping stays at the floor (v34 big-gap dumps from teams just above it only moved the shortfall: NBA S16 15 under)
       if (tradeRestricted(L, p) || (tradeStatus(L, p) || {}).k === 'protect' || iconTier(L, p, A.id) === 2 || p.injLong) continue;
       if (!big && !(payA > TAXLINE || (p.mval || 0) < hit * 0.9 || ((A.mode === 'rebuild' || A.mode === 'tank' || payA > CAP) && p.age >= 27))) continue;   // a burden for them (v34: any non-core deal when the gap is big)
       cands.push({ A, p, hit, sc: -Math.abs(gap - hit) + (payA > TAXLINE ? 6 : 0) + (yl === 1 ? 2 : 0) });
@@ -5786,17 +5787,20 @@ function floorSign(L, B, lastCall) {
   let gap = floorGap(L, B), room = CAP - payroll(L, B) - floorPend(L, B), n = 0;
   const sorted = rosterOf(L, B).map(x => x.ovr).sort((a, b) => b - a), bar = Math.max(FLOOR_FILL.minOvr, Math.min(60, sorted[11] || 0));
   while (gap >= FLOOR_FILL.minGap && room >= 1.5 && n < FLOOR_FILL.maxSign) {
-    const fas = L.fa.map(id => L.players[id]).filter(p => p && !p.retired && !p.prospect && !p.abroad && p.ovr >= bar && p.ask != null && !p.sheet && !isRFA(L, p) && !(L.faOffers || {})[p.id]).sort((a, b) => b.ovr - a.ovr || b.mval - a.mval);
+    // v35a: after the 56+ pool is gone, 55- players (better than the man cut for them) on 1-year floor deals above the minimum
+    const lowBar = B.roster.length >= 15 ? Math.max(FLOOR_FILL.lowOvr, ...rosterOf(L, B).filter(x => capHit(L, x) === 0).map(x => x.ovr + 1).sort((a, b) => a - b).slice(0, 1)) : FLOOR_FILL.lowOvr;
+    const fas = L.fa.map(id => L.players[id]).filter(p => p && !p.retired && !p.prospect && !p.abroad && (p.ovr >= bar || (p.ovr <= 55 && p.ovr >= lowBar)) && p.ask != null && !p.sheet && !isRFA(L, p) && !(L.faOffers || {})[p.id]).sort((a, b) => b.ovr - a.ovr || b.mval - a.mval);
     let done = false;
     for (const p of fas.slice(0, 6)) {
       if (signConcerns(L, p, B, 'signing').refuse) continue;
       // Kenneth's rule holds: 55 and under not here (minimum), 56-59 at most ~2.2x the minimum when 25 or younger, nobody under 60 at $10M+
-      const lim = p.ovr >= 60 ? Infinity : p.age <= 25 ? MINSAL * FLOOR_FILL.youngMax : ASK_REL.u60;
-      const amt0 = Math.min(gap, room, maxFor(p), lim, Math.max(p.ask, p.mval || MINSAL) * FLOOR_FILL.prem + FLOOR_FILL.plus);
-      const amt = amt0 < 1.5 ? MINSAL : r1(amt0); if (amt + 1e-6 < p.ask) continue;
-      const big = gap >= MINPAY * FLOOR_FILL.bigGapK, yrs = big && p.age <= 30 ? 2 : p.age >= 28 || amt > (p.mval || 0) * 1.5 ? 1 : 2, hit = contractHit(amt, false);   // v34: a big gap takes 2-year deals
+      // v35a: 55- (floor deals only): above the minimum, under $10M; 25 and under at most the young cap (2.4x), like 56-59
+      const low = p.ovr <= 55, lim = p.ovr >= 60 ? Infinity : p.age <= 25 ? MINSAL * FLOOR_FILL.youngMax : low ? FLOOR_FILL.lowMax : ASK_REL.u60;
+      const amt0 = Math.min(Math.max(gap, MINSAL + 0.2), room, maxFor(p), lim,  low ? Infinity : Math.max(p.ask, p.mval || MINSAL) * FLOOR_FILL.prem + FLOOR_FILL.plus);
+      const amt = amt0 < MINSAL + 0.15 ? MINSAL : r1(amt0); if (amt + 1e-6 < p.ask || (low && amt <= MINSAL + 1e-6)) continue;
+      const big = gap >= MINPAY * FLOOR_FILL.bigGapK, yrs = low ? 1 : big && p.age <= 30 ? 2 : p.age >= 28 || amt > (p.mval || 0) * 1.5 ? 1 : 2, hit = contractHit(amt, false);   // v34: a big gap takes 2-year deals
       if (yrs > 1 && !futFits(L, B, hit, yrs - 1)) continue;
-      if (B.roster.length >= 15) { const c = floorCut(L, B, p); if (!c) return n; c.tx.push({ s: L.season, t: `Released by ${B.abbr} to open a roster spot` }); toFA(L, c); }
+      if (B.roster.length >= 15) { const c = floorCut(L, B, p); if (!c) return n; if (capHit(L, c) > 0) release(L, c); else { c.tx.push({ s: L.season, t: `Released by ${B.abbr} to open a roster spot` }); toFA(L, c); } }   // v35a: a non-minimum deal is released (dead money)
       signContract(L, p, B.id, amt, yrs, 'payroll');
       gap -= hit; room -= hit; n++; done = true;
       if (amt > (p.mval || 0) * 1.3) p.tx.push({ s: L.season, t: `Paid above his value: ${B.abbr} were under the payroll floor` });
@@ -5806,12 +5810,39 @@ function floorSign(L, B, lastCall) {
   }
   return n;
 }
+// v35a (Kenneth: renegotiation): at the end of free agency a team still under the floor uses its cap room to give its own players a raise
+// for this season only (real NBA renegotiation; rookie-scale and two-way deals can't be). Best players first. Kenneth's rule holds on the new
+// amount: under 60 under $10M, 25-and-under 56-59 at most 2.4x the minimum, 55- at most FLOOR_FILL.lowMax. A minimum deal is raised only in
+// its last season (the raise is that season's salary). Later seasons of the deal are unchanged (contract.sched / s0, as real yearly deals).
+const FLOOR_RENEGO = { on: true, minRaise: 0.5 };
+function floorRenego(L, B) {
+  if (!FLOOR_RENEGO.on) return 0;
+  const cs = capSeason(L); let gap = floorGap(L, B), room = CAP - payroll(L, B, cs), n = 0, tot = 0;
+  if (gap < FLOOR_FILL.minGap) return 0;
+  for (const p of rosterOf(L, B).sort((a, b) => b.ovr - a.ovr)) {
+    if (gap < FLOOR_FILL.minGap || room < FLOOR_RENEGO.minRaise) break;
+    const c = p.contract; if (!c || c.exp < cs || c.type === 'rookie' || p.tw || p.ext) continue;
+    const isMin = c.amt <= MINSAL + 1e-9; if (isMin && c.exp !== cs) continue;
+    const cur = isMin ? MINSAL : (c.sched && c.s0 != null && c.sched[cs - c.s0] != null ? c.sched[cs - c.s0] : c.amt);
+    const lim = p.ovr >= 60 ? maxFor(p) : p.age <= 25 && p.ovr >= 56 ? MINSAL * ASK_YOUNG_X : p.ovr <= 55 ? FLOOR_FILL.lowMax : ASK_REL.u60;
+    const to = r1(Math.min(lim, maxFor(p), (isMin ? 0 : cur) + Math.min(Math.max(gap, isMin ? MINSAL + 0.2 : FLOOR_RENEGO.minRaise), room)));   // a minimum deal's cap hit goes from 0 to the new amount
+    const before = capHit(L, p, cs);
+    if (to < cur + FLOOR_RENEGO.minRaise || to <= MINSAL + 0.15) continue;
+    if (isMin) c.amt = to;
+    else { if (!(c.sched && c.s0 != null)) { c.s0 = cs; c.sched = []; for (let y = cs; y <= c.exp; y++) c.sched.push(c.amt); } c.sched[cs - c.s0] = to; }
+    const add = capHit(L, p, cs) - before; gap -= add; room -= add; tot += add; n++;
+    c.reneg = cs; p.tx.push({ s: L.season, t: `Renegotiated: ${B.abbr} raised his ${yr(cs)} salary to ${money(to)} (payroll floor)` });
+  }
+  if (n) logNews(L, `${B.city} ${B.name} used their cap room to renegotiate ${n} contract${n > 1 ? 's' : ''} (+${money(r1(tot))} this season) to reach the ${money(MINPAY)} payroll floor`, B.id, 'tx');
+  return n;
+}
 function floorFill(L, lastCall) {
   if (!FLOOR_FILL.on || L.phase !== 'off-fa') return;
   for (const B of L.teams.slice().sort((a, b) => payNoFloor(L, a) - payNoFloor(L, b))) {
     if (B.id === L.user || floorGap(L, B) < FLOOR_FILL.minGap) continue;
     if (L.faDay >= FLOOR_FILL.absorbDay && inTradeWindow(L)) { const tr = floorAbsorb(L, B); if (tr) { if (L.mode === 'commish') { tr.when = seasonLabel(L); tr.isNew = true; L.pending.push(tr); } else executeTrade(L, tr); logNews(L, tr.why, tr.b, 'trade'); } }
     if (L.faDay >= FLOOR_FILL.signDay || lastCall) floorSign(L, B, lastCall);
+    if (lastCall) floorRenego(L, B);   // v35a
   }
 }
 function userRosterProblem(L) {
@@ -5932,10 +5963,10 @@ function startNewSeason(L) {
   }
   for (const t of L.teams) for (const p of twOf(L, t)) { p.tw.games = 0; p.tw.s = L.season; }
   aiFillTwoWay(L);
-  try { holdoutCheck(L); } catch (e) { }
   setLgOvr(L);
   try { pipeBuild(L); } catch (e) { console.error('pipeBuild', e); }   // v29 P3: clubs for unsigned free agents, college / club rosters
   L.phase = 'regular';
+  try { holdoutCheck(L); } catch (e) { }   // v35a: after the phase turns 'regular', so capSeason is this season (before, it was next season: a holdout raise was checked against the wrong year's hard cap and ran a season too long; v34 S2 TOR $226.4M)
   logNews(L, `The ${yr(L.season)} season begins`, null, 'league');
   try { storyEnd(L); storyStart(L); } catch (e) { }
 }

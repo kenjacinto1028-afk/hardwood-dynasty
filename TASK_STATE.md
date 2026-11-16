@@ -1,3 +1,15 @@
+# TASK_STATE — v35a floor + payroll + hard cap (Opus) — Nov 16 2026
+
+- [x] 0. Clone + merge Kenneth's v34 upload (PROGRESS v34, t34, runs32/v34-*, v34sum, saves); baseline = tools/runs32/v34-*.txt
+- [x] 2a. Trace: r30 FLOORLOG=1 ('F' rows after FA) reproduces v34 PBL S1-6 exactly. PBL S6 (avg 108, 11 under): no 56+ FAs left, few teams above the floor to dump salary, floor rosters full of rookie / minimum deals (S1 initial contracts gone by S5-6)
+- [x] 2b. Spike causes: PBL S6-7 = league-wide salary trough (avg 108-112 vs floor 120; no 56+ FAs, rosters of cheap rookies). NBA S16 = expiry echo (extension money expiring into S16 $1.2B vs $0.4B at S11; avg 150.5), and big-gap floor dumps from teams just above the floor only moved the shortfall (14-16 under every FA day). Fixes: floorRenego + 55- floor deals; floorAbsorb donor must stay >= floor (S16 save: 15 -> 0 under)
+- [x] 1. PBL floor (10 seasons: <=2 under 9/9, min team 120): floorSign 55- (>=48, better than the man cut) 1-yr floor deals above min, < $10M, 25- at 2.4x; youngMax = ASK_YOUNG_X; small gaps (min+0.2); Kenneth picked renegotiation: floorRenego (end of FA, own non-rookie players, this season only via sched) — testing
+- [x] 3. NBA payroll 166.5 after fixes (short). RESIGN_K midFull tried: A/B 10 seasons identical (163.4), price losses 1-2/summer; reverted. Open for Kenneth
+- [x] 5. Hard cap: reproduced (r30 audit + new startNewSeason audit): not a trade - TOR crossed at season start when holdoutCheck re-signed Quickley 32.5->47 while capSeason still pointed at next season (phase not yet 'regular'); swapFits checked the wrong year, deal ran a year long. Fix: holdoutCheck after L.phase='regular' (league.js startNewSeason)
+- [x] 6. Tests (new saves): t34 19/19 (migration check fixed for aged directors), t33b 30/30, t33d 17/17, t32e 21/21, t32h 11/11, t30a 29/0; 20 seasons NBA + PBL16 with SNAPOUT (tools/runs32/v35a-*), saves remade incl. nba-team
+- [x] 7. PROGRESS + README, commit, zips (src / tools)
+
+---
 # TASK_STATE — v34 tuning follow-ups + scouting overhaul (Opus) — Nov 16 2026
 
 Kenneth's C answers (Nov 16): pro fog Medium (OVR/ratings as your staff's read ±1-4, own roster exact, stats exact); one director with draft + pro ratings; scouting budget 3-5 levels (staff budget, accuracy + assignment slots); AI uses fogged reads in draft + FA bids, trades stay true.

@@ -25,12 +25,15 @@ var V32H={over:{},ev:[]};
 (function(){
  const chk=(L,ev,d)=>{try{const cs=capSeason(L);for(const t of L.teams){const k=t.id+'|'+cs,o=payNoFloor(L,t,cs)>APRON+0.5;if(o&&!V32H.over[k])V32H.ev.push(Object.assign({s:L.season,ph:L.phase,ev,t:t.abbr,u:t.id===L.user,pay:+payNoFloor(L,t,cs).toFixed(1)},d&&d.tid===t.id?{pre:d.pre,who:d.who}:{}));V32H.over[k]=o;}}catch(e){}};
  const sc=signContract;signContract=function(L,p,tid,amt,yrs,type){if(inSnt)return sc.apply(this,arguments);let d=null;try{d={tid,pre:+payNoFloor(L,L.teams[tid],capSeason(L)).toFixed(1),who:p.name+' '+p.ovr+' $'+amt+'x'+yrs};}catch(e){}const r=sc.apply(this,arguments);chk(L,'sign:'+type,d);return r;};
- let inSnt=false;const et=executeTrade;executeTrade=function(L){const r=et.apply(this,arguments);if(!inSnt)chk(L,'trade');return r;};
+ let inSnt=false;const et=executeTrade;executeTrade=function(L,tr){let pre=null;try{const cs=capSeason(L);pre=[tr.a,tr.b].map(i=>L.teams[i].abbr+' '+payNoFloor(L,L.teams[i],cs).toFixed(1));}catch(e){}const r=et.apply(this,arguments);if(!inSnt){const k0=V32H.ev.length;chk(L,'trade');for(const e of V32H.ev.slice(k0)){e.tr=pre;e.trId=String(tr.id||'').slice(0,24);}}return r;};   // v35a: teams in the trade + their pay before
  if(typeof executeTrade3==='function'){const e3=executeTrade3;executeTrade3=function(L){const r=e3.apply(this,arguments);chk(L,'trade3');return r;};}
  if(typeof doSignAndTrade==='function'){const ds=doSignAndTrade;doSignAndTrade=function(L){inSnt=true;let r;try{r=ds.apply(this,arguments);}finally{inSnt=false;}chk(L,'sign-and-trade');return r;};}   // v33d: the re-sign inside a sign-and-trade is checked after the trade
  const sr=startResign;startResign=function(L){chk(L,'pre-resign');const r=sr.apply(this,arguments);chk(L,'resign/options');return r;};
- const sn=startNewSeason;startNewSeason=function(L){chk(L,'pre-season');return sn.apply(this,arguments);};
+ const sn=startNewSeason;startNewSeason=function(L){chk(L,'pre-season');const cs=capSeason(L),snap=()=>L.teams.map(t=>Object.fromEntries([...t.roster.map(id=>[L.players[id].name,+capHit(L,L.players[id],cs).toFixed(2)]),...(t.dead||[]).filter(d=>d.exp>=cs&&(d.from==null||d.from<=cs)).map((d,i)=>['dead '+d.name+i,d.amt])]));const b0=snap(),p0=L.teams.map(t=>payNoFloor(L,t,cs)),cj=Object.fromEntries(L.teams.flatMap(t=>t.roster).map(id=>[L.players[id].name,JSON.stringify({c:L.players[id].contract,ext:L.players[id].ext,cr:L.players[id].capRelief})]));const r=sn.apply(this,arguments);   // v35a: what startNewSeason changes on a team that ends over the hard cap
+  L.teams.forEach((t,i)=>{const p1=payNoFloor(L,t,cs);if(p1>APRON+0.5&&p0[i]<=APRON+0.5){const a=b0[i],b=snap()[i],d=[];for(const k of new Set([...Object.keys(a),...Object.keys(b)]))if(a[k]!==b[k]){d.push(k+' '+a[k]+'->'+b[k]);const P=Object.values(L.players).find(x=>x.name===k);if(P&&cj[k])d.push('BEFORE '+cj[k]+' AFTER '+JSON.stringify({c:P.contract,ext:P.ext,cr:P.capRelief,inj:P.injury}));}V32H.ev.push({s:L.season,ph:'new-season',ev:'startNewSeason',t:t.abbr,pre:+p0[i].toFixed(1),pay:+p1.toFixed(1),d});V32H.over[t.id+'|'+cs]=true;}});return r;};
 })();
+// v35a: errors inside floorFill (faDay swallows them)
+var V35E=[];(function(){if(typeof floorFill!=='function')return;const ff=floorFill;floorFill=function(L){try{return ff.apply(this,arguments);}catch(e){V35E.push('S'+L.season+' d'+L.faDay+' '+String(e.stack).slice(0,400));if(V35E.length<20)console.log('FERR '+V35E[V35E.length-1]);throw e;}};})();
 // v32g: mid-level use (offseason + season), unsigned 65+ free agents after free agency
 var V32G={sg:[]};
 (function(){const sc=signContract;signContract=function(L,p,tid,amt,yrs,type,opt,extra){try{if(type==='signing'&&typeof contractHit==='function'){const t=L.teams[tid],pre=payroll(L,t),hit=contractHit(amt,false);if(hit>0)V32G.sg.push({tid,amt,o:p.ovr,a:p.age,how:pre+hit<=CAP+1e-6?'room':'mle',ph:L.phase==='regular'?'rs':'off'});}}catch(e){}return sc.apply(this,arguments);};})();
@@ -57,7 +60,8 @@ const weird=()=>{const w=[];const on=new Map();for(const t of L.teams)for(const 
 for(let y=1;y<=N;y++){const t0=Date.now();R30.inj={rs:0,po:0,rsG:0,poG:0};const tw0={calls:R30.tw.calls,no:R30.tw.no};const row={s:L.season};
  try{
  row.start=seasonStart();row.jerseyStart=jersey();
- let g=0;while(L.phase==='regular'&&g++<400){simDay(L);answerIv();}
+ const capSnap=()=>{const cs=capSeason(L);return L.teams.map(t=>({pay:payNoFloor(L,t,cs),c:Object.fromEntries([...t.roster.map(id=>[id,+capHit(L,L.players[id],cs).toFixed(2)]),...(t.dead||[]).filter(d=>d.exp>=cs).map((d,i)=>['dead'+i+':'+d.pid,d.amt])])}));};let cap0=${process.env.CAPDAY?1:0}?capSnap():null;   // v35a: CAPDAY=1 logs the day a team crosses the hard cap in the season, with what changed
+ let g=0;while(L.phase==='regular'&&g++<400){simDay(L);answerIv();if(cap0){const c1=capSnap();c1.forEach((x,i)=>{if(x.pay>APRON+0.5&&cap0[i].pay<=APRON+0.5){const a=cap0[i].c,b=x.c,d=[];for(const k of new Set([...Object.keys(a),...Object.keys(b)]))if(a[k]!==b[k])d.push((L.players[k.split(':').pop().replace('dead','')]||{name:k}).name+' '+k+' '+a[k]+'->'+b[k]);console.log('CAP '+JSON.stringify({s:L.season,day:L.day,t:L.teams[i].abbr,pre:+cap0[i].pay.toFixed(1),pay:+x.pay.toFixed(1),d}));}});cap0=c1;}}
  row.twFillEnd=L.teams.reduce((a,t)=>a+(t.twoWay||[]).length,0);
  processPending(L);startPlayoffs(L);g=0;while(L.phase==='playoffs'&&g++<400){simPlayoffDay(L);answerIv();}
  // series lengths (skip play-in)
@@ -84,6 +88,16 @@ for(let y=1;y<=N;y++){const t0=Date.now();R30.inj={rs:0,po:0,rsG:0,poG:0};const 
  if(U!=null)L.user=U;
  if(L.ivUsed){const ks=L.ivUsed.ks;const d=ks.length-new Set(ks).size;iv.dupKeys+=d;iv.seasons.push(ks.length);}
  if(L.ivDone)for(const k in L.ivDone)if(k.startsWith(L.season+':')){const st=k.split(':')[1];iv.stages[st]=(iv.stages[st]||0)+(L.ivDone[k]>0?1:0);}
+ if(${process.env.FLOORLOG?1:0})try{const S=L.season+1,fa=(L.fa||[]).map(id=>L.players[id]).filter(p=>p&&!p.retired&&!p.prospect&&!p.abroad);   // v35a: floor trace (after FA)
+  const ex=V32E.exp;const und=L.teams.filter(t=>payNoFloor(L,t,S)<MINPAY-0.5);
+  const expNext=t=>rosterOf(L,t).filter(p=>p.contract&&p.contract.exp===S).reduce((a,p)=>a+capHit(L,p,S),0);
+  const rn=Object.values(L.players).filter(p=>p.contract&&p.contract.reneg===S);console.log('F '+JSON.stringify({s:L.season,floor:MINPAY,reneg:rn.length,renegTeams:new Set(rn.map(p=>p.team)).size,payr:Object.values(L.players).filter(p=>p.contract&&p.contract.type==='payroll'&&p.contract.exp>=S&&(p.contracts||[]).slice(-1)[0]&&p.contracts.slice(-1)[0].s===S).length,fa56:fa.filter(p=>p.ovr>=56).length,fa60:fa.filter(p=>p.ovr>=60).length,fa50:fa.filter(p=>p.ovr>=50&&p.ovr<56).length,
+   faTop:fa.sort((a,b)=>b.ovr-a.ovr).slice(0,5).map(p=>p.name+' '+p.ovr+' a'+p.age+' ask'+p.ask+(isRFA(L,p)?' RFA':'')),
+   allExpNext:+L.teams.reduce((a,t)=>a+expNext(t),0).toFixed(1),
+   under:und.map(t=>({t:t.abbr,m:t.mode,pay:+payNoFloor(L,t,S).toFixed(1),n:t.roster.length,expNext:+expNext(t).toFixed(1),
+    c:rosterOf(L,t).filter(p=>capHit(L,p,S)>0).sort((a,b)=>capHit(L,b,S)-capHit(L,a,S)).map(p=>p.ovr+' '+(+capHit(L,p,S).toFixed(1))+' e'+p.contract.exp+' '+(p.contract.type||'').slice(0,4)),
+    mins:rosterOf(L,t).filter(p=>capHit(L,p,S)===0).length,
+    left:ex.filter(x=>x.tid===t.id).map(x=>{const p=L.players[x.pid];return x.ovr+(p&&p.team===t.id?' kept':' -> '+(p&&p.team!=null?L.teams[p.team].abbr:'FA'));})}))}));}catch(e){console.log('F err '+e.message);}
  row.jerseyOff=jersey();
  try{const S=L.season-0;const ex=V32E.exp.filter(x=>L.teams[x.tid]&&x.tid!==U);const kept=ex.filter(x=>{const p=L.players[x.pid];return p&&p.team===x.tid;});const g60=ex.filter(x=>x.ovr>=60),k60=g60.filter(x=>{const p=L.players[x.pid];return p&&p.team===x.tid;});
   const pc=V32E.sign.filter(x=>x.ovr>=70&&x.age>=29&&x.amt<=0.8*(x.mval||0)&&['allin','contend','push'].includes(x.st));

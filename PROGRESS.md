@@ -1,5 +1,8 @@
 # PBL progress
 
+## Haiku (Nov 16 2026): 7t / 8t wordings
+- [x] Scouting report (`sc.*`, 5 keys) and ticker (`tk.*`, 12 keys) in `src/league.js` FLAVOR: +3 wordings each, 7 per key. Same `{vars}`, under 140 characters, `'won\'t'` escaped. No code change. Checks: node --check OK, lint 106 PASS, t30c 30/30
+
 ## v33e (Sonnet, Nov 16 2026): legends' trophy cases, single-file build, floor messages at 390px
 - [x] Retired legends (History > Legends > click a name): new "Trophy case" in the legend popup with All-League 1st / 2nd / 3rd, All-Defense 1st / 2nd and All-Star rows, one chip per season (e.g. 1986-87), from `NBA_HX.aw` (`hxHonors(name)` in `tools/hx-fn.js`, re-appended to `src/nba-history.js` with the same marker line; the data line is untouched). `trophyCase` (player pages) and the legend popup share one renderer, `trophyCaseHtml(ys, label)`. Jordan: All-League 1st x10, 2nd x1, All-Defense 1st x9, All-Star x14. All-Rookie rows left out (not asked)
 - [x] Single-file build: `src/index.template.html` gets an `/*NBA*/` marker; `python3 -I build.py --single . [out.html]` stitches the page (CSS, vendor, engine, league, nba-2026, nba-text, nba-setup, nba-history, app; same order as index.html; `</script` / `</style` escaped). The old template had no NBA files at all (not only nba-history.js), so NBA mode could not start in the single file. Built file 4.0 MB; the v33e browser test passes on it (52/52)

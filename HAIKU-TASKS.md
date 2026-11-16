@@ -1,3 +1,9 @@
+# Haiku task: 7t / 8t wordings (Nov 16 2026) — done
+
+- [x] 8t Scouting report `sc.*` (5 keys: even, edge, matchup, inj, nomeet) and 7t ticker `tk.*` (12 keys: pts, pts.po, reb, ast, stl, blk, tpm, record, offdef, top, treq, block) in `src/league.js` FLAVOR: +3 wordings each, now 7 per key. Same `{vars}` as the first wording, under 140 characters. The refactor into keys was already done in v30 (N1), so the older "NOT keyed" lines below are out of date. `node --check src/league.js` OK, `node tools/lint-v30-text.js` PASS (106 keys), `node tools/t30c.js` 30/30.
+
+---
+
 # v32g Haiku task: news wordings (Nov 16 2026) — done
 
 - [x] `news.paycut`, `news.leave` (src/league.js): 4 wordings each (+3). Other one-wording `news.*` keys: none left. Lint extended to these two keys (`node tools/lint-v30-text.js`). t30c 30/30.

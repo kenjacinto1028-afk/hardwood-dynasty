@@ -1,0 +1,34 @@
+CHANGED vs GitHub 1c6fa0b (pushed state):
+HAIKU-TASKS.md
+PROGRESS.md
+TASK_STATE.md
+src/league.js
+
+DELETED (25 root test copies; same files remain in tools/):
+auto.js
+browser-d28.py.txt
+browser-f4.py.txt
+browser-f5b.py.txt
+browser-h1.py.txt
+browser-h2.py.txt
+browser-k3.py.txt
+browser-l4.py.txt
+browser-n6.py.txt
+browser-s3.py.txt
+browser-u28.py.txt
+browser-v266.py.txt
+browser-v266b.py.txt
+browser-v29.py.txt
+browser-v30a.py.txt
+browser-v30t.py.txt
+browser-v31.py.txt
+browser-v32a.py.txt
+browser-v32g.py.txt
+f1.js
+h257.js
+h261.js
+h262.js
+v32stats.js
+x28.js
+
+RUN THE GAME: open index.html in a browser (all files under src/ must sit beside it).

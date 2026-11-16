@@ -1,3 +1,12 @@
+# TASK_STATE — Haiku 7t / 8t wordings (+3 per key) — Nov 16 2026
+
+- [x] H1. Clone (GitHub not linked for add_repo; public HTTPS clone worked). Read HAIKU-TASKS.md, TASK_STATE, lint and t30c; sc.*/tk.* already keyed (v30 N1), 4 wordings each
+- [x] H2. Added 3 wordings to all 17 keys (sc.* 5, tk.* 12) in src/league.js via tools/… scratch script (kept outside repo); each key now 7
+- [x] H3. Checks: node --check src/league.js + app.js OK; lint 106 PASS; t30c 30/30 (run before and after edit)
+- [x] H4. HAIKU-TASKS.md + PROGRESS.md updated; local git commit (push blocked: GitHub not linked); zip sent
+
+---
+
 # TASK_STATE — v33e UI follow-ups (Sonnet) — Nov 16 2026
 
 - [x] 1. Legends trophy cases: All-NBA / All-Defense / All-Star rows from NBA_HX.aw (app.js, hx-fn.js if needed) — hxHonors (hx-fn.js, re-appended to nba-history.js), trophyCaseHtml + legendCase (app.js), shown in legendDialog

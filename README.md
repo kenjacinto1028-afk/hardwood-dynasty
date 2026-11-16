@@ -14,6 +14,18 @@ The game is split into small files so a change rewrites one file, not 1.3 MB.
 | `src/nba-setup.js` | v30a NBA setup extras: real rookies (`nbaRookies`) + real jersey numbers (`NBA_JERSEY_CSV`, `nbaJerseys`) |
 | `src/index.template.html` | Page shell with markers `/*CSS*/ /*VENDOR*/ /*ENGINE*/ /*LEAGUE*/ /*APP*/` for the single-file build |
 
+## v33c (Opus, Nov 16 2026): PER / USG% / win shares / VORP + awards
+- league.js `computeAdv(L, key)` (calls `computeBPM` first; cached like it) -> `s.per / usg / ows / dws / ws / ws48 / vorp` on `p.stats.rs|po`, per team stint (`advStint`, `advTeamCtx`, `advApply`), frozen at season end. `advCareer(lines)`. `advBackfill(L)` (migrateLeague, once: `L.advFill`) fills past sim seasons of older saves (opponent line estimated, `s.advEst`).
+- Awards: `AW_ADV` weights (`on: false` = old scoring), `ADV_SHRINK`; `awardFns` returns `gs` (MVP / All-League blend), `gs0` (old game score), `gsY` (ROY / 6MOY / All-Rookie), `defS` (DPOY / All-Def, dComp has DWS + DBPM). `snapPlayer` keeps per / ws / ws48 / dws / bpm / dbpm (+ prevPer / prevWs48).
+- app.js: `usg()` prefers `s.usg`; `hasUsg`, `ws48Txt`, `advCells`, `advH` / `advTd` / `advLine` (ladders, award page, runners-up); Players table (basic PER / WS; advanced PER / OWS / DWS / WS / WS48 / VORP); player Advanced tab; leaders (`leadMap` per / ws48 / t:ws / t:vorp); records (season + career PER / WS / WS48, history merged); History list MVP numbers (`hxAwardAdv`).
+- History: `python3 -I tools/hx-adv.py.txt BREF_DATA_DIR . [REPORT]` after hx-pack: adds `NBA_HX.advRows` (per season, `year|TEAM` per traded stint), `advLeg`, `rec.adv.season*/career*`, `awAdv`; report `tools/runs32/v33c-hx-check.txt`. hx-fn.js: `hxAdvOf`, `hxRecAdvX`, `hxAwardAdv`; `hxFixRow` / legends use them. Re-append hx-fn.js after the data line when it changes.
+- Tests: `node tools/t33c.js`, `SNAP=tools/snap/nba-commish-s10.json.gz OLD=0|1 node tools/t33c-awards.js 10`, browser `tools/browser-v33c.py.txt`.
+
+## v33b (Opus, Nov 16 2026): asks follow the league, hard-cap hole
+- league.js: `ASK_REL`, `ASK_REF0`, `askPool`, `updateAskShift` (`L.askRef`, `L.askShift`; called by `computeMarket`); `lowAskCap` uses OVR - shift, soft part x `L.rampK`, capped at `RAMP_STEP` x per point above 59 (`top`); under 60 never $9.9M+. `computeMarket`: 1.2x lift (`MKT_RAMP_LIFT`), then `L.rampK` up to `RAMP_K_MAX` (2), then the scale up to `MKT_LIFT_MAX` (3) until the market spends the budget (`L.marketLift`). migrateLeague sets `askRef` for old saves.
+- Hard cap: `sheetStillFits` + `sheetDecide` (a declined offer sheet re-checks the offering team now; void -> unrestricted FA), `doSignAndTrade` re-checks the cap (returns a message; app shows it). `futFits(L, t, hit)` / `futRoom(L, t)`: the next two cap years must stay under the hard cap too (canFit, rookie deals for AI and you, extensions, offer-sheet match, FA bids, icon re-sign room).
+- Tests: `node tools/t33b.js` (t32e smooth-ramp check has 5% slack now).
+
 ## v32i S6b + v33a (Opus, Nov 16 2026)
 - `src/nba-history.js` (loaded after nba-setup.js; `tools/load.js` too): `NBA_HX` data + `hx*` functions (`hxTeamPanels`, `hxLeaders`, `hxRec*`, `hxHofRows`, `hxBestRecord`, BPM overrides on `nbaRealRows` / `nbaEstRows` / `nbaLegends`). Rebuild: `python3 -I tools/hx-build.py.txt HIST_DIR BREF_DATA_DIR /tmp/hx.json` then `python3 -I tools/hx-pack.py.txt /tmp/hx.json NAMES_JSON .`
 - app.js: `records()` merges history; HOF panel; team History tab panels (`data-hxty`); Seasons best record.
@@ -52,7 +64,7 @@ Code: `src/app.js` (blocks marked v32f: `histRows` merge in `vHistory`, `awardLe
 
 Code: `src/league.js`.
 - **Ask ramp** `ASK_RAMP`, `lowAskCap(L,p)` -> `{ cap, hard, soft }` or null (65+), `rampAmt(L,p,v)` (hard cap to 59, soft from 60), `capAsk`. Used by `computeMarket`, `setAsk`, `negotiate`, `faRound`.
-- **Market budget** `MKT_RAMP_LIFT` (1.2): `computeMarket` fits the scale with and without the ramp and uses the smaller of (with ramp) and (without x 1.2).
+- **Market budget** `MKT_RAMP_LIFT` (1.2): `computeMarket` fits the scale with and without the ramp and uses the smaller of (with ramp) and (without x 1.2). (v33b: then `rampK` / `MKT_LIFT_MAX` until the budget is spent, see v33b.)
 - **Re-signing** `resignWantP` (team wants him, chance), `resignLeave` (player reasons: money, win, role, mood, coach, fresh), `resignDecide`, `resignLog` (`L.resignLog = { s, n, kept, out, o60 }`), `RESIGN_WHY`. News `news.leave`.
 - **Win-first** no quota: `p.wfAsk = { s, yes }` decided once per summer; `WIN_FIRST = { ovr 66, age 30, leave 0.7, days 3, p 0.8, cut, floor }`.
 - Tests: `node tools/t32e.js` (21).

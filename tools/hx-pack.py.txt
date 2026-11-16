@@ -1,4 +1,5 @@
 # S6b: pack /tmp/hx.json (tools/hx-build.py.txt) + tools/hx-fn.js into src/nba-history.js.
+# v33c: then run tools/hx-adv.py.txt (PER / USG% / WS for history rows) on the packed file.
 # python3 -I tools/hx-pack.py.txt HX_JSON NAMES_JSON GAME_DIR   (NAMES_JSON: {"rows": [...], "legends": [...]} from src/nba-2026.js)
 import sys, json, unicodedata, re
 hx, names, game = json.load(open(sys.argv[1])), json.load(open(sys.argv[2])), sys.argv[3]

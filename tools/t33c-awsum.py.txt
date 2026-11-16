@@ -1,0 +1,22 @@
+# v33c award report: python3 tools/t33c-awsum.py.txt NEW.txt OLD.txt   (lines "A {...}" from tools/t33c-awards.js; OLD = OLD=1 run)
+import json, sys, collections
+def load(f): return [json.loads(l[2:]) for l in open(f) if l.startswith('A ') and l[2:].strip() != 'null']
+K = ['mvp', 'dpoy', 'roy', 'smoy', 'mip']
+def report(rows, tag):
+    print(f'== {tag}: {len(rows)} seasons')
+    for r in rows:
+        w = r['w']
+        f = lambda k: (f"{w[k]['n']} ({w[k]['tm']}, {w[k]['mpg']} mpg, PER {w[k]['per']}, WS {w[k]['ws']}, BPM {w[k]['bpm']}" + (f", DWS {w[k]['dws']}" if k == 'dpoy' else '') + ')') if w.get(k) else '-'
+        print(f"S{r['s']}: MVP {f('mvp')} [WS rank {r['mvpWsRank']}] | DPOY {f('dpoy')} [DWS rank {r['dpoyDwsRank']}] | ROY {w['roy']['n'] if w.get('roy') else '-'} | 6MOY {w['smoy']['n'] if w.get('smoy') else '-'} | MIP {w['mip']['n'] if w.get('mip') else '-'}")
+    n = len(rows)
+    m3 = sum(1 for r in rows if r['mvpWsRank'] and r['mvpWsRank'] <= 3); d5 = sum(1 for r in rows if r['dpoyDwsRank'] and r['dpoyDwsRank'] <= 5)
+    print(f'  MVP top-3 in WS: {m3}/{n} | DPOY top-5 in DWS: {d5}/{n}')
+    for k in K:
+        ws = [r['w'][k] for r in rows if r['w'].get(k)]
+        c = collections.Counter(x['n'] for x in ws); low = [f"{x['n']} {x['mpg']}" for x in ws if x['mpg'] < (30 if k in ('mvp', 'dpoy') else 20)]
+        print(f"  {k}: {len(set(x['n'] for x in ws))} different winners in {len(ws)}; most by one player {max(c.values()) if c else 0} ({c.most_common(1)[0][0] if c else '-'}); min MPG {min((x['mpg'] for x in ws), default=None)}; low-minute winners: {low or 'none'}")
+    agree = {k: sum(1 for r in rows if r['same'].get(k)) for k in K}
+    print('  same winner as the other scoring would pick (ladder leader, same season):', ', '.join(f'{k} {agree[k]}/{n}' for k in K))
+new, old = load(sys.argv[1]), load(sys.argv[2]) if len(sys.argv) > 2 else []
+report(new, 'new scoring (v33c)')
+if old: report(old, 'old scoring (AW_ADV.on = false, same seed, same saved league)')

@@ -1,0 +1,242 @@
+# v33c: the game's own PER / USG% / OWS / DWS / WS / WS/48 (same formulas as advStint / computeAdv in league.js) for every past NBA
+# regular season, from Basketball-Reference player totals + team / opponent totals; written into NBA_HX in src/nba-history.js
+# (advRows per player-season, advLeg per legend career, rec.adv lists, awAdv for award winners) and checked against B-Ref's own values.
+# Where the game can't recompute WS (no opponent box score / no minutes), B-Ref's WS stand in for the lists and career totals.
+#   python3 -I tools/hx-adv.py.txt BREF_DATA_DIR GAME_DIR [REPORT_TXT]
+# BREF_DATA_DIR = sumitrodatta/bball-reference-datasets/Data. Run after tools/hx-pack.py.txt (it patches the packed file in place).
+# Seasons without player minutes (1946-47 to 1950-51) keep B-Ref's values; seasons without an opponent box score (to 1969-70) get
+# PER / USG% only (WS keeps B-Ref's). A column missing for any team or most players that season (TOV, STL, BLK, ORB/DRB) is left out league-wide. Missing early columns: ORB/DRB split 30/70 of TRB,
+# STL / BLK / TOV 0 (team and player alike), so early-era values are rougher (see the report by era).
+import sys, json, math, re, unicodedata, collections
+import pandas as pd
+BR, GAME = sys.argv[1].rstrip('/') + '/', sys.argv[2]
+REP = sys.argv[3] if len(sys.argv) > 3 else None
+LAST = 2026; LG = ('NBA', 'BAA'); MULTI = ('TOT', '2TM', '3TM', '4TM', '5TM')
+def nrm(n): return re.sub(r'\s+', ' ', re.sub(r"[.'’`,-]", '', unicodedata.normalize('NFKD', str(n)).encode('ascii', 'ignore').decode().lower())).strip()
+def z(x): return 0.0 if x is None or (isinstance(x, float) and math.isnan(x)) else float(x)
+K = ['pts', 'fgm', 'fga', 'tpm', 'tpa', 'ftm', 'fta', 'orb', 'drb', 'ast', 'stl', 'blk', 'tov', 'pf']
+SRC = {'fgm': 'fg', 'tpm': 'x3p', 'tpa': 'x3pa', 'ftm': 'ft'}
+def box(d, pre=''):
+    g = lambda k: d.get(pre + SRC.get(k, k))
+    o = {k: z(g(k)) for k in K}
+    orb, drb, trb = g('orb'), g('drb'), d.get(pre + 'trb')
+    if (orb is None or (isinstance(orb, float) and math.isnan(orb))) and trb is not None and not (isinstance(trb, float) and math.isnan(trb)): o['orb'], o['drb'] = 0.3 * trb, 0.7 * trb
+    return o
+tot = pd.read_csv(BR + 'Player Totals.csv'); tot = tot[tot.lg.isin(LG) & (tot.season <= LAST)]
+tt = pd.read_csv(BR + 'Team Totals.csv'); tt = tt[tt.lg.isin(LG) & (tt.season <= LAST) & tt.abbreviation.notna()]
+ot = pd.read_csv(BR + 'Opponent Totals.csv'); ot = ot[ot.lg.isin(LG) & (ot.season <= LAST) & ot.abbreviation.notna()]
+adv = pd.read_csv(BR + 'Advanced.csv'); adv = adv[adv.lg.isin(LG) & (adv.season <= LAST)]
+
+def team_ctx(r, o):
+    T = box(r); O = box(o, 'opp_'); g = z(r.get('g'))
+    gm = z(r.get('mp')) / 5 if z(r.get('mp')) else 48 * g          # game minutes
+    T['mp'] = O['mp'] = 5 * gm
+    half = lambda a, b: a['fga'] + 0.4 * a['fta'] - 1.07 * (a['orb'] / max(1, a['orb'] + b['drb'])) * (a['fga'] - a['fgm']) + a['tov']
+    T['poss'] = O['poss'] = 0.5 * (half(T, O) + half(O, T)); T['pace'] = 48 * T['poss'] / max(1, gm); T['g'] = g; T['gm'] = gm
+    return T, O
+def stint(s, T, O, lg):
+    MP = s['mp']
+    if MP <= 0: return None
+    FG, FGA, TP, FT, FTA, ORB, DRB = s['fgm'], s['fga'], s['tpm'], s['ftm'], s['fta'], s['orb'], s['drb']
+    TRB = ORB + DRB; AST, STL, BLK, TOV, PF, PTS = s['ast'], s['stl'], s['blk'], s['tov'], s['pf'], s['pts']
+    tAF = T['ast'] / T['fgm'] if T['fgm'] else 0; V = lg['vop']; D = lg['drbp']
+    uPER = (1 / MP) * (TP + (2 / 3) * AST + (2 - lg['factor'] * tAF) * FG + FT * 0.5 * (1 + (1 - tAF) + (2 / 3) * tAF) - V * TOV - V * D * (FGA - FG) - V * 0.44 * (0.44 + 0.56 * D) * (FTA - FT)
+        + V * (1 - D) * (TRB - ORB) + V * D * ORB + V * STL + V * D * BLK - PF * ((lg['ftm'] / lg['pf']) - 0.44 * (lg['fta'] / lg['pf']) * V))
+    aPER = uPER * lg['pace'] / max(1e-6, T['pace'])
+    usg = 100 * ((FGA + 0.44 * FTA + TOV) * (T['mp'] / 5)) / (MP * max(1e-6, T['fga'] + 0.44 * T['fta'] + T['tov']))
+    sh = MP / (T['mp'] / 5); ftp = FT / FTA if FTA else 0; tftp = T['ftm'] / T['fta'] if T['fta'] else 0
+    qd = (T['fgm'] / T['mp']) * MP * 5 - FG
+    qAST = sh * (1.14 * ((T['ast'] - AST) / max(1, T['fgm']))) + ((((T['ast'] / T['mp']) * MP * 5 - AST) / qd) if qd > 0 else 0) * (1 - sh)
+    pfr = (PTS - FT) / (2 * FGA) if FGA else 0; oFGA = T['fga'] - FGA
+    FGp = FG * (1 - 0.5 * pfr * qAST)
+    ASTp = 0.5 * (((T['pts'] - T['ftm']) - (PTS - FT)) / (2 * oFGA)) * AST if oFGA > 0 else 0
+    FTp = (1 - (1 - ftp) ** 2) * 0.4 * FTA if FTA else 0
+    tSc = T['fgm'] + (1 - (1 - tftp) ** 2) * T['fta'] * 0.4
+    tORBp = T['orb'] / max(1, T['orb'] + O['drb'])
+    tPlay = tSc / max(1, T['fga'] + T['fta'] * 0.4 + T['tov'])
+    tORBw = ((1 - tORBp) * tPlay) / max(1e-6, (1 - tORBp) * tPlay + tORBp * (1 - tPlay))
+    ORBp = ORB * tORBw * tPlay; cut = 1 - (T['orb'] / max(1, tSc)) * tORBw * tPlay
+    ScPoss = (FGp + ASTp + FTp) * cut + ORBp
+    totPoss = ScPoss + (FGA - FG) * (1 - 1.07 * tORBp) + ((1 - ftp) ** 2 * 0.4 * FTA if FTA else 0) + TOV
+    ppFG = 2 * (FG + 0.5 * TP) * (1 - 0.5 * pfr * qAST)
+    oFG = T['fgm'] - FG
+    ppAST = 2 * ((oFG + 0.5 * (T['tpm'] - TP)) / oFG) * 0.5 * (((T['pts'] - T['ftm']) - (PTS - FT)) / (2 * oFGA)) * AST if oFG > 0 and oFGA > 0 else 0
+    ppORB = ORB * tORBw * tPlay * (T['pts'] / max(1, tSc))
+    pprod = (ppFG + ppAST + FT) * cut + ppORB
+    DORp = O['orb'] / max(1, O['orb'] + T['drb']); DFGp = O['fgm'] / max(1, O['fga'])
+    FMwt = (DFGp * (1 - DORp)) / max(1e-6, DFGp * (1 - DORp) + (1 - DFGp) * DORp)
+    st1 = STL + BLK * FMwt * (1 - 1.07 * DORp) + DRB * (1 - FMwt)
+    oftp = O['ftm'] / O['fta'] if O['fta'] else 0
+    st2 = (((O['fga'] - O['fgm'] - T['blk']) / T['mp']) * FMwt * (1 - 1.07 * DORp) + ((O['tov'] - T['stl']) / T['mp'])) * MP + ((PF / T['pf']) if T['pf'] else 0) * 0.4 * O['fta'] * (1 - oftp) ** 2
+    stopP = ((st1 + st2) * O['mp']) / max(1e-6, T['poss'] * MP)
+    tDR = 100 * O['pts'] / T['poss']; dPPS = O['pts'] / max(1, O['fgm'] + (1 - (1 - oftp) ** 2) * O['fta'] * 0.4)
+    drtg = tDR + 0.2 * (100 * dPPS * (1 - stopP) - tDR)
+    mpw = 0.32 * lg['ppg'] * (T['pace'] / lg['pace'])
+    ows = (pprod - 0.92 * lg['ppp'] * totPoss) / mpw; dws = (MP / T['mp']) * T['poss'] * (1.08 * lg['ppp'] - drtg / 100) / mpw
+    return {'MP': MP, 'aPER': aPER, 'usg': usg, 'ows': ows, 'dws': dws}
+
+out = {}          # name -> {y0: [per, usg, ows, dws, ws, ws48, mp]}; ows..ws48 None where the season has no opponent box score
+NOWS = set(); STINT = {}
+FR = {}
+for code, abbs in {'ATL': 'TRI MLH STL ATL', 'BOS': 'BOS', 'BKN': 'NJN NYN BRK', 'CHA': 'CHH CHA CHO', 'NOP': 'NOH NOK NOP', 'CHI': 'CHI', 'CLE': 'CLE', 'DAL': 'DAL', 'DEN': 'DEN', 'DET': 'FTW DET', 'GSW': 'PHW SFW GSW', 'HOU': 'SDR HOU', 'IND': 'IND', 'LAC': 'BUF SDC LAC', 'LAL': 'MNL LAL', 'MEM': 'VAN MEM', 'MIA': 'MIA', 'MIL': 'MIL', 'MIN': 'MIN', 'NYK': 'NYK', 'OKC': 'SEA OKC', 'ORL': 'ORL', 'PHI': 'SYR PHI', 'PHX': 'PHO', 'POR': 'POR', 'SAC': 'ROC CIN KCO KCK SAC', 'SAS': 'SAS', 'TOR': 'TOR', 'UTA': 'NOJ UTA', 'WAS': 'CHP CHZ BAL CAP WSB WAS'}.items():
+    for a in abbs.split(): FR[a] = code   # same franchise codes as tools/hx-build.py.txt
+def avail(T0, O0, g, col, ocol):
+    # a column counts only if every team, every opponent line and (nearly) every player row has it: zero it league-wide otherwise
+    return T0[col].notna().all() and O0[ocol].notna().all() and g[col].notna().mean() > 0.95
+for y, g in tot.groupby('season'):
+    T0 = tt[tt.season == y]; O0 = ot[ot.season == y]
+    if T0.empty: continue
+    drop = [c for c, oc in [('tov', 'opp_tov'), ('stl', 'opp_stl'), ('blk', 'opp_blk')] if not avail(T0, O0, g, c, oc)]
+    split = not avail(T0, O0, g, 'orb', 'opp_orb')
+    oppBox = O0.opp_fga.notna().all() and O0.opp_fg.notna().all()
+    if not oppBox: NOWS.add(int(y) - 1)
+    def fix(d, pre=''):
+        d = dict(d)
+        for c in drop: d[pre + c] = 0
+        if split: d[pre + 'orb'] = d[pre + 'drb'] = None
+        return d
+    T0 = pd.DataFrame([fix(r) for r in T0.to_dict('records')]); O0 = pd.DataFrame([fix(r, 'opp_') for r in O0.to_dict('records')])
+    if not oppBox:   # no opponent box score (to 1969-70): opponents get the league-average line scaled to their points (PER / USG% only)
+        avgT = {c: T0[c].mean() for c in ['fg', 'fga', 'x3p', 'x3pa', 'ft', 'fta', 'orb', 'drb', 'trb', 'ast', 'stl', 'blk', 'tov', 'pf', 'pts'] if c in T0}
+        rows_o = []
+        for r in O0.to_dict('records'):
+            k = z(r.get('opp_pts')) / max(1, avgT.get('pts', 1)) if z(r.get('opp_pts')) else 1
+            rows_o.append({**r, **{'opp_' + c: (v * k if v == v else v) for c, v in avgT.items()}})
+        O0 = pd.DataFrame(rows_o)
+    ctx = {}; lg = collections.Counter(); lgg = lgm = lgp = 0
+    for r in T0.to_dict('records'):
+        o = O0[O0.abbreviation == r['abbreviation']]
+        if not len(o) or not z(r.get('pts')): continue
+        T, O = team_ctx(r, o.iloc[0].to_dict()); ctx[r['abbreviation']] = (T, O)
+        for k in K: lg[k] += T[k]
+        lgg += T['g']; lgm += T['gm']; lgp += T['poss']
+    if not lgp or not lg['fgm'] or not lg['pf']: continue
+    L = {'pace': 48 * lgp / lgm, 'ppp': lg['pts'] / lgp, 'ppg': lg['pts'] / lgg}
+    trb = lg['orb'] + lg['drb']
+    L['factor'] = 2 / 3 - (0.5 * (lg['ast'] / lg['fgm'])) / (2 * (lg['fgm'] / max(1, lg['ftm'])))
+    L['vop'] = lg['pts'] / (lg['fga'] - lg['orb'] + lg['tov'] + 0.44 * lg['fta']); L['drbp'] = lg['drb'] / max(1, trb)
+    L['ftm'], L['fta'], L['pf'] = lg['ftm'], lg['fta'], lg['pf']
+    parts = g[~g.team.isin(MULTI)]
+    rows = collections.defaultdict(list)
+    for r in parts.to_dict('records'):
+        if r['team'] not in ctx: continue
+        b = box(fix(r)); b['mp'] = z(r.get('mp'))
+        if b['mp'] <= 0: continue
+        T, O = ctx[r['team']]; st = stint(b, T, O, L)
+        if st: st['tm'] = r['team']; rows[(r['player_id'], r['player'])].append(st)
+    W = sum(x['MP'] for v in rows.values() for x in v)
+    if not W: continue
+    k15 = 15 / (sum(x['aPER'] * x['MP'] for v in rows.values() for x in v) / W)
+    w = int(y) - 1 not in NOWS
+    def line(st):
+        mp = sum(x['MP'] for x in st); ows = sum(x['ows'] for x in st); dws = sum(x['dws'] for x in st)
+        per = sum(x['aPER'] * k15 * x['MP'] for x in st) / mp; usg = sum(x['usg'] * x['MP'] for x in st) / mp
+        return [round(per, 1), round(usg, 1), round(ows, 1) if w else None, round(dws, 1) if w else None, round(ows + dws, 1) if w else None, round((ows + dws) * 48 / mp, 3) if w else None, int(mp)]
+    for (pid, name), st in rows.items():
+        out.setdefault((pid, name), {})[int(y) - 1] = line(st)
+        if len(st) > 1:   # traded: each team stint too (the game's history rows are per team)
+            for x in st: STINT[(pid, int(y) - 1, FR.get(x['tm'], x['tm']))] = line([x])
+
+# ---------- check against Basketball-Reference ----------
+a1 = adv[~adv.team.isin(MULTI) | adv.team.isin(MULTI)].copy()
+has = a1.assign(m=a1.team.isin(MULTI)).groupby(['season', 'player_id']).m.transform('any'); a1 = a1[(~has) | a1.team.isin(MULTI)]
+real = {(r['player_id'], int(r['season']) - 1): r for r in a1.to_dict('records')}
+# seasons the game can't recompute (no opponent box score to 1969-70, no minutes to 1950-51): B-Ref's WS in the lists and careers (flag 9th value 1)
+FILLED = set()
+def zz(v): return None if v is None or (isinstance(v, float) and math.isnan(v)) else float(v)
+byPid = collections.defaultdict(dict)
+for (pid, name), ys in out.items(): byPid[pid] = (name, ys)
+for (pid, y), r in real.items():
+    if int(r['season']) > LAST or zz(r.get('ws')) is None: continue
+    name, ys = byPid.get(pid, (r['player'], None))
+    if ys is None: ys = out.setdefault((pid, r['player']), {}); byPid[pid] = (r['player'], ys)
+    v = ys.get(y)
+    if v is not None and v[4] is not None: continue
+    mp = int(zz(r.get('mp')) or 0)
+    if v is None: v = ys[y] = [zz(r.get('per')), zz(r.get('usg_percent')), None, None, None, None, mp]
+    v[2], v[3], v[4] = zz(r.get('ows')), zz(r.get('dws')), zz(r.get('ws')); v[5] = zz(r.get('ws_48')) if mp else None
+    FILLED.add((pid, y))
+cmp = collections.defaultdict(lambda: collections.defaultdict(list)); gaps = collections.defaultdict(list)
+for (pid, name), ys in out.items():
+    for y, v in ys.items():
+        r = real.get((pid, y))
+        if not r or v[6] < 500: continue
+        era = 'all'; e2 = '1951-70' if y < 1970 else '1970-73' if y < 1973 else '1973-77' if y < 1977 else '1977-99' if y < 2000 else '2000-26'
+        for i, k, rk in [(0, 'PER', 'per'), (1, 'USG%', 'usg_percent'), (2, 'OWS', 'ows'), (3, 'DWS', 'dws'), (4, 'WS', 'ws'), (5, 'WS/48', 'ws_48')]:
+            rv = r.get(rk)
+            if v[i] is None or (i >= 2 and (pid, y) in FILLED): continue   # B-Ref's own WS stand in there: not a check
+            if rv is None or (isinstance(rv, float) and math.isnan(rv)): continue
+            for e in (era, e2): cmp[e][k].append((v[i], float(rv)))
+            if e2 == '2000-26' or True: gaps[k].append((abs(v[i] - float(rv)), name, f'{y}-{str(y + 1)[2:]}', v[i], float(rv), v[6]))
+def corr(xy):
+    n = len(xy); mx = sum(a for a, b in xy) / n; my = sum(b for a, b in xy) / n
+    sx = math.sqrt(sum((a - mx) ** 2 for a, b in xy)); sy = math.sqrt(sum((b - my) ** 2 for a, b in xy))
+    return sum((a - mx) * (b - my) for a, b in xy) / (sx * sy) if sx and sy else float('nan')
+lines = ['v33c history recompute vs Basketball-Reference (player-seasons with 500+ min; game formula vs B-Ref value)', 'era | stat | n | corr | mean abs gap | mean (game / B-Ref)']
+for e in ['all', '1951-70', '1970-73', '1973-77', '1977-99', '2000-26']:
+    for k, xy in cmp[e].items():
+        lines.append(f'{e} | {k} | {len(xy)} | {corr(xy):.3f} | {sum(abs(a - b) for a, b in xy) / len(xy):.2f} | {sum(a for a, b in xy) / len(xy):.2f} / {sum(b for a, b in xy) / len(xy):.2f}')
+lines.append('largest gaps (all eras, 500+ min):')
+for k in ['PER', 'WS', 'WS/48', 'USG%']:
+    for gp, n, s, a, b, mp in sorted(gaps[k], reverse=True)[:5]: lines.append(f'  {k}: {n} {s} game {a} vs B-Ref {b} ({mp} min)')
+rep = '\n'.join(lines); print(rep)
+if REP: open(REP, 'w').write(rep + '\n')
+
+# ---------- patch NBA_HX ----------
+path = GAME + '/src/nba-history.js'; src = open(path).read()
+i = src.index('const NBA_HX = ') + len('const NBA_HX = '); j = src.index(';\n', i)
+H = json.loads(src[i:j])
+byN = collections.defaultdict(dict)
+for (pid, name), ys in out.items():
+    for y, v in ys.items():
+        cur = byN[nrm(name)].get(y)
+        if not cur or v[6] > cur[6]: byN[nrm(name)][y] = v       # same normalized name twice in a season: keep the bigger one
+need = set(H.get('bpmRows', {}).keys())
+H['advRows'] = {k: {str(y): v[:6] for y, v in byN[k].items()} for k in need if k in byN}
+pidOf = {}
+for (pid, name) in out: pidOf.setdefault(nrm(name), pid)
+for (pid, y, tm), v in STINT.items():   # 'year|TEAM' keys for traded seasons (the game's rows are per team)
+    k = next((n for n, p in pidOf.items() if p == pid), None)
+    if k in H['advRows']: H['advRows'][k][f'{y}|{tm}'] = v[:6]
+leg = {}
+for k in H.get('bpmLeg', {}).keys():
+    s = byN.get(k)
+    if not s: continue
+    pv = [v for v in s.values() if v[0] is not None and v[6]]; pm = sum(v[6] for v in pv)
+    wv = [v for v in s.values() if v[4] is not None]; ws = sum(v[4] for v in wv); wmv = [v for v in wv if v[6]]; wm = sum(v[6] for v in wmv)
+    if wv or pm: leg[k] = [round(sum(v[0] * v[6] for v in pv) / pm, 1) if pm else None, round(ws, 1) if wv else None, round(sum(v[4] for v in wmv) * 48 / wm, 3) if wm else None, round(sum(v[2] or 0 for v in wv), 1) if wv else None, round(sum(v[3] or 0 for v in wv), 1) if wv else None]
+H['advLeg'] = leg
+# league records (regular season): season PER / WS / WS/48 (1,500+ min), career PER / WS / WS/48 (15,000+ min)
+seas = [(name, y, v) for (pid, name), ys in out.items() for y, v in ys.items() if v[6] >= 1500 or (v[6] == 0 and v[4] is not None and v[4] >= 5)]
+lbl = lambda y: f'{y}-{str(y + 1)[2:]}'
+H['rec']['adv'].update({
+    'seasonPer': [[n, lbl(y), '', v[0], 'f'] for n, y, v in sorted([x for x in seas if x[2][0] is not None and x[2][6]], key=lambda x: -x[2][0])[:100]],
+    'seasonWs': [[n, lbl(y), '', v[4], 'f'] for n, y, v in sorted([x for x in seas if x[2][4] is not None], key=lambda x: -x[2][4])[:100]],
+    'seasonWs48': [[n, lbl(y), '', v[5], 'f'] for n, y, v in sorted([x for x in seas if x[2][5] is not None and x[2][6]], key=lambda x: -x[2][5])[:100]]})
+car = []
+for (pid, name), ys in out.items():
+    pv = [v for v in ys.values() if v[0] is not None and v[6]]; pm = sum(v[6] for v in pv)
+    wv = [v for v in ys.values() if v[4] is not None]; ws = sum(v[4] for v in wv); wmv = [v for v in wv if v[6]]; wm = sum(v[6] for v in wmv)
+    car.append((name, round(sum(v[0] * v[6] for v in pv) / pm, 1) if pm >= 15000 else -99, round(ws, 1) if wv else -99, round(sum(v[4] for v in wmv) * 48 / wm, 3) if wm >= 15000 else -99))
+H['rec']['adv'].update({'careerPer': [[n, p, 'f'] for n, p, w, w4 in sorted([c for c in car if c[1] > -99], key=lambda x: -x[1])[:100]],
+    'careerWs': [[n, w, 'f'] for n, p, w, w4 in sorted([c for c in car if c[2] > -99], key=lambda x: -x[2])[:100]],
+    'careerWs48': [[n, w4, 'f'] for n, p, w, w4 in sorted([c for c in car if c[3] > -99], key=lambda x: -x[3])[:100]]})
+# award winners (MVP / DPOY / ROY / 6MOY / MIP): recomputed PER, WS, BPM (game formula) for the history list
+aw = pd.read_csv(BR + 'Player Award Shares.csv'); aw = aw[aw.winner.astype(str).str.upper() == 'TRUE']
+AK = {'nba mvp': 'mvp', 'dpoy': 'dpoy', 'nba roy': 'roy', 'smoy': 'smoy', 'mip': 'mip'}
+idx = {(pid, y): v for (pid, name), ys in out.items() for y, v in ys.items()}
+bpmR = H.get('bpmRows', {})
+awAdv = {}
+for r in aw.to_dict('records'):
+    k = AK.get(str(r['award']).strip().lower()); y = int(r['season']) - 1
+    if not k or y > LAST - 1: continue
+    v = idx.get((r['player_id'], y))
+    if not v or v[0] is None: continue
+    b = None
+    try: b = (bpmR.get(nrm(r['player'])) or {}).get(str(y))
+    except Exception: b = None
+    awAdv.setdefault(str(y), {})[k] = [r['player'], v[0], v[4], v[5], b[2] if b else None]
+H['awAdv'] = awAdv
+src = src[:i] + json.dumps(H, separators=(',', ':'), ensure_ascii=False) + src[j:]
+open(path, 'w').write(src)
+print('advRows', len(H['advRows']), 'of', len(need), '| legends', len(leg), '| award seasons', len(awAdv), '| bytes', len(src.encode()))

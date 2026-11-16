@@ -261,8 +261,14 @@ function mleStatus(L, t, pay, hit) {
 // players (Bird rights), extensions and rookie deals still go up to the hard cap. Off = the v24.4 B2 rule (any signing up to the hard cap).
 const MLE_REAL = true;
 function mleFits(L, t, pay, hit) { return mleOpen(L, t) && hit <= MLE + 1e-6 && pay < TAXLINE && pay + hit <= APRON + 1e-6; }
+// v33b: the hard cap holds for the next seasons too. A deal that fits this cap year but would leave a later year over the hard cap
+// (rookie deals and multi-year signings on top of what is already committed) is refused; the AI can't fix a later year in time
+// (S16 NYK $228.8M next season in the v33b run). Checks the two cap years after this one.
+function futFits(L, t, hit, n) { const cs = capSeason(L); for (let i = 1; i <= (n == null ? 2 : n); i++) if (payNoFloor(L, t, cs + i) + hit > APRON + 1e-6) return false; return true; }
+function futRoom(L, t) { const cs = capSeason(L); return APRON - Math.max(payNoFloor(L, t, cs + 1), payNoFloor(L, t, cs + 2)); }
 function canFit(L, t, amt, hg, type) {
   const hit = contractHit(amt, hg); if (hit === 0) return true;
+  if (!futFits(L, t, hit)) return false;
   const pay = payroll(L, t);
   if (type === 're-sign' || type === 'extension' || type === 'rookie') return pay + hit <= APRON + 1e-6;
   if (pay + hit <= CAP + 1e-6) return true;
@@ -350,23 +356,46 @@ const fameLabel = f => f >= 80 ? 'Superstar' : f >= 60 ? 'Star' : f >= 35 ? 'Kno
 // (the part above it is kept at 15% at 60, 25% at 61 ... 55% at 64), so better young players still get more, just not a jump. 65+: open market.
 // Hidden rookies: the lower of the media read and the real rating.
 const ASK_RAMP = { min: 55, hard: 59, open: 65, base: 2, g: 1.38 };
+// v33b: the bands follow the league. L.askRef (set on the first market of a league) stores where OVR 55 / 59 / 65 sat in the
+// market pool (top 13 per team by OVR) as fractions; each market finds the OVRs at those fractions now, and the average move is
+// L.askShift (0 at the start league, so Kenneth's young-player rule holds there; 0.25 steps, -4..+6). A player's ramp uses OVR - shift.
+// Under 60 nobody asks $10M+ (absolute, whatever the shift).
+const ASK_REL = { q: [55, 59, 65], lo: -4, hi: 6, u60: 9.9 };
+const ASK_REF0 = { nba: [0.377, 0.544, 0.742], pbl: [0.376, 0.537, 0.714] };   // start-league fractions, for saves made before v33b
+function askPool(L) { return active(L).filter(p => !p.prospect && !p.abroad && !p.club).map(p => p.ovr).sort((a, b) => b - a).slice(0, 13 * L.teams.length).reverse(); }
+function askQ(a, f) { const x = clamp(f, 0, 1) * (a.length - 1), i = Math.floor(x), j = Math.min(a.length - 1, i + 1); return a[i] + (a[j] - a[i]) * (x - i); }
+function askFrac(a, v) { let lt = 0, eq = 0; for (const o of a) { if (o < v) lt++; else if (o === v) eq++; } return (lt + eq / 2) / Math.max(1, a.length - 1); }
+function updateAskShift(L) {
+  const a = askPool(L); if (a.length < 20) return;
+  if (!L.askRef || !L.askRef.f) { const f = ASK_REL.q.map(v => askFrac(a, v)); L.askRef = { f, q0: f.map(x => r1(askQ(a, x))), s: L.season }; }
+  const R0 = L.askRef, d = R0.f.reduce((sum, f, i) => sum + askQ(a, f) - R0.q0[i], 0) / R0.f.length;
+  L.askShift = clamp(Math.round(d * 4) / 4, ASK_REL.lo, ASK_REL.hi);
+}
 function lowAskCap(L, p) {
   if (!p || p.prospect) return null;
-  const o = L && hiddenFor(L, p) ? Math.min(p.ovr, ovrRead(L, null, p)) : p.ovr;
-  if (o >= ASK_RAMP.open) return null;
+  const o0 = L && hiddenFor(L, p) ? Math.min(p.ovr, ovrRead(L, null, p)) : p.ovr, o = o0 - ((L && L.askShift) || 0);
+  if (o >= ASK_RAMP.open) return o0 < 60 ? { cap: ASK_REL.u60, hard: true } : null;
   if (o <= ASK_RAMP.min) return { cap: MINSAL, hard: true };
   const jit = 0.88 + (flHash('ask|' + p.id) % 241) / 1000;   // stable per player
   const cap = MINSAL * ASK_RAMP.base * Math.pow(ASK_RAMP.g, o - ASK_RAMP.hard) * jit;
-  return { cap: Math.max(MINSAL, r1(cap)), hard: o <= ASK_RAMP.hard, soft: clamp(0.1 * (o - ASK_RAMP.hard) + 0.05, 0, 1) };
+  // v33b: rampK (market) lets more of the soft part through, but the ramp stays smooth: at most RAMP_STEP x per rating point above 59 (top)
+  return { cap: Math.max(MINSAL, r1(cap)), hard: o <= ASK_RAMP.hard, soft: clamp((0.1 * (o - ASK_RAMP.hard) + 0.05) * ((L && L.rampK) || 1), 0, 1), top: MINSAL * ASK_RAMP.base * Math.pow(RAMP_STEP, o - ASK_RAMP.hard) * jit };
 }
 function rampAmt(L, p, v) {   // apply the ramp to an amount (market value, ask, bid)
   const c = lowAskCap(L, p); if (!c || v == null || v <= c.cap) return v;
-  const out = c.hard ? c.cap : c.cap + c.soft * (v - c.cap);
+  let out = c.hard ? c.cap : Math.min(c.cap + c.soft * (v - c.cap), Math.max(c.cap, c.top));
+  if (p.ovr < 60) out = Math.min(out, ASK_REL.u60);
   return out < 1.5 ? MINSAL : r1(out);
 }
 function capAsk(L, p) { if (p.ask != null) p.ask = rampAmt(L, p, p.ask); return p.ask; }
-const MKT_RAMP_LIFT = 1.2;
+// v33b: the market spends the budget, following the league. With the 1.2x lift alone it totalled ~$152M a team in NBA mode and ~$120M
+// in PBL from season 1 (payroll drifted down to that). Step 1: the scale may rise to 1.2x (MKT_RAMP_LIFT) as before. Step 2: if that
+// is short of the budget, the soft part of the ramp (60-64, league-relative) lets more through (L.rampK up to RAMP_K_MAX), so the money
+// goes to mid-tier players that teams under the cap can afford, not only to stars already at the max. Step 3: if still short, the
+// scale rises up to MKT_LIFT_MAX. Hard part (59 and under, league-relative) and the under-60 $10M rule never change.
+const MKT_RAMP_LIFT = 1.2, RAMP_K_MAX = 2, MKT_LIFT_MAX = 3, RAMP_STEP = 2;
 function computeMarket(L) {
+  updateAskShift(L);
   const ps = active(L).filter(p => !p.prospect);
   const fb = p => Math.min(0.03, (p.fame || 0) / 100 * 0.03);   // fame adds a little beyond the accolade premium
   const wv = p => worth(hiddenFor(L, p) ? { ...p, ovr: ovrRead(L, null, p) } : p);   // v16: hidden rookies are valued on the media read
@@ -376,10 +405,16 @@ function computeMarket(L) {
   const budget = L.teams.length * CAP * SPEND_K;
   const total = (s, rmp) => top.reduce((sum, p) => { let v = Math.min(maxFor(p), s * W(p)); if (rmp) v = rampAmt(L, p, v); return sum + (v < 1.5 ? 0 : v); }, 0);
   // scale so expected league-wide spending lands near the budget (between the $120M floor and the cap)
-  const fit = rmp => { let lo = 0, hi = CAP; for (let i = 0; i < 40; i++) { const m = (lo + hi) / 2; if (total(m, rmp) > budget) hi = m; else lo = m; } return lo; };
+  const fit = rmp => { let lo = 0, hi = CAP * 4; for (let i = 0; i < 40; i++) { const m = (lo + hi) / 2; if (total(m, rmp) > budget) hi = m; else lo = m; } return lo; };
   // v32e: low-rated players are paid less (ramp); part of that money moves up to better players (the scale may rise up to 20%), the rest stays as team room
-  const scale = Math.min(fit(true), fit(false) * MKT_RAMP_LIFT);
-  L.marketScale = r1(scale);
+  L.rampK = 1;
+  const f0 = fit(false); let scale = Math.min(fit(true), f0 * MKT_RAMP_LIFT);
+  if (total(scale, true) < budget * 0.995) {
+    let lo = 1, hi = RAMP_K_MAX; L.rampK = hi;
+    if (total(scale, true) >= budget) { for (let i = 0; i < 24; i++) { L.rampK = (lo + hi) / 2; if (total(scale, true) > budget) hi = L.rampK; else lo = L.rampK; } L.rampK = Math.round(lo * 100) / 100; }
+    else scale = Math.min(fit(true), f0 * MKT_LIFT_MAX);
+  }
+  L.marketScale = r1(scale); L.marketLift = Math.round(scale / Math.max(1e-6, f0) * 100) / 100;
   for (const p of active(L)) { const b = accBoost(p, L.season); p.accPrem = Math.round(b * 100); const raw = scale * wv(p) * (1 + b + fb(p)) * (p.prone >= L.season - 1 ? 0.95 : 1) * (layoffAhead(L, p) >= 20 ? 1 - 0.35 * Math.min(1, layoffAhead(L, p) / SEASON_GAMES) : 1), v = Math.min(maxFor(p), raw); p.mval = v < 1.5 ? MINSAL : r1(v); p.mvalRaw = r1(raw); const rv = rampAmt(L, p, p.mval); if (rv < p.mval) { p.mval = rv; p.mvalRaw = Math.min(p.mvalRaw, rv); } }
 }
 // Players from recent champions and finalists want to be paid like winners (fades over two seasons)
@@ -2460,6 +2495,133 @@ function computeBPM(L, key, force) {
   }
 }
 
+// ---------- v33c: the game's own PER, USG%, win shares and VORP (Basketball-Reference formulas) ----------
+// Same inputs as computeBPM: each player's box line per team (stats.rsT / poT), that team's totals for and against, league totals.
+// PER: Hollinger's unadjusted PER, times league pace / team pace, scaled so the minutes-weighted league average is 15.
+// USG%: share of team plays used while on the floor. OWS: points produced (Oliver) minus 0.92 x league points per possession x
+// possessions used; DWS: minutes share x team defensive possessions x (1.08 x league points per possession - individual defensive
+// rating / 100); both divided by marginal points per win (0.32 x league points per game x team pace / league pace). WS/48 = WS per 48
+// minutes. VORP = (BPM + 2) x minutes / (48 x 82). Traded players: each team stint uses that team's context; WS add up, PER / USG% are minutes-weighted.
+const ADV_KEYS = ['per', 'usg', 'ows', 'dws', 'ws', 'ws48', 'vorp'];
+function advTeamCtx(x) {
+  const T = {}, O = {};
+  for (const k of TS_KEYS) { T[k] = x[k] || 0; O[k] = x['o' + k] || 0; }
+  T.mp = O.mp = 5 * x.min;                  // player-minutes (x.min = game minutes incl. overtime)
+  const half = (a, b) => a.fga + 0.4 * a.fta - 1.07 * (a.orb / Math.max(1, a.orb + b.drb)) * (a.fga - a.fgm) + a.tov;
+  T.poss = O.poss = 0.5 * (half(T, O) + half(O, T));
+  T.pace = 48 * T.poss / Math.max(1, x.min); T.g = x.g;
+  return { T, O };
+}
+// one stint: box line s (min in seconds) with team context T / O and league lg. Returns the parts to combine.
+function advStint(s, T, O, lg) {
+  const MP = (s.min || 0) / 60; if (MP <= 0) return null;
+  const nz = v => v || 0, FG = nz(s.fgm), FGA = nz(s.fga), TP = nz(s.tpm), FT = nz(s.ftm), FTA = nz(s.fta), ORB = nz(s.orb), DRB = nz(s.drb), TRB = ORB + DRB,
+    AST = nz(s.ast), STL = nz(s.stl), BLK = nz(s.blk), TOV = nz(s.tov), PF = nz(s.pf), PTS = nz(s.pts);
+  // PER (unadjusted, then pace)
+  const tAF = T.fgm ? T.ast / T.fgm : 0, V = lg.vop, D = lg.drbp;
+  const uPER = (1 / MP) * (TP + (2 / 3) * AST + (2 - lg.factor * tAF) * FG + FT * 0.5 * (1 + (1 - tAF) + (2 / 3) * tAF) - V * TOV - V * D * (FGA - FG) - V * 0.44 * (0.44 + 0.56 * D) * (FTA - FT)
+    + V * (1 - D) * (TRB - ORB) + V * D * ORB + V * STL + V * D * BLK - PF * ((lg.ftm / lg.pf) - 0.44 * (lg.fta / lg.pf) * V));
+  const aPER = uPER * lg.pace / Math.max(1e-6, T.pace);
+  const usg = 100 * ((FGA + 0.44 * FTA + TOV) * (T.mp / 5)) / (MP * Math.max(1e-6, T.fga + 0.44 * T.fta + T.tov));
+  // offense: points produced and possessions (Dean Oliver)
+  const sh = MP / (T.mp / 5), ftp = FTA ? FT / FTA : 0, tftp = T.fta ? T.ftm / T.fta : 0;
+  const qd = (T.fgm / T.mp) * MP * 5 - FG;
+  const qAST = sh * (1.14 * ((T.ast - AST) / Math.max(1, T.fgm))) + (qd > 0 ? (((T.ast / T.mp) * MP * 5 - AST) / qd) : 0) * (1 - sh);
+  const pfr = FGA ? (PTS - FT) / (2 * FGA) : 0, oFGA = T.fga - FGA;
+  const FGp = FG * (1 - 0.5 * pfr * qAST);
+  const ASTp = oFGA > 0 ? 0.5 * (((T.pts - T.ftm) - (PTS - FT)) / (2 * oFGA)) * AST : 0;
+  const FTp = FTA ? (1 - (1 - ftp) ** 2) * 0.4 * FTA : 0;
+  const tSc = T.fgm + (1 - (1 - tftp) ** 2) * T.fta * 0.4;
+  const tORBp = T.orb / Math.max(1, T.orb + (O.orb + O.drb - O.orb));
+  const tPlay = tSc / Math.max(1, T.fga + T.fta * 0.4 + T.tov);
+  const tORBw = ((1 - tORBp) * tPlay) / Math.max(1e-6, (1 - tORBp) * tPlay + tORBp * (1 - tPlay));
+  const ORBp = ORB * tORBw * tPlay, cut = 1 - (T.orb / Math.max(1, tSc)) * tORBw * tPlay;
+  const ScPoss = (FGp + ASTp + FTp) * cut + ORBp;
+  const totPoss = ScPoss + (FGA - FG) * (1 - 1.07 * tORBp) + (FTA ? (1 - ftp) ** 2 * 0.4 * FTA : 0) + TOV;
+  const ppFG = 2 * (FG + 0.5 * TP) * (1 - 0.5 * pfr * qAST);
+  const oFG = T.fgm - FG, ppAST = oFG > 0 && oFGA > 0 ? 2 * ((oFG + 0.5 * (T.tpm - TP)) / oFG) * 0.5 * (((T.pts - T.ftm) - (PTS - FT)) / (2 * oFGA)) * AST : 0;
+  const ppORB = ORB * tORBw * tPlay * (T.pts / Math.max(1, tSc));
+  const pprod = (ppFG + ppAST + FT) * cut + ppORB;
+  // defense: individual defensive rating (stops)
+  const DORp = O.orb / Math.max(1, O.orb + T.drb), DFGp = O.fgm / Math.max(1, O.fga);
+  const FMwt = (DFGp * (1 - DORp)) / Math.max(1e-6, DFGp * (1 - DORp) + (1 - DFGp) * DORp);
+  const st1 = STL + BLK * FMwt * (1 - 1.07 * DORp) + DRB * (1 - FMwt);
+  const oftp = O.fta ? O.ftm / O.fta : 0;
+  const st2 = (((O.fga - O.fgm - T.blk) / T.mp) * FMwt * (1 - 1.07 * DORp) + ((O.tov - T.stl) / T.mp)) * MP + (T.pf ? PF / T.pf : 0) * 0.4 * O.fta * (1 - oftp) ** 2;
+  const stopP = ((st1 + st2) * O.mp) / Math.max(1e-6, T.poss * MP);
+  const tDR = 100 * O.pts / T.poss, dPPS = O.pts / Math.max(1, O.fgm + (1 - (1 - oftp) ** 2) * O.fta * 0.4);
+  const drtg = tDR + 0.2 * (100 * dPPS * (1 - stopP) - tDR);
+  const mpw = 0.32 * lg.ppg * (T.pace / lg.pace);
+  const ows = (pprod - 0.92 * lg.ppp * totPoss) / mpw, dws = (MP / T.mp) * T.poss * (1.08 * lg.ppp - drtg / 100) / mpw;
+  return { MP, aPER, usg, ows, dws, ortg: totPoss > 0 ? 100 * pprod / totPoss : null, drtg };
+}
+function computeAdv(L, key, force) {
+  const ck = key + ':' + L.season + ':' + L.phase + ':' + L.day + ':' + (L.po ? L.po.day : 0);
+  if (!force && (L._adv || {})[key] === ck) return;
+  computeBPM(L, key, force);
+  (L._adv = L._adv || {})[key] = ck;
+  const tkey = key === 'po' ? 'tpo' : 'trs', tx = {}; for (const t of L.teams) if (t[tkey] && t[tkey].g) tx[t.id] = t[tkey];
+  const lines = [];
+  for (const p of Object.values(L.players)) {
+    const s = p.stats && p.stats[key]; if (!s || !s.gp || !s.min) continue;
+    const split = p.stats[key + 'T'];
+    lines.push({ s, parts: split ? Object.entries(split).map(([tid, x]) => [+tid, x]) : (p.team != null ? [[p.team, s]] : []) });
+  }
+  advApply(tx, lines);
+}
+// team totals by id (t.trs shape: TS_KEYS, 'o' + key, min, g) + lines [{ s, parts: [[tid, box]] }] -> writes per / usg / ows / dws / ws / ws48 / vorp into each s
+function advApply(tx, lines) {
+  const lg = { g: 0, mp: 0, poss: 0 }; for (const k of TS_KEYS) lg[k] = 0; const ctx = {};
+  for (const id in tx) { const x = tx[id]; if (!x || !x.g) continue; const c = ctx[id] = advTeamCtx(x); for (const k of TS_KEYS) lg[k] += c.T[k]; lg.g += x.g; lg.mp += x.min; lg.poss += c.T.poss; }
+  if (!lg.poss || !lg.fgm || !lg.pf) return;
+  lg.pace = 48 * lg.poss / lg.mp; lg.ppp = lg.pts / lg.poss; lg.ppg = lg.pts / lg.g; lg.trb = lg.orb + lg.drb;
+  lg.factor = 2 / 3 - (0.5 * (lg.ast / lg.fgm)) / (2 * (lg.fgm / Math.max(1, lg.ftm)));
+  lg.vop = lg.pts / (lg.fga - lg.orb + lg.tov + 0.44 * lg.fta); lg.drbp = lg.drb / Math.max(1, lg.trb);
+  const rows = [];
+  for (const ln of lines) { const st = []; for (const [tid, x] of ln.parts) { const c = ctx[tid]; if (!c || !x || !x.min) continue; const r = advStint(x, c.T, c.O, lg); if (r) st.push(r); } if (st.length) rows.push({ s: ln.s, st }); }
+  let w = 0, a = 0; for (const r of rows) for (const x of r.st) { a += x.aPER * x.MP; w += x.MP; }
+  const lgA = w ? a / w : 1, k15 = 15 / (lgA || 1), R = (v, d) => Math.round(v * d) / d;
+  for (const r of rows) {
+    let mp = 0, per = 0, usg = 0, ows = 0, dws = 0; for (const x of r.st) { mp += x.MP; per += x.aPER * k15 * x.MP; usg += x.usg * x.MP; ows += x.ows; dws += x.dws; }
+    const s = r.s; s.per = R(per / mp, 10); s.usg = R(usg / mp, 10); s.ows = R(ows, 10); s.dws = R(dws, 10); s.ws = R(ows + dws, 10); s.ws48 = R((ows + dws) * 48 / mp, 1000);
+    s.vorp = s.bpm != null ? R((s.bpm + 2) * mp / (48 * 82), 10) : null;
+  }
+}
+// Saves from before v33c: past sim seasons get PER / WS from their stored lines. Team totals = the sum of its players' lines; the
+// opponents' line is not stored, so it is the league-average line scaled to the points the team allowed (standings). Marked est on the row.
+function advBackfill(L) {
+  const by = {};
+  for (const p of Object.values(L.players)) for (const h of p.hist || []) if (h.s < L.season && ((h.rs && h.rs.gp && h.rs.per == null) || (h.po && h.po.gp && h.po.per == null))) (by[h.s] = by[h.s] || []).push([p, h]);
+  let n = 0;
+  for (const S in by) {
+    const hs = (L.history || []).find(x => x.s === +S), st = {}; if (hs) for (const r of hs.standings || []) st[r.tid] = r;
+    for (const key of ['rs', 'po']) {
+      const all = []; for (const p of Object.values(L.players)) for (const h of p.hist || []) if (h.s === +S && h[key] && h[key].gp && h[key].min) all.push(h);
+      const tx = {}, lines = [];
+      for (const h of all) {
+        const parts = h[key + 'T'] ? Object.entries(h[key + 'T']).map(([tid, x]) => [+tid, x]) : h.tid != null ? [[h.tid, h[key]]] : [];
+        for (const [tid, x] of parts) { const t = tx[tid] = tx[tid] || { g: 0, min: 0, gpMax: 0 }; for (const k of TS_KEYS) t[k] = (t[k] || 0) + (x[k] || 0); t.min += (x.min || 0) / 300; t.gpMax = Math.max(t.gpMax, x.gp || 0); }
+        if (h[key].per == null) lines.push({ s: h[key], parts });
+      }
+      if (!lines.length) continue;
+      const tot = {}; let gsum = 0;
+      for (const tid in tx) { const t = tx[tid], r = st[tid]; t.g = key === 'rs' && r ? (r.w + r.l) || t.gpMax : t.gpMax; gsum += t.g; for (const k of TS_KEYS) tot[k] = (tot[k] || 0) + t[k]; }
+      if (!gsum) continue;
+      for (const tid in tx) { const t = tx[tid], r = st[tid], pg = tot.pts / gsum, f = key === 'rs' && r && r.pa ? (r.pa / Math.max(1, t.g)) / pg : 1; for (const k of TS_KEYS) t['o' + k] = tot[k] / gsum * t.g * f; }
+      advApply(tx, lines); for (const l of lines) if (l.s.per != null) { l.s.advEst = 1; n++; }
+    }
+  }
+  return n;
+}
+// career / multi-season line: WS, OWS, DWS, VORP add up; PER and USG% minutes-weighted; WS/48 from the totals
+function advCareer(lines) {
+  let mp = 0, per = 0, usg = 0, pm = 0, um = 0, ows = 0, dws = 0, vorp = 0, n = 0, bm = 0, bpm = 0;
+  for (const s of lines) { if (!s || !s.min) continue; const m = s.min / 60; mp += m; if (s.per != null) { per += s.per * m; pm += m; } if (s.usg != null) { usg += s.usg * m; um += m; } if (s.ws != null) { ows += s.ows || 0; dws += s.dws || 0; n++; } if (s.vorp != null) vorp += s.vorp; if (s.bpm != null) { bpm += s.bpm * m; bm += m; } }
+  if (!n) return null;
+  const R = (v, d) => Math.round(v * d) / d;
+  return { per: pm ? R(per / pm, 10) : null, usg: um ? R(usg / um, 10) : null, ows: R(ows, 10), dws: R(dws, 10), ws: R(ows + dws, 10), ws48: mp ? R((ows + dws) * 48 / mp, 1000) : null, vorp: R(vorp, 10), bpm: bm ? R(bpm / bm, 10) : null };
+}
+
 // ---------- Power rankings: results, margin, recent form and current (healthy) roster strength ----------
 function powerRankings(L) {
   const n = L.teams.length;
@@ -2920,7 +3082,11 @@ function sntOffers(L, pid) {
   return out.sort((x, y) => y.val - x.val).slice(0, 4);
 }
 function doSignAndTrade(L, o) {
-  const p = L.players[o.bGive.players[0]], from = p.team;
+  const p = L.players[o.bGive.players[0]], from = p.team, A = L.teams[o.a];
+  if (!p || from == null) return 'He is no longer under your control.';
+  { const cs = capSeason(L), back = o.aGive.players.reduce((s, id) => s + capHit(L, L.players[id], cs), 0);   // v33b: the offer was made earlier; check the cap again now (same rule as sntOffers)
+    if (payroll(L, A, cs) + contractHit(o.amt, false) > CAP + 1e-6) return `${A.abbr} no longer have the cap room for this sign-and-trade.`;
+    if (payNoFloor(L, L.teams[from], cs) + back > APRON + 1e-6) return `This would put ${L.teams[from].abbr} over the ${money(APRON)} hard cap.`; }
   signContract(L, p, from, o.amt, o.yrs, 're-sign');
   L.resign = (L.resign || []).filter(id => id !== p.id);
   executeTrade(L, { a: o.a, b: from, aGive: o.aGive, bGive: o.bGive });
@@ -3916,9 +4082,25 @@ const AWARD_KEYS = ['mvp', 'dpoy', 'roy', 'smoy', 'mip', 'clutch'];
 const AWARD_NAMES = { mvp: 'MVP', dpoy: 'Defensive Player of the Year', roy: 'Rookie of the Year', smoy: 'Sixth Man of the Year', mip: 'Most Improved Player', clutch: 'Clutch Player of the Year', coy: 'Coach of the Year' };
 function awardMinGp(L) { const maxGp = Math.max(0, ...L.teams.map(t => t.w + t.l)); return Math.max(1, Math.min(40, Math.ceil(maxGp * 0.69))); }
 function awardQual(L) { const m = awardMinGp(L); return active(L).filter(p => p.stats.rs && p.stats.rs.gp >= m); }
+// v33c (Kenneth, Nov 16): award scoring blends the game's own advanced stats with the old box-score / team-record / defensive scoring.
+// Production for MVP and All-League = game score + WS + WS/48 + PER + BPM (z-scores in the qualified pool, put back on the game-score
+// scale); DPOY / All-Defense = the defensive composite + DWS + DBPM (within position group); ROY / 6MOY = game score + PER + WS/48 (rates full from 26 mpg);
+// MIP adds the change in PER and WS/48. AW_ADV.on = false gives the old scoring (comparison runs). Rates (PER, WS/48) are pulled toward the league average for low minutes (ADV_SHRINK minutes).
+const AW_ADV = { on: true, mvp: { gs: 0.4, ws: 0.2, ws48: 0.15, per: 0.1, bpm: 0.15 }, young: { gs: 0.6, perY: 0.2, ws48Y: 0.2 }, youngMpg: 26, mipPer: 0.25, mipWs48: 15, def: 0.5, dws: 0.35, dbpm: 0.15 };   // def = share moved off the tracking composite
+const ADV_SHRINK = 900, ADV_SHRINK_Y = 1800;   // ROY / 6MOY: rates count less for bench minutes (a 14-mpg sixth man won on PER with 900)
 function awardFns(L) {
   const S = L.season;
-  const gs = p => gmsc(seasonLine(p.stats.rs)) / p.stats.rs.gp;
+  try { computeAdv(L, 'rs'); } catch (e) { }
+  const gs0 = p => gmsc(seasonLine(p.stats.rs)) / p.stats.rs.gp;
+  const mpOf = p => (p.stats.rs.min || 0) / 60;
+  const shr = (p, k, avg, K) => { const v = p.stats.rs[k]; if (v == null) return avg; const m = mpOf(p), w = m / (m + (K || ADV_SHRINK)); return w * v + (1 - w) * avg; };
+  const zPool = active(L).filter(p => p.stats.rs && p.stats.rs.gp >= awardMinGp(L) && p.stats.rs.per != null);
+  const stat = { gs: gs0, ws: p => p.stats.rs.ws || 0, ws48: p => shr(p, 'ws48', 0.1), per: p => shr(p, 'per', 15), bpm: p => p.stats.rs.bpm || 0, perY: p => shr(p, 'per', 15, ADV_SHRINK_Y), ws48Y: p => shr(p, 'ws48', 0.1, ADV_SHRINK_Y) };
+  const ms = {}; for (const k in stat) { const xs = zPool.map(stat[k]), m = xs.reduce((a, b) => a + b, 0) / Math.max(1, xs.length); ms[k] = [m, Math.sqrt(xs.reduce((a, b) => a + (b - m) ** 2, 0) / Math.max(1, xs.length - 1)) || 1]; }
+  const z = (p, k) => (stat[k](p) - ms[k][0]) / ms[k][1];
+  // rateK: ROY / 6MOY count PER and WS/48 fully from AW_ADV.youngMpg minutes a game, not at all under 10 fewer (15- and 18-mpg winners in test runs)
+  const blend = (W, rateK) => p => { if (!AW_ADV.on || zPool.length < 10 || p.stats.rs.per == null) return gs0(p); const rk = rateK ? clamp((mpOf(p) / p.stats.rs.gp - (rateK - 10)) / 10, 0, 1) : 1; let Z = 0; for (const k in W) Z += W[k] * z(p, k) * (k === 'gs' ? 1 : rk); return ms.gs[0] + ms.gs[1] * Z; };
+  const gs = blend(AW_ADV.mvp), gsY = blend(AW_ADV.young, AW_ADV.youngMpg);
   const tw = p => { const t = L.teams[p.team]; return t && t.w + t.l ? t.w / (t.w + t.l) : 0.4; };
   const avgPA = L.teams.reduce((a, t) => a + t.pa / Math.max(1, t.w + t.l), 0) / L.teams.length;
   // conference seed: top 3 are playoff teams, 4-5 play-in, 6+ out
@@ -3935,10 +4117,13 @@ function awardFns(L) {
     const m36 = Math.max(1, s.min / 2160);   // per 36 minutes, so playing time alone doesn't win it
     const shrink = d[0] / (d[0] + 400);    // one season of matchups is noisy, so small samples count less
     const dr = p.pos >= 3 ? 0.5 * p.pdf + 0.3 * p.blk + 0.2 * p.drb : 0.6 * p.per + 0.2 * p.stl + 0.2 * p.iq;
-    return [d[0] ? (d[2] - d[1]) / d[0] * 100 * shrink : 0, -(d[3] / Math.max(1, d[4]) * 100), p.pos >= 3 ? -(d[5] ? d[6] / d[5] : 0.6) : d[0] / m36, (1.6 * s.stl + 1.4 * s.blk) / m36, dr, t ? avgPA - t.pa / Math.max(1, t.w + t.l) : 0]; };
-  const DW = [0.25, 0.20, 0.10, 0.15, 0.20, 0.10];   // matchup, defensive rating, rim/contests, stocks, defensive ratings, team defense
+    return [d[0] ? (d[2] - d[1]) / d[0] * 100 * shrink : 0, -(d[3] / Math.max(1, d[4]) * 100), p.pos >= 3 ? -(d[5] ? d[6] / d[5] : 0.6) : d[0] / m36, (1.6 * s.stl + 1.4 * s.blk) / m36, dr, t ? avgPA - t.pa / Math.max(1, t.w + t.l) : 0, s.dws || 0, s.dbpm || 0]; };
+  // matchup, defensive rating, rim/contests, stocks, defensive ratings, team defense (x 0.5), then v33c DWS 0.35 + DBPM 0.15 (DWS 0.2 left the DPOY top-5 in DWS 2 times in 10)
+  const DW = AW_ADV.on ? [0.25, 0.20, 0.10, 0.15, 0.20, 0.10].map(x => x * (1 - AW_ADV.def)).concat([AW_ADV.dws, AW_ADV.dbpm]) : [0.25, 0.20, 0.10, 0.15, 0.20, 0.10, 0, 0];
   const dPool = active(L).filter(p => p.team != null && dOK(p)), dNorm = {};
-  for (const g of ['G', 'F', 'C']) { const v = dPool.filter(p => dgrp(p) === g).map(dComp); dNorm[g] = DW.map((_, i) => { const xs = v.map(r => r[i]), m = xs.reduce((a, b) => a + b, 0) / Math.max(1, xs.length); const sd = Math.sqrt(xs.reduce((a, b) => a + (b - m) ** 2, 0) / Math.max(1, xs.length - 1)) || 1; return [m, sd]; }); }
+  const msd = xs => { const m = xs.reduce((a, b) => a + b, 0) / Math.max(1, xs.length); return [m, Math.sqrt(xs.reduce((a, b) => a + (b - m) ** 2, 0) / Math.max(1, xs.length - 1)) || 1]; };
+  const allC = dPool.map(dComp);
+  for (const g of ['G', 'F', 'C']) { const v = dPool.filter(p => dgrp(p) === g).map(dComp); dNorm[g] = DW.map((_, i) => msd((i >= 6 ? allC : v).map(r => r[i]))); }   // v33c: DWS / DBPM compared league-wide (bigs lead them, as in the NBA); the tracking parts within position group
   // defensive specialists get the nod over stars who also defend: a defensive archetype adds a little, a heavy scoring load takes a little away
   const DEF_ARCH = ['Defensive pest', 'Lockdown defender', '3-and-D', '3-and-D wing', 'Two-way wing', 'Rebounder/defender', 'Rim protector'];
   const dTilt = p => { const a = (p.arch || []).findIndex(x => DEF_ARCH.includes(x.n)); const s = p.stats.rs; const ppg = s.gp ? s.pts / s.gp : 0; return (a === 0 ? 0.3 : a > 0 ? 0.15 : 0) - Math.max(0, ppg - 18) * 0.03; };
@@ -3948,13 +4133,16 @@ function awardFns(L) {
   const post = new Set(); for (const c of [...new Set(L.teams.map(t => t.conf))]) seedOrder(L, c).slice(0, poPlayinTo(L)).forEach(id => post.add(id));
   const prevH = p => p.hist.find(x => x.s === S - 1);
   return {
-    gs, defS,
+    gs, gs0, gsY, defS,
     // MVP: production, strongly weighted toward winning; a play-in team's MVP is rare and a non-playoff team's rarer still
     mvp: { pool: q => q, score: p => gs(p) * (1 + 1.1 * (tw(p) - 0.5)) * seedF(p) },
     dpoy: { pool: q => { if (!dPool.length) return q; const [d1, d2] = allDefTeams(q, defS); const e1 = d1.filter(p => post.has(p.team)); return e1.length ? e1 : d2.filter(p => post.has(p.team)).length ? d2.filter(p => post.has(p.team)) : q.filter(p => post.has(p.team) && dOK(p)); }, score: defS },
-    roy: { pool: q => q.filter(p => p.rookieSeason === S), score: gs },
-    smoy: { pool: q => q.filter(p => p.stats.rs.gs / p.stats.rs.gp < 0.3), score: gs },
-    mip: { pool: q => q.filter(p => { const h = prevH(p); return p.ovr >= 60 && h && h.rs && h.rs.gp >= gpq(30); }), score: p => { const h = prevH(p); return gs(p) - gmsc(seasonLine(h.rs)) / h.rs.gp + (p.ovr - h.ovr) * 0.3; } },
+    roy: { pool: q => q.filter(p => p.rookieSeason === S), score: gsY },
+    smoy: { pool: q => q.filter(p => p.stats.rs.gs / p.stats.rs.gp < 0.3), score: gsY },
+    // MIP: game score change + rating change, plus (v33c) the change in PER and WS/48 when last season has them
+    mip: { pool: q => q.filter(p => { const h = prevH(p); return p.ovr >= 60 && h && h.rs && h.rs.gp >= gpq(30); }), score: p => { const h = prevH(p), hm = (h.rs.min || 0) / 60, hw = hm / (hm + ADV_SHRINK);
+      const adv = AW_ADV.on && h.rs.per != null && p.stats.rs.per != null ? AW_ADV.mipPer * (shr(p, 'per', 15) - (hw * h.rs.per + (1 - hw) * 15)) + AW_ADV.mipWs48 * (shr(p, 'ws48', 0.1) - (hw * (h.rs.ws48 || 0) + (1 - hw) * 0.1)) : 0;
+      return gs0(p) - gmsc(seasonLine(h.rs)) / h.rs.gp + (p.ovr - h.ovr) * 0.3 + adv; } },
     // v22 Clutch Player of the Year: final 2 minutes of the 4th/OT within 6 points; 10+ clutch games. Clutch scoring, efficiency, plus/minus, go-ahead buckets, team record
     clutch: { pool: q => q.filter(p => p.stats.cl && p.stats.cl[0] >= 10 && p.stats.rs.min / p.stats.rs.gp / 60 >= 20), score: p => { const c = p.stats.cl, g = c[0]; return c[1] / g * 1.2 + (c[2] >= 5 ? (c[3] / c[2] - 0.45) * 12 * Math.min(1, c[2] / 25) : 0) + c[4] / g * 0.6 + c[5] * 0.8 + tw(p) * 3; } }
   };
@@ -3970,7 +4158,7 @@ function allDefTeams(q, f) {
 function snapPlayer(L, p, score) {
   const s = p.stats.rs, t = p.team != null ? L.teams[p.team] : null, h = p.hist.find(x => x.s === L.season - 1), g = k => s[k] / s.gp;
   return { pid: p.id, name: p.name, tid: p.team, w: t ? t.w : null, l: t ? t.l : null, sc: r1(score), gp: s.gp, gs: s.gs, min: r1(g('min') / 60), pts: r1(g('pts')), reb: r1(g('orb') + g('drb')), ast: r1(g('ast')), stl: r1(g('stl')), blk: r1(g('blk')), tov: r1(g('tov')),
-    fg: s.fga ? s.fgm / s.fga : null, tp: s.tpa ? s.tpm / s.tpa : null, ft: s.fta ? s.ftm / s.fta : null, ovr: p.ovr, prevOvr: h ? h.ovr : null, prevPts: h && h.rs && h.rs.gp ? r1(h.rs.pts / h.rs.gp) : null, cl: p.stats.cl ? p.stats.cl.slice() : undefined };
+    fg: s.fga ? s.fgm / s.fga : null, tp: s.tpa ? s.tpm / s.tpa : null, ft: s.fta ? s.ftm / s.fta : null, per: s.per, ws: s.ws, ws48: s.ws48, dws: s.dws, bpm: s.bpm, dbpm: s.dbpm, prevPer: h && h.rs ? h.rs.per : undefined, prevWs48: h && h.rs ? h.rs.ws48 : undefined, ovr: p.ovr, prevOvr: h ? h.ovr : null, prevPts: h && h.rs && h.rs.gp ? r1(h.rs.pts / h.rs.gp) : null, cl: p.stats.cl ? p.stats.cl.slice() : undefined };
 }
 function coyLadder(L, n) {
   return L.teams.filter(t => t.w + t.l > 0).map(t => {
@@ -4030,7 +4218,7 @@ function computeAwards(L) {
   A.ladder.coy = coyLadder(L, 10);
   A.coy = A.ladder.coy.length ? A.ladder.coy[0].cid : null; A.coyTid = A.ladder.coy.length ? A.ladder.coy[0].tid : null;
   { const t3 = teams(F.mvp.score); A.all1 = t3[0]; A.all2 = t3[1]; if (isBig(L)) A.all3 = t3[2]; } [A.def1, A.def2] = teams(F.defS);   // v22: All-League 3rd team in 30-team leagues
-  { const g40 = Math.ceil(Math.max(0, ...L.teams.map(t => t.w + t.l)) * 0.4), rq = active(L).filter(p => p.rookieSeason === S && p.stats.rs && p.stats.rs.gp >= g40), sorted = rq.slice().sort((a, b) => F.gs(b) - F.gs(a)), used = new Set(), grp = p => p.pos <= 1 ? 'G' : p.pos <= 3 ? 'F' : 'C'; const mk = () => { const out = []; for (const p of sorted) { if (out.length >= 5) break; if (!used.has(p.id)) { out.push(p.id); used.add(p.id); } } return out; };   /* v22: no position rule */ A.roo1 = mk(); A.roo2 = mk(); }   // v18 All-Rookie teams (fill from any spot if a position is thin)
+  { const g40 = Math.ceil(Math.max(0, ...L.teams.map(t => t.w + t.l)) * 0.4), rq = active(L).filter(p => p.rookieSeason === S && p.stats.rs && p.stats.rs.gp >= g40), sorted = rq.slice().sort((a, b) => F.gsY(b) - F.gsY(a)), used = new Set(), grp = p => p.pos <= 1 ? 'G' : p.pos <= 3 ? 'F' : 'C'; const mk = () => { const out = []; for (const p of sorted) { if (out.length >= 5) break; if (!used.has(p.id)) { out.push(p.id); used.add(p.id); } } return out; };   /* v22: no position rule */ A.roo1 = mk(); A.roo2 = mk(); }   // v18 All-Rookie teams (fill from any spot if a position is thin)
   A.dparts = {}; for (const id of [...A.def1, ...A.def2]) { const pp = F.defS.parts ? F.defS.parts(L.players[id]) : null; if (pp) A.dparts[id] = pp; }
   A.titles = {};
   for (const [k, f] of [['pts', p => perGame(p.stats.rs, 'pts')], ['reb', p => perGame(p.stats.rs, 'orb') + perGame(p.stats.rs, 'drb')], ['ast', p => perGame(p.stats.rs, 'ast')], ['stl', p => perGame(p.stats.rs, 'stl')], ['blk', p => perGame(p.stats.rs, 'blk')]]) {
@@ -4112,7 +4300,7 @@ function poResult(L, tid) {
 }
 function archiveSeason(L) {
   const S = L.season, A = L.awards[S] || {};
-  computeBPM(L, 'rs', true); computeBPM(L, 'po', true);      // freeze box plus-minus into the season's stats
+  computeBPM(L, 'rs', true); computeBPM(L, 'po', true); computeAdv(L, 'rs', true); computeAdv(L, 'po', true);      // freeze box plus-minus (v33c: + PER / USG% / WS / VORP) into the season's stats
   for (const t of L.teams) { const c = t.coach, cf = t.coachFrom || { w: 0, l: 0 }; c.seasons = c.seasons || []; c.seasons.push({ s: S, tid: t.id, w: t.w - cf.w, l: t.l - cf.l, po: poResult(L, t.id), mode: t.mode, exp: t.expW, mid: cf.w + cf.l > 0 }); }
   const seeds = seedOrder(L);
   const confSeed = {}; for (const c of CONFS) seedOrder(L, c).forEach((id, i) => confSeed[id] = i + 1);
@@ -4724,7 +4912,7 @@ function draftPlayer(L, pid) {
   else if (slot.rd === 1) {
     // rare: a full roster passes on a late, low-upside first-rounder
     if (slot.no >= 10 && t.roster.length >= 15 && p.scout < 60 && R() < 0.35) { p.tx.push({ s: L.season, t: `${t.abbr} chose not to sign him` }); L.fa.push(p.id); setAsk(L, p); logNews(L, `${t.abbr} passed on signing first-round pick ${p.name}`, t.id, 'draft'); }
-    else if (payroll(L, t) + rookieScale(1, slot.no, L.teams.length) > APRON) { p.tx.push({ s: L.season, t: `${t.abbr} couldn't fit his rookie deal under the hard cap` }); L.fa.push(p.id); setAsk(L, p); logNews(L, `${t.abbr} couldn't fit first-round pick ${p.name} under the ${money(APRON)} hard cap; he's a free agent`, t.id, 'draft'); }
+    else if (payroll(L, t) + rookieScale(1, slot.no, L.teams.length) > APRON || !futFits(L, t, rookieScale(1, slot.no, L.teams.length))) { p.tx.push({ s: L.season, t: `${t.abbr} couldn't fit his rookie deal under the hard cap` }); L.fa.push(p.id); setAsk(L, p); logNews(L, `${t.abbr} couldn't fit first-round pick ${p.name} under the ${money(APRON)} hard cap; he's a free agent`, t.id, 'draft'); }
     else signContract(L, p, slot.owner, rookieScale(1, slot.no, L.teams.length), 3, 'rookie', null);
   }
   else {
@@ -4825,7 +5013,7 @@ function decideSecondRounder(L, pid, sign) {
   }
   if (sign && L.teams[L.user].roster.length >= 17) return 'Your roster is too full. Release someone first.';
   L.r2Pending = (L.r2Pending || []).filter(id => id !== pid);
-  if (sign && p.draft && p.draft.rd === 1 && payroll(L, L.teams[L.user]) + rookieScale(1, p.draft.no, L.teams.length) > APRON) { L.r2Pending.push(pid); return `His rookie deal (${money(rookieScale(1, p.draft.no, L.teams.length))}) would put you over the ${money(APRON)} hard cap. Clear room first.`; }
+  if (sign && p.draft && p.draft.rd === 1 && (payroll(L, L.teams[L.user]) + rookieScale(1, p.draft.no, L.teams.length) > APRON || !futFits(L, L.teams[L.user], rookieScale(1, p.draft.no, L.teams.length)))) { L.r2Pending.push(pid); return `His rookie deal (${money(rookieScale(1, p.draft.no, L.teams.length))}) would put you over the ${money(APRON)} hard cap. Clear room first.`; }
   if (sign) signSecondRounder(L, p, L.user);
   else { p.draftRights = null; p.tx.push({ s: L.season, t: `${L.teams[L.user].abbr} chose not to sign him` }); L.fa.push(p.id); setAsk(L, p); }
   return null;
@@ -4871,7 +5059,7 @@ function startResign(L) {
       const fits = (canFit(L, t, keep, hg, 're-sign') || keep <= MINSAL) && ownerOK(L, t, keep), pays = offer >= p.ask * rs.pay;
       // v32h: an icon re-signs under the hard cap too (a hometown discount of up to 25% if needed); if even that won't fit, he leaves
       let iconOk = iconStay && fits;
-      if (iconStay && !fits) { const room = r1(APRON - payroll(L, t)); if (room >= Math.max(MINSAL, keep * 0.75) && ownerOK(L, t, room)) { keep = room; iconOk = true; } }
+      if (iconStay && !fits) { const room = r1(Math.min(APRON - payroll(L, t), futRoom(L, t))); if (room >= Math.max(MINSAL, keep * 0.75) && ownerOK(L, t, room)) { keep = room; iconOk = true; } }
       const out = iconOk ? null : iconStay ? 't:cap' : rs.leave ? 'p:' + rs.leave : !want ? 't:team' : !pays ? 't:price' : !fits ? 't:cap' : null;
       resignLog(L, p, out);
       if (iconOk) signContract(L, p, t.id, keep, Math.min(yrsFor(p, keep), p.age >= 34 ? 1 : p.age >= 31 ? 2 : 4), 're-sign');
@@ -4879,7 +5067,7 @@ function startResign(L) {
       else if (rs.leave) { p.tx.push({ s: S, t: `Turned down ${t.abbr}: ${RESIGN_WHY[rs.leave]}` }); if (rs.leave === 'win') p.tx.push({ s: S, t: `Wants to join a contender` }); if (p.ovr >= 68) logNews(L, flL(L, 'news.leave', { name: p.name, team: t.abbr, why: RESIGN_WHY[rs.leave] }), t.id, 'tx', 'walk'); }
       else {
         // a good player on his way out: sometimes the team works a sign-and-trade instead of losing him for nothing
-        if (p.ovr >= 65 && R() < 0.25 * 16 / L.teams.length) { const ofs = sntOffers(L, p.id)   /* v21: same league-wide volume with more teams */.filter(o => o.a !== L.user); if (ofs.length && !typeFull(L, tradeType(ofs[0].aGive, ofs[0].bGive)) && rosterFits(L, ofs[0].a, p.team, ofs[0].aGive, ofs[0].bGive)) { doSignAndTrade(L, ofs[0]); continue; } }
+        if (p.ovr >= 65 && R() < 0.25 * 16 / L.teams.length) { const ofs = sntOffers(L, p.id)   /* v21: same league-wide volume with more teams */.filter(o => o.a !== L.user); if (ofs.length && !typeFull(L, tradeType(ofs[0].aGive, ofs[0].bGive)) && rosterFits(L, ofs[0].a, p.team, ofs[0].aGive, ofs[0].bGive)) { if (typeof doSignAndTrade(L, ofs[0]) !== 'string') continue; } }
         if ((p.morale != null && p.morale < 40 && p.ovr >= 65) || (!want && p.ovr >= 66 && rotationOf(L, t).slice(0, 5).some(x => x.id === p.id))) addGrudge(L, p, t.id, 'leaving on bad terms');   // v17
         frictionRival(L, p, t.id);
         const wasRookie = p.contract && p.contract.type === 'rookie';
@@ -5121,7 +5309,7 @@ function negotiate(L, pid, amt, yrs, tid, type, opt, extra) {
   if (extra.quote) return { quote: Math.min(MX, Math.ceil(needR(pref, null) * 10 - 1e-6) / 10), pref, notes: cc.notes };
   const need = needR(yrs, opt);
   const hg = (type === 're-sign' || type === 'extension') && p.draftTid === tid && amt >= 10;
-  if (type === 'extension') { if (payroll(L, t, L.season + 1) + contractHit(amt, hg) > APRON + 1e-6) return { ok: false, msg: `That would put next season's payroll over the ${money(APRON)} hard cap.` }; }
+  if (type === 'extension') { if (payroll(L, t, L.season + 1) + contractHit(amt, hg) > APRON + 1e-6 || !futFits(L, t, contractHit(amt, hg))) return { ok: false, msg: `That would put next season's payroll over the ${money(APRON)} hard cap.` }; }
   else if (!canFit(L, t, amt, hg, type)) return { ok: false, msg: type === 're-sign' ? `That would put ${t.abbr} over the ${money(APRON)} hard cap (payroll ${money(payroll(L, t))}).` : V244.b2 && !MLE_REAL ? `That would put ${t.abbr} over the ${money(APRON)} hard cap (payroll ${money(payroll(L, t))}).` : `${t.abbr} can't fit that (payroll ${money(payroll(L, t))}${hg ? ', counting 90%' : ''}). Over the ${money(CAP)} cap you can only sign free agents with the mid-level exception (up to ${money(MLE)}, once a season, only while under the ${money(TAXLINE)} tax line${mleOpen(L, t) ? '' : '; already used this season'}) or at the minimum.` };
   if (MLE_REAL && type === 'signing' && tid === L.user && extra && extra.mle === false && !extra.quote && contractHit(amt, hg) > 0 && payroll(L, t) + contractHit(amt, hg) > CAP + 1e-6) return { ok: false, msg: `Over the ${money(CAP)} cap this deal needs your mid-level exception: tick "Use mid-level", or offer the minimum.` };   // v32g
   if (type === 'signing' && t.roster.length >= 15 && !(L.phase === 'regular' && false)) return { ok: false, msg: `${t.abbr} already have 15 players. Release someone first.` };
@@ -5201,6 +5389,7 @@ function faRound(L, lastCall, minOvr) {
       let room;
       if (V244.b2) { needsCache[t.id] = needsCache[t.id] || teamNeeds(L, t); room = b2Room(L, t, p, needsCache[t.id]); if (W > MINSAL) W = b2Bid(L, t, Math.min(W, room), payroll(L, t)); }
       else { room = faRoom(L, t); if (t.owner) room = Math.min(room, Math.max(0, t.owner.limit - payroll(L, t))); }    // owners hold the purse strings
+      room = Math.min(room, futRoom(L, t));   // v33b: later cap years too
       if (W > MINSAL && W > room) W = room >= 1.5 ? room : MINSAL;
       if (W > MINSAL) W = rampAmt(L, p, W);   // v32e: no bidding war over a low-rated player (ramp, soft from 60)
       W = W < 1.5 ? MINSAL : r1(W);
@@ -5275,18 +5464,28 @@ function resolveSheet(L, p, lastCall) {
   // v24.5 Bird-rights style: the holder ignores its status ceiling; only the owner's limit, the hard cap and the tax cost count
   // a full roster can still match by waiving its cheapest non-core player; a sheet is worth matching up to 1.5x his value (stars 1.8x), counting the tax it adds
   const pay = payroll(L, H), cut = H.roster.length >= 15 ? waivable(L, H, [])[0] : null;
-  const fits = pay + sh.amt <= APRON + 1e-6 && ownerOK(L, H, sh.amt) && (H.roster.length < 15 || !!cut);
+  const fits = pay + sh.amt <= APRON + 1e-6 && futFits(L, H, sh.amt) && ownerOK(L, H, sh.amt) && (H.roster.length < 15 || !!cut);
   const eff = V244.b2 && !bidsThroughTax(L, H) ? sh.amt + taxCostOf(L, H, pay, sh.amt) : sh.amt;
   const worth = eff <= Math.max(p.mval * 1.5, MINSAL * 2) || (p.ovr >= 74 && eff <= p.mval * 1.8);
   const match = p.rfa.want && fits && worth && (H.mode !== 'tank' || R() < 0.5);
   if (match && cut) { cut.tx.push({ s: L.season, t: `Released by ${H.abbr} to make room to match an offer sheet` }); release(L, cut); }
   sheetDecide(L, p, match);
 }
+function sheetStillFits(L, O, amt) {
+  if (O.roster.length >= 15 && (O.id === L.user || !cuttable(L, O))) return false;
+  return canFit(L, O, amt, false, 'signing') && payNoFloor(L, O) + contractHit(amt, false) <= APRON + 1e-6;
+}
 function sheetDecide(L, p, match, why) {
   const sh = p.sheet, hold = p.rfa.tid; p.sheet = null;
   if (match) { signContract(L, p, hold, sh.amt, sh.yrs, 're-sign');
     if (V244.b2) { p.noTrade = { s: capSeason(L), day: 1e6 }; p.rfaMatched = L.season; const H = L.teams[hold], O = L.teams[sh.tid]; if (negAppeal(p, O, 'signing', L) > negAppeal(p, H, 're-sign', L) || (p.morale != null && p.morale < 50)) { p.morale = Math.max(0, (p.morale == null ? 60 : p.morale) - 15); p.tx.push({ s: L.season, t: `Unhappy: ${H.abbr} matched when he wanted to join ${O.abbr}` }); } }  /* v24.4: a matched player can't be traded for a season */ logNews(L, `${L.teams[hold].abbr} matched ${L.teams[sh.tid].abbr}'s offer sheet for ${p.name} (${money(sh.amt)} × ${sh.yrs})`, hold, 'tx'); if (sh.tid === L.user) faEvent(L, p, 'matched', hold, ''); }
-  else { const oc = sh.tid === L.user && sh.promise ? ownerCheck(L, sh.amt, 0) : null; signContract(L, p, sh.tid, sh.amt, sh.yrs, 'signing'); if (oc && !oc.ok && oc.ask) acceptOwnerGoal(L); logNews(L, `${L.teams[hold].abbr} declined to match: ${p.name} joins ${L.teams[sh.tid].abbr} (${money(sh.amt)} × ${sh.yrs})`, sh.tid, 'tx'); if (sh.tid === L.user) faEvent(L, p, 'sheetWon', L.user, '', sh); if (hold === L.user) faEvent(L, p, 'lost', sh.tid, why || 'you declined to match'); }
+  else {
+    // v33b: the sheet was signed a day or two ago; the offering team may have used its room (or the mid-level) since. Check again
+    // now (soft-cap rule + hard cap + roster), or the deal is void and he becomes an unrestricted free agent. (BKN S2 went $27M over this way.)
+    const O = L.teams[sh.tid];
+    if (!sheetStillFits(L, O, sh.amt)) { p.rfa = null; logNews(L, `${p.name}'s offer sheet with ${O.abbr} is void: ${O.abbr} no longer had the cap room or roster spot. He is an unrestricted free agent`, sh.tid, 'tx'); if (sh.tid === L.user) faEvent(L, p, 'lost', null, 'you no longer had the cap room'); return; }
+    if (O.roster.length >= 15 && O.id !== L.user) { const c = cuttable(L, O); if (c) { c.tx.push({ s: L.season, t: `Released by ${O.abbr} to open a roster spot` }); toFA(L, c); } }
+    const oc = sh.tid === L.user && sh.promise ? ownerCheck(L, sh.amt, 0) : null; signContract(L, p, sh.tid, sh.amt, sh.yrs, 'signing'); if (oc && !oc.ok && oc.ask) acceptOwnerGoal(L); logNews(L, `${L.teams[hold].abbr} declined to match: ${p.name} joins ${L.teams[sh.tid].abbr} (${money(sh.amt)} × ${sh.yrs})`, sh.tid, 'tx'); if (sh.tid === L.user) faEvent(L, p, 'sheetWon', L.user, '', sh); if (hold === L.user) faEvent(L, p, 'lost', sh.tid, why || 'you declined to match'); }
   p.rfa = null;
 }
 // v16: how much team fit counts against money in a free agent's choice (money^1 x appeal^K)
@@ -5883,6 +6082,8 @@ function dayDate(L, day) {
 }
 function migrateLeague(L) {
   setSeasonLen(L);
+  if (!L.askRef) { L.askRef = { f: ASK_REF0[L.nba ? 'nba' : 'pbl'].slice(), q0: ASK_REL.q.slice(), s: 0 }; }   // v33b: saves from before the league-relative asks
+  if (!L.advFill) { try { advBackfill(L); } catch (e) { console.error('advBackfill', e); } L.advFill = 1; }   // v33c: PER / WS for sim seasons played before v33c
   setupDivisions(L);
   migrateTraits(L);   // v25.9
   if (L.picks) ensurePicks(L);   // v26.2: older saves get the 6-year window

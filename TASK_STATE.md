@@ -1,3 +1,30 @@
+# TASK_STATE — v33c PER / USG% / WS / VORP + awards (Opus) — Nov 16 2026
+
+- [x] C1. computeAdv / advStint / advLeague / advCareer (league.js, after computeBPM): B-Ref formulas per team stint; frozen at season end (RS + PO)
+- [x] C2. History: tools/hx-adv.py.txt (B-Ref totals -> advRows per season + per traded stint, advLeg, rec.adv PER/WS/WS48, awAdv) patches src/nba-history.js; hx-fn.js hxFixRow / legends / hxRecAdvX / hxAwardAdv. Check vs B-Ref: 1977-2026 corr 1.000 (same formulas), all eras PER 0.998 WS 0.996 (/home/claude/scr/hx-adv-report.txt -> tools/runs32/v33c-hx-check.txt)
+- [x] C3. Awards: AW_ADV blend (MVP / All-League, DPOY / All-Def with DWS + DBPM in dComp, ROY / 6MOY / All-Rookie gsY, MIP + change in PER / WS48); AW_ADV.on=false = old scoring; snapPlayer keeps per/ws/ws48/dws/bpm/dbpm
+- [x] C4. UI: Players table (basic PER/WS, advanced PER/OWS/DWS/WS/WS48/VORP), player Advanced tab (RS + PO + career), leaders, records (season + career PER/WS/WS48 with history), award ladders + award page + yearbook line, History list MVP numbers; USG% = game formula when present
+- [x] C5. tools/t33c.js 20/20; lint 106
+- [x] C6a. 10 seasons NBA commish from tools/snap/nba-commish-s10.json.gz, new vs old scoring (tools/t33c-awards.js, t33c-awsum.py.txt): MVP top-3 WS 10/10 (old 9/10); DPOY top-5 DWS 2/10 (old 3/10), 6MOY winner at 15 mpg
+- [x] C6b. Fixes: ROY/6MOY rates count fully from 26 mpg (ADV_SHRINK_Y 1800 too); DPOY DWS 0.35 + DBPM 0.15, then DWS / DBPM compared league-wide (DWS 0.35 within group still 3/10)
+- [x] C6c. new3 (DWS league-wide): DPOY top-5 DWS 10/10 but 6MOY / ROY at 18 mpg -> rates 0 under 16 mpg, full at 26. Final (tools/runs32/v33c-awards-*.txt): MVP top-3 WS 9/10 (old 5/10), DPOY top-5 DWS 6/10 (old 2/10), MVP 7 winners / DPOY 6 winners in 10 (old 5 / 3)
+- [x] C7. Final code: browser tools/browser-v33c.py.txt 46/46 (1300 + 390), t30a 29/0, t32f 21/21, t33c 23/23, t32e 21/21, lint 106
+- [x] C8. PROGRESS + README, commit, zip
+
+---
+# TASK_STATE — v33b asks follow the league + hard-cap hole (Opus) — Nov 16 2026
+
+- [x] A1. Cause: MKT_RAMP_LIFT 1.2 caps the market at ~$152M/team NBA, ~$120M PBL from S1 (lift needed 2.07 / 1.58); payroll converges to the market total as start contracts expire. Hard cap: BKN S2 = offer sheet the holder declined (sheetDecide signs for the offering team with no re-check; reproduced with tools/r30 hooks)
+- [x] A2. updateAskShift (percentile bands, L.askRef/askShift), MKT_LIFT_MAX 3 (scale fits the budget), under-60 cap 9.9, migrate old saves (ASK_REF0)
+- [x] A3. sheetStillFits in sheetDecide (void sheet -> unrestricted FA; AI + you), doSignAndTrade re-checks cap (AI + app)
+- [x] A4. tools/t33b.js 29/29 (also on task-1 code only), t30a 29/0, t32e 21/21, t32h 11/11, t32r all pass, lint 106
+- [x] A5a. Try 1 (lift up to 3x only, tools/runs32/v33b-try1-*.txt): PBL 109 -> 124 avg, NBA worse 160 -> 149 (money went to stars already at the max; mid-tier went to the minimum)
+- [x] A5b. Try 2 (1.2x lift, then rampK softens 60-64, then lift): NBA 165.5 avg (S1-11 165-181), PBL 127.9; but NBA S16 max next 228.8 (later cap years: rookie deals / multi-year deals checked against next year only)
+- [x] A5c. futFits / futRoom: canFit, rookie deals (AI + you), extensions, offer-sheet match, FA bids, icon re-sign check the next two cap years; t33b 30/30
+- [x] A5d. Final 20 + 20 seasons (tools/runs32/v33b-*.txt, also K max 2 + 2x step cap for a smooth ramp, t32e 21/21 with 5% slack): PBL 109 -> 126.1, NBA 160.2 -> 158.8 (not near budget: team spending is the limit), max next season under the hard cap all 40 seasons
+- [x] A6. PROGRESS + README, commit, zip (GitHub not linked)
+
+---
 # TASK_STATE — v32i S6b history import (Opus) — Nov 16 2026
 
 - [x] B1. tools/hx-build.py.txt (+gap fill: All-Star starters 1608, game opponents 435, retired years 174; flag f) + tools/hx-fn.js + tools/hx-pack.py.txt -> src/nba-history.js (860 KB); index.html + tools/load.js load it

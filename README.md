@@ -14,6 +14,12 @@ The game is split into small files so a change rewrites one file, not 1.3 MB.
 | `src/nba-setup.js` | v30a NBA setup extras: real rookies (`nbaRookies`) + real jersey numbers (`NBA_JERSEY_CSV`, `nbaJerseys`) |
 | `src/index.template.html` | Page shell with markers `/*CSS*/ /*VENDOR*/ /*ENGINE*/ /*LEAGUE*/ /*APP*/` for the single-file build |
 
+## v32i S6b + v33a (Opus, Nov 16 2026)
+- `src/nba-history.js` (loaded after nba-setup.js; `tools/load.js` too): `NBA_HX` data + `hx*` functions (`hxTeamPanels`, `hxLeaders`, `hxRec*`, `hxHofRows`, `hxBestRecord`, BPM overrides on `nbaRealRows` / `nbaEstRows` / `nbaLegends`). Rebuild: `python3 -I tools/hx-build.py.txt HIST_DIR BREF_DATA_DIR /tmp/hx.json` then `python3 -I tools/hx-pack.py.txt /tmp/hx.json NAMES_JSON .`
+- app.js: `records()` merges history; HOF panel; team History tab panels (`data-hxty`); Seasons best record.
+- `leagueGravity` / `LG_GRAV` (league.js): league mean pull; `RM_LIFT` fs 6, star 5 (engine.js).
+- Tests: `node tools/t32f.js`, browser `tools/browser-v32i.py.txt`.
+
 ## v32 version-end review (Opus, Nov 16 2026)
 - `wfBar(L)` (league.js, next to `WIN_FIRST`): win-first star bar = OVR of the ~5-per-team best active players (min 66), cached per season (`L._wfb`, not saved). Used by the win-first FA pool and `resignLeave`.
 - `clauseTV` (league.js): prices promised S2 roles for a buyer.

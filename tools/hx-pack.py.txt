@@ -1,0 +1,24 @@
+# S6b: pack /tmp/hx.json (tools/hx-build.py.txt) + tools/hx-fn.js into src/nba-history.js.
+# python3 -I tools/hx-pack.py.txt HX_JSON NAMES_JSON GAME_DIR   (NAMES_JSON: {"rows": [...], "legends": [...]} from src/nba-2026.js)
+import sys, json, unicodedata, re
+hx, names, game = json.load(open(sys.argv[1])), json.load(open(sys.argv[2])), sys.argv[3]
+def norm(n):
+    s = unicodedata.normalize('NFKD', str(n)).encode('ascii', 'ignore').decode().lower()
+    s = re.sub(r"[.'’`,-]", '', s); return re.sub(r'\s+', ' ', s).strip()
+B = {norm(k): v for k, v in hx['bpm'].items()}
+need = {norm(n) for n in names['rows']}
+rows = {k: {y: v[:3] for y, v in B[k].items()} for k in need if k in B}
+leg = {}
+for n in names['legends']:
+    s = B.get(norm(n))
+    if not s: continue
+    m = sum(v[3] for v in s.values())
+    if m: leg[norm(n)] = [round(sum(v[i] * v[3] for v in s.values()) / m, 1) for i in range(3)]
+H = hx['HX']; H['bpmRows'] = rows; H['bpmLeg'] = leg
+fn = open(game + '/tools/hx-fn.js').read()
+out = ('// S6b (v32i): NBA history 1946-47 to 2025-26 (franchise seasons, awards, Hall of Fame, retired numbers, franchise leaders, league records)\n'
+       '// and game-formula box plus-minus for history rows. Built by tools/hx-build.py.txt + tools/hx-pack.py.txt; do not edit the data line by hand.\n'
+       '// Each data row ends with a hidden source flag: c = from Kenneth\'s files, f = filled (Basketball-Reference recompute / v120 fill). Never shown.\n'
+       'const NBA_HX = ' + json.dumps(H, separators=(',', ':'), ensure_ascii=False) + ';\n' + fn)
+open(game + '/src/nba-history.js', 'w').write(out)
+print('rows bpm', len(rows), 'of', len(need), '| legends', len(leg), 'of', len(names['legends']), '| bytes', len(out.encode()))

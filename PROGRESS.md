@@ -1,5 +1,26 @@
 # PBL progress
 
+## v32i S6b (Opus, Nov 16 2026): NBA history 1946-2026 in the game
+- [x] Data: `src/nba-history.js` (`NBA_HX`, 860 KB) built from the v120 history files + Basketball-Reference season tables by `tools/hx-build.py.txt` + `tools/hx-pack.py.txt` (functions in `tools/hx-fn.js`). Franchise seasons (1,687: W-L, result, coach), All-NBA/Def/Rookie, All-Stars, stat leaders (4,298), Hall of Fame (263), retired numbers (278, duplicates dropped), franchise leaders (RS + PO), league records (career / season / game / team), BPM leaders
+- [x] Gaps (Kenneth: believable values): All-Star starters (5 per side by scoring), single-game record opponents, retired-number years (last season with the team + 1-4). Every row has a hidden source flag (c = Kenneth's file, f = filled); never shown. Rebuild with a new file to replace filled rows
+- [x] Advanced stats with the game's formula: `computeBPM` math run on real season totals; overrides BPM / OBPM / DBPM / VORP on history rows (`nbaRealRows`, `nbaEstRows`) and legends' careers. LeBron 2012-13: 12.1 (B-Ref 11.6). Playoff rows keep their estimates (no playoff team totals). PER / WS stay real (the game has no formula for them)
+- [x] UI: League records = one list per category (history + sim; a sim game can break Wilt's 100), new BPM season/career lists; Hall of Fame list adds history members; team History tab: franchise leaders (RS/PO, sim seasons add to the history totals), retired numbers, franchise seasons 1946-2026; Seasons list shows each NBA season's best record
+- [x] Tests: new `tools/t32f.js` 21/21, `tools/browser-v32i.py.txt` 34/34 (1300 + 390px), node --check, lint 106, t30a 21/21, t32f-a 42/43 (team ribbon check fails on the old code too with this save). 10 seasons NBA commish (`tools/runs32/v32i-nba-commish.txt`): 0 errors, save S10 13.9 MB (v32r 14.0)
+- Open: player trophy cases don't yet list the new All-NBA / All-Star rows for retired legends; single-file build template needs nba-history.js if that build is used
+
+## v33a (Opus, Nov 16 2026): balance
+- [x] Cause of the rating climb: generated players grow into a stronger middle than the start league (season 10: age 22-24 avg 63.2 vs 54.6 at start; 25-27 65.6 vs 56.9). Rookies and the 75+/85+ counts were already fine (nbaBalance)
+- [x] `leagueGravity` (league.js, both modes, after progression): rostered mean above 58.4 -> trim young players' ceilings and nudge 22-30-year-olds (52-74) down a little. `LG_GRAV`
+- [x] Star minutes: `RM_LIFT` franchise star 5.5 -> 6, star 4.5 -> 5
+- [x] 20 seasons SEED=21, NBA + PBL16 commish (`tools/runs32/v33a-*.txt`) vs v32r:
+  - League OVR: NBA 58.1 -> 62.4 (peak 62.8 at S11, then flat/down; v32r 63.8-64.1); PBL16 57.7 -> 59.5 (v32r 65.4, still rising)
+  - NBA 1.5+ BPG 10-24 (avg 17.4; v32r 21.5, late 22-29); 9+ RPG 14-24 (avg 18.3); PBL16 9+ RPG avg 8.1 (v32r 6.2), BPG 13.7
+  - Minutes: NBA star 32.2-33.5 (avg 32.9; v32r 32.5), fs 33.5-35.3 (34.5), sixth 25.0; PBL star 32.2, fs 34.4
+  - Win-first a summer: NBA 0-3 (avg 0.8); PBL 0-1. Re-sign 60+ NBA 0.61-0.79. Payroll avg NBA 160 (150-182; v32r 169), PBL 109 (v32r 127). 0 errors, save S20 22.7 MB
+  - Stronger pull tried (`v33a2-*.txt`, LG_GRAV 1.5/2/0.8): NBA mean flat 58-60 but payroll fell 182 -> 113 (asks are tied to absolute OVR), so the milder pull was kept
+- Open: market asks use absolute OVR bands, so a flatter league pays less (NBA payroll drifts 182 -> 150 late, PBL avg 109 under the $120M floor): make the ask ramp / market lift follow the league mean, then the stronger pull can be used. Blocks stay 22-25 at 1.5+ BPG late even with a flat league (generated bigs' block ratings). One signing over the hard cap in the strong-pull run (BKN S2, 248.8; hard cap 221.7): a signing path still skips the check. Top individual MPG up to 39.6 (v32r 39.0)
+
+
 ## v32 version-end review (Opus, Nov 16 2026)
 - [x] Review v32a-v32h against claude/nba/v32-plan.md, focus on S2 roles/minutes x S3 rotations x S5 market. Report: `V32-REVIEW.md` (+ project doc claude/nba/v32-review.md); next prompts `V32-NEXT-PROMPTS.md`
 - [x] 20 seasons x 4 leagues (NBA commish/franchise, PBL16 commish/franchise, SEED=21): `tools/runs32/v32r-*.txt`, summary `tools/runs32/v32r-summary.txt` (`python3 tools/v32r-sum.py.txt`). 0 errors; minutes by role in range (stars at the low end); young asks all at min / max $2.9M; re-sign 60+ 0.58-0.76 (NBA); next-season payroll never over the hard cap; save S20 22.8 MB (v32g 28.6)

@@ -1,5 +1,14 @@
 # Next steps after the v32 review (Nov 16 2026)
 
+Status (Nov 16): 1 (S6b) done as v32i, 2 (v33a) done; see PROGRESS.md. Next: v33b below.
+
+## v33b prompt (Opus) — market follows the league
+Clone kenjacinto1028-afk/pacific-basketball-league. Read PROGRESS.md (top 2 sections), TESTING.md. Create TASK_STATE.md and checkpoint each step.
+- Asks use absolute OVR bands (ASK_RAMP, lowAskCap, MKT_RAMP_LIFT), so a flatter league pays less: with the stronger league pull (LG_GRAV 1.5/2/0.8) NBA payroll fell 182 -> 113; with the mild pull it drifts 182 -> 150; PBL16 averages $109M (floor $120M). Make the ramp and the market lift follow the league (e.g. bands relative to the league mean / percentile), keep Kenneth's rule for young players (55- = minimum, 56-59 up to ~2x) at the start league, then try the stronger pull again.
+- Hard cap: one AI signing went over (BKN, 248.8 committed vs 221.7) in tools/runs32/v33a2-nba-commish.txt; find the path that skips the check.
+- Blocks: 22-25 players at 1.5+ BPG late in NBA leagues even with a flat league; check generated bigs' block ratings vs real ones.
+Tests: t30a, t32e, t32r; 20 seasons NBA + PBL16 commish (SEED=21) vs tools/runs32/v33a-*.txt (python3 tools/v32r-sum.py.txt). Update PROGRESS.md and README. Push if GitHub is linked, else send a zip.
+
 Run in order, one at a time (both edit league.js). Models per claude/model-routing.md.
 
 | Order | Session | Model | Test tier |

@@ -4141,6 +4141,24 @@ function archiveSeason(L) {
     p.stats = {};
   }
 }
+// v33a: league mean gravity (both modes). Generated draft classes grew into a stronger middle than the starting league: rostered mean
+// 58 -> 64 (NBA) and 58 -> 65.6 (PBL16) over 20 seasons, which pushed blocks, rebounds, win-first and "team didn't want him" up with it.
+// Each summer, if the rostered mean is above the base (+ band), young players' ceilings are trimmed and 22-30-year-olds in the 52-74 range
+// are nudged down a little. Stars (75+) are left to nbaBalance. Base 58 = where both new leagues start.
+const LG_GRAV = { base: 58, band: 0.4, maxD: 1.2, trimK: 1.5, nudgeK: 0.35 };   // tried 1.5 / 2 / 0.8 (tools/runs32/v33a2-*.txt): NBA mean flat at 58-60 but payroll fell 182 -> 113 (asks are tied to absolute OVR); kept the milder pull (v33a-*.txt)
+function leagueGravity(L, delta) {
+  const ps = []; for (const t of L.teams) for (const id of t.roster) { const p = L.players[id]; if (p && !p.retired) ps.push(p); }
+  if (!ps.length) return null;
+  const mean = ps.reduce((a, p) => a + p.ovr, 0) / ps.length, G = LG_GRAV, ex = mean - G.base - G.band;
+  if (ex <= 0) return { mean, d: 0 };
+  const d = Math.min(G.maxD, ex);
+  for (const p of active(L)) {
+    if (p.prospect || p.retired || p.ovr >= 75) continue;
+    if (p.age <= 26) { const x = d * G.trimK * rnd(0.5, 1.5); p.ceil = Math.max(p.ovr + 1, (p.ceil != null ? p.ceil : p.pot) - x); if (p.pot > p.ceil + 4) p.pot = Math.max(p.ovr + 1, p.pot - Math.round(x)); }
+    if (p.age >= 22 && p.age <= 30 && p.ovr >= 52) { const o = p.ovr; growTo(p, o - d * G.nudgeK * rnd(0.5, 1.5), Math.max(p.age, 25)); p.ovr = ovr(p); if (delta) delta[p.id] = (delta[p.id] || 0) + p.ovr - o; }
+  }
+  return { mean, d };
+}
 // v27 P4: league gravity (NBA mode). After each summer's development, gently pull the counts back toward the real league's shape:
 // about 30 players at 75+, 8-10 at 85+, 4-5 at 90+. Random picks among the eligible players, small steps, so the counts move but don't run away.
 const NBA_BAL = { t75: 29, t85: [8, 10], t90: [4, 5], k75: 0.2, max75: 1.6, oldAge: 32, youngAge: 26, youngK: 1, primeK: 0.5 };   // v27 U12: 75+ target 29, firmer pull near the target, smaller steps far from it (was 30 / 0.15 / 3.5: settled at ~34); U13: players 33+ are left to their natural decline
@@ -4573,6 +4591,7 @@ function startOffseason(L) {
     if (r.posChanged && p.team != null) { summary.posMoves.push([p.id, r.posChanged]); p.tx.push({ s: S, t: `Position change: ${r.posChanged}` }); }
   }
   if (NBA_ON) nbaBalance(L, delta);   // v27 P4: keep the NBA-like spread of stars
+  leagueGravity(L, delta);   // v33a: keep the league's average near its starting level
   // development report: breakouts, stalls, late bloomers, slides and declines (visible outcomes of the hidden paths)
   { const all = active(L).filter(p => !p.prospect && delta[p.id] != null && (p.team != null || p.ovr >= 55));
     const by = (f, s) => all.filter(f).sort(s).slice(0, 10).map(p => [p.id, delta[p.id]]);

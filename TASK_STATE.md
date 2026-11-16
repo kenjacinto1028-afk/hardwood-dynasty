@@ -1,3 +1,17 @@
+# TASK_STATE — v32i S6b history import (Opus) — Nov 16 2026
+
+- [x] B1. tools/hx-build.py.txt (+gap fill: All-Star starters 1608, game opponents 435, retired years 174; flag f) + tools/hx-fn.js + tools/hx-pack.py.txt -> src/nba-history.js (860 KB); index.html + tools/load.js load it
+- [x] B2. Game-formula BPM (computeBPM math on B-Ref season totals) overrides bpm/obpm/dbpm/vorp in nbaRealRows/nbaEstRows + legends careers (hx-fn.js); playoff rows keep estimates (no playoff team totals). LeBron 2012-13 12.1 (B-Ref 11.6)
+- [x] B3. app.js: records() merges history (game/season/career/PO + BPM lists), HOF list adds history members, team history tab: franchise leaders (RS/PO, sim added), retired numbers, franchise seasons; Seasons list best record
+- [x] B4. tools/t32f.js 21/21, tools/browser-v32i.py.txt 34/34 (1300 + 390), node --check, lint 106, t30a 21/21, t32f-a 42/43 (team ribbon check fails on old code too with this save)
+- [x] B5. 10 seasons NBA commish (tools/runs32/v32i-nba-commish.txt): 0 errors, save S10 13.9 MB; PROGRESS/README
+
+# TASK_STATE — v33a balance (Opus) — after S6b
+- [x] C1. Cause: generated players grow into a stronger middle (S10: age 22-24 avg 63.2 vs 54.6 at start, 25-27 65.6 vs 56.9; rookies same 53-55; 75+/85+ already held by nbaBalance). Fix: leagueGravity (league.js, both modes): rostered mean above 58.4 -> trim young ceilings + small nudge for 22-30 52-74. RM_LIFT fs 6, star 5
+- [x] C2. Re-checked (v33a-*.txt): NBA OVR 62.4 (v32r 64), PBL 59.5 (65.4); BPG 17.4 avg; stars 32.9; win-first 0.8; strong pull (v33a2) dropped payroll 182->113, kept mild
+- [x] C3. Tests t32r, t30a, t32f, lint; 20+20 seasons x2; docs; commit + zip
+
+---
 # TASK_STATE — v32 version-end review (Opus) + history files check (v119 zip) — Nov 16 2026
 
 - [x] R0. Read PROGRESS v32a-v32h, TESTING, v32-plan; start 4 x 20-season runs (tools/runs32/v32r-*.txt) — running SEED=21
@@ -7,7 +21,7 @@
 - [x] R4. 4 x 20 seasons done (tools/runs32/v32r-{nba,pbl16}-{commish,team}.txt), summary tools/runs32/v32r-summary.txt (tools/v32r-sum.py.txt): 0 errors
 - [x] R5. Fixes: clauseTV role promises, win-first bar wfBar (5 per team; A/B old 0,1,3,1,3,4 vs new 0,1,1,1,2,2); t32r 10/10, t32e 21/21, t30a 21/21, lint 106, t32h 11/11
 - [x] R6. V32-REVIEW.md + V32-NEXT-PROMPTS.md written, PROGRESS + README updated ; project docs claude/nba/v32-review.md + v32-next-prompts.md written
-- [ ] R7. Commit; push or zip
+- [x] R7. Committed (4c966ca); push blocked (GitHub not linked): pbl-v32-review.zip + nba-commish-s10.json.gz sent
 
 ---
 # TASK_STATE — v32h (Opus): cleanup from v32 review — Nov 16 2026

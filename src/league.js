@@ -153,6 +153,17 @@ function payIncentivesOld(L) {
     if (t.id === L.user || c.inc >= 3) logNews(L, `${p.name} earned his ${money(c.inc)} incentive (${INC_LABEL[c.incK]})`, t.id, 'tx');
   }
 }
+// v33d: a new deal that replaces his current one (holdout raise) fits under the hard cap this cap year and the next two:
+// the scheduled amount of the old deal comes off, the new amount goes on (the old check used the base amount and this year only)
+function swapFits(L, t, p, amt, yrs) { const cs = capSeason(L), h = contractHit(amt, false); for (let i = 0; i < Math.min(3, yrs); i++) { const y = cs + i, old = capHit(L, p, y); if (h > old && payNoFloor(L, t, y) - old + h > APRON + 1e-6) return false; } return true; }
+// v33d: what a traded player's salary will count for the team getting him: the scheduled amount (real deals), a pending extension,
+// the 90% hometown hit only for his drafting team, and a trade kicker (applied when he is traded). The old check used the base amount.
+function inHit(L, p, tid, y) {
+  const c = p.contract; let h = capHit(L, p, y); if (!h || !c) return h;
+  if (c.exp >= y && c.hg) h = h / (p.team === p.draftTid ? 0.9 : 1) * (tid === p.draftTid ? 0.9 : 1);
+  if (c.exp >= y && c.kick > 0 && !c.kicked) h += Math.max(0, Math.min(Math.max(c.amt, maxFor(p)), c.amt * (1 + c.kick)) - c.amt);
+  return h;
+}
 // Holdouts: a player with a tough agent who badly outplays his deal may sit out the start of the season
 function holdoutTerms(L, p) { const left = p.contract.exp - L.season + 1; return { amt: Math.min(maxFor(p), r1(p.mval * 0.95)), yrs: Math.min(5, left + 1) }; }
 function holdoutCheck(L) {
@@ -163,14 +174,14 @@ function holdoutCheck(L) {
     if (!ag || !(ag.style === 'tough' || pw) || !c || c.exp <= L.season || c.type === 'rookie' || p.ovr < 72 || !p.mval || p.mval < c.amt * (pw && ag.style !== 'tough' ? 1.4 : 1.3) || R() > 0.5 * agKind(ag).hold) continue;
     if (t.id === L.user) { p.holdout = { s: L.season, left: 15 }; L.holdouts.push(p.id); p.morale = Math.max(0, (p.morale || 60) - 12); logNews(L, `${p.name} is holding out for a new deal`, t.id, 'tx'); try { feedHoldout(L, p, t); } catch (e) { } continue; }
     const terms = holdoutTerms(L, p);
-    if (R() < 0.5 && payroll(L, t) + (terms.amt - c.amt) <= APRON) { signContract(L, p, t.id, terms.amt, terms.yrs, 're-sign'); logNews(L, `${t.abbr} gave ${p.name} a new deal to end his holdout: ${terms.yrs} yr, ${money(terms.amt)}/yr`, t.id, 'tx'); }
+    if (R() < 0.5 && swapFits(L, t, p, terms.amt, terms.yrs)) { signContract(L, p, t.id, terms.amt, terms.yrs, 're-sign'); logNews(L, `${t.abbr} gave ${p.name} a new deal to end his holdout: ${terms.yrs} yr, ${money(terms.amt)}/yr`, t.id, 'tx'); }
     else { p.holdout = { s: L.season, left: rint(4, 12) }; p.morale = Math.max(0, (p.morale || 60) - 12); logNews(L, `${p.name} (${t.abbr}) is holding out for a new deal`, t.id, 'tx'); try { feedHoldout(L, p, t); } catch (e) { } }
   }
 }
 function resolveHoldout(L, pid, pay) {
   const p = L.players[pid]; if (!p || !p.holdout) return;
   const t = L.teams[p.team];
-  if (pay) { const terms = holdoutTerms(L, p); if (payroll(L, t) + (terms.amt - p.contract.amt) > APRON) return `That raise would put you over the ${money(APRON)} hard cap.`; signContract(L, p, t.id, terms.amt, terms.yrs, 're-sign'); p.holdout = null; p.morale = Math.min(100, (p.morale || 50) + 10); logNews(L, `${t.abbr} gave ${p.name} a new deal to end his holdout: ${terms.yrs} yr, ${money(terms.amt)}/yr`, t.id, 'tx'); }
+  if (pay) { const terms = holdoutTerms(L, p); if (!swapFits(L, t, p, terms.amt, terms.yrs)) return `That raise would put you over the ${money(APRON)} hard cap.`; signContract(L, p, t.id, terms.amt, terms.yrs, 're-sign'); p.holdout = null; p.morale = Math.min(100, (p.morale || 50) + 10); logNews(L, `${t.abbr} gave ${p.name} a new deal to end his holdout: ${terms.yrs} yr, ${money(terms.amt)}/yr`, t.id, 'tx'); }
   else p.holdout.firm = true;
   L.holdouts = (L.holdouts || []).filter(id => id !== pid);
   return null;
@@ -292,10 +303,11 @@ function b2Fit(L, t, p, needs) {
   const rot = rotationOf(L, t), pov = hiddenFor(L, p) ? ovrRead(L, t.id, p) : p.ovr;
   return { starter: pov >= (rot[4] ? rot[4].ovr : 0), need: needMult(L, t, p, needs) >= 1.25 };
 }
+const B2_MLE_OK = ['hopeful', 'rising', 'retool'];
 function b2Ceiling(L, t, p, needs) {
   if (t.id === L.user) return APRON;
   const st = t.status;
-  let c = st === 'allin' ? APRON : st === 'contend' ? TAXLINE + taxTolerance(L, t) : st === 'push' ? TAXLINE : CAP;
+  let c = st === 'allin' ? APRON : st === 'contend' ? TAXLINE + taxTolerance(L, t) : st === 'push' ? TAXLINE : B2_MLE_OK.includes(st) ? Math.min(TAXLINE, CAP + MLE) : CAP;   // v33d: middle teams may use the mid-level (real teams do); rebuild / tank stay at the cap
   if (p) { const f = b2Fit(L, t, p, needs); if (c <= CAP && f.starter && f.need) c = TAXLINE; else if (c > CAP && !f.starter && !f.need) c = CAP; }
   if (t.owner) { if (t.owner.tight || (t.cash || 0) < 0) c = Math.min(c, CAP); c = Math.min(c, t.owner.limit); }
   return Math.min(APRON, c);
@@ -1326,7 +1338,7 @@ function tradeCheck(L, a, b, aGive, bGive) {
   if (aN < lo - slack(A) || bN < lo - slack(B)) return `Roster would drop below ${lo} players`;
   for (const [T, n, give] of [[A, aN, aGive], [B, bN, bGive]]) if (T.id !== L.user) { const ex = n - Math.max(15, T.roster.length); if (ex > 0 && waivable(L, T, give.players).length < ex) return 'Roster would go over 15 players'; }
   const cs = capSeason(L);
-  const hitTo = (ids, tid) => ids.reduce((s, id) => { const p = L.players[id]; const c = p.contract; if (!c || c.exp < cs || c.amt <= MINSAL) return s; return s + c.amt * (c.hg && tid === p.draftTid ? 0.9 : 1) * (p.capRelief === cs ? 0.5 : 1); }, 0);
+  const hitTo = (ids, tid) => ids.reduce((s, id) => s + inHit(L, L.players[id], tid, cs), 0);   // v33d: scheduled amount, pending extension, trade kicker
   const aOut = aGive.players.reduce((s, id) => s + capHit(L, L.players[id], cs), 0), bOut = bGive.players.reduce((s, id) => s + capHit(L, L.players[id], cs), 0);
   const aPay = payroll(L, A, cs), bPay = payroll(L, B, cs);
   const wd = (T, n, give) => T.id === L.user ? 0 : waiveDead(L, T, give.players, n - Math.max(15, T.roster.length));   // dead money from cutting non-minimum players to get back to 15
@@ -1334,10 +1346,10 @@ function tradeCheck(L, a, b, aGive, bGive) {
   for (const [T, pay, nw] of [[A, aPay, aNew], [B, bPay, bNew]]) if (T.id !== L.user && T.owner && T.owner.tight && nw > pay + 0.5 && nw > T.owner.limit) return `${T.abbr}'s owner is cutting costs and won't add payroll`;
   const band = salaryBand(A, aPay, aNew, aOut, hitTo(bGive.players, a)) || salaryBand(B, bPay, bNew, bOut, hitTo(aGive.players, b)); if (band) return band;
   // v32h: an AI team doesn't take on salary that leaves next season's committed payroll over the hard cap (it would have to shed it)
-  const nx = cs + 1, nHit = ids => ids.reduce((x, id) => x + capHit(L, L.players[id], nx), 0);
+  const nx = cs + 1, nHit = (ids, tid) => ids.reduce((x, id) => x + (tid == null ? capHit(L, L.players[id], nx) : inHit(L, L.players[id], tid, nx)), 0);
   for (const [T, inn, out] of [[A, bGive.players, aGive.players], [B, aGive.players, bGive.players]]) {
     if (T.id === L.user) continue;
-    const before = payNoFloor(L, T, nx), after = before + nHit(inn) - nHit(out);
+    const before = payNoFloor(L, T, nx), after = before + nHit(inn, T.id) - nHit(out);
     if (after > APRON + 1e-6 && after > before + 0.5) return `${T.abbr} would be over the ${money(APRON)} hard cap next season (${money(after)})`;
   }
   return null;
@@ -1422,7 +1434,7 @@ function tradeCheck3(L, teams, moves) {
     else if (m.kind === 'picks') { const k = L.picks.find(x => x.id === m.id); if (!k || k.owner !== m.from || pickUsed(L, k)) return 'A pick is no longer available'; }
   }
   const [lo] = rosterBounds(L), cs = capSeason(L);
-  const hitIn = (ids, tid) => ids.reduce((sum, id) => { const p = L.players[id]; const c = p.contract; if (!c || c.exp < cs || c.amt <= MINSAL) return sum; return sum + c.amt * (c.hg && tid === p.draftTid ? 0.9 : 1) * (p.capRelief === cs ? 0.5 : 1); }, 0);
+  const hitIn = (ids, tid) => ids.reduce((sum, id) => sum + inHit(L, L.players[id], tid, cs), 0);   // v33d: scheduled amount, pending extension, trade kicker (as tradeCheck)
   for (const t of teams) {
     const T = L.teams[t], x = S[t], n = T.roster.length - x.give.players.length + x.get.players.length;
     if (n < lo - (t === L.user ? 0 : 2)) return `${T.abbr}'s roster would drop below ${lo} players`;
@@ -1431,6 +1443,8 @@ function tradeCheck3(L, teams, moves) {
     const nw = pay - out + inn + (t === L.user ? 0 : waiveDead(L, T, x.give.players, n - Math.max(15, T.roster.length)));
     if (t !== L.user && T.owner && T.owner.tight && nw > pay + 0.5 && nw > T.owner.limit) return `${T.abbr}'s owner is cutting costs and won't add payroll`;
     const band = salaryBand(T, pay, nw, out, inn); if (band) return band;
+    if (t !== L.user) { const nx = cs + 1, before = payNoFloor(L, T, nx), after = before + x.get.players.reduce((a, id) => a + inHit(L, L.players[id], t, nx), 0) - x.give.players.reduce((a, id) => a + capHit(L, L.players[id], nx), 0);   // v33d: next season's hard cap too (as tradeCheck)
+      if (after > APRON + 1e-6 && after > before + 0.5) return `${T.abbr} would be over the ${money(APRON)} hard cap next season (${money(after)})`; }
   }
   return null;
 }
@@ -4037,7 +4051,8 @@ function extensionDeadline(L) {
       if (race) p.bet = { s: L.season, race };
       const offer = Math.min(maxForTeam(L, p, t.id), (superOK(L, p) ? Math.max(p.mval, p.mvalRaw || 0) : p.mval) * Math.max(needMult(L, t, p), demPay(p)) * (p.age >= 30 ? Math.max(0.85, 1 - 0.03 * (p.age - 29)) : 1) * modeSpend(t, p) * wetPay(p) * (t.mode === 'contend' && p.ovr >= 70 ? 1.08 : 1));
       const hg = p.draftTid === t.id && ask >= 10;
-      if (offer >= ask * 0.97 && payroll(L, t, L.season + 1) + contractHit(ask, hg) <= Math.min(APRON, Math.max(t.owner ? t.owner.limit + 5 : APRON, payroll(L, t, L.season + 1)))) {
+      const x0 = p.contract.exp + 1, extFits = [x0, x0 + 1].every(y => payNoFloor(L, t, y) + contractHit(ask, hg) <= APRON + 1e-6);   // v33d: the extension's own first two seasons stay under the hard cap (an early rookie extension starts two seasons out)
+      if (offer >= ask * 0.97 && extFits && payroll(L, t, L.season + 1) + contractHit(ask, hg) <= Math.min(APRON, Math.max(t.owner ? t.owner.limit + 5 : APRON, payroll(L, t, L.season + 1)))) {
         const yrs = yrsFor(p, ask);
         p.ext = { amt: ask, yrs, hg, opt: autoOption(p, yrs, ask) };
         p.tx.push({ s: L.season, t: `Signed an extension with ${t.abbr}: ${yrs} yr, ${money(ask)}/yr from next season` });
@@ -4086,7 +4101,10 @@ function awardQual(L) { const m = awardMinGp(L); return active(L).filter(p => p.
 // Production for MVP and All-League = game score + WS + WS/48 + PER + BPM (z-scores in the qualified pool, put back on the game-score
 // scale); DPOY / All-Defense = the defensive composite + DWS + DBPM (within position group); ROY / 6MOY = game score + PER + WS/48 (rates full from 26 mpg);
 // MIP adds the change in PER and WS/48. AW_ADV.on = false gives the old scoring (comparison runs). Rates (PER, WS/48) are pulled toward the league average for low minutes (ADV_SHRINK minutes).
-const AW_ADV = { on: true, mvp: { gs: 0.4, ws: 0.2, ws48: 0.15, per: 0.1, bpm: 0.15 }, young: { gs: 0.6, perY: 0.2, ws48Y: 0.2 }, youngMpg: 26, mipPer: 0.25, mipWs48: 15, def: 0.5, dws: 0.35, dbpm: 0.15 };   // def = share moved off the tracking composite
+const AW_ADV = { on: true, mvp: { gs: 0.3, ws: 0.4, ws48: 0.1, per: 0.05, bpm: 0.15 }, young: { gs: 0.6, perY: 0.2, ws48Y: 0.2 }, youngMpg: 26, mipPer: 0.25, mipWs48: 15, def: 0.5, dws: 0.35, dbpm: 0.15,
+  mvpTeam: 0.5, royMpg: 20, mipNoMvp: 5 };   // v33d (Kenneth): MVP WS 40% / game score 30% (was 20 / 40), team record 0.5 (was 1.1; WS already carries winning). Picked on the same 10 seasons (tools/runs32/v33d-awgrid.txt): MVP = WS leader 8/9 (WS 35% + team 0.8: 5/9); ROY needs 20+ mpg; MIP skips the MVP top 5
+// v33c values, for comparison runs (tools/t33c-awards.js OLD=v33c)
+const AW_V33C = { mvp: { gs: 0.4, ws: 0.2, ws48: 0.15, per: 0.1, bpm: 0.15 }, mvpTeam: 1.1, royMpg: 0, mipNoMvp: 0 };   // def = share moved off the tracking composite
 const ADV_SHRINK = 900, ADV_SHRINK_Y = 1800;   // ROY / 6MOY: rates count less for bench minutes (a 14-mpg sixth man won on PER with 900)
 function awardFns(L) {
   const S = L.season;
@@ -4132,15 +4150,17 @@ function awardFns(L) {
   // postseason teams (top 5 per conference: the top 3 plus the play-in) at the time of the vote
   const post = new Set(); for (const c of [...new Set(L.teams.map(t => t.conf))]) seedOrder(L, c).slice(0, poPlayinTo(L)).forEach(id => post.add(id));
   const prevH = p => p.hist.find(x => x.s === S - 1);
+  const mvpS = p => gs(p) * (1 + (AW_ADV.on ? AW_ADV.mvpTeam : 1.1) * (tw(p) - 0.5)) * seedF(p);
+  const mvpTop = q => { if (!AW_ADV.on || !AW_ADV.mipNoMvp) return new Set(); return new Set(q.map(p => [p.id, mvpS(p)]).sort((a, b) => b[1] - a[1]).slice(0, AW_ADV.mipNoMvp).map(x => x[0])); };
   return {
     gs, gs0, gsY, defS,
     // MVP: production, strongly weighted toward winning; a play-in team's MVP is rare and a non-playoff team's rarer still
-    mvp: { pool: q => q, score: p => gs(p) * (1 + 1.1 * (tw(p) - 0.5)) * seedF(p) },
+    mvp: { pool: q => q, score: mvpS },
     dpoy: { pool: q => { if (!dPool.length) return q; const [d1, d2] = allDefTeams(q, defS); const e1 = d1.filter(p => post.has(p.team)); return e1.length ? e1 : d2.filter(p => post.has(p.team)).length ? d2.filter(p => post.has(p.team)) : q.filter(p => post.has(p.team) && dOK(p)); }, score: defS },
-    roy: { pool: q => q.filter(p => p.rookieSeason === S), score: gsY },
+    roy: { pool: q => { const r = q.filter(p => p.rookieSeason === S), m = AW_ADV.on ? AW_ADV.royMpg : 0, ok = r.filter(p => !m || p.stats.rs.min / p.stats.rs.gp / 60 >= m); return ok.length ? ok : r; }, score: gsY },   // v33d: 20+ mpg (if no rookie has that, the usual pool)
     smoy: { pool: q => q.filter(p => p.stats.rs.gs / p.stats.rs.gp < 0.3), score: gsY },
     // MIP: game score change + rating change, plus (v33c) the change in PER and WS/48 when last season has them
-    mip: { pool: q => q.filter(p => { const h = prevH(p); return p.ovr >= 60 && h && h.rs && h.rs.gp >= gpq(30); }), score: p => { const h = prevH(p), hm = (h.rs.min || 0) / 60, hw = hm / (hm + ADV_SHRINK);
+    mip: { pool: q => { const top = mvpTop(q); return q.filter(p => { const h = prevH(p); return p.ovr >= 60 && !top.has(p.id) && h && h.rs && h.rs.gp >= gpq(30); }); }, /* v33d: not an MVP-level player (MVP top 5) */ score: p => { const h = prevH(p), hm = (h.rs.min || 0) / 60, hw = hm / (hm + ADV_SHRINK);
       const adv = AW_ADV.on && h.rs.per != null && p.stats.rs.per != null ? AW_ADV.mipPer * (shr(p, 'per', 15) - (hw * h.rs.per + (1 - hw) * 15)) + AW_ADV.mipWs48 * (shr(p, 'ws48', 0.1) - (hw * (h.rs.ws48 || 0) + (1 - hw) * 0.1)) : 0;
       return gs0(p) - gmsc(seasonLine(h.rs)) / h.rs.gp + (p.ovr - h.ovr) * 0.3 + adv; } },
     // v22 Clutch Player of the Year: final 2 minutes of the 4th/OT within 6 points; 10+ clutch games. Clutch scoring, efficiency, plus/minus, go-ahead buckets, team record
@@ -4333,7 +4353,8 @@ function archiveSeason(L) {
 // 58 -> 64 (NBA) and 58 -> 65.6 (PBL16) over 20 seasons, which pushed blocks, rebounds, win-first and "team didn't want him" up with it.
 // Each summer, if the rostered mean is above the base (+ band), young players' ceilings are trimmed and 22-30-year-olds in the 52-74 range
 // are nudged down a little. Stars (75+) are left to nbaBalance. Base 58 = where both new leagues start.
-const LG_GRAV = { base: 58, band: 0.4, maxD: 1.2, trimK: 1.5, nudgeK: 0.35 };   // tried 1.5 / 2 / 0.8 (tools/runs32/v33a2-*.txt): NBA mean flat at 58-60 but payroll fell 182 -> 113 (asks are tied to absolute OVR); kept the milder pull (v33a-*.txt)
+const LG_GRAV = { base: 58, band: 0.4, maxD: 1.5, trimK: 2, nudgeK: 0.8 };   // v33d: the stronger pull again, now that asks follow the league (v33b)
+// v33a:   // tried 1.5 / 2 / 0.8 (tools/runs32/v33a2-*.txt): NBA mean flat at 58-60 but payroll fell 182 -> 113 (asks are tied to absolute OVR); kept the milder pull (v33a-*.txt)
 function leagueGravity(L, delta) {
   const ps = []; for (const t of L.teams) for (const id of t.roster) { const p = L.players[id]; if (p && !p.retired) ps.push(p); }
   if (!ps.length) return null;
@@ -5375,6 +5396,7 @@ function faRound(L, lastCall, minOvr) {
       const rotationWorthy = pov >= ovrAt(short > 0 ? 9 : 7) - 1 || mentorFit;
       if (n < 13) W = rotationWorthy ? null : MINSAL;
       else if ((n < softMax || (short > 0 && n < 15)) && rotationWorthy) W = null;
+      else if (FLOOR_FILL.on && short > FLOOR_FILL.minGap && n >= 15 && rotationWorthy && (cut = floorCut(L, t, p))) W = null;   // v33d: a floor team opens a spot (a minimum player)
       else if (pov >= ovrAt(5)) { cut = n >= 15 ? cuttable(L, t) : null; if (n >= 15 && !cut) continue; W = null; }
       else continue;
       if (W == null) {
@@ -5392,10 +5414,12 @@ function faRound(L, lastCall, minOvr) {
       room = Math.min(room, futRoom(L, t));   // v33b: later cap years too
       if (W > MINSAL && W > room) W = room >= 1.5 ? room : MINSAL;
       if (W > MINSAL) W = rampAmt(L, p, W);   // v32e: no bidding war over a low-rated player (ramp, soft from 60)
+      let fl = false;   // v33d: a team under the floor may bid above value (the shortfall is owed anyway); Kenneth's young-player rule and the under-60 cap hold
+      if (FLOOR_FILL.on && short > FLOOR_FILL.minGap && W > 0) { const lim = p.ovr >= 60 ? Infinity : p.ovr <= 55 ? MINSAL : p.age <= 25 ? MINSAL * FLOOR_FILL.youngMax : ASK_REL.u60, wf = Math.min(short, room, maxFor(p), lim, Math.max(p.ask || 0, p.mval || MINSAL) * FLOOR_FILL.prem + FLOOR_FILL.plus); if (wf > W + 0.5) { W = wf; fl = true; } }
       W = W < 1.5 ? MINSAL : r1(W);
       if (trv(p, 'win') >= 72 && t.mode === 'tank' && p.ovr >= 68) continue;   // won't sign with a tanking team
       const role = expRole(L, t, p), ap = negAppeal(p, t, 'signing', L) * roleAppeal(p, role);   // v32b: every offer carries a role
-      offers.push({ tid: t.id, amt: W, cut, ap, sc: W * ap, role });
+      offers.push({ tid: t.id, amt: W, cut, ap, sc: W * ap, role, fl: fl && W > MINSAL });
     }
     const uo = multi ? (L.faOffers || {})[p.id] : null;
     if (!offers.length && !uo) continue;
@@ -5448,7 +5472,9 @@ function faRound(L, lastCall, minOvr) {
     if (multi && isRFA(L, p) && best.tid !== p.rfa.tid && price > 2) { p.sheet = { tid: best.tid, amt: price, yrs: Math.min(4, yrsFor(p, price)), day: L.faDay }; logNews(L, `${p.name} signed an offer sheet with ${L.teams[best.tid].abbr} (${money(price)} × ${p.sheet.yrs}); ${L.teams[p.rfa.tid].abbr} can match`, p.rfa.tid, 'tx'); if (p.rfa.tid === L.user) faEvent(L, p, 'sheet', best.tid, '', { amt: price, yrs: p.sheet.yrs }); continue; }
     if (best.cut) { best.cut.tx.push({ s: L.season, t: `Released by ${L.teams[best.tid].abbr} to open a roster spot` }); toFA(L, best.cut); }
     if (multi && offers.length >= 2) { const mx = Math.max(...offers.map(o => o.amt)); const c = (L.faChoice = L.faChoice || {})[p.pers] = (L.faChoice || {})[p.pers] || [0, 0, 0]; c[0]++; if (best.amt < mx * 0.97) c[1]++; if (price > p.ask * 1.02) c[2]++; }   // stats: choices with 2+ offers, took less money, paid above ask
-    signContract(L, p, best.tid, price, Math.min(4, yrsFor(p, price)), 'signing', null, { rl: best.role });
+    if (best.fl && !lastCall) price = Math.max(price, best.amt);   // v33d: a floor team pays its bid, on a short deal
+    signContract(L, p, best.tid, price, best.fl && price > (p.mval || 0) * 1.2 ? (p.age >= 28 ? 1 : Math.min(2, yrsFor(p, price))) : Math.min(4, yrsFor(p, price)), 'signing', null, { rl: best.role });
+    if (best.fl && price > (p.mval || 0) * 1.3) p.tx.push({ s: L.season, t: `Paid above his value: ${L.teams[best.tid].abbr} were under the payroll floor` });
     if (multi) try { faDecision(L, p, best, offers); } catch (e) { }   // v26.6 R2: why he picked them
     { const wp = wetPay(p); if (Math.abs(wp - 1) >= 0.02) p.tx.push({ s: L.season, t: `Work ethic priced in (${wp > 1 ? '+' : ''}${Math.round((wp - 1) * 100)}%)` }); }   // v24.4
     if (multi && best.amt > p.ask * 1.02 && p.ovr >= 65 && offers.length >= 2) faEvent(L, p, 'note', best.tid, '');
@@ -5536,6 +5562,7 @@ function faDay(L) {
   { const g = tradeGoal(L), offGoal = Math.max(g.off, g.tot - tradeCount(L, true)), need = offGoal - tradeCount(L, false); if (need > 0) aiTradeRound(L, L.faDay >= 10 ? 600 : L.faDay >= 8 ? 120 : Math.min(40, Math.ceil(need / Math.max(1, 11 - L.faDay) * 8)), offGoal, false);   // v24.2: the offseason makes up any regular-season shortfall
     for (let i = 0; i < 4; i++) { const tr = ycTry(L, false); if (tr) commitAITrade(L, tr); } }
   runSalaryDumps(L); runSalaryDumps(L);
+  try { floorFill(L, L.faDay >= 10); } catch (e) { }   // v33d
   L.faDay++; try { watchScan(L); } catch (e) { }
   if (L.faDay > 10) { if ((L.summer || {}).s !== L.season) { try { summerLeague(L); } catch (e) { } } revealRookies(L);   // v16: summer league and the reveal come after free agency
     for (const id of L.fa.slice()) { const q = L.players[id]; if (q && q.sheet && isRFA(L, q)) { if (q.rfa.tid === L.user) sheetDecide(L, q, false, 'you didn\'t match in time'); else resolveSheet(L, q, true); } }
@@ -5567,6 +5594,82 @@ function meetPayrollFloor(L, t) {
   const owed = r1(MINPAY - pay);
   t.floorPaid = t.floorPaid || []; t.floorPaid.push({ s: L.season + 1, amt: owed });
   logNews(L, `${t.city} ${t.name} finished under the ${money(MINPAY)} payroll floor and pay the ${money(owed)} difference, which counts on their payroll for the season`, t.id, 'league');
+}
+// v33d: payroll floor. After free agency about a third of NBA teams sat far under the floor (v33b: lowest team avg $76M) and paid
+// the difference as a charge. Now a team under the floor uses its cap room during free agency, the way real floor teams do:
+// 1) from FA day FLOOR_FILL.absorbDay it takes a salary dump (a short, overpaid contract from a team over the cap, often with a pick
+//    attached; it fits in cap room, no salary goes back), 2) from FA day FLOOR_FILL.signDay it signs free agents rated 60+ to short
+//    deals (1-2 years) up to the gap, paying above value if needed (at most prem x value + plus; the money is owed anyway).
+// The floor charge (meetPayrollFloor) stays as the backstop. Your team is never touched. Owner limits don't apply below the floor.
+const FLOOR_FILL = { on: true, absorbDay: 2, signDay: 5, minGap: 0.5, maxSign: 5, prem: 2.5, plus: 4, dumpYrs: 2, minOvr: 56, youngMax: 2.2 };
+function floorPend(L, t) { const cs = capSeason(L); let s = 0; for (const tr of L.pending || []) if (tr.floor && tr.b === t.id) for (const id of tr.aGive.players) s += capHit(L, L.players[id], cs); return s; }
+function floorGap(L, t) { return MINPAY - payNoFloor(L, t) - floorPend(L, t); }
+function floorAbsorb(L, B) {
+  const cs = capSeason(L), gap = floorGap(L, B), room = CAP - payroll(L, B, cs) - floorPend(L, B);
+  if (gap < FLOOR_FILL.minGap || room < 3 || (L.pending || []).some(tr => tr.floor && tr.b === B.id)) return null;
+  if (B.roster.length >= 15 && !waivable(L, B, []).length) return null;
+  const cands = [];
+  for (const A of L.teams) {
+    if (A.id === B.id || A.id === L.user) continue;
+    const payA = payNoFloor(L, A, cs); if (payA <= MINPAY + 5) continue;   // teams well above the floor; an overpaid deal, or any short deal from a team over the cap / rebuilding
+    const top = new Set(rosterOf(L, A).sort((x, y) => y.ovr - x.ovr).slice(0, payA > TAXLINE ? 3 : 5).map(x => x.id));
+    for (const p of rosterOf(L, A)) {
+      const c = p.contract; if (!c || c.amt <= MINSAL * 2 || top.has(p.id)) continue;
+      const hit = capHit(L, p, cs), yl = c.exp - cs + 1;
+      if (hit < 3 || hit > Math.min(room, gap + 8) || yl > FLOOR_FILL.dumpYrs || yl < 1) continue;
+      if (tradeRestricted(L, p) || (tradeStatus(L, p) || {}).k === 'protect' || iconTier(L, p, A.id) === 2 || p.injLong) continue;
+      if (!(payA > TAXLINE || (p.mval || 0) < hit * 0.9 || ((A.mode === 'rebuild' || A.mode === 'tank' || payA > CAP) && p.age >= 27))) continue;   // a burden for them
+      cands.push({ A, p, hit, sc: -Math.abs(gap - hit) + (payA > TAXLINE ? 6 : 0) + (yl === 1 ? 2 : 0) });
+    }
+  }
+  cands.sort((x, y) => y.sc - x.sc);
+  for (const { A, p, hit } of cands.slice(0, 8)) {
+    // the floor team pays the gap anyway, so salary that keeps it under the floor costs it nothing: it asks for little (as salaryDump)
+    const v = playerTV(L, B, p, false), free = Math.max(0, Math.min(hit, gap)) / Math.max(hit, 1), need = (v >= 1.2 ? 0 : Math.max(0.5, 1.2 - v)) * (1 - 0.8 * free);
+    const picks = L.picks.filter(k => k.owner === A.id && k.s > L.season && !pickUsed(L, k)).sort((a, b) => b.rd - a.rd || b.s - a.s);
+    const aGive = { players: [p.id], picks: [] }; let got = 0; const gv = [];
+    for (const k of picks) { if (got >= need || aGive.picks.length >= 2) break; aGive.picks.push(k.id); gv.push(pickTV(L, B, k)); got = bundleSum(gv); }
+    if (got < need - 0.15) continue;
+    const bGive = { players: [], picks: [] };
+    if (tradeCheck(L, A.id, B.id, aGive, bGive)) continue;
+    const yl = p.contract.exp - cs + 1;
+    return { a: A.id, b: B.id, aGive, bGive, id: 'dump-floor-' + Date.now() + '-' + B.id, dump: true, floor: true, why: `Salary dump: ${B.abbr} are under the ${money(MINPAY)} payroll floor and used their cap room to take ${p.name}'s ${money(p.contract.amt)}/yr (${yl} season${yl > 1 ? 's' : ''} left) from ${A.abbr}${aGive.picks.length ? `, who attached ${aGive.picks.length} pick${aGive.picks.length > 1 ? 's' : ''}` : ''}` };
+  }
+  return null;
+}
+// a minimum-contract player outside the top 9 who is worse than the signing (young rookie-scale picks kept)
+function floorCut(L, B, p) { const top = new Set(rosterOf(L, B).sort((a, b) => b.ovr - a.ovr).slice(0, 9).map(x => x.id)); return rosterOf(L, B).filter(x => !top.has(x.id) && capHit(L, x) === 0 && x.ovr < p.ovr && !(x.contract && x.contract.type === 'rookie' && x.age <= 21) && !x.hardship).sort((a, b) => a.ovr - b.ovr)[0] || null; }
+function floorSign(L, B, lastCall) {
+  let gap = floorGap(L, B), room = CAP - payroll(L, B) - floorPend(L, B), n = 0;
+  const sorted = rosterOf(L, B).map(x => x.ovr).sort((a, b) => b - a), bar = Math.max(FLOOR_FILL.minOvr, Math.min(60, sorted[11] || 0));
+  while (gap >= FLOOR_FILL.minGap && room >= 1.5 && n < FLOOR_FILL.maxSign) {
+    const fas = L.fa.map(id => L.players[id]).filter(p => p && !p.retired && !p.prospect && !p.abroad && p.ovr >= bar && p.ask != null && !p.sheet && !isRFA(L, p) && !(L.faOffers || {})[p.id]).sort((a, b) => b.ovr - a.ovr || b.mval - a.mval);
+    let done = false;
+    for (const p of fas.slice(0, 6)) {
+      if (signConcerns(L, p, B, 'signing').refuse) continue;
+      // Kenneth's rule holds: 55 and under not here (minimum), 56-59 at most ~2.2x the minimum when 25 or younger, nobody under 60 at $10M+
+      const lim = p.ovr >= 60 ? Infinity : p.age <= 25 ? MINSAL * FLOOR_FILL.youngMax : ASK_REL.u60;
+      const amt0 = Math.min(gap, room, maxFor(p), lim, Math.max(p.ask, p.mval || MINSAL) * FLOOR_FILL.prem + FLOOR_FILL.plus);
+      const amt = amt0 < 1.5 ? MINSAL : r1(amt0); if (amt + 1e-6 < p.ask) continue;
+      const yrs = p.age >= 28 || amt > (p.mval || 0) * 1.5 ? 1 : 2, hit = contractHit(amt, false);
+      if (yrs > 1 && !futFits(L, B, hit, yrs - 1)) continue;
+      if (B.roster.length >= 15) { const c = floorCut(L, B, p); if (!c) return n; c.tx.push({ s: L.season, t: `Released by ${B.abbr} to open a roster spot` }); toFA(L, c); }
+      signContract(L, p, B.id, amt, yrs, 'payroll');
+      gap -= hit; room -= hit; n++; done = true;
+      if (amt > (p.mval || 0) * 1.3) p.tx.push({ s: L.season, t: `Paid above his value: ${B.abbr} were under the payroll floor` });
+      break;
+    }
+    if (!done) break;
+  }
+  return n;
+}
+function floorFill(L, lastCall) {
+  if (!FLOOR_FILL.on || L.phase !== 'off-fa') return;
+  for (const B of L.teams.slice().sort((a, b) => payNoFloor(L, a) - payNoFloor(L, b))) {
+    if (B.id === L.user || floorGap(L, B) < FLOOR_FILL.minGap) continue;
+    if (L.faDay >= FLOOR_FILL.absorbDay && inTradeWindow(L)) { const tr = floorAbsorb(L, B); if (tr) { if (L.mode === 'commish') { tr.when = seasonLabel(L); tr.isNew = true; L.pending.push(tr); } else executeTrade(L, tr); logNews(L, tr.why, tr.b, 'trade'); } }
+    if (L.faDay >= FLOOR_FILL.signDay || lastCall) floorSign(L, B, lastCall);
+  }
 }
 function userRosterProblem(L) {
   if (L.user == null) return null;

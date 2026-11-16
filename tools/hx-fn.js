@@ -4,11 +4,11 @@ const hxNorm = n => String(n || '').normalize('NFKD').replace(/[̀-ͯ]/g, '').to
 const hxYr = s => +String(s).slice(0, 4);
 const hxLbl = y => `${y}-${String(y + 1).slice(2)}`;
 // game-formula box plus-minus (computeBPM) for a real past season; VORP from it (B-Ref definition, 82-game scale)
-function hxBpmOf(name, y) { const r = NBA_HX.bpmRows[hxNorm(name)]; return r ? r[y] || null : null; }
+function hxBpmOf(name, y, tm) { const r = NBA_HX.bpmRows[hxNorm(name)]; return r ? (tm && r[y + '|' + tm]) || r[y] || null : null; }   // v33d: traded: that team's stint (tools/hx-bpmstint.py.txt)
 // v33c: PER / USG% / OWS / DWS / WS / WS/48 with the game's formula too (computeAdv; tools/hx-adv.py.txt). WS stay B-Ref's before 1970-71.
 function hxAdvOf(name, y, tm) { const r = (NBA_HX.advRows || {})[hxNorm(name)]; return r ? (tm && r[y + '|' + tm]) || r[y] || null : null; }   // traded: that team's stint
 function hxFixRow(name, o) {
-  if (!o || typeof NBA_HX === 'undefined') return o; const y = hxYr(o.season), b = hxBpmOf(name, y), a = hxAdvOf(name, y, o.team);
+  if (!o || typeof NBA_HX === 'undefined') return o; const y = hxYr(o.season), b = hxBpmOf(name, y, o.team), a = hxAdvOf(name, y, o.team);
   if (b) { o.obpm = b[0]; o.dbpm = b[1]; o.bpm = b[2]; if (o.mp) o.vorp = Math.round((b[2] + 2) * o.mp / (82 * 48) * 10) / 10; }
   if (a) { o.per = a[0]; o.usg = a[1]; if (a[4] != null) { o.ows = a[2]; o.dws = a[3]; o.ws = a[4]; o.ws48 = a[5]; } }
   return o;

@@ -1,4 +1,4 @@
-# v33c award report: python3 tools/t33c-awsum.py.txt NEW.txt OLD.txt   (lines "A {...}" from tools/t33c-awards.js; OLD = OLD=1 run)
+# v33c / v33d award report: python3 tools/t33c-awsum.py.txt NEW.txt OLD.txt [new label] [old label]   (lines "A {...}" from tools/t33c-awards.js)
 import json, sys, collections
 def load(f): return [json.loads(l[2:]) for l in open(f) if l.startswith('A ') and l[2:].strip() != 'null']
 K = ['mvp', 'dpoy', 'roy', 'smoy', 'mip']
@@ -10,7 +10,9 @@ def report(rows, tag):
         print(f"S{r['s']}: MVP {f('mvp')} [WS rank {r['mvpWsRank']}] | DPOY {f('dpoy')} [DWS rank {r['dpoyDwsRank']}] | ROY {w['roy']['n'] if w.get('roy') else '-'} | 6MOY {w['smoy']['n'] if w.get('smoy') else '-'} | MIP {w['mip']['n'] if w.get('mip') else '-'}")
     n = len(rows)
     m3 = sum(1 for r in rows if r['mvpWsRank'] and r['mvpWsRank'] <= 3); d5 = sum(1 for r in rows if r['dpoyDwsRank'] and r['dpoyDwsRank'] <= 5)
-    print(f'  MVP top-3 in WS: {m3}/{n} | DPOY top-5 in DWS: {d5}/{n}')
+    m1 = sum(1 for r in rows if r['mvpWsRank'] == 1)
+    print(f'  MVP = WS leader: {m1}/{n} | MVP top-3 in WS: {m3}/{n} | DPOY top-5 in DWS: {d5}/{n}')
+    if any('mipMvpTop5' in r for r in rows): print(f"  MIP from the MVP top 5: {sum(1 for r in rows if r.get('mipMvpTop5'))}/{n}")
     for k in K:
         ws = [r['w'][k] for r in rows if r['w'].get(k)]
         c = collections.Counter(x['n'] for x in ws); low = [f"{x['n']} {x['mpg']}" for x in ws if x['mpg'] < (30 if k in ('mvp', 'dpoy') else 20)]
@@ -18,5 +20,5 @@ def report(rows, tag):
     agree = {k: sum(1 for r in rows if r['same'].get(k)) for k in K}
     print('  same winner as the other scoring would pick (ladder leader, same season):', ', '.join(f'{k} {agree[k]}/{n}' for k in K))
 new, old = load(sys.argv[1]), load(sys.argv[2]) if len(sys.argv) > 2 else []
-report(new, 'new scoring (v33c)')
-if old: report(old, 'old scoring (AW_ADV.on = false, same seed, same saved league)')
+report(new, sys.argv[3] if len(sys.argv) > 3 else 'new scoring')
+if old: report(old, (sys.argv[4] if len(sys.argv) > 4 else 'old scoring') + ' (same seed, same saved league)')

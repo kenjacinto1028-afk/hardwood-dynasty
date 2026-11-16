@@ -29,6 +29,7 @@ run(`(()=>{ const L = SL; /* sim from here */ })()`);
 Long-sim harness from a saved league: `SNAP=tools/snap/nba-commish-s10.json.gz node tools/r30.js 3`
 
 Remake them when save fields change (each version): `SEED=21 NBA=1 SIZE=30 MODE=commish node tools/snap-make.js 10` (MODE=team for franchise; NBA=0 SIZE=16 for PBL).
+v33d: the 20-season run can write the commissioner saves on the way: `SEED=21 NBA=1 MODE=commish SNAPOUT=tools/snap/nba-commish-s10.json.gz node tools/r30.js 20` (SNAPAT=10 default; same loop as snap-make).
 
 Caveats
 - A saved league goes stale when save fields change; `migrateLeague` covers most of it, but remake each version.

@@ -1,0 +1,10 @@
+G {"s":11,"A":["Aday Mara",2],"B":["Aday Mara",2],"C":["Aday Mara",2],"D":["Aday Mara",2],"E":["Shai Gilgeous-Alexander",1],"F":["Shai Gilgeous-Alexander",1],"G":["Shai Gilgeous-Alexander",1],"H":["Shai Gilgeous-Alexander",1]}
+G {"s":12,"A":["Keon Whitfield",1],"B":["Keon Whitfield",1],"C":["Keon Whitfield",1],"D":["Keon Whitfield",1],"E":["Keon Whitfield",1],"F":["Keon Whitfield",1],"G":["Keon Whitfield",1],"H":["Keon Whitfield",1]}
+G {"s":13,"A":["Keon Whitfield",1],"B":["Keon Whitfield",1],"C":["Keon Whitfield",1],"D":["Keon Whitfield",1],"E":["Keon Whitfield",1],"F":["Keon Whitfield",1],"G":["Keon Whitfield",1],"H":["Keon Whitfield",1]}
+G {"s":14,"A":["Connor Fraser",2],"B":["Keon Whitfield",1],"C":["Connor Fraser",2],"D":["Keon Whitfield",1],"E":["Keon Whitfield",1],"F":["Keon Whitfield",1],"G":["Keon Whitfield",1],"H":["Connor Fraser",2]}
+G {"s":15,"A":["RJ Zamora",1],"B":["RJ Zamora",1],"C":["RJ Zamora",1],"D":["RJ Zamora",1],"E":["RJ Zamora",1],"F":["RJ Zamora",1],"G":["RJ Zamora",1],"H":["RJ Zamora",1]}
+G {"s":16,"A":["Keon Whitfield",1],"B":["Keon Whitfield",1],"C":["Keon Whitfield",1],"D":["Keon Whitfield",1],"E":["Keon Whitfield",1],"F":["Keon Whitfield",1],"G":["Keon Whitfield",1],"H":["Keon Whitfield",1]}
+G {"s":17,"A":["Keon Whitfield",1],"B":["Keon Whitfield",1],"C":["Keon Whitfield",1],"D":["Keon Whitfield",1],"E":["Keon Whitfield",1],"F":["Keon Whitfield",1],"G":["Keon Whitfield",1],"H":["Keon Whitfield",1]}
+G {"s":18,"A":["Tunde Eboue",5],"B":["Tunde Eboue",5],"C":["Tunde Eboue",5],"D":["Tunde Eboue",5],"E":["Brent Hadley",1],"F":["Tunde Eboue",5],"G":["Tunde Eboue",5],"H":["Tunde Eboue",5]}
+G {"s":19,"A":["Nolan Gentry",2],"B":["Brent Hadley",1],"C":["Brent Hadley",1],"D":["Brent Hadley",1],"E":["Brent Hadley",1],"F":["Brent Hadley",1],"G":["Brent Hadley",1],"H":["Brent Hadley",1]}
+G {"s":20,"A":["Nolan Gentry",2],"B":["Nolan Gentry",2],"C":["Nolan Gentry",2],"D":["Nolan Gentry",2],"E":["Nolan Gentry",2],"F":["Nolan Gentry",2],"G":["Nolan Gentry",2],"H":["Nolan Gentry",2]}

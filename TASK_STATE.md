@@ -1,3 +1,19 @@
+# TASK_STATE — v33d payroll floor + balance + awards (Opus) — Nov 16 2026
+
+- [x] A1. Trace (/home/claude/scr/d1.js, S11 from NBA save): floor teams fill rosters with minimum vets (FA pool past top 8 is all ~$1.3-5M value); non-contenders stop at the cap (b2Ceiling = CAP for hopeful/rising/retool, so no mid-level). Hard cap: v33b S1 events = real 2026 deals already over for the next cap year; holes: tradeCheck hitTo used base amount (no kicker / schedule / pending extension), holdout raises checked this year + base amount only
+- [x] A2. league.js FLOOR_FILL / floorAbsorb / floorSign / floorFill (faDay): floor dumps from FA day 2, 1-2 yr 'payroll' deals (60+, up to 2.5x value + 4) from day 5; B2_MLE_OK (hopeful/rising/retool use the mid-level); inHit (tradeCheck), swapFits (holdouts); r30 capOver logs pre/who. Diag S11: avg 167 -> 168.6, under floor 2 -> 0
+- [x] A3. Quick check: NBA 5 + PBL16 6 seasons (A only): NBA S1-3 lowest >= 148.7, PBL still 40-86 -> A2b floor bids; t33b/t32e/t32h/t32r/t30a pass
+- [x] B1. LG_GRAV maxD 1.5 / trimK 2 / nudgeK 0.8 set (check in the 20-season runs)
+- [x] B2. engine.js BLK_KNEE 58 / BLK_TOP 0.7 in genPlayer (gen bigs p90 67->63, p95 72->67; real 64/67); MPG_TOP 38.5 regular-season target ceiling in roleMinutes
+- [x] C1. AW_ADV mvp gs .30 ws .35 ws48 .12 per .08 bpm .15, mvpTeam 0.8, royMpg 20, mipNoMvp 5; AW_V33C preset; t33c-awards OLD=v33c + MVP = WS leader count
+- [x] C2. Outlier: not in history data / S10 save (backfill vs live: PER err 0.11, WS 0.19); PBL S1 has a 98 OVR -> extreme rating + ~40 mpg; r30 logs top PER/WS (pending runs). tools/hx-bpmstint.py.txt: 447 stint BPM rows (median gap 0.03 vs season); app.js advEstTag + records (est.)
+- [x] A2b. faRound floor bids (fl: above value, short deal, pays its bid; floorCut opens a spot); floorSign under-60 within Kenneth's rule; d4 diag PBL: 4-7 teams under before
+- [x] C3. t33d 17/17, t33b 30/30 (59-sample check relaxed), t33c 23/23 (WS corr bar 0.94; old-save test strips PER/WS), t32e 21/21, t32h 11/11, t32r pass, t30a 29/0, lint 106, browser-v33d 12/12
+- [x] C3b. Outlier cause: turnovers only charged to the ball handler (37-43% usage stars at 1.3-2.2 TOV, PER 41-46 late); engine TOV_USE 0.6 (squared usage weights): top-usage TOV 2.2 -> 2.9, top PER 40 -> 36; hard-cap: AI extension years, three-team trades (inHit + next season); MVP weights set F (ws .40, team .5) from tools/t33d-awgrid.js
+- [x] C4. Saves remade (tools/snap: nba-commish + pbl16-commish via r30 SNAPOUT, nba-team snap-make); 20 seasons tools/runs32/v33d-{nba,pbl16}-commish.txt: NBA payroll 166.9 (lowest avg 146.6, <=2 under floor 17/20), PBL 132.0 (112.7, 15/20); awards v33d vs v33c (v33d-awards-report.txt): MVP = WS leader 8/10, top-3 10/10
+- [x] C5. PROGRESS + README + TESTING, commit, zip (GitHub not linked)
+
+---
 # TASK_STATE — v33c PER / USG% / WS / VORP + awards (Opus) — Nov 16 2026
 
 - [x] C1. computeAdv / advStint / advLeague / advCareer (league.js, after computeBPM): B-Ref formulas per team stint; frozen at season end (RS + PO)

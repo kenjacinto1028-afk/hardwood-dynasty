@@ -14,6 +14,16 @@ The game is split into small files so a change rewrites one file, not 1.3 MB.
 | `src/nba-setup.js` | v30a NBA setup extras: real rookies (`nbaRookies`) + real jersey numbers (`NBA_JERSEY_CSV`, `nbaJerseys`) |
 | `src/index.template.html` | Page shell with markers `/*CSS*/ /*VENDOR*/ /*ENGINE*/ /*LEAGUE*/ /*APP*/` for the single-file build |
 
+## v33d (Opus, Nov 16 2026): payroll floor, balance, MVP win shares
+- Payroll floor (league.js): `FLOOR_FILL` settings; `floorAbsorb(L, B)` (a team under the floor takes a short overpaid / burden deal from a team well above the floor into cap room, nothing back, picks as `salaryDump`; trade `floor: true`, kind dump), `floorSign(L, B)` (late FA: 56+ free agents on 1-2 year `'payroll'` deals up to the gap, at most 2.5x value + 4; 55 and under never, 56-59 at 25 or younger at most 2.2x the minimum, under 60 below $10M), `floorCut`, `floorGap` / `floorPend`, `floorFill(L, lastCall)` (called in `faDay`). `faRound`: a team under the floor may bid above value (`fl` offers: same limits, pays its bid, 1-2 years) and open a roster spot with `floorCut`. `meetPayrollFloor` stays the backstop.
+- `b2Ceiling`: `B2_MLE_OK` (hopeful / rising / retool) may go to cap + mid-level for a player who helps; rebuild / tank stay at the cap.
+- Hard cap: `inHit(L, p, tid, y)` (tradeCheck incoming salary: scheduled amount, pending extension, trade kicker, hometown hit for the new team), `swapFits(L, t, p, amt, yrs)` (holdout raises, AI and you, this cap year + the next two). r30 `capOver` events carry `pre` / `who`.
+- Balance: `LG_GRAV` maxD 1.5 / trimK 2 / nudgeK 0.8. engine.js `BLK_KNEE` / `BLK_TOP` (generated block ratings above 58 x 0.7), `MPG_TOP` (38.5, regular-season role-minute ceiling in `roleMinutes`).
+- Awards: `AW_ADV.mvp` (gs .30, ws .35, ws48 .12, per .08, bpm .15), `mvpTeam` 0.8, `royMpg` 20, `mipNoMvp` 5; `AW_V33C` = v33c values. `t33c-awards.js OLD=v33c` compares with them (OLD=1 = before v33c); `t33c-awsum.py.txt` prints "MVP = WS leader".
+- app.js: `advEstTag` / `ADV_EST_TIP` ("est." on backfilled PER / WS seasons in the player Advanced tab; "(est.)" in season records).
+- History: `python3 -I tools/hx-bpmstint.py.txt BREF_DATA_DIR .` after hx-adv: `NBA_HX.bpmRows[name]['year|TEAM']` per traded stint; `hxBpmOf(name, y, tm)` (hx-fn.js and its copy in nba-history.js).
+- Tools: `tools/t33d.js`; r30 `SNAPOUT=... [SNAPAT=10]` writes a saved league like snap-make; r30 rows have `adv` (top PER / WS seasons).
+
 ## v33c (Opus, Nov 16 2026): PER / USG% / win shares / VORP + awards
 - league.js `computeAdv(L, key)` (calls `computeBPM` first; cached like it) -> `s.per / usg / ows / dws / ws / ws48 / vorp` on `p.stats.rs|po`, per team stint (`advStint`, `advTeamCtx`, `advApply`), frozen at season end. `advCareer(lines)`. `advBackfill(L)` (migrateLeague, once: `L.advFill`) fills past sim seasons of older saves (opponent line estimated, `s.advEst`).
 - Awards: `AW_ADV` weights (`on: false` = old scoring), `ADV_SHRINK`; `awardFns` returns `gs` (MVP / All-League blend), `gs0` (old game score), `gsY` (ROY / 6MOY / All-Rookie), `defS` (DPOY / All-Def, dComp has DWS + DBPM). `snapPlayer` keeps per / ws / ws48 / dws / bpm / dbpm (+ prevPer / prevWs48).

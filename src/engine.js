@@ -573,6 +573,8 @@ function persLabel(p) {
 function trWord(v) { return v >= 85 ? 'Elite' : v >= 70 ? 'High' : v >= 56 ? 'Above average' : v >= 45 ? 'Average' : v >= 30 ? 'Low' : 'Very low'; }
 
 // Build a player at "prime" level, then de-age / age to current.
+const BLK_KNEE = 58, BLK_TOP = 0.7;
+let TOV_USE = 0.6;   // v33d: share of turnovers charged by usage (the rest to the ball handler)
 function genPlayer(intendedPos, talent, age, used) {
   const t = TPL[intendedPos];
   const idn = genIdentity(used);
@@ -606,6 +608,7 @@ function genPlayer(intendedPos, talent, age, used) {
     a.ft = t.ft + q * (big ? 5 : 7) + (a.tp - t.tp - q * 8) * 0.4 + gauss(0, big ? 11 : 6);
     if (!big && R() < (intendedPos === 'SF' ? 0.035 : 0.02)) a.ft -= rnd(12, 24); }
   a.blk += z.h * 4 + z.w * 4 + (a.vrt - 58) * 0.15;
+  if (a.blk > BLK_KNEE) a.blk = BLK_KNEE + (a.blk - BLK_KNEE) * BLK_TOP;   // v33d: generated bigs' top end matched to real ones (p90 67 -> ~64, p95 72 -> ~68; real 64 / 67), median unchanged
   a.pdf += z.h * 3 + z.b * 3;
   a.orb += z.h * 3 + z.w * 1.5; a.drb += z.h * 3 + z.w * 1.5;
   a.per += z.w * 3; a.stl += z.w * 3;
@@ -1224,13 +1227,14 @@ function roleOf(league, p) { if (p.team == null) return null; const t = league.t
 // list: [{ id, k, w }] (w = optional extra lean, minutes). Returns { id: minutes }.
 const RM_LIFT = [6, 5, 3, 10.5, -1.5, -3, 0];   // v33a: franchise star 5.5 -> 6, star 4.5 -> 5 (20-season runs sat at the low end: fs 34.1-34.4, star 32.0-32.7)
 // was:   // v32h: franchise star 6.5 -> 5.5 (with the sixth man entering earlier, 6-6.5 pushed them to ~38 early in a season; 5.5 averages ~34-35 over full seasons). v32g: sixth man 5.5 -> 10.5, franchise star 5.5 -> 6.5 (with the long-run placement in planRotation, sixth men land ~25 instead of ~22.7). v32c: a normal game's plan: top roles above their range by about what blowouts and foul trouble take off, rotation / bench a bit under (blowout garbage time adds it back), so season averages land in the ranges   // short-handed nights: stars stretch 1.5 at most (calc), the bench takes the rest   // plan a bit above the role so the minutes played (after blowout rest and foul trouble) land in it
+const MPG_TOP = 38.5;   // v33d: regular-season target ceiling (franchise star 37 + lift 6 could plan 43; top player averaged 39.6). Blowout rest and overtime move the season average around it
 function roleMinutes(list, coach, playoff, total) {
   total = total || 240;
   const style = (coach && coach.rot) || 'Balanced', lean = style === 'Tight' ? 0.9 : style === 'Deep' ? 0.55 : 0.75;   // top roles aim high: blowout rest takes ~1.5 min off them
   const pref = x => { const r = ROLE_BY[x.k] || ROLE_BY.dev; let f = r.i <= 2 ? lean : r.i === 3 ? 0.7 : r.i === 4 ? 0.5 : r.i === 5 ? 0.35 : 0.15; if (playoff) f = r.i <= 1 ? 1.4 : r.i === 2 ? Math.min(1.2, f + 0.3) : r.i >= 4 ? 0.15 : f; return r.lo + (r.hi - r.lo) * f + (x.w || 0) + RM_LIFT[r.i]; };
   const sk = style === 'Tight' ? 0.5 : style === 'Deep' ? 1.6 : 1;   // how much the top three roles give up when minutes are tight (tight coaches protect them)
   const fx = r => r.flex * (r.i <= 2 ? sk : 1), poHi = r => playoff && r.i <= 2 ? 2 : 0;   // playoffs: the top roles can run 2 past their range
-  const calc = (lam, wide) => { let s = 0; const m = {}; for (const x of list) { const r = ROLE_BY[x.k] || ROLE_BY.dev, lo = wide ? 0 : r.lo + Math.min(0, RM_LIFT[r.i]), hi = r.hi + Math.max(0, RM_LIFT[r.i]) + poHi(r) + (wide ? (r.i <= 1 ? Math.min(wide, 1.5) : wide) : 0); m[x.id] = clamp(pref(x) + lam * fx(r), lo, hi); s += m[x.id]; } return [s, m]; };
+  const calc = (lam, wide) => { let s = 0; const m = {}; for (const x of list) { const r = ROLE_BY[x.k] || ROLE_BY.dev, lo = wide ? 0 : r.lo + Math.min(0, RM_LIFT[r.i]), hi = Math.min(r.hi + Math.max(0, RM_LIFT[r.i]) + poHi(r) + (wide ? (r.i <= 1 ? Math.min(wide, 1.5) : wide) : 0), playoff ? 99 : MPG_TOP); m[x.id] = clamp(pref(x) + lam * fx(r), lo, hi); s += m[x.id]; } return [s, m]; };
   let wide = 0, a = -60, b = 60;
   if (calc(b, 0)[0] < total) wide = calc(b, 6)[0] >= total ? 6 : 14;   // short-handed: roles stretch past their top
   else if (calc(a, 0)[0] > total) wide = 0.001;                        // too many players: lower ends can drop to zero
@@ -2083,6 +2087,7 @@ function playGame0(league, homeId, awayId, playoff) {
         const sO = slD(off.coach), sDf = slD(def.coach);   // v27 K2: rim pressure, pace, motion vs a switching defense, gambling defenses
         let pTO = (1 + SL_FX.rim.tov * sO.rim + SL_FX.pace.tov * (((off.coach.pace || 99) - 99) / 7) + (def.cov === 'switch' ? SL_FX.ball.tovSw * Math.max(0, sO.ball) : 0) + SL_FX.gamble.tov * sDf.gamble) * ENG.tov * (1 + (60 - sec) * ENG.tovSlope) * (1 + (avgOf(def, 'stl', true) - 50) * 0.008) * (1 + (gamble - 45) * 0.004) * ((SYS_FX.def[def.coach.def] || {}).tov || 1) * ((SYS_FX.off[off.coach.off] || {}).tov || 1) * (off.coach.off === 'motion' ? 1 + Math.max(0, 55 - avgOf(off, 'iq')) * SYS_FX.off.motion.iqTov : 1) * (transition ? 1.1 : 1) * (PX ? PX.tov : 1) * (CX.tov || 1);
         if (R() < pTO) {
+          if (TOV_USE > 0 && R() < TOV_USE) { const w = wpick(offC, weights.map(x => x * x)); if (w) handler = w; }   // v33d: turnovers follow usage too, not only the ball handler (high-usage scorers had 1-2 a game: PER 41-46)
           off.st[handler.id][IX.tov]++; involved.add(handler.id); usedBy = handler;
           let stl = null;
           if (R() < 0.52 * (1 + (gamble - 45) * 0.006)) {

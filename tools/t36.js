@@ -4,6 +4,8 @@
 // A2 re-sign (resignWantP mid60): a middle team under the tax keeps its 60+ rotation player; tank / over-tax teams unchanged
 // B  NBA top cap (NBA_BAL t95 1, cap 96, capGen 97)
 // C  owner cash (cashPayroll) charges the season's scheduled amount (real yearly deals, renegotiated raises)
+// v36e   clear room may move one 7th-9th man; stay discount 25%
+// v36d A  hard-cap clear room (capClear): bench deal moved, 60+ player re-signed under the hard cap; nothing moved when no one is movable
 const SEED = +process.env.SEED || 21, SRC = process.env.SRC || 'src';
 const out = []; let ok = 0, bad = 0;
 const chk = (n, c, x) => { if (c) ok++; else bad++; out.push((c ? 'PASS ' : 'FAIL ') + n + (x != null ? ' :: ' + x : '')); };
@@ -49,7 +51,53 @@ const snapJ = (file) => { const { run } = require('./snap.js')(SRC, SEED, file);
     const p=rosterOf(L,t).sort((x,y)=>y.ovr-x.ovr)[0];const st=resignOwnerOK(L,t,p,10);t.cash=c0;return {a,b,st,media:mediaFor(L),disc:RESIGN_K.disc};`);
   chk('Q2 a big-market owner in the red (-20) cuts back; no Bird-rights stretch below $0', own.a === false && own.b === true && own.st === false, JSON.stringify(own));
   chk('Q2 NBA media money 150 (+4 big league)', own.media === 154, own.media);
-  chk('Q3 hard-cap hometown discount up to 15%', own.disc === 0.85);
+  chk('Q3 hard-cap hometown discount up to 25% (v36e, was 15%)', own.disc === 0.75);
+  // v36d A: hard-cap clear room (capClear): a team blocked by the hard cap moves a bench deal, then re-signs its 60+ player
+  const JC = snapJ('tools/snap/nba-commish-s10.json.gz');   // own copy: this check changes the league
+  const cc = JC(`L.phase='off-resign';const S=L.season,cs=capSeason(L);
+    let res=null;
+    for(const t of L.teams){const r=rosterOf(L,t).filter(x=>x.contract).sort((a,b)=>b.ovr-a.ovr);const core=new Set(r.slice(0,9).map(x=>x.id));
+      const x=r.find(y=>!core.has(y.id)&&capHit(L,y,cs)>=3&&y.contract.exp>=cs&&!tradeRestricted(L,y)&&!y.contract.ntc&&!y.ext&&!(y.contract.type==='rookie'&&y.age<=21));
+      const p=r.slice(0,9).find(y=>y.ovr>=62&&x&&y.ovr>=x.ovr+4);if(!x||!p)continue;
+      p.contract.exp=S;p.ask=r1(capHit(L,x,cs)*1.5);const own=t.owner;   /* v36e: gap > the 25% discount */
+      for(const y of [cs,cs+1,cs+2]){const pay=y===cs?payroll(L,t,y):payNoFloor(L,t,y);const h=capHit(L,x,y),amt=APRON-pay-(h>0?p.ask-0.5*h:p.ask+5);t.dead.push({amt,exp:y,from:y,name:'t36',pid:-1,s:S});}
+      const c0=t.cash,r0=t.roster.length;t.cash=-50;const kOwn=own?capClear(L,t,p,[p.ask,r1(p.ask*RESIGN_K.disc)],false,k=>canFit(L,t,k,false,'re-sign')):-1;const sameOwn=t.roster.length===r0;t.cash=c0;t.owner=null;
+      const fitsAt=k=>canFit(L,t,k,false,'re-sign');const before=[p.ask,r1(p.ask*RESIGN_K.disc)].map(fitsAt);
+      L.resignLog={s:S,n:0,kept:0,out:{},o60:{n:0,kept:0}};const n0=t.roster.length,ids0=t.roster.slice();
+      const k=capClear(L,t,p,[p.ask,r1(p.ask*RESIGN_K.disc)],false,fitsAt);
+      const gone=ids0.filter(id=>!t.roster.includes(id)).map(id=>L.players[id]);
+      res={t:t.abbr,p:p.name+' '+p.ovr,ask:p.ask,before,k,gone:gone.map(g=>({n:g.name,ovr:g.ovr,core:core.has(g.id),to:g.team!=null?L.teams[g.team].abbr:null,txg:g.tx.some(z=>z.s===S&&/clear hard-cap room to re-sign/.test(z.t)),toPay:g.team!=null?payroll(L,L.teams[g.team],cs):null})),
+        kOwn,sameOwn,tk:(L.trades||[]).slice(0,1).map(r=>r.kind+'/'+r.wk)[0],txp:p.tx.some(z=>z.s===S&&/cleared hard-cap room to re-sign him/.test(z.t)),fitAfter:fitsAt(k),cleared:L.resignLog.o60.capCleared||0,cap:[CAP,APRON,RESIGN_K.disc,CAP_CLEAR.max]};
+      // nothing to move: every bench player signed this season -> no move
+      const t2=L.teams.find(z=>z.id!==t.id&&z.id!==(res.gone[0]&&L.players[ids0.find(id=>!t.roster.includes(id))].team));
+      const r2=rosterOf(L,t2).filter(y=>y.contract&&y.contract.exp>S).sort((a,b)=>b.ovr-a.ovr),p2=r2[0];p2.contract.exp=S;p2.ask=20;t2.owner=null;
+      for(const y of rosterOf(L,t2))y.contracts.push({s:cs,tid:t2.id,amt:y.contract.amt,yrs:1,type:'t36'});
+      for(const y of [cs,cs+1,cs+2]){const pay=y===cs?payroll(L,t2,y):payNoFloor(L,t2,y);t2.dead.push({amt:APRON-pay-5,exp:y,from:y,name:'t36',pid:-1,s:S});}
+      const r20=t2.roster.length;res.neg={k:capClear(L,t2,p2,[20,17],false,k=>canFit(L,t2,k,false,'re-sign')),same:t2.roster.length===r20};
+      break;}
+    return res||{none:true};`);
+  chk('A v36d hard cap blocks the ask and the stay discount before the move', !cc.none && cc.before.every(v => v === false), cc.none ? 'no case' : JSON.stringify(cc.before));
+  chk('A v36d capClear: re-signs at his ask after moving 1-2 bench deals (not top 9), deal fits the hard cap', !cc.none && cc.k === cc.ask && cc.fitAfter && cc.gone.length >= 1 && cc.gone.length <= 2 && cc.gone.every(g => !g.core && g.to), cc.none ? '' : `${cc.t} ${cc.p} ask ${cc.ask}: moved ${cc.gone.map(g => g.n + ' ' + g.ovr + ' -> ' + g.to).join(', ')}`);
+  chk('A v36d receiving team stays under the soft cap; tx line on both players; resignLog capCleared 1', !cc.none && cc.gone.every(g => g.toPay <= cc.cap[0] + 1e-6 && g.txg) && cc.txp && cc.cleared === 1, cc.none ? '' : JSON.stringify({ pay: cc.gone.map(g => g.toPay && +g.toPay.toFixed(1)), txp: cc.txp, cleared: cc.cleared }));
+  chk('A v36e clear-room trade stored as kind clear (not a salary dump)', !cc.none && cc.tk === 'clear/clear', cc.none ? '' : cc.tk);
+  chk('A v36d owner in the red (cash -50, cutting losses): no move (owner limit / tax-line rule hold)', !cc.none && cc.kOwn === 0 && cc.sameOwn, cc.none ? '' : JSON.stringify({ k: cc.kOwn, same: cc.sameOwn }));
+  chk('A v36d nobody movable (all signed this season): no move, no re-sign', !cc.none && cc.neg.k === 0 && cc.neg.same, cc.none ? '' : JSON.stringify(cc.neg));
+  chk('A v36d NBA soft cap / hard cap / discount unchanged (165 / 221.7), discount 0.75 (v36e), max 2 moves', !cc.none && cc.cap[0] === 165 && cc.cap[1] === 221.7 && cc.cap[2] === 0.75 && cc.cap[3] === 2, cc.none ? '' : JSON.stringify(cc.cap));
+  // v36e: no bench deal can go -> one 7th-9th man (paid less than the player kept) is moved instead; never a top-6 player
+  const JE = snapJ('tools/snap/nba-commish-s10.json.gz');
+  const ce = JE(`L.phase='off-resign';const S=L.season,cs=capSeason(L);let res=null;
+    for(const t of L.teams){const top=rosterOf(L,t).sort((a,b)=>b.ovr-a.ovr);const p=top[0];
+      const y=top.slice(6,9).find(z=>z.contract&&z.contract.exp>=cs&&capHit(L,z,cs)>=3&&z.ovr<=p.ovr-4&&!tradeRestricted(L,z)&&!z.contract.ntc&&!z.ext&&!(z.contract.type==='rookie'&&z.age<=21)&&((z.contracts||[]).slice(-1)[0]||{s:0}).s<cs&&(tradeStatus(L,z)||{}).k!=='protect');
+      if(!y||p.ovr<62)continue;
+      for(const z of top.slice(9))z.contracts.push({s:cs,tid:t.id,amt:1,yrs:1,type:'t36'});   // bench: all signed this offseason
+      p.contract.exp=S;p.ask=r1(Math.max(capHit(L,y,cs)+2,capHit(L,y,cs)*1.4));t.owner=null;
+      for(const yy of [cs,cs+1,cs+2]){const pay=yy===cs?payroll(L,t,yy):payNoFloor(L,t,yy);const h=capHit(L,y,yy);t.dead.push({amt:APRON-pay-(h>0?p.ask-0.5*h:p.ask+5),exp:yy,from:yy,name:'t36',pid:-1,s:S});}
+      L.resignLog={s:S,n:0,kept:0,out:{},o60:{n:0,kept:0}};const ids0=t.roster.slice(),top6=new Set(top.slice(0,6).map(z=>z.id));
+      const fitsAt=k=>canFit(L,t,k,false,'re-sign');const before=fitsAt(r1(p.ask*RESIGN_K.disc));
+      const k=capClear(L,t,p,[p.ask,r1(p.ask*RESIGN_K.disc)],false,fitsAt);const gone=ids0.filter(id=>!t.roster.includes(id));
+      res={t:t.abbr,p:p.name+' '+p.ovr+' $'+p.ask,y:y.name+' '+y.ovr+' $'+r1(capHit(L,y,cs)),before,k,gone:gone.map(id=>L.players[id].name),top6:gone.some(id=>top6.has(id)),c9:L.resignLog.o60.capClear9||0};break;}
+    return res||{none:true};`);
+  chk('A v36e bench all just signed: a 7th-9th man paid less than him is moved, he re-signs; no top-6 player moved; capClear9 logged', !ce.none && ce.before === false && ce.k > 0 && ce.gone.length >= 1 && !ce.top6 && ce.c9 === 1, ce.none ? 'no case' : JSON.stringify(ce));
   // A2: re-sign want
   const a2 = J(`const cs=capSeason(L);const mid=L.teams.filter(t=>t.mode!=='tank'&&payroll(L,t,cs)<TAXLINE-25);
     let t=null,p=null;for(const x of mid){const r=rosterOf(L,x).sort((a,b)=>b.ovr-a.ovr);const q=r.slice(0,9).find(y=>y.ovr>=60&&y.age>=30&&y.age<33&&(y.ask||0)<20);if(q){t=x;p=q;break;}}
@@ -64,7 +112,7 @@ const snapJ = (file) => { const { run } = require('./snap.js')(SRC, SEED, file);
 
   // A1: early free agency, two runs of the same day (with / without)
   const a1 = on => J(`FA_EARLY.on=${on};const S=L.season;L.phase='off-fa';L.faDay=1;
-    const cand=active(L).filter(p=>p.team!=null&&p.ovr>=62&&p.ovr<=66&&p.age<=28&&!p.prospect).sort((a,b)=>a.id-b.id).slice(0,6);
+    const cand=active(L).filter(p=>p.team!=null&&p.ovr>=62&&p.ovr<=66&&p.age<=28&&!p.prospect).sort((a,b)=>a.id-b.id).slice(0,12);   /* v36d: 12 (6 tied on the new save) */
     for(const p of cand){p.tx.push({s:S,t:'test'});toFA(L,p);setAsk(L,p);}
     const fe=L.teams.filter(t=>faEarly(L,t,cand[0])).length;
     const fe4=(()=>{L.faDay=4;const n=L.teams.filter(t=>faEarly(L,t,cand[0])).length;L.faDay=1;return n;})();
@@ -80,7 +128,7 @@ const snapJ = (file) => { const { run } = require('./snap.js')(SRC, SEED, file);
   chk('A1 hard cap holds', A.over === 0, `${A.over} over`);
 
   // C: owner cash uses the scheduled amount
-  const c = J(`const cs=capSeason(L);const t=L.teams[0];const p=rosterOf(L,t).find(x=>x.contract&&x.contract.amt>5&&x.contract.exp>=cs+1&&x.contract.type!=='rookie');
+  const c = J(`const cs=capSeason(L);const q=x=>x.contract&&x.contract.amt>5&&x.contract.exp>=cs+1&&x.contract.type!=='rookie';const t=L.teams.find(z=>rosterOf(L,z).some(q));const p=rosterOf(L,t).find(q);   /* v36d: any team (new save) */
     const c0=cashPayroll(L,t,cs);const ct=p.contract;const keep=JSON.stringify({s:ct.sched,s0:ct.s0});
     ct.s0=cs;ct.sched=[];for(let y=cs;y<=ct.exp;y++)ct.sched.push(ct.amt);ct.sched[0]=ct.amt+7;
     const c1=cashPayroll(L,t,cs),c2=cashPayroll(L,t,cs+1);ct.sched[1]=ct.amt+3;const c3=cashPayroll(L,t,cs+1);

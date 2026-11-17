@@ -17,8 +17,8 @@ Rule: 4 wordings per key, under 140 characters, same `{vars}` as the first wordi
 - [x] 5t Move write-up reasons: `mv.n.*`, `mv.t.*`, `mv.r.*` in `src/league.js` FLAVOR (+3 each)
 - [x] 21t HOF speeches: `hof.speech.*` in `src/nba-text.js` story (+4 each: family, coaches, teammates, city, humor)
 - [x] 23t Interviews: `iv.q.*` pools and `iv.a.*` answers in `src/league.js` (+2 / +3 each), `iv.intro.draft` and `iv.news.draft` (draft questions stay about the draft)
-- [ ] 8t Scouting report lines: NOT keyed. Lines are inline in `src/app.js` (`scoutDlg`). Needs a small refactor into keys first, then variants. Needs Kenneth's OK.
-- [ ] 7t Ticker stats and rumors: NOT keyed. Inline in `src/league.js` / `src/app.js` (`tickerItems`). Same refactor as 8t.
+- [x] (v36d cleanup: done, keys in v30 review round 2, wordings in the Nov 16 task at the top) 8t Scouting report lines: NOT keyed. Lines are inline in `src/app.js` (`scoutDlg`). Needs a small refactor into keys first, then variants. Needs Kenneth's OK.
+- [x] (v36d cleanup: done, keys in v30 review round 2, wordings in the Nov 16 task at the top) 7t Ticker stats and rumors: NOT keyed. Inline in `src/league.js` / `src/app.js` (`tickerItems`). Same refactor as 8t.
 
 Code change in this run: `ivAnswers` seeded every answer with `1`, so with 4 wordings it would always show the 2nd. Now seeded by question + slot.
 

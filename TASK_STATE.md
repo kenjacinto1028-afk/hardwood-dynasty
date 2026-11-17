@@ -1,3 +1,31 @@
+# TASK_STATE — v36e (Opus) — Nov 17 2026: Kenneth: allow a 7th-9th man in clear room + stay discount 25%; accept 8-9%; merge zip later
+- [x] 1. (CAP_CLEAR.top9) capClear: one rank 7-9 player (salary < his ask, 4+ OVR below) if bench sets can't; log capClear9
+- [x] 2. RESIGN_K.disc 0.85 -> 0.75
+- [x] 3. t36 26/26 (+v36e top-9 case, disc 0.75; v36d case ask = 1.5x bench deal) t36 checks (disc, top-9 move); run t36
+- [x] 4. runs32/v36e-nba-snap10-r21/r22: t:cap 55/676 = 8.1% (v36d 8.7%), hard 35 (46), cleared 5 (all with a 7th-9th man), discount stays 16, 0 reds. 2 x 10 seasons from v36a3 save (SEED 21/22) vs v36d r21/r22
+- [x] 5. Tests all pass (t36 26/26) Tests t34 t33b t33c t33d t32e t32h t30a lint (+ t36)
+- [x] 7. Pre-upload: trade kind 'clear' + mv.t.clear wordings; discStay/ccWhy/capClearFail first-player logging; 15% comment; t36 27/27, t32e, browser 52/52, lint
+- [x] 6. PROGRESS v36e + README; merged zips (v36d + v36e) in /home/claude/outputs
+
+---
+# TASK_STATE — v36d (Opus) — Nov 17 2026: A hard-cap clear room, B to-do review, C PROGRESS cleanup, D version-end
+- [x] 0. Clone, v36c verified complete (AW_ADV v36c in src/league.js, runs32/v36c-*)
+- [x] A1. startResign (league.js) discount line; release() leaves dead money = no room, min deals cap hit 0 -> trade-only clear
+- [x] A2. league.js CAP_CLEAR + capClear() (trade bench deal to team w/ room, 2nd if burden), tx both, o60 capCleared/capClearFail; v34sum prints it. Runs /tmp/runs/a21,a22
+- [x] A3. runs32/v36d-nba-snap10-r21/r22: t:cap 34+19 = 53/673 (7.9%) vs 58/699 (8.3%); capCleared 2, rule rarely can act. runs32/v36d-ccdiag-*: gaps $5-37M vs movable bench $0-6M (why: tooBig / noBench). ccWhy kept in resignLog, v34sum prints it. Ask Kenneth on options
+- [x] A4. tools/t36.js +5 v36d checks (own save copy), 24/24. capClear fixes: core = top 9 whole roster; just signed = contract s >= cap season; smallest set (1 then pairs)
+- [x] B1. app.js: s1f lineup ticks only on Roster tab; s1j adds harmony >= 45; todoPromiseRisk game-count needs due.s = season. Others match
+- [x] B2. tools/browser-v36d.py.txt 52/52 (old app.js fails the 3 fixed rules: 46/52)
+- [x] C. PROGRESS.md 4 stale lines + HAIKU-TASKS.md 2 lines marked done with pointers
+- [x] D1. runs32/v36d-nba-commish.txt, v36d-pbl16-commish.txt; saves copied to tools/snap (nba-commish, pbl16). Flags: NBA reds S2-14 (lowest -128 DAL allin), top PER 38-41 S18-20. A/B run CAP_CLEAR off -> /tmp/runs/v36d-nba-commish-off.txt (running). 20 seasons NBA + PBL16 commish SEED=21 SNAPOUT; report vs v36a3
+- [x] D1b. MVP from saves S1-10 (/tmp/mvp.js): NBA new 4/10 WS leader, top-3 7, 7 winners (Doncic S2 WS rank 11, Flagg 5, Sarr 6); old v36a3 save 8/10; PBL 6/10, 5 winners (Tolentino 5). 0 errors, capOver 3 (base 3)
+- [x] D2. tools/snap/nba-team-s10.json.gz remade (snap-make SEED 21)
+- [x] D3. Tests on new saves: t36 24/24 (C + A1 checks made save-proof), t34 19/19, t33b 30/30, t33c 24/24, t33d 17/17, t32e 21/21, t32h 11/11, t30a 29/0, lint PASS, browser v36d 52/52
+- [x] D5. A/B CAP_CLEAR off 20 seasons (runs32/v36d-nba-commish-off.txt): no deep reds, top PER <= 35.9 -> capClear kept all-in teams at hard cap paying tax. Fix: capClear needs post payroll <= seasonLimit and not cuttingLosses (why ownerLimit). t36 25/25
+- [x] D6. Final D: runs32/v36d-nba/pbl16-commish.txt, saves copied; A 2x10 from v36a3 save: runs32/v36d-nba-snap10-r21/r22 (t:cap 8.7% vs 8.3%, 0 reds). Tests all pass again
+- [x] D4. PROGRESS v36d + README (v36d, v36c) + TESTING; zips in /home/claude/outputs
+
+---
 # TASK_STATE — v36c MVP retune on merged code (Sonnet) — Nov 17 2026
 
 - [x] 0. Clone, read PROGRESS (v36 / v36a 1-3) + TESTING; existing TASK_STATE all done -> new section on top

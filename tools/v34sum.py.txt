@@ -21,8 +21,13 @@ for f in sys.argv[1:]:
     tot={}
     for x in w:
         for k,v in x.items():
-            if k not in ('n','kept','capHard','capOwner','capIcon'): tot[k]=tot.get(k,0)+v
+            if k not in ('n','kept','capHard','capOwner','capIcon','capCleared','capClearFail','ccWhy','ccGap','capClear9','discStay'): tot[k]=tot.get(k,0)+v
     print(' why60 lost', sum(x.get('n',0)-x.get('kept',0) for x in w), 'of', sum(x.get('n',0) for x in w), dict(sorted(tot.items(),key=lambda kv:-kv[1])), 't:team per season', [x.get('t:team',0) for x in w])
     print(' t:cap split hard/owner/icon', sum(x.get('capHard',0) for x in w), sum(x.get('capOwner',0) for x in w), sum(x.get('capIcon',0) for x in w))
+    print(' capCleared (kept after moving a bench deal) / clear failed', sum(x.get('capCleared',0) for x in w), sum(x.get('capClearFail',0) for x in w), '| with a 7th-9th man', sum(x.get('capClear9',0) for x in w), '| discount stays (tx)', sum(x.get('discStay',0) for x in w), '| t:cap % of 60+ expiring', round(100*tot.get('t:cap',0)/max(1,sum(x.get('n',0) for x in w)),1))
+    cw={}
+    for x in w:
+        for k,v in (x.get('ccWhy') or {}).items(): cw[k]=cw.get(k,0)+v
+    if cw: print(' clear room: why no move', cw, '(noBench = only minimum / protected deals outside the top 9; tooBig = gap over the hard cap > movable bench salary; ownerLimit = payroll after the move past the owner season limit / tax-line rule)')
     c=[r['cash'] for r in rows if r.get('cash')]
     if c: print(' owner cash avg', [round(x['avg']) for x in c], 'min', [round(x['min']) for x in c], 'neg teams', [x['neg'] for x in c])

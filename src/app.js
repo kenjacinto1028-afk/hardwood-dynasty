@@ -4249,7 +4249,7 @@ function todoGroup() {
 }
 function todoPromiseRisk() {   // open promise to your players that falls due within 14 days / 10 team games
   const t = L.teams[L.user];
-  return (L.promises || []).some(pr => pr.tid === L.user && pr.st === 'open' && pr.due && ((pr.due.day != null && pr.due.s === L.season && pr.due.day - L.day <= 14) || (pr.due.g != null && pr.due.g - (t.w + t.l) <= 10)));
+  return (L.promises || []).some(pr => pr.tid === L.user && pr.st === 'open' && pr.due && ((pr.due.day != null && pr.due.s === L.season && pr.due.day - L.day <= 14) || (pr.due.g != null && pr.due.s === L.season && pr.due.g - (t.w + t.l) <= 10)));
 }
 function todoUnhappy(top) {
   const t = L.teams[L.user], ps = top ? rotationOf(L, t).slice(0, 5) : teamPlayers(L.user);
@@ -4276,7 +4276,7 @@ function todoItems() {
   add('start', 's1g', 'Mark up to 4 core players and your untouchables', 'Core players are protected from AI trade asks and drive the front office view.', todoGo('myteam', todoRoster), { auto: () => teamPlayers(L.user).some(p => p.core) });
   add('start', 's1h', 'Extensions: decide on players who can extend now', 'Needs attention lists them. Ticks itself when nobody willing is left to extend.', todoGo('myteam', todoRoster), { auto: () => !todoExtOpen() });
   add('start', 's1i', 'Roster legal: 13-15 players, both two-way slots filled', 'Under 13 or over 15 stops the season from starting.', todoGo('myteam', todoRoster), { auto: () => !userRosterProblem(L) && twOf(L, t).length >= TW_MAX, star: true });
-  add('start', 's1j', 'Locker room check: harmony, unhappy players, open one-on-ones', 'Ticks itself when no issue, meeting or unhappy player is open.', todoGo('myteam', todoRoster), { auto: () => !dramaOpen(L) && !mtgOpen(L) && !todoUnhappy(false) });
+  add('start', 's1j', 'Locker room check: harmony, unhappy players, open one-on-ones', 'Ticks itself when harmony is out of the red and no issue, meeting or unhappy player is open.', todoGo('myteam', todoRoster), { auto: () => !dramaOpen(L) && !mtgOpen(L) && !todoUnhappy(false) && lrOf(t).v >= 45 });   // v36d: harmony too (red bar under 45)
   // 2. Early season
   add('early', 's2a', 'Review lineup chemistry and the first 10 games\' play types / coverage', 'Chemistry and Play types tabs show what works early.', todoGo('myteam', () => { ui.mtab = 'plays'; }));
   add('early', 's2b', 'Check unhappy players and promises at risk', 'Promises panel. Ticks itself when none is due within 14 days or 10 games.', todoGo('myteam', todoRoster), { auto: () => !todoPromiseRisk() && !todoUnhappy(false) });
@@ -4339,7 +4339,7 @@ function todoToast(msg) {
 function todoTick() {   // called from render(): lineup-seen flag + reminders (once each per season)
   if (!todoOn()) { const b = document.getElementById('todotoast'); if (b) b.hidden = true; return; }
   const T = todoState(), g = todoGroup();
-  if (ui.view === 'myteam' && ui.player == null && ui.coach == null && ui.game == null && (ui.twin || {}).rot === 'Lineup & rotation') T.seen.lineup = 1;
+  if (ui.view === 'myteam' && ui.player == null && ui.coach == null && ui.game == null && !['history', 'fin'].includes(ui.teamTab) && !['office', 'cap', 'shoot', 'rivals', 'games', 'plays', 'watch'].includes(ui.mtab) && (ui.twin || {}).rot === 'Lineup & rotation') T.seen.lineup = 1;   // v36d: only when the Roster tab (where the panel is) is showing
   if (ui.busy) return;
   const first = !T.toast[g]; T.toast[g] = 1;
   if (L.phase === 'regular') {

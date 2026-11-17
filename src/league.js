@@ -1415,8 +1415,8 @@ function executeTrade(L, tr) {
   for (const id of [...aGive.players, ...bGive.players]) { const p = L.players[id]; p.morale = Math.max(p.morale || 55, 55); p.tradeReq = null; p.lastTrade = L.season * 1000 + (L.phase === 'regular' ? L.day : 900); }
   for (const [ids, from] of [[aGive.players, a], [bGive.players, b]]) for (const id of ids) { const p = L.players[id]; const yrs = p.hist.filter(h => h.tid === from).length; if (yrs >= 4 && p.ovr >= 72 && L.teams[from].hype != null) { hypeBump(L.teams[from], -5); } }
   const rec = { s: L.season, day: L.phase === 'regular' ? L.day : null, ph: L.phase, when: seasonLabel(L), a, b, aGets: describe(L, bGive), bGets: describe(L, aGive), aIn: { players: bGive.players.slice(), picks: bGive.picks.map(pk => pickLabel(L, L.picks.find(k => k.id === pk))), cash: bGive.cash || 0 }, bIn: { players: aGive.players.slice(), picks: aGive.picks.map(pk => pickLabel(L, L.picks.find(k => k.id === pk))), cash: aGive.cash || 0 } };
-  rec.why = tr.why || ''; if (tr.yc) rec.yc = tr.yc; rec.grades = grades; rec.top = Math.max(0, ...[...aGive.players, ...bGive.players].map(id => L.players[id].ovr)); rec.kind = /^swap-/.test(String(tr.id)) ? 'swap' : tr.exp ? 'exp' : tr.dump ? 'dump' : /^buy-/.test(String(tr.id)) ? 'buy' : /^sat|sign-and-trade/i.test(String(tr.id) + rec.why) ? 'sign-and-trade' : (!aGive.players.length && !bGive.players.length) ? 'picks' : 'trade';
-  if (tr.exp || tr.dump) rec.wk = tr.exp ? 'expiring' : 'dump';   // v32e: reason key for reports
+  rec.why = tr.why || ''; if (tr.yc) rec.yc = tr.yc; rec.grades = grades; rec.top = Math.max(0, ...[...aGive.players, ...bGive.players].map(id => L.players[id].ovr)); rec.kind = /^swap-/.test(String(tr.id)) ? 'swap' : tr.exp ? 'exp' : tr.dump ? 'dump' : tr.clear ? 'clear' : /^buy-/.test(String(tr.id)) ? 'buy' : /^sat|sign-and-trade/i.test(String(tr.id) + rec.why) ? 'sign-and-trade' : (!aGive.players.length && !bGive.players.length) ? 'picks' : 'trade';
+  if (tr.exp || tr.dump || tr.clear) rec.wk = tr.exp ? 'expiring' : tr.clear ? 'clear' : 'dump';   // v36e: 'clear' = hard-cap clear room (capClear)   // v32e: reason key for reports
   try { if (mvP) mvTradePost(L, mvP, rec); } catch (err) { }   // v30c #5
   L.trades.unshift(rec); if (L.trades.length > 200) L.trades.length = 200;
   logNews(L, flL(L, 'news.trade', { a: L.teams[a].abbr, b: L.teams[b].abbr, aGets: rec.aGets, bGets: rec.bGets, grades: grades ? ` (grades: ${L.teams[a].abbr} ${grades.a}, ${L.teams[b].abbr} ${grades.b})` : '' }), a, 'trade');
@@ -5238,7 +5238,8 @@ function startResign(L) {
       const iconStay = icon >= 1 && p.ovr >= 58 && !(p.morale != null && p.morale < 25) && !(rs.leave && R() < 0.5) && (icon === 2 || R() < 0.75);   // v27 L2: an icon re-signs (Bird rights, owner signs off); v32e: sometimes even an icon leaves
       const fitsAt = k => (canFit(L, t, k, hg, 're-sign') || k <= MINSAL) && (ownerOK(L, t, k) || resignOwnerOK(L, t, p, k)), pays = offer >= p.ask * rs.pay;
       let fits = fitsAt(keep); if (!fits && keep > p.ask + 0.05 && fitsAt(p.ask)) { keep = p.ask; fits = true; }   // v36a: value doesn't fit (cap / owner): his ask still may
-      if (!fits && want && !rs.leave && p.ovr >= 60 && !icon) { const room = r1(Math.min(APRON - payroll(L, t), futRoom(L, t))); if (room >= p.ask * RESIGN_K.disc && room > MINSAL && fitsAt(room)) { keep = room; fits = true; p.tx.push({ s: S, t: `Took a discount to stay with ${t.abbr} (hard cap)` }); } }   // v36a part 3: a wanted 60+ player takes up to 15% less to stay when the hard cap is the problem (60+ lost on cap / owner: 118 in 20 seasons)
+      if (!fits && want && !rs.leave && p.ovr >= 60 && !icon) { const room = r1(Math.min(APRON - payroll(L, t), futRoom(L, t))); if (room >= p.ask * RESIGN_K.disc && room > MINSAL && fitsAt(room)) { keep = room; fits = true; p.tx.push({ s: S, t: `Took a discount to stay with ${t.abbr} (hard cap)` }); if (!L.resignLog || L.resignLog.s !== S) L.resignLog = { s: S, n: 0, kept: 0, out: {}, o60: { n: 0, kept: 0 } }; const o6 = L.resignLog.o60 = L.resignLog.o60 || { n: 0, kept: 0 }; o6.discStay = (o6.discStay || 0) + 1; } }   // v36e: counted even for the season's first re-sign   // v36a part 3: a wanted 60+ player takes a discount (RESIGN_K.disc, 25% since v36e) to stay when the hard cap is the problem (60+ lost on cap / owner: 118 in 20 seasons)
+      if (!fits && want && !rs.leave && pays && p.ovr >= 60 && !icon && CAP_CLEAR.on) { const k = capClear(L, t, p, [keep, p.ask, r1(p.ask * RESIGN_K.disc)], hg, fitsAt); if (k) { keep = k; fits = true; } }   // v36d: at the hard cap, move a bench contract to make room first
       // v32h: an icon re-signs under the hard cap too (a hometown discount of up to 25% if needed); if even that won't fit, he leaves
       let iconOk = iconStay && fits;
       if (iconStay && !fits) { const room = r1(Math.min(APRON - payroll(L, t), futRoom(L, t))); if (room >= Math.max(MINSAL, keep * 0.75) && ownerOK(L, t, room)) { keep = room; iconOk = true; } }
@@ -5368,7 +5369,63 @@ function wetPay(p) { if (p.wet == null) return 1; return 1 + WET_PAY[p.wet] * tr
 //   Loyalty cuts all of them.
 // v34 A1: Bird-rights money stays: teams want more of their own 58+ players (was rot .92 / young .85 / top-10 .75 / 26- .6 / 60+ .3, tax x.75),
 // players leave less often (x leave) and teams go a bit lower against the ask (pay: was .7-.95)
-const RESIGN_K = { floor: 0.95, rot: 0.97, young: 0.92, top10: 0.92, y26: 0.85, o60: 0.75, tax: 0.9, leave: 0.55, pay: [0.6, 0.88], own75: 30, own68: 18, own62: 8, mid60: 0.95, mid60old: 0.8, val: 1.0, valOvr: 60, disc: 0.85 };   // v36a: mid60 / mid60old (middle teams under the tax)   // round 2 (10 seasons from the S10 save: NBA +4M with round 1)
+// v36d (item 5): before an AI team loses a wanted 60+ player to the hard cap, it trades away bench contracts (outside its top 9, not a two-way,
+// not signed this season, above the minimum: minimum deals and waived deals free no cap room, a waived deal stays as dead money) to a
+// team with cap room, then re-signs him at the first price in `prices` that fits (value, ask, stay discount). Expiring deals first, then
+// the lowest OVR; at most CAP_CLEAR.max players. Hard cap / owner checks unchanged (fitsAt runs after the move). Returns the price or 0.
+const CAP_CLEAR = { on: true, max: 2, ovrGap: 4, top9: true };   // v36e top9: one 7th-9th man may be moved
+function capClear(L, t, p, prices, hg, fitsAt) {
+  const cs = capSeason(L), S = L.season, yrs = [cs, cs + 1, cs + 2];
+  const core = new Set(rosterOf(L, t).sort((a, b) => b.ovr - a.ovr).slice(0, 9).map(x => x.id));   // top 9 of the whole roster (the rotation)
+  const cands = rosterOf(L, t).filter(x => x.id !== p.id && x.contract && x.contract.exp >= cs && !core.has(x.id) && capHit(L, x, cs) > 0 && x.ovr <= p.ovr - CAP_CLEAR.ovrGap
+    && !x.tw && !((x.contracts || []).slice(-1)[0] && x.contracts.slice(-1)[0].s >= cs)   /* signed this offseason (contracts are stamped with their first cap season) */ && !tradeRestricted(L, x) && (tradeStatus(L, x) || {}).k !== 'protect' && !(x.contract.type === 'rookie' && x.age <= 21) && !(x.contract.ntc) && !x.ext)
+    .sort((a, b) => (a.contract.exp === cs ? 0 : 1) - (b.contract.exp === cs ? 0 : 1) || a.ovr - b.ovr || capHit(L, a, cs) - capHit(L, b, cs));
+  const why = k => { if (!L.resignLog || L.resignLog.s !== S) L.resignLog = { s: S, n: 0, kept: 0, out: {} }; const o = L.resignLog.o60 = L.resignLog.o60 || { n: 0, kept: 0 }; if (o) { o.ccWhy = o.ccWhy || {}; o.ccWhy[k] = (o.ccWhy[k] || 0) + 1; } return 0; };   // why no move (report)
+  // v36e (Kenneth): if bench deals can't do it, one 7th-9th man may go too (paid less than the player kept, 4+ OVR below him)
+  const top = rosterOf(L, t).sort((a, b) => b.ovr - a.ovr), ask0 = prices[prices.length - 1];
+  const c9 = CAP_CLEAR.top9 ? top.slice(6, 9).filter(x => x.id !== p.id && x.contract && x.contract.exp >= cs && capHit(L, x, cs) > 0 && capHit(L, x, cs) < ask0 && x.ovr <= p.ovr - CAP_CLEAR.ovrGap
+    && !x.tw && !((x.contracts || []).slice(-1)[0] && x.contracts.slice(-1)[0].s >= cs) && !tradeRestricted(L, x) && (tradeStatus(L, x) || {}).k !== 'protect' && !(x.contract.type === 'rookie' && x.age <= 21) && !(x.contract.ntc) && !x.ext)
+    .sort((a, b) => (a.contract.exp === cs ? 0 : 1) - (b.contract.exp === cs ? 0 : 1) || a.ovr - b.ovr) : [];
+  if (!cands.length && !c9.length) return why('noBench');
+  const over = (amt, gone) => { const h = contractHit(amt, hg); return yrs.map((y, i) => (i === 0 ? payroll(L, t, y) : payNoFloor(L, t, y)) + h - gone.reduce((s, x) => s + capHit(L, x, y), 0) - APRON); };
+  // the smallest set that clears the first price it can: one player (in candidate order), else two
+  let plan = null; const C = cands.slice(0, 8), sets = C.map(x => [x]);
+  if (CAP_CLEAR.max >= 2) for (let i = 0; i < C.length; i++) for (let j = i + 1; j < C.length; j++) sets.push([C[i], C[j]]);
+  for (const y of c9) { sets.push([y]); if (CAP_CLEAR.max >= 2) for (const x of C) sets.push([y, x]); }   // v36e: bench-only sets first, then one 7th-9th man (alone, then with a bench deal)
+  for (const amt of prices.filter((v, i, a) => v > MINSAL && a.indexOf(v) === i)) {
+    if (over(amt, []).every(v => v <= 1e-6)) break;   // the hard cap is not what blocks it (owner): leave it
+    const g = sets.find(gs => over(amt, gs).every(v => v <= 1e-6)); if (g) { plan = { amt, gone: g }; break; }
+  }
+  // owner side unchanged: after the move the payroll must stay within this season's owner limit (seasonLimit: owner limit, status floor,
+  // and the tax-line rule for owners under OWNER_TAXCASH; teams cutting losses) - a 20-season run without this kept all-in teams at the hard cap
+  // paying $40-60M tax a year (DAL cash -$128M)
+  if (plan && t.owner && !(t.id === L.user)) { const post = payroll(L, t, cs) - plan.gone.reduce((a, x) => a + capHit(L, x, cs), 0) + contractHit(plan.amt, hg); if (cuttingLosses(L, t) || post > seasonLimit(L, t) + 1e-6) return why('ownerLimit'); }
+  if (!plan) { const gap = r1(Math.max(...over(prices[prices.length - 1], []))); return why(over(prices[0], []).every(v => v <= 1e-6) ? 'owner' : gap > cands.slice(0, 2).reduce((a, x) => a + capHit(L, x, cs), 0) ? 'tooBig' : 'years'); }
+  // find a taker for each contract (an AI team with cap room and a roster spot); a second-round pick goes along when the deal is a burden
+  const deals = [];
+  for (const x of plan.gone) {
+    const hit = capHit(L, x, cs), taken = new Set(deals.map(d => d.b));
+    const recv = L.teams.filter(B => B.id !== t.id && B.id !== L.user && !taken.has(B.id) && CAP - payroll(L, B, cs) >= hit && B.roster.length < 15).sort((a, b) => (payNoFloor(L, a, cs) < MINPAY) !== (payNoFloor(L, b, cs) < MINPAY) ? (payNoFloor(L, b, cs) < MINPAY) - (payNoFloor(L, a, cs) < MINPAY) : payroll(L, a, cs) - payroll(L, b, cs));
+    let deal = null;
+    for (const B of recv) {
+      const aGive = { players: [x.id], picks: [] };
+      if (playerTV(L, B, x, false) < 0.6) { const k2 = L.picks.filter(k => k.owner === t.id && k.rd === 2 && k.s > S && !pickUsed(L, k) && !deals.some(d => d.aGive.picks.includes(k.id))).sort((a, b) => b.s - a.s)[0]; if (!k2) continue; aGive.picks.push(k2.id); }
+      if (tradeCheck(L, t.id, B.id, aGive, { players: [], picks: [] })) continue;
+      deal = { a: t.id, b: B.id, aGive, bGive: { players: [], picks: [] }, clear: true, wkA: 'clear', id: 'clear-' + S + '-' + t.id + '-' + x.id, why: `${t.abbr} moved ${x.name} (${money(x.contract.amt)}/yr) to ${B.abbr} to clear hard-cap room to re-sign ${p.name}` };
+      break;
+    }
+    if (!deal) return why('noTaker');
+    deals.push(deal);
+  }
+  for (const d of deals) { const x = L.players[d.aGive.players[0]]; executeTrade(L, d); x.tx.push({ s: S, t: `${t.abbr} moved him to clear hard-cap room to re-sign ${p.name}` }); logNews(L, d.why, t.id, 'trade'); }
+  // re-check the real rules after the move: first price that fits
+  const k = prices.find(v => fitsAt(v)) || (fitsAt(plan.amt) ? plan.amt : 0);
+  { if (!L.resignLog || L.resignLog.s !== S) L.resignLog = { s: S, n: 0, kept: 0, out: {} }; const o = L.resignLog.o60 = L.resignLog.o60 || { n: 0, kept: 0 }; if (k) o.capCleared = (o.capCleared || 0) + 1; else o.capClearFail = (o.capClearFail || 0) + 1; }
+  if (k && deals.some(d => c9.some(y => y.id === d.aGive.players[0])) && L.resignLog && L.resignLog.o60) L.resignLog.o60.capClear9 = (L.resignLog.o60.capClear9 || 0) + 1;   // v36e: a 7th-9th man was moved
+  if (k) p.tx.push({ s: S, t: `${t.abbr} cleared hard-cap room to re-sign him (moved ${deals.map(d => L.players[d.aGive.players[0]].name).join(' and ')})` });
+  return k;
+}
+const RESIGN_K = { floor: 0.95, rot: 0.97, young: 0.92, top10: 0.92, y26: 0.85, o60: 0.75, tax: 0.9, leave: 0.55, pay: [0.6, 0.88], own75: 30, own68: 18, own62: 8, mid60: 0.95, mid60old: 0.8, val: 1.0, valOvr: 60, disc: 0.75 };   // v36e (Kenneth): stay discount up to 25% (was 15%, v36a part 3)   // v36a: mid60 / mid60old (middle teams under the tax)   // round 2 (10 seasons from the S10 save: NBA +4M with round 1)
 const RESIGN_WHY = { money: 'wants more money', win: 'wants to win', role: 'wants a bigger role', mood: 'unhappy with the team', coach: 'poor fit with the coach', fresh: 'wanted a fresh start' };
 // v34 A1: Bird rights: an owner stretches past his limit to keep his own good players (a 98 OVR walked over $7M in the trace); hard cap still holds
 function resignOwnerOK(L, t, p, amt) {
@@ -9338,7 +9395,7 @@ function mvWU(L, tid, kind, why, s0, s1, withOvr) {
   const why0 = fl(pre + why.k, why.v || {}, (L.mvN || 0) + tid);
   return { tid, k: why.k, text: mvLine(t.abbr, why0, fit, ovr), fit, ovr };
 }
-const MV_TRADE_K = { cap: 1, youth: 1, future: 1, expiring: 1, absorb: 1, longfit: 1, dump: 1 };
+const MV_TRADE_K = { cap: 1, youth: 1, future: 1, expiring: 1, absorb: 1, longfit: 1, dump: 1, clear: 1 };
 function mvLine(abbr, why, fit, ovr) { return `${abbr}: ${why}.` + (fit ? ` Coach fit ${fit[0]} > ${fit[1]}.` : '') + (ovr ? ` Team overall ${ovr[0]} > ${ovr[1]}.` : ''); }
 function mvRec(L, e) {
   L.mv = L.mv || []; e.n = L.mvN = (L.mvN || 0) + 1; e.s = L.season; e.ph = L.phase; e.day = L.phase === 'regular' ? L.day : null;
@@ -9455,5 +9512,6 @@ Object.assign(FLAVOR, {
   'mv.t.expiring': ['cleared cap space for next summer', 'took an expiring deal to open room for free agency', 'swapped a long deal for an expiring one', 'wanted cap room next summer'],
   'mv.t.absorb': ['took on a longer deal for draft picks', 'was paid in picks to take on salary', 'used its cap room to add picks', 'absorbed a contract for picks'],
   'mv.t.longfit': ['wanted the player on a longer deal', 'wanted to keep a useful player for years', 'traded an expiring deal for a player under contract', 'wanted control beyond this season'],
-  'mv.t.dump': ['dumped salary', 'needed to shed a big contract', 'paid to move a contract', 'cleared a contract off the books']
+  'mv.t.dump': ['dumped salary', 'needed to shed a big contract', 'paid to move a contract', 'cleared a contract off the books'],
+  'mv.t.clear': ['made room under the hard cap to keep a starter', 'cleared hard-cap room for a re-signing', 'moved a contract to keep a key player', 'freed cap room to re-sign one of their own']
 });

@@ -14,6 +14,17 @@ The game is split into small files so a change rewrites one file, not 1.3 MB.
 | `src/nba-setup.js` | v30a NBA setup extras: real rookies (`nbaRookies`) + real jersey numbers (`NBA_JERSEY_CSV`, `nbaJerseys`) |
 | `src/index.template.html` | Page shell with markers `/*CSS*/ /*VENDOR*/ /*ENGINE*/ /*LEAGUE*/ /*NBA*/ /*APP*/` for the single-file build (`python3 -I build.py --single . [out.html]`, v33e) |
 
+## v36e (Opus, Nov 17 2026): hard-cap losses closed at 8.1%
+- Clear room may move one 7th-9th man (not top 6); stay discount up to 25% (was 15%). 60+ cap losses 8.1% (accepted 8-9%). PROGRESS.md v36e
+
+## v36d (Opus, Nov 17 2026): hard-cap clear room, to-do list fixes, version-end check
+- AI teams at the hard cap trade a bench deal to keep a wanted 60+ player (`capClear`, league.js); owner limits / tax-line rule unchanged. Small effect (60+ cap losses ~8.7%, target 5% not reached: bench deals are too small)
+- Season to-do: lineup ticks only on the Roster tab, locker room needs harmony out of the red, promise risk same season only (app.js)
+- 20-season check, saves remade, tests: PROGRESS.md v36d
+
+## v36c (Sonnet, Nov 17 2026): MVP retune on the merged code
+- `AW_ADV` game score .30, BPM .20, WS .35, fatigue .05 / .10 / 0 (PROGRESS.md v36c)
+
 ## v36b (Sonnet, Nov 17 2026): MVP win shares 35%
 - `AW_ADV` (league.js): MVP game score .25, WS .35, WS/48 .10, PER .05, BPM .25; team record 0.5; voter fatigue .10 / .15 / .05. Tools: `tools/t36-awsnap.js` (frozen award seasons, offline grids), `tools/t34-awgrid.js` W1-W5. t33c team WS vs wins over 3 seeds
 

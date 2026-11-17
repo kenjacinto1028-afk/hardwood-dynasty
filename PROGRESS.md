@@ -1,5 +1,14 @@
 # PBL progress
 
+## v36c (Sonnet, Nov 17 2026): MVP retune on the merged code
+- [x] `AW_ADV` (src/league.js): WS 35% kept, WS/48 .10, PER .05, team record 0.5 kept; game score .25 -> **.30**, BPM .25 -> **.20**; voter fatigue **fat1 .05 / fat2 .10 / fatOld 0** (v36: .10 / .15 / .05)
+- Method: new dumps from the part 3 save (`tools/snap/nba-commish-s10.json.gz`, `t36-awsnap.js dump 10`), SEED 21 and SEED 22 (hold-out); 365 in-spec sets (gs .10-.40 with bpm = .50 - gs, fat1 .05-.20, fat2 .10-.25, fatOld 0-.08) scored on both: `tools/runs32/v36c-awgrid-s21.txt`, `v36c-awgrid-s22.txt`
+- Result of the grid (WS leader / top-3 / winners / worst WS rank): old set (v36) SEED 21 5 / 10 / 6 / 3, SEED 22 5 / 9 / 7 / 6; **chosen set SEED 21 6 / 10 / 6 / 3, SEED 22 6 / 10 / 5 / 3**. What moves it is fatigue (fat1 .05 and fatOld 0); fat2 and the gs / bpm split (gs .30-.40) give the same winners. Best on SEED 22 alone: 7 (fatOld .05), SEED 21 never above 6. Out-of-spec sets (ws48 / per changed) were not needed
+- **Real award run** (`tools/t33c-awards.js 10`, SEED 21, `tools/runs32/v36c-awards-new.txt`, report `v36c-awards-report.txt`) vs the merge run (`v36-merge-awards-report.txt`): MVP = WS leader **7/10** (was 4/10), top-3 in WS **10/10** (9), **7 different winners** (7), most by one player 2, worst WS rank 3, no low-minute winner (min 31.6 mpg). DPOY top-5 DWS 8/10 (8), 9 winners (8); scoring untouched, only Joel Foster at 28 mpg is a low-minute DPOY winner (same as before)
+- Targets: leader 6-7/10 yes, top-3 9+/10 yes, 5+ winners yes, no winner below WS rank 5 yes, no low-minute MVP yes
+- Caveat: fatigue is lower, so repeat MVPs are easier: the longest run is 2 (Duren S12 / S14 not consecutive; Ashby S15 / S18). The grid is on two 10-season leagues; the set sits on a plateau (gs .30-.40 and fat2 .10-.25 all identical), the three non-leader winners were S11 (WS #3), S13 (#2) and S19 (#2)
+- Tests: t33d 17/17 (weights check now v36c: gs .3 ws .35 bpm .2), t33c 24/24, t34 19/19, t36 19/19
+
 ## v36 (Nov 17 2026): MVP win shares 35% + t33c multi-seed
 - [x] A MVP weights (`AW_ADV`, src/league.js): WS 35% (your pick), game score .25, BPM .25, WS/48 .10, PER .05 (the last two unchanged); team record 0.5 kept; voter fatigue up to `fat1` .10 / `fat2` .15 / `fatOld` .05 (was .05 / .10 / .02). Why fatigue moved: on SEED 21 seasons the gs / bpm split barely changes anything (all splits of .50 give the same winners); fatigue does
 - Search: `tools/t34-awgrid.js` (W1-W5 added, run 1: all five WS-35% sets = old set G: leader 5/10, top-3 8/10, 8 winners, worst rank 4), then new `tools/t36-awsnap.js` (dumps the league at award time, re-scores sets offline in seconds, same result as the live grid). 647 sets on two 10-season runs (SEED 21 and a hold-out SEED 22): `tools/runs32/v36-awgrid-offline.txt`

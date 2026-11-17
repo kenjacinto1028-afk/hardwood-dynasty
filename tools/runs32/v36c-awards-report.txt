@@ -1,0 +1,19 @@
+== new scoring: 10 seasons
+S11: MVP Tyler Maddox (MIN 66-16, 35.8 mpg, PER 31.6, WS 12.8, BPM 12.1) [WS rank 3] | DPOY Jabari Mitchell (IND 52-30, 35.2 mpg, PER 21.4, WS 8.7, BPM 5.2, DWS 5.7) [DWS rank 2] | ROY Julian Greer | 6MOY Kevin Tumbaga | MIP Ziga Zajc
+S12: MVP Jalen Duren (DET 48-34, 32.3 mpg, PER 33.5, WS 13.5, BPM 9.8) [WS rank 1] | DPOY Ziga Zajc (UTA 53-29, 31.6 mpg, PER 16, WS 7.5, BPM 1.4, DWS 5) [DWS rank 4] | ROY Kendall Cummings | 6MOY Jabari Mitchell | MIP Andre Holloway
+S13: MVP Lamar Howard (PHX 54-28, 33.6 mpg, PER 30.5, WS 15.1, BPM 11.5) [WS rank 2] | DPOY Lamar Howard (PHX 54-28, 33.6 mpg, PER 30.5, WS 15.1, BPM 11.5, DWS 6.9) [DWS rank 1] | ROY Julian Orr | 6MOY Otis Rajakovic | MIP Aaron Ashby
+S14: MVP Jalen Duren (DET 59-23, 34 mpg, PER 30.8, WS 13.3, BPM 8.4) [WS rank 1] | DPOY Donovan Clingan (WAS 60-22, 34.9 mpg, PER 22.1, WS 12.7, BPM 4.8, DWS 5.3) [DWS rank 3] | ROY Quentin Abernathy | 6MOY Otis Rajakovic | MIP Jordan Sheffield
+S15: MVP Aaron Ashby (TOR 59-23, 36.2 mpg, PER 28.4, WS 14.6, BPM 8.6) [WS rank 1] | DPOY Joel Foster (UTA 61-21, 28 mpg, PER 28, WS 11.6, BPM 8.7, DWS 4.6) [DWS rank 7] | ROY Aleksa Pavlovic | 6MOY Kendall Tolliver | MIP Bogdan Obradovic
+S16: MVP Joel Foster (UTA 64-18, 36 mpg, PER 29.2, WS 15.8, BPM 9.3) [WS rank 1] | DPOY Tyler Maddox (MIN 36-46, 33.2 mpg, PER 31.3, WS 9.6, BPM 11.4, DWS 6.8) [DWS rank 1] | ROY Filip Pavlovic | 6MOY Connor Fraser | MIP Marcus Jenkins
+S17: MVP Aleksa Pavlovic (CLE 60-22, 33.7 mpg, PER 29.1, WS 16.6, BPM 9.9) [WS rank 1] | DPOY Aleksa Pavlovic (CLE 60-22, 33.7 mpg, PER 29.1, WS 16.6, BPM 9.9, DWS 6) [DWS rank 1] | ROY Eoin Quinn | 6MOY Nate Vickers | MIP Tyrese Strickland
+S18: MVP Aaron Ashby (TOR 58-24, 32.3 mpg, PER 30.9, WS 16.9, BPM 10.5) [WS rank 1] | DPOY Bryce Wren (MEM 50-32, 32.9 mpg, PER 24.1, WS 8.7, BPM 6.8, DWS 5.3) [DWS rank 2] | ROY Tyrese Howard | 6MOY Jaden Sutton | MIP Jalen Truitt
+S19: MVP Joel Foster (UTA 65-17, 33.4 mpg, PER 30.9, WS 14.4, BPM 10.7) [WS rank 2] | DPOY Joel Foster (UTA 65-17, 33.4 mpg, PER 30.9, WS 14.4, BPM 10.7, DWS 6.4) [DWS rank 1] | ROY Dorian Quarles | 6MOY Tyler Lockhart | MIP Dante Vaughn
+S20: MVP Kenny Ellery (NYK 67-15, 31.6 mpg, PER 28.1, WS 14.3, BPM 10) [WS rank 1] | DPOY Kenny Ellery (NYK 67-15, 31.6 mpg, PER 28.1, WS 14.3, BPM 10, DWS 4.6) [DWS rank 8] | ROY Thanasis Karras | 6MOY Dante Vaughn | MIP Rashad Crenshaw
+  MVP = WS leader: 7/10 | MVP top-3 in WS: 10/10 | DPOY top-5 in DWS: 8/10
+  MIP from the MVP top 5: 0/10
+  mvp: 7 different winners in 10; most by one player 2 (Jalen Duren); min MPG 31.6; low-minute winners: none
+  dpoy: 9 different winners in 10; most by one player 2 (Joel Foster); min MPG 28; low-minute winners: ['Joel Foster 28']
+  roy: 10 different winners in 10; most by one player 1 (Julian Greer); min MPG 26.8; low-minute winners: none
+  smoy: 9 different winners in 10; most by one player 2 (Otis Rajakovic); min MPG 21.2; low-minute winners: none
+  mip: 10 different winners in 10; most by one player 1 (Ziga Zajc); min MPG 28.4; low-minute winners: none
+  same winner as the other scoring would pick (ladder leader, same season): mvp 8/10, dpoy 7/10, roy 10/10, smoy 10/10, mip 8/10

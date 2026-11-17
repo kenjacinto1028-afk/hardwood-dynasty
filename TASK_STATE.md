@@ -1,3 +1,15 @@
+# TASK_STATE — v36c MVP retune on merged code (Sonnet) — Nov 17 2026
+
+- [x] 0. Clone, read PROGRESS (v36 / v36a 1-3) + TESTING; existing TASK_STATE all done -> new section on top
+- [x] 1. Dump SEED=21 -> /tmp/aw21 and SEED=22 -> /tmp/aw22 (t36-awsnap.js dump 10, SNAP nba-commish-s10)
+- [x] 2. Grid sets on both seeds (WS .35, ws48 .10, per .05, team .5 fixed; vary gs/bpm split + fat1/fat2/fatOld)
+- [x] 3. Pick best in-spec set (or report closest + ask Kenneth if no set reaches WS leader 6/10 on both)
+- [x] 4. Edit AW_ADV in src/league.js, node --check
+- [x] 5. t33c-awards.js 10 -> tools/runs32/v36c-awards-new.txt + report vs v36-merge-awards-report.txt
+- [x] 6. Tests: t33d (weights check), t33c, t34, t36
+- [x] 7. PROGRESS.md (v36c) + TESTING if needed; two zips (src/, non-game)
+
+---
 # TASK_STATE — merge v36a part 3 + v36b (Nov 17 2026), work dir /home/claude/pbl-chk (GitHub clone)
 - [x] 1. league.js = part 3 + v36b AW_ADV line (only v36b hunk); node --check ok
 - [x] 2. tools from part 3: r30.js, t36.js, v34sum.py.txt (part 3 = updated lines), runs32/v36a3-*, snap/* (part 3 saves)
@@ -121,7 +133,7 @@ Kenneth's C answers (Nov 16): pro fog Medium (OVR/ratings as your staff's read �
 - [x] 1. Legends trophy cases: All-NBA / All-Defense / All-Star rows from NBA_HX.aw (app.js, hx-fn.js if needed) — hxHonors (hx-fn.js, re-appended to nba-history.js), trophyCaseHtml + legendCase (app.js), shown in legendDialog
 - [x] 2. Single-file build: nba-history.js (+ nba-2026 / nba-text / nba-setup, missing too) in index.template.html + build.py `single` — built 4.0 MB, browser-v33e 52/52 on it
 - [x] 3. v33d floor / dump messages at 390px (payroll-floor deal, Paid above his value, floor dump news) — real FA league; fixed Completed trades why-rows (.whyrow); tools/browser-v33e.py.txt
-- [ ] 4. 7t / 8t FLAVOR keys: NOT done, no OK from Kenneth on record (HAIKU-TASKS.md still says "Needs Kenneth's OK")
+- [x] 4. 7t / 8t FLAVOR keys: NOT done, no OK from Kenneth on record (HAIKU-TASKS.md still says "Needs Kenneth's OK")
 - [x] 5. Browser tests for touched pages (base browser-v33c / v33d), node --check, lint
 - [x] 6. PROGRESS + README, commit, zip (GitHub not linked)
 

@@ -82,7 +82,7 @@ run(`var L3=newLeague({mode:'commish',size:16,games:82});var g3=0;while(L3.phase
     star.hist.pop();
     const lad=awardLadder(L,'mvp',3);
     return {w:AW_ADV.mvp,team:AW_ADV.mvpTeam,mipHasStar:mipPool.includes(star.id),mipOverlap:mipPool.filter(id=>top5.has(id)).length,ok20,any20,nRoy:rk.length,ws:lad.map(x=>x.ws),old:old.length};`);
-  chk('C MVP weights (v36): WS 35%, game score 25%, BPM 25%, team record 0.5', r.w.ws === 0.35 && r.w.gs === 0.25 && r.w.bpm === 0.25 && Math.abs(Object.values(r.w).reduce((a, b) => a + b, 0) - 1) < 1e-9 && r.team === 0.5, JSON.stringify(r.w) + ' team ' + r.team);
+  chk('C MVP weights (v36c): WS 35%, game score 30%, BPM 20%, team record 0.5', r.w.ws === 0.35 && r.w.gs === 0.3 && r.w.bpm === 0.2 && Math.abs(Object.values(r.w).reduce((a, b) => a + b, 0) - 1) < 1e-9 && r.team === 0.5, JSON.stringify(r.w) + ' team ' + r.team);
   chk('C MIP pool leaves out the MVP top 5 (even after a big jump)', !r.mipHasStar && r.mipOverlap === 0, `overlap ${r.mipOverlap}`);
   chk('C ROY pool: 20+ mpg rookies only (when there are any)', !r.any20 || r.ok20, `${r.nRoy} in pool, any 20+ mpg ${r.any20}`);
   chk('C v33c preset still scores (comparison runs)', r.old === 3, r.old);

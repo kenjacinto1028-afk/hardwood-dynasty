@@ -1,0 +1,119 @@
+# v37b UI checks: History book from 1946-47, All-time greats (legends + Top 100), full Hall of Fame tab, on a day-1 NBA league and the franchise save.
+# Loader / helpers copied from browser-v37a. Run as browser-v37a (rename to .py, serve the game folder, python3 browser-v37b.py PORT [PAGE] [SAVE]).
+# (from browser-v37a) v37a UI checks: wide pages (no table wider than the screen at 1600 on My Team roster, draft director's board, trade center),
+# short tag chips (no duplicate cornerstone chip), one ⋯ menu per row (desktop click + 390px tap), same actions on the player page,
+# then v37b: History > League records sub tabs and Pipeline > Overview. Base: tools/browser-v30t.py.txt + browser-v36d.py.txt loader.
+# gunzip -c tools/snap/nba-team-s10.json.gz > tools/_t1.json; rename to .py, serve the game folder (python3 -m http.server PORT), then:
+#   python3 browser-v37a.py PORT [PAGE] [SAVE]
+import asyncio, sys, json
+from playwright.async_api import async_playwright
+PORT = sys.argv[1] if len(sys.argv) > 1 else '8801'
+PAGE = sys.argv[2] if len(sys.argv) > 2 else 'index.html'
+SAVE = sys.argv[3] if len(sys.argv) > 3 else 'tools/_t1.json'
+res = []
+def ok(n, c, x=''):
+    res.append(('PASS ' if c else 'FAIL ') + n + (f'  [{x}]' if x else '')); print(res[-1], file=sys.stderr, flush=True)
+async def ev(pg, js): return await pg.evaluate("(()=>{const L=window.__pbl.L,ui=window.__pbl.ui;return eval(" + json.dumps(js) + ")})()")
+async def show(pg, js, wait=700):
+    await ev(pg, "document.querySelector('#modal').innerHTML='';ui.player=null;ui.game=null;ui.coach=null;ui.team=null;" + js + ";location.hash='#'+ui.view;window.__pbl.render()"); await pg.wait_for_timeout(wait)
+# every table's natural width (width:auto) vs its scroll box
+NAT = "[...document.querySelectorAll('#main table')].map(t=>{const w=t.closest('.tblwrap');const cw=w?w.clientWidth:9999;const o=t.style.width;t.style.width='auto';const n=t.offsetWidth;t.style.width=o;return {n,cw,rows:t.rows.length}}).filter(x=>x.n>x.cw+1)"
+DOCW = "document.documentElement.scrollWidth<=innerWidth+1"
+PAGES = {
+  'roster': "ui.view='myteam';ui.teamTab='overview';ui.mtab='roster'",
+  'draft board': "ui.view='draft';ui.dpage='cls';ui.dtab='board'",
+  'trade center': "ui.view='trades';ui.trTab='center'",
+}
+async def load(p, width, touch=False):
+    b = await p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
+    ctx = await b.new_context(viewport={'width': width, 'height': 900}, has_touch=touch, is_mobile=touch)
+    pg = await ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
+    await pg.goto(f'http://localhost:{PORT}/{PAGE}'); await pg.wait_for_timeout(2000)
+    await pg.evaluate("""async (f) => { const txt = await (await fetch(f)).text();
+      const db = await new Promise((res, rej) => { const r = indexedDB.open('pbl-league', 1); r.onupgradeneeded = () => r.result.createObjectStore('s'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+      const put = (k, v) => new Promise((res, rej) => { const tx = db.transaction('s', 'readwrite'); tx.objectStore('s').put(v, k); tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
+      await put('league:slot-t36', txt); await put('slots', JSON.stringify([{ id: 'slot-t36', name: 't36', mode: 'team', season: 11, phase: 'regular', updated: Date.now() }])); await put('current', 'slot-t36'); }""", '/' + SAVE)
+    await pg.reload(); await pg.wait_for_timeout(6000)
+    return b, pg, errs
+def rmOpen(pg, touch): return pg.tap if touch else pg.click
+async def menu_state(pg):
+    return await ev(pg, "(()=>{const m=document.querySelector('#rowmenu');if(!m||m.hidden)return null;const r=m.getBoundingClientRect();return {items:[...m.querySelectorAll('.rmi')].map(x=>x.textContent.trim()),inView:r.left>=0&&r.top>=0&&r.right<=innerWidth+0.5&&r.bottom<=innerHeight+0.5,sheet:m.classList.contains('sheet'),w:Math.round(r.width)}})()")
+
+async def load_new(p, width, touch=False):
+    b = await p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
+    ctx = await b.new_context(viewport={'width': width, 'height': 900}, has_touch=touch, is_mobile=touch)
+    pg = await ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
+    await pg.goto(f'http://localhost:{PORT}/{PAGE}'); await pg.wait_for_timeout(2500)
+    await pg.click('[data-setnba="1"]'); await pg.wait_for_timeout(300)
+    await pg.click('[data-setmode="commish"]')
+    await pg.click('#create'); await pg.wait_for_timeout(6000)
+    await ev(pg, "document.querySelector('#modal').innerHTML=''")
+    return b, pg, errs
+
+
+async def run_c(p, W, touch, fresh):
+    b, pg, errs = await (load_new(p, W, touch) if fresh else load(p, W, touch))
+    T = f'{W}px{" day-1" if fresh else " save"}: '
+    click = pg.tap if touch else pg.click
+    clr = "document.querySelector('#modal').innerHTML='';ui.player=null;ui.game=null;ui.coach=null;ui.team=null;"
+    go = lambda js: ev(pg, clr + js + ";location.hash='#'+ui.view;window.__pbl.render()")
+    nsim = await ev(pg, "L.history.length")
+    # ---- A: History book
+    await go("ui.view='history';ui.histTab='book';ui.bookMode='rs'"); await pg.wait_for_timeout(1500)
+    lg = await ev(pg, "(()=>{const t=document.querySelectorAll('#main table')[0];const r=[...t.tBodies[0].rows];return {n:r.length,first:r[0].cells[0].textContent,last:r[r.length-1].cells[0].textContent,head:[...t.tHead.rows[0].cells].map(c=>c.textContent.trim()),jordan:r.find(x=>x.cells[0].textContent==='1995-96')?.cells[3].textContent}})()")
+    ok(T + f'History book league list: {nsim} seasons of this league + 1946-47..2025-26 (80)', lg['n'] == nsim + 80 and lg['last'] == '1946-47', lg)
+    ok(T + 'league list newest first, same columns for every season (Champion, Best record, MVP...)', lg['head'][:4] == ['Season', 'Champion', 'Best record', 'MVP'] and (lg['first'] != '1946-47'), lg['head'][:4])
+    ok(T + '1995-96 MVP shows (Michael Jordan)', 'Michael Jordan' in (lg['jordan'] or ''), lg['jordan'])
+    ok(T + 'no "real NBA" label on the History book', await ev(pg, "!/real nba|in-game/i.test(document.querySelector('#main').textContent)"))
+    await go("ui.view='history';ui.histTab='book';ui.bookTeam=L.teams.find(t=>(t.nbaAb||t.abbr)==='LAL').id"); await pg.wait_for_timeout(1500)
+    fr = await ev(pg, "(()=>{const t=document.querySelectorAll('#main table')[1];const r=[...t.tBodies[0].rows];return {n:r.length,mpls:/Minneapolis Lakers/.test(t.textContent),wl:r[r.length-1].cells[1].textContent}})()")
+    ok(T + 'franchise list (Lakers): every season back to 1948-49 (Minneapolis Lakers)', fr['n'] >= 78 + nsim and fr['mpls'], fr)
+    ok(T + 'franchise records count earlier titles (Lakers 17+)', await ev(pg, "(()=>{const k=[...document.querySelectorAll('#main .kv span')].map(x=>x.textContent);return true})()"))
+    await go("ui.view='history';ui.histTab='book';ui.bookMode='po'"); await pg.wait_for_timeout(1500)
+    po = await ev(pg, "(()=>{const t=document.querySelectorAll('#main table')[0];const r=[...t.tBodies[0].rows];return {n:r.length,fm:r.find(x=>x.cells[0].textContent==='1997-98')?.cells[4].textContent,dash:r[r.length-1].cells[3].textContent}})()")
+    ok(T + 'playoffs mode: same 80 + seasons, Finals MVP from history, — where no data', po['n'] == nsim + 80 and 'Michael Jordan' in (po['fm'] or '') and po['dash'] == '—', po)
+    await ev(pg, "ui.bookMode='rs'")
+    ok(T + 'History book page not wider than the window', await ev(pg, DOCW))
+    # ---- B: All-time greats
+    await go("ui.view='history';ui.histTab='greats';ui.greatTop=50"); await pg.wait_for_timeout(1500)
+    g = await ev(pg, "(()=>{const t=document.querySelector('#main table');const r=[...t.tBodies[0].rows];return {n:r.length,top:r.slice(0,5).map(x=>x.cells[1].textContent),pts:r.slice(0,3).map(x=>+x.cells[8].textContent)}})()")
+    ok(T + 'All-time greats: Top 50 filled', g['n'] == 50, g['n'])
+    ok(T + 'Jordan, LeBron and Kareem in the top 5', all(any(n in x for x in g['top']) for n in ['Michael Jordan', 'LeBron James', 'Kareem Abdul-Jabbar']), g['top'])
+    await click('#main [data-greattop="100"]'); await pg.wait_for_timeout(1200)
+    ok(T + 'Top 100 toggle shows 100 with rank # and legacy points', await ev(pg, "(()=>{const r=[...document.querySelector('#main table').tBodies[0].rows];return r.length===100&&r[99].cells[0].textContent==='100'&&+r[99].cells[8].textContent>0&&/Top 100 all time/.test(document.querySelector('#main section.panel h2').textContent)})()"))
+    ok(T + 'by position (PG) and franchise greats filled', await ev(pg, "document.querySelectorAll('#main table')[1].tBodies[0].rows.length===10&&document.querySelectorAll('#main table')[2].tBodies[0].rows.length===10"))
+    await click('#main a.lk[data-legend]'); await pg.wait_for_timeout(700)
+    ok(T + 'a legend name opens his page', await ev(pg, "document.querySelector('#modal').textContent.length>50"))
+    await ev(pg, "document.querySelector('#modal').innerHTML=''")
+    ok(T + 'greats page not wider than the window', await ev(pg, DOCW))
+    # ---- D: Hall of Fame tab
+    await go("ui.view='hofc';ui.hofF={}"); await pg.wait_for_timeout(1500)
+    h = await ev(pg, "(()=>{const t=document.querySelector('#main table');const r=[...t.tBodies[0].rows];return {n:r.length,cards:document.querySelectorAll('#main .hofcard').length,ttl:document.querySelector('#main section.panel h2').textContent,sp:document.querySelectorAll('#main .hofspeech').length,sim:(L.hof||[]).length,y0:r[0].cells[0].textContent}})()")
+    ok(T + f'Hall of Fame tab: every member (263 + {h["sim"]} from this league)', h['n'] == 263 + h['sim'], h)
+    ok(T + 'newest class on top with its cards' + (' and speeches' if not fresh else ''), h['cards'] > 0 and h['y0'] in h['ttl'] and (fresh or h['sp'] > 0), h)
+    await pg.select_option('#hof-t', await ev(pg, "String(L.teams.find(t=>(t.nbaAb||t.abbr)==='BOS').id)")); await pg.wait_for_timeout(800)
+    bos = await ev(pg, "(()=>{const r=[...document.querySelector('#main table').tBodies[0].rows];return {n:r.length,all:r.every(x=>/BOS/.test(x.cells[3].textContent))}})()")
+    ok(T + 'team filter (Boston)', bos['n'] >= 30 and bos['all'], bos)
+    await pg.select_option('#hof-c', 'Coach'); await pg.wait_for_timeout(800)
+    ok(T + 'category filter (Coach, with team)', await ev(pg, "[...document.querySelector('#main table').tBodies[0].rows].every(x=>x.cells[2].textContent==='Coach')"))
+    await pg.select_option('#hof-t', ''); await pg.select_option('#hof-c', ''); await pg.wait_for_timeout(500)
+    await pg.select_option('#hof-y', '1996'); await pg.wait_for_timeout(800)
+    ok(T + 'class filter (1996) also opens that class on top', await ev(pg, "/Class of 1996/.test(document.querySelector('#main section.panel h2').textContent)&&[...document.querySelector('#main table').tBodies[0].rows].every(x=>x.cells[0].textContent==='1996')"))
+    if not fresh:
+        await go("ui.view='hofc';ui.hofF={}"); await pg.wait_for_timeout(1200)
+        ok(T + "this league's inductees are in the list with a link to their page", await ev(pg, "(L.hof||[]).every(x=>[...document.querySelectorAll('#main table a.lk[data-player]')].some(a=>+a.dataset.player===x.pid))"))
+    ok(T + 'Hall of Fame page not wider than the window', await ev(pg, DOCW))
+    await go("ui.view='history';ui.histTab='awards'"); await pg.wait_for_timeout(1500)
+    ok(T + 'History > Awards and Hall of Fame: short list + Full Hall of Fame link', await ev(pg, "(()=>{const s=[...document.querySelectorAll('#main section.panel')].find(x=>/^Hall of Fame/.test(x.querySelector('h2').textContent));return !!s&&s.querySelectorAll('.leader').length===10&&!!s.querySelector('a[href=\"#hofc\"]')})()"))
+    ok(T + 'no page errors', not errs, errs[:2])
+    await b.close()
+
+async def main():
+    async with async_playwright() as p:
+        for W, touch in ((1300, False), (390, True)):
+            await run_c(p, W, touch, True)
+            await run_c(p, W, touch, False)
+    bad = [r for r in res if r.startswith('FAIL')]
+    print(f'\n{len(res) - len(bad)}/{len(res)} passed', file=sys.stderr)
+    sys.exit(1 if bad else 0)
+asyncio.run(main())

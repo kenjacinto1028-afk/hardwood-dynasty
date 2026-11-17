@@ -14,6 +14,21 @@ The game is split into small files so a change rewrites one file, not 1.3 MB.
 | `src/nba-setup.js` | v30a NBA setup extras: real rookies (`nbaRookies`) + real jersey numbers (`NBA_JERSEY_CSV`, `nbaJerseys`) |
 | `src/index.template.html` | Page shell with markers `/*CSS*/ /*VENDOR*/ /*ENGINE*/ /*LEAGUE*/ /*NBA*/ /*APP*/` for the single-file build (`python3 -I build.py --single . [out.html]`, v33e) |
 
+## v37b (Opus, Nov 17 2026): History book from 1946-47, All-time greats, full Hall of Fame
+- History → History book: league and franchise lists hold every season from 1946-47 on, then this league's seasons on top, same columns ("—" where the history data has nothing).
+- History → All-time greats: every career on one legacy scale (seasons before 2026-27 + this league's seasons; retired legends from career totals), Top 50 / Top 100. Mapping: same game-score formula, 1:1 (see PROGRESS v37b). `legacyScore(p, tid, full)`, `nbaLegBase`, `hxLegLegacy`, `greatsList`.
+- Hall of Fame: real seasons (now with playoffs) count; nobody from the history list's Hall is inducted again (`hxHofYear`, `p.hofX`). News & history → Hall of Fame = full member list with class / team / category filters and the newest class on top (`hofMembers`, `ui.hofF`).
+- Tests: `node tools/t37b.js`, `tools/t37b-hof5.js` (5 seasons from the commish save), `tools/browser-v37b.py.txt`.
+
+## v37a / v37b (Sonnet, Nov 17 2026): wide pages, ⋯ row menu, league records tabs, pipeline overview
+- **⋯ row menu** (`rmBtn` / `rmItems` / `openRM`, src/app.js): one button per row replaces Extend / Shop / Untouchable / Core / Release (My Team roster; commissioner rows get Release only) and Up / Down / T S A / star (draft director's board). Desktop: popover by the button, kept inside the window; 700px and narrower: bottom sheet with 44px rows. Items carry the old `data-*` attributes (`data-block`, `data-protect`, `data-core`, `data-release`, `data-nego`, `data-bup`, `data-ptag`, `data-watch`), so the existing click handler runs them. State stays visible as chips: Core, Untouchable, On block (board: your tag, star).
+- **Player page** (own players): Extend / Shop / Untouchable / Core / Release buttons (`ownActions`), with the same confirm line for Release.
+- **Chips**: `TAG_SHORT`, `ICON_SHORT`: Cornerstone, Icon, Face, Untouchable, Bargain, Overpaid, Fits coach, Clashes, Dev role, No fit. Full wording in the tooltip. The icon badge hides the duplicate Cornerstone tag.
+- **Wide pages**: `body.wide` (My team, Draft, Trades, Players, FA, Pipeline, Stats, Awards, Teams) drops the 1760px cap; name cells wrap (`td.nmc`), Role / Type / notes wrap (`td.wrapt.s` / `.m`). Draft board: the three mock ranks are one cell, Age and Height share a cell. Trade lists and the Players table: Yrs and option (PO / TO) share a cell.
+- **History > League records**: sub tabs Feats tracker / Single game / Season / Career / Career playoffs (`ui.recTab`); only the open tab builds its lists (`REC_ONLY`).
+- **Pipeline > Overview** (first tab, `ui.pipeLg = 'ALL'`): top 10 prospects of the next class (consensus), risers and fallers (`p.stock`), PPG / RPG / APG leaders per league.
+- Browser check: `tools/browser-v37a.py.txt` (see TESTING.md).
+
 ## v36e (Opus, Nov 17 2026): hard-cap losses closed at 8.1%
 - Clear room may move one 7th-9th man (not top 6); stay discount up to 25% (was 15%). 60+ cap losses 8.1% (accepted 8-9%). PROGRESS.md v36e
 

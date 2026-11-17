@@ -591,11 +591,28 @@ function nbaCareerLoad(L) {
     if (!p.real) continue; const c = NBA_CAR[p.name]; if (!c) continue;
     p.awards = (p.awards || []).filter(a => !a.real);
     for (const [season, a] of c.aw || []) { const lab = NBA_AWMAP[a]; if (lab) p.awards.push({ s: nbaSOf(season), a: lab, real: 1 }); }
-    let base = 0; const byT = {};
-    for (const r of c.rs) { const v = nbaRowValue(nbaRow(r)); base += v; const tid = tidOf[r[1]]; if (tid != null) byT[tid] = (byT[tid] || 0) + v; }
-    p.legBase = Math.round(base); p.legBaseT = {}; for (const k in byT) p.legBaseT[k] = Math.round(byT[k]);
     p.svc = Math.max(p.svc || 0, new Set(c.rs.map(r => r[0])).size);
     n++;
   }
+  nbaLegBaseAll(L);
   return n;
 }
+// v37b: real seasons on the legacy scale, for every real player (one career with this league's seasons).
+// Regular season: nbaRowValue (= seasonValue, 82 games). Playoffs: nbaPoValue (= poValue). Rows: NBA_CAR (stars), else the real
+// (not estimated) rows of nbaEstRows (NBA_CAR2 + 2025-26 line); playoffs NBA_CARPO. p.legBase (career), p.legBaseT {tid: v},
+// p.legSeasT {s: [tid]} (teams of each real season, so real awards count for the team he won them with).
+// Calibration (tools/runs32/v37b-legacy.txt): top 5 / 10 / 25 / 50 season values per season, real 2022-25 52.7 / 45.6 / 36.2 / 27.6,
+// sim S1-10 (nba-commish save) 50.9 / 45.0 / 35.4 / 27.0, so the mapping is 1:1 (no factor).
+function nbaPoValue(o) { if (!o || !o.gp) return 0; const g = (o.pts + 0.4 * o.fgm - 0.7 * o.fga - 0.4 * (o.fta - o.ftm) + 0.7 * (o.orb || 0) + 0.3 * (o.drb || 0) + (o.stl || 0) + 0.7 * o.ast + 0.7 * (o.blk || 0) - 0.4 * (o.pf || 0) - (o.tov || 0)) / o.gp; return 4 * Math.max(0, g - 10) * Math.min(1.25, o.gp / 12); }
+function nbaLegBase(L, p, tidOf) {
+  if (!p || !p.real) return;
+  let rows = nbaRealRows(p); if (!rows && typeof nbaEstRows === 'function') rows = (nbaEstRows(p) || []).filter(o => !o.est);
+  const po = typeof NBA_CARPO !== 'undefined' && NBA_CARPO[p.name] ? nbaPoRows(p) : [];
+  if (!(rows && rows.length) && !po.length) return;
+  let base = 0; const byT = {}, seasT = {};
+  const add = (o, v) => { base += v; const tid = tidOf[o.team]; if (tid != null) { byT[tid] = (byT[tid] || 0) + v; const k = nbaSOf(o.season); (seasT[k] = seasT[k] || []).includes(tid) || seasT[k].push(tid); } };
+  for (const o of rows || []) add(o, nbaRowValue(o));
+  for (const o of po) add(o, nbaPoValue(o));
+  p.legBase = Math.round(base); p.legBaseT = {}; for (const k in byT) p.legBaseT[k] = Math.round(byT[k]); p.legSeasT = seasT;
+}
+function nbaLegBaseAll(L) { if (!L || !L.nba) return; const tidOf = {}; for (const t of L.teams) tidOf[nbaAbOf(t)] = t.id; for (const p of Object.values(L.players)) nbaLegBase(L, p, tidOf); L.legV = 37; }

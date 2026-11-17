@@ -112,3 +112,66 @@ function hxTeamPanels(L, t) {
 }
 // History > Awards and Hall of Fame: Hall of Fame members from before this league, newest first (league inductees are listed above them)
 function hxHofRows() { const e = typeof esc === 'function' ? esc : (x => String(x)); return hxHof().map(r => `<div class="leader" style="grid-template-columns:minmax(0,1fr) auto"><span>${e(r[0])} <span class="muted">${e(r[2] || '')}${r[3] ? ' · ' + e(r[3]) : ''}</span></span><span class="muted">${r[1] || ''}</span></div>`).join(''); }
+
+// ---------- v37b: retired legends on the same legacy scale as everyone else (NBA_LGD career totals) ----------
+// Stats the league didn't keep yet are filled in: rebounds from 1950-51, minutes 1951-52, offensive rebounds / steals / blocks 1973-74,
+// turnovers 1977-78. A partly kept stat is scaled up by the share of seasons it covers; a stat never kept uses the per-minute rate of
+// legends at that position who started in 1979-80 or later. Season value from career totals = the same game-score formula
+// (4 x (game score per game - 10) x games / 82) times HX_CONV (career totals smooth out peak seasons; fitted on 48 NBA_CAR careers of
+// 8+ seasons: sum of season values / career-total value by career game score). Playoffs (no rows for legends): regular-season value x
+// (0.529 + 0.149 x titles), at most 1.5 (least squares on 47 NBA_CAR careers with playoff rows; their highest ratio is 1.49).
+// Awards: AWARD_PTS, counts from NBA_LGD + the season list (MVP / Finals MVP / DPOY) + scoring / rebounding / assists / steals / blocks titles
+// from NBA_HX.aw. By team: everything split by his games with each franchise (NBA_HX.fl), the rest evenly over his other teams.
+const HX_TRACK = { trb: 1950, mp: 1951, orb: 1973, stl: 1973, blk: 1973, tov: 1977 };
+const HX_CONV = [[11.5, 1.26], [14.5, 1.09], [17.5, 1.02], [21, 1]];
+const HX_PO = { a: 0.529, b: 0.149, max: 1.5 };
+const HX_AWK = { LPTS: 'Scoring title', LTRB: 'Rebounding title', LAST: 'Assists title', LSTL: 'Steals title', LBLK: 'Blocks title' };
+let HX_RATE = null, HX_LEGC = null;
+function hxLegRates() {
+  if (HX_RATE) return HX_RATE; const S = {}, all = { mp: 0, gp: 0, stl: 0, blk: 0, tov: 0, trb: 0, orb: 0 }, sh = { ftm: 0, fta: 0, fgm: 0, fga: 0 };
+  for (const l of nbaLegends()) { const r = l.rs; if (r.fta && r.fga) { sh.ftm += r.ftm; sh.fta += r.fta; sh.fgm += r.fgm; sh.fga += r.fga; } }
+  for (const l of nbaLegends()) { const r = l.rs; if (hxYr(l.from) < 1979 || !r.mp) continue; for (const o of [S[l.pos] = S[l.pos] || { mp: 0, gp: 0, stl: 0, blk: 0, tov: 0, trb: 0, orb: 0 }, all]) { o.mp += r.mp; o.gp += r.gp; o.stl += r.stl || 0; o.blk += r.blk || 0; o.tov += r.tov || 0; o.orb += r.orb || 0; o.trb += r.trb != null ? r.trb : (r.orb || 0) + (r.drb || 0); } }
+  HX_RATE = {}; for (const k of [...Object.keys(S), '_']) { const o = k === '_' ? all : S[k]; HX_RATE[k] = { stl: o.stl / o.mp, blk: o.blk / o.mp, tov: o.tov / o.mp, trb: o.trb / o.mp, orbSh: o.orb / Math.max(1, o.trb), mpg: o.mp / o.gp, ftp: sh.ftm / sh.fta, fgp: sh.fgm / sh.fga }; }
+  return HX_RATE;
+}
+function hxLegTotals(l) {
+  const r = l.rs, y0 = hxYr(l.from), n = Math.max(1, hxYr(l.to) - y0 + 1), R = hxLegRates()[l.pos] || hxLegRates()._;
+  const f = k => Math.min(1, Math.max(0, (HX_TRACK[k] - y0) / n));
+  const fill = (v, k, rate, mp) => { const fk = f(k); if (v == null) return rate * mp; if (fk <= 0) return v; if (v && fk < 0.8) return v / (1 - fk); return (v || 0) + rate * mp * fk; };
+  const fm = f('mp'), mp = r.mp ? (fm <= 0 ? r.mp : fm < 0.8 ? r.mp / (1 - fm) : r.mp + r.gp * R.mpg * fm) : r.gp * R.mpg;
+  const trb = fill(r.trb != null ? r.trb : (r.orb || 0) + (r.drb || 0), 'trb', R.trb, mp);
+  const orb = f('orb') > 0 || r.orb == null ? R.orbSh * trb : r.orb;
+  // shot attempts missing (a few rows): free throws from the legends' FT%, field goal attempts from points and TS%
+  const fta = r.fta != null ? r.fta : (r.ftm || 0) / R.ftp, fga = r.fga != null ? r.fga : Math.max(r.fgm || 0, (r.ts ? (r.pts || 0) / (2 * r.ts) : (r.fgm || 0) / R.fgp) - 0.44 * fta);
+  return { gp: r.gp, mp, fgm: r.fgm || 0, fga, ftm: r.ftm || 0, fta, pts: r.pts || 0, ast: r.ast || 0, pf: r.pf || 0, orb, drb: trb - orb, trb,
+    stl: fill(r.stl, 'stl', R.stl, mp), blk: fill(r.blk, 'blk', R.blk, mp), tov: fill(r.tov, 'tov', R.tov, mp), seasons: n };
+}
+function hxConv(g) { const C = HX_CONV; if (g <= C[0][0]) return C[0][1]; for (let i = 1; i < C.length; i++) if (g <= C[i][0]) { const [a, x] = C[i - 1], [b, y] = C[i]; return x + (y - x) * (g - a) / (b - a); } return C[C.length - 1][1]; }
+// a legend's award counts in league names (AWARD_PTS keys)
+function hxLegAwards(l) {
+  const c = {}; for (const k in l.aw || {}) { const n = (typeof NBA_AWMAP !== 'undefined' && NBA_AWMAP[k]) || k; c[n] = (c[n] || 0) + l.aw[k]; }
+  const t = hxTopAwards(l); for (const [k, n] of [['MVP', 'MVP'], ['Finals MVP', 'Finals MVP'], ['DPOY', 'Defensive Player of the Year']]) if (t[k]) c[n] = Math.max(c[n] || 0, t[k]);
+  const key = hxAwKey(l.name, hxYr(l.from), hxYr(l.to)); for (const r of NBA_HX.aw) if (HX_AWK[r[1]] && hxNorm(r[2]) === key) c[HX_AWK[r[1]]] = (c[HX_AWK[r[1]]] || 0) + 1;
+  return c;
+}
+function hxLegLegacy(l) {
+  if (!HX_LEGC) HX_LEGC = {}; if (HX_LEGC[l.name]) return HX_LEGC[l.name];
+  const t = hxLegTotals(l), g = (t.pts + 0.4 * t.fgm - 0.7 * t.fga - 0.4 * (t.fta - t.ftm) + 0.7 * t.orb + 0.3 * t.drb + t.stl + 0.7 * t.ast + 0.7 * t.blk - 0.4 * t.pf - t.tov) / Math.max(1, t.gp);
+  const rs = hxConv(g) * 4 * Math.max(0, g - 10) * t.gp / 82, cnt = hxLegAwards(l), titles = cnt.Champion || 0;
+  const po = rs * Math.min(HX_PO.max, HX_PO.a + HX_PO.b * titles);
+  let aw = 0; for (const k in cnt) aw += (typeof AWARD_PTS !== 'undefined' ? AWARD_PTS[k] || 0 : 0) * cnt[k];
+  const v = rs + po + aw, k = hxNorm(l.name), G = {}; let known = 0;
+  for (const ab of l.teams || []) { const row = (((NBA_HX.fl[ab] || {}).RS || {}).G || []).find(x => hxNorm(x[0]) === k); if (row) { G[ab] = Math.min(row[1], t.gp - known); known += G[ab]; } }
+  const rest = (l.teams || []).filter(ab => G[ab] == null); for (const ab of rest) G[ab] = Math.max(0, t.gp - known) / rest.length;
+  const byT = {}; for (const ab in G) byT[ab] = Math.round(v * G[ab] / Math.max(1, t.gp));
+  return HX_LEGC[l.name] = { v: Math.round(v), rs: Math.round(rs), po: Math.round(po), aw: Math.round(aw), g: Math.round(g * 10) / 10, cnt, titles, seasons: t.seasons, byT, games: G };
+}
+// every retired legend with his legacy (names already in the league are skipped: they have their own record)
+function hxLegendGreats(L) {
+  if (typeof nbaLegends !== 'function' || !hxOn(L)) return [];
+  const have = new Set(Object.values(L.players).map(p => hxNorm(p.name)));
+  return nbaLegends().filter(l => !have.has(hxNorm(l.name))).map(l => ({ l, x: hxLegLegacy(l) }));
+}
+// v37b: Hall of Fame members before this league (players only), by normalized name -> class year
+let HX_HOFN = null;
+function hxHofYear(L, name) { if (!hxOn(L)) return null; if (!HX_HOFN) { HX_HOFN = {}; for (const r of NBA_HX.hof) if (r[2] === 'Player') HX_HOFN[hxNorm(r[0])] = r[1]; } return HX_HOFN[hxNorm(name)] || null; }

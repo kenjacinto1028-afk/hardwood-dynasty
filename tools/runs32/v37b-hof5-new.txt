@@ -1,0 +1,6 @@
+S11: retired 66, inducted 0
+S12: retired 69, inducted 2 (Luka Doncic* 2439, Chet Holmgren* 1390)
+S13: retired 81, inducted 2 (Shai Gilgeous-Alexander* 3635, Scottie Barnes* 961)
+S14: retired 65, inducted 3 (Cade Cunningham* 1428, Anthony Edwards* 1066, Donovan Clingan* 702)
+S15: retired 68, inducted 1 (Amen Thompson* 1253)
+total inducted in 5 seasons: 8 (real players *: 8); already in the history list: none; inducted twice: 0 (printed NaN before the .size fix; the 8 / 7 names above are distinct)

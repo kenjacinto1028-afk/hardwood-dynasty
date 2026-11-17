@@ -1,0 +1,266 @@
+# v37a UI checks: wide pages (no table wider than the screen at 1600 on My Team roster, draft director's board, trade center),
+# short tag chips (no duplicate cornerstone chip), one ⋯ menu per row (desktop click + 390px tap), same actions on the player page,
+# then v37b: History > League records sub tabs and Pipeline > Overview. Base: tools/browser-v30t.py.txt + browser-v36d.py.txt loader.
+# gunzip -c tools/snap/nba-team-s10.json.gz > tools/_t1.json; rename to .py, serve the game folder (python3 -m http.server PORT), then:
+#   python3 browser-v37a.py PORT [PAGE] [SAVE]
+import asyncio, sys, json
+from playwright.async_api import async_playwright
+PORT = sys.argv[1] if len(sys.argv) > 1 else '8801'
+PAGE = sys.argv[2] if len(sys.argv) > 2 else 'index.html'
+SAVE = sys.argv[3] if len(sys.argv) > 3 else 'tools/_t1.json'
+res = []
+def ok(n, c, x=''):
+    res.append(('PASS ' if c else 'FAIL ') + n + (f'  [{x}]' if x else '')); print(res[-1], file=sys.stderr, flush=True)
+async def ev(pg, js): return await pg.evaluate("(()=>{const L=window.__pbl.L,ui=window.__pbl.ui;return eval(" + json.dumps(js) + ")})()")
+async def show(pg, js, wait=700):
+    await ev(pg, "document.querySelector('#modal').innerHTML='';ui.player=null;ui.game=null;ui.coach=null;ui.team=null;" + js + ";location.hash='#'+ui.view;window.__pbl.render()"); await pg.wait_for_timeout(wait)
+# every table's natural width (width:auto) vs its scroll box
+NAT = "[...document.querySelectorAll('#main table')].map(t=>{const w=t.closest('.tblwrap');const cw=w?w.clientWidth:9999;const o=t.style.width;t.style.width='auto';const n=t.offsetWidth;t.style.width=o;return {n,cw,rows:t.rows.length}}).filter(x=>x.n>x.cw+1)"
+DOCW = "document.documentElement.scrollWidth<=innerWidth+1"
+PAGES = {
+  'roster': "ui.view='myteam';ui.teamTab='overview';ui.mtab='roster'",
+  'draft board': "ui.view='draft';ui.dpage='cls';ui.dtab='board'",
+  'trade center': "ui.view='trades';ui.trTab='center'",
+}
+async def load(p, width, touch=False):
+    b = await p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
+    ctx = await b.new_context(viewport={'width': width, 'height': 900}, has_touch=touch, is_mobile=touch)
+    pg = await ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
+    await pg.goto(f'http://localhost:{PORT}/{PAGE}'); await pg.wait_for_timeout(2000)
+    await pg.evaluate("""async (f) => { const txt = await (await fetch(f)).text();
+      const db = await new Promise((res, rej) => { const r = indexedDB.open('pbl-league', 1); r.onupgradeneeded = () => r.result.createObjectStore('s'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+      const put = (k, v) => new Promise((res, rej) => { const tx = db.transaction('s', 'readwrite'); tx.objectStore('s').put(v, k); tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
+      await put('league:slot-t36', txt); await put('slots', JSON.stringify([{ id: 'slot-t36', name: 't36', mode: 'team', season: 11, phase: 'regular', updated: Date.now() }])); await put('current', 'slot-t36'); }""", '/' + SAVE)
+    await pg.reload(); await pg.wait_for_timeout(6000)
+    return b, pg, errs
+def rmOpen(pg, touch): return pg.tap if touch else pg.click
+async def menu_state(pg):
+    return await ev(pg, "(()=>{const m=document.querySelector('#rowmenu');if(!m||m.hidden)return null;const r=m.getBoundingClientRect();return {items:[...m.querySelectorAll('.rmi')].map(x=>x.textContent.trim()),inView:r.left>=0&&r.top>=0&&r.right<=innerWidth+0.5&&r.bottom<=innerHeight+0.5,sheet:m.classList.contains('sheet'),w:Math.round(r.width)}})()")
+
+async def run_desktop(p):
+    b, pg, errs = await load(p, 1600)
+    W = '1600px: '
+    ok(W + 'franchise save loaded', await ev(pg, "L.user!=null&&L.mode==='team'"))
+    # ---- A: wide pages, no table wider than its box, page itself not wider than the window
+    for name, js in PAGES.items():
+        await show(pg, js)
+        bad = await ev(pg, NAT)
+        ok(W + f'{name}: no table wider than the screen', not bad and await ev(pg, DOCW), bad)
+    # other wide tables (sweep list)
+    sweep = {'players info': "ui.view='players';ui.pAdv=false", 'players adv': "ui.view='players';ui.pAdv=true",
+             'FA overview': "ui.view='fa';ui.faTab='over'", 'FA list': "ui.view='fa';ui.faTab='now'", 'stats players': "ui.view='stats';ui.statTab='players'",
+             'pipeline NCHF': "ui.view='pipeline';ui.pipeLg='NCHF'", 'pipeline EABL': "ui.view='pipeline';ui.pipeLg='EABL'", 'pipeline APBA': "ui.view='pipeline';ui.pipeLg='APBA'",
+             'awards race': "ui.view='awards';ui.awKey='mvp'", 'teams': "ui.view='teams'", 'trading block': "ui.view='trades';ui.trTab='block'"}
+    for name, js in sweep.items():
+        await show(pg, js, 600); bad = await ev(pg, NAT)
+        ok(W + f'sweep {name}: fits', not bad, bad)
+    # ---- chips: short, one cornerstone chip per player (every team's roster + the trade lists)
+    dup = []
+    for tid in range(30):
+        await show(pg, f"ui.view='teams';ui.team={tid}", 200)
+        d = await ev(pg, "[...document.querySelectorAll('#main table tbody tr')].map(r=>[...r.querySelectorAll('td:first-child .pill')].map(x=>x.textContent.trim())).filter(a=>a.filter(x=>/cornerstone/i.test(x)).length>1||(a.includes('Cornerstone')&&a.some(x=>/franchise cornerstone/i.test(x)))).length")
+        if d: dup.append((tid, d))
+    ok(W + 'no player shows two cornerstone chips (30 team pages)', not dup, dup)
+    await show(pg, PAGES['roster'])
+    ok(W + 'chip wordings are short: Cornerstone / Icon / Face, full wording in the tooltip', await ev(pg, "(()=>{const t=[...document.querySelectorAll('#main table[data-sid=roster] td:first-child .pill')];return t.length>0&&t.every(x=>x.textContent.trim().length<=14)&&!t.some(x=>/Franchise (C|c)ornerstone|Face of the franchise|Development role/.test(x.textContent))})()"))
+    ok(W + 'icon / tag chips carry a full-wording tooltip', await ev(pg, "[...document.querySelectorAll('#main table[data-sid=roster] .pill[class*=icon-t],#main table[data-sid=roster] .pill[class*=tg-]')].every(x=>(x.title||'').length>10)"))
+    # ---- B: ⋯ menu (desktop click)
+    await show(pg, PAGES['roster'])
+    ok(W + 'roster rows have one ⋯ button and no Extend / Shop / Untouchable / Core / Release buttons', await ev(pg, "(()=>{const tb=document.querySelector('#main table[data-sid=roster] tbody');return tb.querySelectorAll('.rmbtn').length===tb.rows.length&&!tb.querySelector('[data-block],[data-protect],[data-core],[data-release]')})()"))
+    await ev(pg, "(()=>{const t=rosterOf(L,L.teams[L.user]);t.forEach(p=>{p.core=false;p.protect=false;p.block=false});window.__pid=t[3].id;window.__pbl.render()})()"); await pg.wait_for_timeout(500)
+    pid = await ev(pg, "window.__pid")
+    await pg.click(f'#main [data-rm="{pid}"]'); await pg.wait_for_timeout(300)
+    ms = await menu_state(pg)
+    ok(W + 'click opens the menu inside the window', ms and ms['inView'] and not ms['sheet'], ms)
+    ok(W + 'menu lists Shop / Untouchable / Core player / Release (+ Extend when allowed)', ms and all(any(x.startswith(k) for x in ms['items']) for k in ['Shop', 'Untouchable', 'Core player', 'Release']), ms)
+    ok(W + 'opening the menu did not open the player page', await ev(pg, "ui.player==null"))
+    await pg.click('#rowmenu [data-core]'); await pg.wait_for_timeout(400)
+    ok(W + 'Core from the menu sets core, menu closes, Core chip shows', await ev(pg, f"L.players[{pid}].core===true&&document.querySelector('#rowmenu').hidden&&[...document.querySelectorAll('#main tr[data-player=\"{pid}\"] .pill')].some(x=>x.textContent.trim()==='Core')"))
+    await pg.click(f'#main [data-rm="{pid}"]'); await pg.wait_for_timeout(250); await pg.click('#rowmenu [data-protect]'); await pg.wait_for_timeout(400)
+    ok(W + 'Untouchable from the menu sets protect + chip', await ev(pg, f"L.players[{pid}].protect===true&&[...document.querySelectorAll('#main tr[data-player=\"{pid}\"] .pill')].some(x=>/Untouchable/.test(x.textContent))"))
+    await pg.click(f'#main [data-rm="{pid}"]'); await pg.wait_for_timeout(250); await pg.click('#rowmenu [data-block]'); await pg.wait_for_timeout(400)
+    ok(W + 'Shop from the menu sets block, takes off Untouchable, chip On block', await ev(pg, f"L.players[{pid}].block===true&&!L.players[{pid}].protect&&[...document.querySelectorAll('#main tr[data-player=\"{pid}\"] .pill')].some(x=>x.textContent.trim()==='On block')"))
+    await pg.click(f'#main [data-rm="{pid}"]'); await pg.wait_for_timeout(250)
+    ok(W + 'menu shows the current state (checked)', 'On the block' in ' '.join((await menu_state(pg))['items']) and 'Core player' in ' '.join((await menu_state(pg))['items']))
+    await pg.click('#rowmenu [data-release]'); await pg.wait_for_timeout(400)
+    ok(W + 'Release from the menu shows the confirm line (nothing released yet)', await ev(pg, f"/Release /.test(document.querySelector('#relmsg').textContent)&&L.players[{pid}].team===L.user&&!!document.querySelector('[data-confirm-release]')"))
+    await pg.click(f'#main [data-rm="{pid}"]'); await pg.wait_for_timeout(250); await pg.keyboard.press('Escape'); await pg.wait_for_timeout(200)
+    ok(W + 'Escape closes the menu', await ev(pg, "document.querySelector('#rowmenu').hidden"))
+    await pg.click(f'#main [data-rm="{pid}"]'); await pg.wait_for_timeout(250); await pg.mouse.click(5, 300); await pg.wait_for_timeout(200)
+    ok(W + 'click outside closes it', await ev(pg, "document.querySelector('#rowmenu').hidden"))
+    # extend shows when the player can be extended
+    ext = await ev(pg, "(()=>{const t=rosterOf(L,L.teams[L.user]).find(p=>canExtend(L,p));return t?t.id:null})()")
+    if ext:
+        await pg.click(f'#main [data-rm="{ext}"]'); await pg.wait_for_timeout(250)
+        ok(W + 'Extend is in the menu for an extendable player and opens his page', 'Extend contract…' in (await menu_state(pg))['items'])
+        await pg.click('#rowmenu [data-rmext]'); await pg.wait_for_timeout(500)
+        ok(W + 'Extend opens the extension offer popup', await ev(pg, f"ui.negOpen=={ext}&&!!document.querySelector('#negdlg')"))
+        await ev(pg, "document.querySelector('#modal').innerHTML='';ui.negOpen=null")
+    # ---- B: player page actions (own player), none for other teams
+    await show(pg, f"ui.view='myteam';ui.player={pid}")
+    ok(W + 'player page (own): Shop / Untouchable / Core / Release buttons', await ev(pg, f"(()=>{{const a=document.querySelector('#main .pactions');return !!a&&['block','protect','core','release'].every(k=>!!a.querySelector('[data-'+k+'=\"{pid}\"]'))}})()"))
+    await pg.click(f'#main .pactions [data-core="{pid}"]'); await pg.wait_for_timeout(400)
+    ok(W + 'player page Core toggles (off again)', await ev(pg, f"L.players[{pid}].core===false&&/Core/.test(document.querySelector('#main .pactions [data-core]').textContent)"))
+    await pg.click(f'#main .pactions [data-protect="{pid}"]'); await pg.wait_for_timeout(400)
+    ok(W + 'player page Untouchable sets protect (Shop was on: now off)', await ev(pg, f"L.players[{pid}].protect===true&&!L.players[{pid}].block"))
+    await pg.click(f'#main .pactions [data-release="{pid}"]'); await pg.wait_for_timeout(400)
+    ok(W + 'player page Release asks first', await ev(pg, f"/Release /.test(document.querySelector('#relmsg').textContent)&&L.players[{pid}].team===L.user"))
+    other = await ev(pg, "rosterOf(L,L.teams[(L.user+1)%30])[2].id")
+    await show(pg, f"ui.view='myteam';ui.player={other}")
+    ok(W + 'player page of another team has no roster actions', await ev(pg, "!document.querySelector('#main .pactions')"))
+    # ---- A: draft board ⋯ menu
+    await show(pg, PAGES['draft board'])
+    ok(W + 'draft board: one Edit ⋯ per row, no Up / Down / T S A buttons, mocks merged', await ev(pg, "(()=>{const t=document.querySelector('#main table[data-sid=dboard]');return t.querySelectorAll('tbody .rmbtn').length===t.tBodies[0].rows.length&&!t.querySelector('[data-bup],[data-bdown],[data-ptag]')&&t.tHead.rows[0].cells.length===t.tBodies[0].rows[0].cells.length})()"))
+    bp = await ev(pg, "(()=>{const r=document.querySelectorAll('#main table[data-sid=dboard] tbody tr')[3];return +r.dataset.player})()")
+    order0 = await ev(pg, "[...document.querySelectorAll('#main table[data-sid=dboard] tbody tr')].map(r=>+r.dataset.player).slice(0,6)")
+    await pg.click(f'#main table[data-sid=dboard] [data-rm="{bp}"]'); await pg.wait_for_timeout(250)
+    ms = await menu_state(pg)
+    ok(W + 'board menu: Move up / Move down / Target / Sleeper / Avoid / watch list', ms and all(any(x.endswith(k) or k in x for x in ms['items']) for k in ['Move up', 'Move down', 'Target', 'Sleeper', 'Avoid', 'watch list']) and ms['inView'], ms)
+    await pg.click('#rowmenu [data-bup]'); await pg.wait_for_timeout(500)
+    order1 = await ev(pg, "[...document.querySelectorAll('#main table[data-sid=dboard] tbody tr')].map(r=>+r.dataset.player).slice(0,6)")
+    ok(W + 'Move up swaps him with the player above', order1[2] == bp and order1[3] == order0[2], (order0, order1))
+    await pg.click(f'#main table[data-sid=dboard] [data-rm="{bp}"]'); await pg.wait_for_timeout(250); await pg.click('#rowmenu [data-ptag][data-ptv="sleeper"]'); await pg.wait_for_timeout(400)
+    ok(W + 'Sleeper tag set from the menu, chip in the name cell', await ev(pg, f"ptagOf(L,L.players[{bp}])==='sleeper'&&[...document.querySelector('#main tr[data-player=\"{bp}\"]').querySelectorAll('.pill')].some(x=>x.textContent.trim()==='Sleeper')"))
+    await pg.click(f'#main table[data-sid=dboard] [data-rm="{bp}"]'); await pg.wait_for_timeout(250); await pg.click('#rowmenu [data-watch]'); await pg.wait_for_timeout(400)
+    ok(W + 'watch list from the menu', await ev(pg, f"isWatched(L,L.players[{bp}])"))
+    # ---- trade center
+    await show(pg, PAGES['trade center'])
+    ok(W + 'trade center: both sides fit (no sideways scroll), Yrs + option in one column', await ev(pg, "[...document.querySelectorAll('#main .tbuild .tblwrap')].length===2&&[...document.querySelectorAll('#main .tbuild .tblwrap')].every(w=>w.scrollWidth<=w.clientWidth+1)&&![...document.querySelectorAll('#main .tbuild th')].some(x=>x.textContent==='Opt')"))
+    ok(W + 'no page errors', not errs, errs[:2])
+    await b.close()
+
+async def run_narrow(p, W, touch):
+    b, pg, errs = await load(p, 390 if W == 390 else W, touch)
+    T = f'{W}px: '
+    for name, js in PAGES.items():
+        await show(pg, js)
+        ok(T + f'{name}: page not wider than the window', await ev(pg, DOCW))
+    if W == 1300:
+        for name, js in [x for x in PAGES.items() if x[0] != 'draft board']:   # the board is ~30px wider than 1300 (fits at 1600; listed in PROGRESS)
+            await show(pg, js); bad = await ev(pg, NAT.replace('#main table', '#main table[data-sid=roster],#main table[data-sid=dboard],#main .tbuild table'))
+            ok(T + f'{name}: tables fit', not bad, bad)
+    if W == 390:
+        await show(pg, PAGES['roster'])
+        await ev(pg, "(()=>{const t=rosterOf(L,L.teams[L.user]);t.forEach(p=>{p.core=false;p.protect=false;p.block=false});window.__pid=t[1].id;window.__pbl.render()})()"); await pg.wait_for_timeout(400)
+        pid = await ev(pg, "window.__pid")
+        await pg.evaluate(f"document.querySelector('#main [data-rm=\"{pid}\"]').scrollIntoView({{block:'center',inline:'end'}})"); await pg.wait_for_timeout(200)
+        await pg.tap(f'#main [data-rm="{pid}"]'); await pg.wait_for_timeout(300)
+        ms = await menu_state(pg)
+        ok(T + 'tap opens the ⋯ menu as a bottom sheet that fits the screen', ms and ms['sheet'] and ms['inView'] and ms['w'] <= 390, ms)
+        ok(T + 'tap did not open the player page', await ev(pg, "ui.player==null"))
+        tapBox = await ev(pg, "(()=>{const x=[...document.querySelectorAll('#rowmenu .rmi')].map(b=>b.getBoundingClientRect().height);return Math.min(...x)})()")
+        ok(T + 'menu rows are tap-sized (40px+)', tapBox >= 40, tapBox)
+        for key, field, lab in [('core', 'core', 'Core'), ('protect', 'protect', 'Untouchable'), ('block', 'block', 'Shop')]:
+            await pg.tap(f'#rowmenu [data-{key}]'); await pg.wait_for_timeout(400)
+            ok(T + f'{lab} from the menu at 390', await ev(pg, f"L.players[{pid}].{field}===true"))
+            await pg.evaluate(f"document.querySelector('#main [data-rm=\"{pid}\"]').scrollIntoView({{block:'center',inline:'end'}})"); await pg.wait_for_timeout(150)
+            await pg.tap(f'#main [data-rm="{pid}"]'); await pg.wait_for_timeout(300)
+        ext = await ev(pg, "(()=>{const t=rosterOf(L,L.teams[L.user]).find(p=>canExtend(L,p));return t?t.id:null})()")
+        await pg.tap('#rowmenu [data-release]'); await pg.wait_for_timeout(500)
+        ok(T + 'Release from the menu shows the confirm line at 390', await ev(pg, f"/Release /.test(document.querySelector('#relmsg').textContent)&&!!document.querySelector('[data-confirm-release]')&&L.players[{pid}].team===L.user"))
+        if ext:
+            await pg.evaluate(f"document.querySelector('#main [data-rm=\"{ext}\"]').scrollIntoView({{block:'center',inline:'end'}})"); await pg.wait_for_timeout(150)
+            await pg.tap(f'#main [data-rm="{ext}"]'); await pg.wait_for_timeout(300)
+            await pg.tap('#rowmenu [data-rmext]'); await pg.wait_for_timeout(500)
+            ok(T + 'Extend from the menu opens the offer popup', await ev(pg, f"ui.negOpen=={ext}&&!!document.querySelector('#negdlg')"))
+            await ev(pg, "document.querySelector('#modal').innerHTML='';ui.negOpen=null")
+        # player page, own player, 390
+        await show(pg, f"ui.view='myteam';ui.player={pid}")
+        ok(T + 'player page: action buttons fit and are visible', await ev(pg, "(()=>{const a=document.querySelector('#main .pactions');if(!a)return false;const r=a.getBoundingClientRect();return r.right<=innerWidth+0.5&&[...a.querySelectorAll('button')].every(b=>{const q=b.getBoundingClientRect();return q.right<=innerWidth+0.5&&q.height>=26})})()"))
+        for key, field in [('core', 'core'), ('protect', 'protect'), ('block', 'block')]:
+            await ev(pg, f"L.players[{pid}].{field}=false;window.__pbl.render()"); await pg.wait_for_timeout(300)
+            await pg.tap(f'#main .pactions [data-{key}="{pid}"]'); await pg.wait_for_timeout(400)
+            ok(T + f'player page {key} at 390', await ev(pg, f"L.players[{pid}].{field}===true"))
+        await pg.tap(f'#main .pactions [data-release="{pid}"]'); await pg.wait_for_timeout(400)
+        ok(T + 'player page Release asks first', await ev(pg, f"/Release /.test(document.querySelector('#relmsg').textContent)"))
+        if ext:
+            await show(pg, f"ui.view='myteam';ui.player={ext}")
+            await pg.tap(f'#main .pactions [data-nego="{ext}"]'); await pg.wait_for_timeout(700)
+            ok(T + 'player page Extend opens the offer popup', await ev(pg, f"ui.negOpen=={ext}&&!!document.querySelector('#negdlg')"))
+            await ev(pg, "document.querySelector('#modal').innerHTML='';ui.negOpen=null")
+        # draft board menu at 390
+        await show(pg, PAGES['draft board'])
+        bp = await ev(pg, "+document.querySelectorAll('#main table[data-sid=dboard] tbody tr')[2].dataset.player")
+        await pg.evaluate(f"document.querySelector('#main [data-rm=\"{bp}\"]').scrollIntoView({{block:'center',inline:'end'}})"); await pg.wait_for_timeout(150)
+        await pg.tap(f'#main [data-rm="{bp}"]'); await pg.wait_for_timeout(300)
+        ms = await menu_state(pg)
+        ok(T + 'draft board menu fits at 390', ms and ms['inView'] and ms['sheet'], ms)
+        await pg.tap('#rowmenu [data-ptag][data-ptv="target"]'); await pg.wait_for_timeout(400)
+        ok(T + 'Target tag from the board menu at 390', await ev(pg, f"ptagOf(L,L.players[{bp}])==='target'"))
+    ok(T + 'no page errors', not errs, errs[:2])
+    await b.close()
+
+
+# ---------- v37b: League records sub tabs + Pipeline Overview ----------
+async def run_b(p, W, touch, fresh=False):
+    b, pg, errs = await (load(p, W, touch) if not fresh else load_new(p, W, touch))
+    T = f'{W}px{" day-1" if fresh else ""}: '
+    click = pg.tap if touch else pg.click
+    clr = "document.querySelector('#modal').innerHTML='';ui.player=null;ui.game=null;ui.coach=null;ui.team=null;"
+    await ev(pg, clr + "ui.view='pipeline';ui.pipeLg=null;location.hash='#pipeline';window.__pbl.render()"); await pg.wait_for_timeout(800)
+    ok(T + 'pipeline opens on the Overview tab', await ev(pg, "ui.pipeLg==='ALL'&&[...document.querySelectorAll('#main .subtabs button')][0].textContent==='Overview'&&[...document.querySelectorAll('#main .subtabs button')][0].classList.contains('primary')"))
+    ok(T + 'Overview: top 10 prospects table with a league tag per row (<= 10, league tags)', await ev(pg, "(()=>{const r=[...document.querySelectorAll('#main table tbody tr')];return r.length>0&&r.length<=10&&r.every(x=>/NCHF|EABL|APBA/.test(x.cells[1].textContent))})()"))
+    ok(T + 'Overview: names link to players', await ev(pg, "[...document.querySelectorAll('#main table tbody tr')].every(r=>!!r.dataset.player)&&document.querySelectorAll('#main .leader a.lk[data-player], #main .muted').length>=0"))
+    ok(T + 'Overview: three panels (top 10, risers and fallers, leaders by league)', await ev(pg, "[...document.querySelectorAll('#main section.panel h2')].map(h=>h.textContent).join('|')==='Top 10 draft prospects|Risers and fallers|Leaders by league'"))
+    ok(T + 'Overview: a leaders block for each of the 3 leagues with PPG / RPG / APG', await ev(pg, "document.querySelectorAll('#main .pipe-ldr').length===3&&/PPG/.test(document.querySelector('#main .pipe-ldr').textContent)==(document.querySelectorAll('#main .pipe-ldr .pgrid').length>0)"))
+    if fresh:
+        ok(T + 'empty states read well (risers: after the first season; leaders: after the Finals)', await ev(pg, "/Stock moves show after the first pipeline season/.test(document.querySelector('#main').textContent)&&/Season results arrive after the Finals/.test(document.querySelector('#main').textContent)"))
+    else:
+        ok(T + 'risers and fallers have stock chips (▲ / ▼) and leaders have names', await ev(pg, "document.querySelectorAll('#main .pill.stk-up').length>0&&document.querySelectorAll('#main .pill.stk-dn').length>0&&document.querySelectorAll('#main .pipe-ldr .pname').length>=9"))
+        stk = await ev(pg, "(()=>{const h=[...document.querySelectorAll('#main section.panel')].find(x=>/Risers and fallers/.test(x.textContent));const c=h.querySelectorAll('.grid2e > div');return [c[0].querySelectorAll('.stk-up').length,c[0].querySelectorAll('.stk-dn').length,c[1].querySelectorAll('.stk-dn').length,c[1].querySelectorAll('.stk-up').length]})()")
+        ok(T + 'risers list holds only ▲, fallers only ▼', stk[0] > 0 and stk[1] == 0 and stk[2] > 0 and stk[3] == 0, stk)
+    ok(T + 'Overview: page not wider than the window' + ('' if W == 390 else ', tables fit their box'), await ev(pg, DOCW) and (W == 390 or not await ev(pg, NAT)))
+    ok(T + 'Overview fits: top table is not clipped at the page edge', await ev(pg, "(()=>{const w=document.querySelector('#main .tblwrap');return !w||w.getBoundingClientRect().right<=innerWidth+0.5})()"))
+    await click('#main [data-pipelg="EABL"]'); await pg.wait_for_timeout(500)
+    ok(T + 'league tab still works (EABL) and Overview comes back', await ev(pg, "ui.pipeLg==='EABL'&&/Euro-Atlantic/.test(document.querySelector('#main h2').textContent)"))
+    await click('#main [data-pipelg="ALL"]'); await pg.wait_for_timeout(400)
+    ok(T + 'back to the Overview', await ev(pg, "ui.pipeLg==='ALL'"))
+    # ---- League records
+    await ev(pg, clr + "ui.view='history';ui.histTab='records';ui.recTab=null;location.hash='#history';window.__pbl.render()"); await pg.wait_for_timeout(1500)
+    names = await ev(pg, "[...document.querySelectorAll('#main [data-rectab]')].map(b=>b.textContent)")
+    ok(T + 'records sub tabs: Feats tracker / Single game / Season / Career / Career playoffs', names == ['Feats tracker', 'Single game', 'Season', 'Career', 'Career playoffs'], names)
+    ok(T + 'first sub tab is Feats tracker and the lists are not all on one page', await ev(pg, "document.querySelector('#main [data-rectab=feats]').classList.contains('primary')&&!document.querySelector('#main .grid3 .panel')&&document.querySelectorAll('#main h3').length<8"))
+    chk = {'game': ('Single game', r"/ · game/", None), 'season': ('Season', r"/season|%/", None), 'career': ('Career', r"/career/", None), 'cpo': ('Career playoffs', r"/career playoffs/", None)}
+    for k, (nm, rx, _) in chk.items():
+        await click(f'#main [data-rectab="{k}"]'); await pg.wait_for_timeout(1200)
+        t = await ev(pg, "[...document.querySelectorAll('#main .grid3 .panel h3')].map(h=>h.textContent)")
+        ok(T + f'{nm}: only its own lists ({len(t)} lists)', len(t) >= 5 and await ev(pg, "[...document.querySelectorAll('#main .grid3 .panel h3')].every(h=>" + rx + ".test(h.textContent.toLowerCase().replace('· career playoffs','· career playoffs')))".replace('/ · game/', '/ · game/i').replace('/season|%/', '/season|%|per 48|\\(/i').replace('/career/', '/career/i').replace('/career playoffs/', '/career playoffs/i')), t[:3])
+        ok(T + f'{nm}: the open tab is highlighted (ui.recTab={k})', await ev(pg, f"ui.recTab==='{k}'&&document.querySelector('#main [data-rectab={k}]').classList.contains('primary')"))
+    await click('#main [data-rectab="season"]'); await pg.wait_for_timeout(1200)
+    await click('#main [data-top100]'); await pg.wait_for_timeout(600)
+    ok(T + 'Season: Top 100 still opens', await ev(pg, "document.querySelectorAll('#modal .leader, #modal tbody tr, #modal li').length>=10"), await ev(pg, "document.querySelectorAll('#modal .leader, #modal tbody tr').length"))
+    await ev(pg, "document.querySelector('#modal').innerHTML=''")
+    await ev(pg, clr + "ui.view='standings';location.hash='#standings';window.__pbl.render()"); await pg.wait_for_timeout(300)
+    await ev(pg, clr + "ui.view='history';ui.histTab='records';location.hash='#history';window.__pbl.render()"); await pg.wait_for_timeout(1000)
+    ok(T + 'the sub tab is remembered after leaving the page', await ev(pg, "ui.recTab==='season'&&document.querySelector('#main [data-rectab=season]').classList.contains('primary')"))
+    ok(T + 'records page not wider than the window', await ev(pg, DOCW))
+    ok(T + 'no page errors', not errs, errs[:2])
+    await b.close()
+
+async def load_new(p, width, touch=False):
+    b = await p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
+    ctx = await b.new_context(viewport={'width': width, 'height': 900}, has_touch=touch, is_mobile=touch)
+    pg = await ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
+    await pg.goto(f'http://localhost:{PORT}/{PAGE}'); await pg.wait_for_timeout(2500)
+    await pg.click('[data-setnba="1"]'); await pg.wait_for_timeout(300)
+    await pg.click('[data-setmode="commish"]')
+    await pg.click('#create'); await pg.wait_for_timeout(6000)
+    await ev(pg, "document.querySelector('#modal').innerHTML=''")
+    return b, pg, errs
+
+async def main():
+    async with async_playwright() as p:
+        await run_desktop(p)
+        await run_narrow(p, 1300, False)
+        await run_narrow(p, 390, True)
+        await run_b(p, 1300, False)
+        await run_b(p, 390, True)
+        await run_b(p, 1300, False, True)
+        await run_b(p, 390, True, True)
+        try:
+            import importlib.util
+        except Exception: pass
+    bad = [r for r in res if r.startswith('FAIL')]
+    print(f'\n{len(res) - len(bad)}/{len(res)} passed', file=sys.stderr)
+    sys.exit(1 if bad else 0)
+asyncio.run(main())

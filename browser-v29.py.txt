@@ -27,7 +27,7 @@ async def main():
     await go(pg, 'standings')
     ok('League group has a Pipeline sub-tab', await ev(pg, "!![...document.querySelectorAll('#subtabs a')].find(a=>a.dataset.v==='pipeline'&&a.textContent.trim()==='Pipeline')"))
     await go(pg, 'pipeline'); t = await tc(pg)
-    ok('3 sub-tabs: College / International upper / International lower', await ev(pg, "[...document.querySelectorAll('#main [data-pipelg]')].map(b=>b.dataset.pipelg).join()")=='NCHF,EABL,APBA' and 'College (NCHF)' in t and 'International upper (EABL)' in t and 'International lower (APBA)' in t)
+    ok('3 sub-tabs: College / International upper / International lower', await ev(pg, "[...document.querySelectorAll('#main [data-pipelg]')].map(b=>b.dataset.pipelg).join()")=='ALL,NCHF,EABL,APBA' and 'College (NCHF)' in t and 'International upper (EABL)' in t and 'International lower (APBA)' in t)
     ok('before the first season: results arrive after the Finals', 'Season results arrive after the Finals.' in t and clean(t))
     ok('rosters show before the first season (12 rows)', await ev(pg, "document.querySelectorAll('#pipe-roster tbody tr').length")>=12)
     # --- one full season (autopilot, fast) so the pipeline has results, a draft and honors

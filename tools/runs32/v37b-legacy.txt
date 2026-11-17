@@ -1,0 +1,14 @@
+PASS Jordan / LeBron / Kareem are the top 3 on day 1 :: Kareem Abdul-Jabbar, Michael Jordan, LeBron James, Wilt Chamberlain, Tim Duncan
+PASS Wilt and Russell in the top 10 :: {"j":2,"l":3,"k":1,"w":4,"b":7}
+PASS legend with missing shot attempts is not inflated (Chris Paul game score < 20) :: 17.4
+PASS 100+ careers ranked on day 1 (Top 100 fills) :: 299
+PASS LeBron real base counts playoffs too (> 1500) :: 2015
+PASS LeBron with CLE < career; his MIA MVPs are 2 (award -> season team) :: 2035 / 4003, MIA MVPs 2
+PASS new league stamped legV 37
+PASS a Hall of Famer from the history list is not inducted twice :: added 0, hofX 2025
+PASS an active star with a real résumé gets in on retiring (Durant)
+PASS calibration top 10: real vs sim season value within 10% :: 45.6 vs 45.0
+PASS calibration top 25: real vs sim season value within 10% :: 36.2 vs 35.4
+PASS calibration top 50: real vs sim season value within 10% :: 27.6 vs 27.0
+PASS old save migrated (legV 37)
+13/13 passed

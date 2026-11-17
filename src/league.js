@@ -4770,14 +4770,15 @@ function hofCredentials(p, L) {
   if (L && isBig(L)) { const al = n('All-League 1st Team') + n('All-League 2nd Team') + n('All-League 3rd Team'); return n('MVP') >= 1 || n('Defensive Player of the Year') >= 2 || n('Finals MVP') >= 2 || (n('All-Star') >= 6 && (n('All-League 1st Team') >= 1 || al >= 4)); }
   return n('All-Star') >= 3 || n('MVP') + n('Finals MVP') + n('Defensive Player of the Year') + n('All-League 1st Team') >= 1 || n('All-League 2nd Team') >= 2;
 }
-function legacyScore(p, tid) {
+function legacyScore(p, tid, full) {   // full: count his real seasons with tid even when p.leg holds them (All-time greats by team)
   const rows = p.hist.filter(h => tid == null || h.tid === tid);
   const seasons = new Set(rows.map(h => h.s));
   let v = rows.reduce((a, h) => a + seasonValue(h) + poValue(h), 0);
-  for (const a of p.awards) if (tid == null || seasons.has(a.s) || (a.real && p.legBaseT && p.legBaseT[tid] != null && !p.leg)) v += AWARD_PTS[a.a] || 0;
+  const realT = a => a.real && p.legBaseT && p.legBaseT[tid] != null && (full || !p.leg) && (p.legSeasT ? (p.legSeasT[a.s] || []).includes(tid) : true);   // v37b: real award -> the team of that season
+  for (const a of p.awards) if (tid == null || seasons.has(a.s) || realT(a)) v += AWARD_PTS[a.a] || 0;
   if (tid == null && p.legBase) v += p.legBase;
   if (tid == null && p.preAw) v += pipeHofPts(p);   // v29 P10: pre-draft honors (small)   // v27 H3: real seasons before this league (stars)
-  else if (tid != null && p.legBaseT && p.legBaseT[tid] && !p.leg) v += p.legBaseT[tid];   // (p.leg already holds his real legacy with that team)
+  else if (tid != null && p.legBaseT && p.legBaseT[tid] && (full || !p.leg)) v += p.legBaseT[tid];   // (p.leg already holds his real legacy with that team)
   return r1(v);
 }
 // v27 N8: real résumé before this league (real NBA Hall of Fame standard): 7+ All-Star, or 3+ titles with 4+ All-Star, or 2+ DPOY, or an MVP
@@ -4789,7 +4790,9 @@ function honorRetired(L, p) {
   { const ts = new Set(p.hist.filter(h => h.rs && h.rs.gp).map(h => h.tid)); const n = new Set(p.hist.filter(h => h.rs && h.rs.gp).map(h => h.s)).size; if (ts.size === 1 && n >= 13) achGive(L, p, 'p', 'oneteam', L.teams[[...ts][0]] ? L.teams[[...ts][0]].abbr : ''); }
   const score = legacyScore(p, null);
   p.legacy = score;
-  if ((score >= hofMin(L) && hofCredentials(p, L)) || realHofCase(p)) {
+  const hxIn = typeof hxHofYear === 'function' ? hxHofYear(L, p.name) : null;   // v37b: already in the Hall (history list): never inducted twice
+  if (hxIn) p.hofX = hxIn;
+  else if ((score >= hofMin(L) && hofCredentials(p, L)) || realHofCase(p)) {
     L.hof.push({ pid: p.id, name: p.name, s: L.season, score, teams: [...new Set(p.hist.map(h => h.tid).filter(x => x != null))] });
     p.hof = L.season;
     logNews(L, flL(L, 'hof.induct', { name: p.name }), null, 'award');
@@ -4799,7 +4802,7 @@ function honorRetired(L, p) {
   const best = Object.entries(byTeam).sort((a, b) => b[1] - a[1])[0];
   if (best && best[1] >= 4 && p.num != null) {
     const tid = +best[0], ts = legacyScore(p, tid);
-    if (p.hof || ts >= 350) {
+    if (p.hof || p.hofX || ts >= 350) {
       const t = L.teams[tid];
       if (!t.retired.some(r => r.num === p.num)) { t.retired.push({ num: p.num, pid: p.id, name: p.name, s: L.season }); try { jerseyTribute(L, t, p, p.num); } catch (e) { } (L.jerseys = L.jerseys || []).unshift({ s: L.season, tid, pid: p.id, num: p.num, name: p.name }); logNews(L, `${t.city} ${t.name} retire #${p.num} for ${p.name}`, tid, 'award'); }
     }
@@ -6566,6 +6569,7 @@ function migrateLeague(L) {
   if (L.teams.some(t => t.expRank == null)) setExpectations(L);
   L.gmPool = L.gmPool || []; L.openings = L.openings || []; L.jobOffers = L.jobOffers || [];
   if (L.teams.some(t => t.id !== L.user && !t.tstat)) refreshTradeStatus(L);
+  if (L.nba && (L.legV || 0) < 37 && typeof nbaLegBaseAll === 'function') nbaLegBaseAll(L);   // v37b: real playoffs + role players' real seasons in legacy
   return L;
 }
 

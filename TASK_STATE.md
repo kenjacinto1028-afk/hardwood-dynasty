@@ -1,3 +1,31 @@
+# TASK_STATE — v37b (Opus) — Nov 17 2026: history book, all-time greats, HoF effect, HoF tab, v37a review
+- [x] 0a. Clone + merge v37a zips (9 files: PROGRESS.md README.md TASK_STATE.md TESTING.md browser-v29.py.txt tools/browser-v29.py.txt tools/browser-v37a.py.txt src/app.js src/styles.css)
+- [x] 0b. Read PROGRESS v37a, TESTING, v37-plan; merged code: node --check ok, t36 27/27, lint PASS
+- [x] A. app.js historyBook: league + franchise lists continue with 1946-47..2025-26 (nbaHist, hxBestRecord, NBA_HX.aw LPTS, NBA_HX.fs, hbTeamAw); Champion column in RS mode; franchise records incl. past
+- [ ] B. All-time greats: legacy = real career + sim; calibration; Top 50/100 toggle
+  - [x] B1. core: nba-2026.js nbaLegBase/nbaLegBaseAll (real rs + real playoffs, every real player, legSeasT), migrate (L.legV 37); league.js legacyScore(p,tid,full) + real award -> that season's team; nba-history.js hxLegLegacy / hxLegendGreats (imputation, HX_CONV, HX_PO). Day-1 top 3 Kareem 4189, Jordan 4084, LeBron 4003; calibration real vs sim top-N 1:1
+  - [x] B2. app.js greatsList()/greatsView: players (legacyScore full) + legends, Top 50/100 (ui.greatTop, data-greattop), by pos/team same list
+- [x] C. legacyScore now incl. real playoffs (decision: real seasons count, yes); honorRetired skips names in NBA_HX hof (hxHofYear -> p.hofX); jersey rule counts hofX. Counts check in T3
+- [x] D. app.js hofMembers()/vHofCeremony: one list, filters ui.hofF {y,t,c}, class cards on top; History awards short list (10) + Full Hall of Fame link
+- [x] E. v37a review: browser-v37a 167/167 on merged + v37b code; History tables wrap (table.hwrap): book 1689->fits at 1600, seasons list 1358->fits
+- [x] T1. tools/t37b.js 13/13 (top 3 Kareem/Jordan/LeBron, Wilt #4, Russell #7; calibration within 2-3%; no double induction) -> runs32/v37b-legacy.txt
+- [x] T2. tools/browser-v37b.py.txt 90/90 (1300 + 390, day-1 NBA + nba-team-s10)
+- [x] T3. tools/t37b-hof5.js 5 seasons from nba-commish-s10 SEED 21: before v37b 7 inductees, v37b 8 (+ Clingan 702, bar 700); none twice, none from the history list. runs32/v37b-hof5-base.txt / -new.txt
+- [x] T4. t36 27/27, t34 19/19, lint PASS, v37a browser 167/167
+- [x] F. PROGRESS v37b + README + TESTING; zip /mnt/user-data/outputs/pbl-v37b.zip (v37a + v37b files, repo layout; tools/_t1.json left out)
+
+---
+# TASK_STATE — v37a (Sonnet A: wide pages + mobile menu) + v37b (Sonnet B: league records tabs + pipeline overview) — Nov 17 2026
+- [x] 1. Read app.js: My Team roster, draft board, trade center, row actions, tags, player page
+- [x] 2. A: full-width panels, short tag chips (dup Luka fix), one ⋯ menu per row, wrap cells, trim columns on 3 pages
+- [x] 3. A: sweep other wide tables (Players, Stats, FA, Teams, Pipeline rosters, Awards race), list changes
+- [x] 4. B: ⋯ menu tap on 390px + same actions on player page (own players)
+- [x] 5. C: History > League records sub tabs (ui.recTab)
+- [x] 6. D: Pipeline Overview sub tab
+- [x] 7. Browser test 1600/1300/390 on nba-team-s10 + day-1 league (tools/browser-v37a.py.txt)
+- [x] 8. t36, t34, lint; PROGRESS v37a (+v37b) + README; two zips in /home/claude/outputs
+
+---
 # TASK_STATE — v36e (Opus) — Nov 17 2026: Kenneth: allow a 7th-9th man in clear room + stay discount 25%; accept 8-9%; merge zip later
 - [x] 1. (CAP_CLEAR.top9) capClear: one rank 7-9 player (salary < his ask, 4+ OVR below) if bench sets can't; log capClear9
 - [x] 2. RESIGN_K.disc 0.85 -> 0.75

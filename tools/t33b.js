@@ -11,7 +11,8 @@ const chk = (n, c, x) => { if (c) ok++; else bad++; out.push((c ? 'PASS ' : 'FAI
 const { run } = load(SRC, SEED);
 const J = c => JSON.parse(run(`JSON.stringify((function(){${c}})())`));
 run(`var mkt=function(L){const ps=active(L).filter(p=>!p.prospect);const top=ps.slice().sort((a,b)=>(b.mval||0)-(a.mval||0)).slice(0,13*L.teams.length);
-  return top.reduce((s,p)=>s+(p.mval>1.5?p.mval:0),0)/L.teams.length;};
+  const fx=p=>typeof MKT_ROOKIE_FIXED!=='undefined'&&MKT_ROOKIE_FIXED&&NBA_ON&&p.contract&&p.contract.type==='rookie'&&p.team!=null?capHit(L,p,capSeason(L)):null;   /* v36a: NBA rookie deals count at their cap hit, as computeMarket */
+  return top.reduce((s,p)=>{const f=fx(p);return s+(f!=null?f:p.mval>1.5?p.mval:0);},0)/L.teams.length;};
  var rule=function(L){const ps=active(L).filter(p=>!p.prospect);let y55=0,y55min=0,y59=0,y59max=0,u60=0;
   for(const p of ps){const a=rampAmt(L,p,60);if(p.ovr<60&&a>=10)u60++;if(p.age<=25&&p.ovr<=55){y55++;if(a<=MINSAL+1e-6)y55min++;}if(p.age<=25&&p.ovr>=56&&p.ovr<=59){y59++;y59max=Math.max(y59max,a/MINSAL);}}
   return {y55,y55min,y59,y59max:+y59max.toFixed(2),u60};};`);

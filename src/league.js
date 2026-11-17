@@ -412,6 +412,7 @@ function capAsk(L, p) { if (p.ask != null) p.ask = rampAmt(L, p, p.ask); return 
 // goes to mid-tier players that teams under the cap can afford, not only to stars already at the max. Step 3: if still short, the
 // scale rises up to MKT_LIFT_MAX. Hard part (59 and under, league-relative) and the under-60 $10M rule never change.
 const MKT_RAMP_LIFT = 1.2, RAMP_K_MAX = 2, MKT_LIFT_MAX = 3, RAMP_STEP = 2;
+let MKT_ROOKIE_FIXED = true, MKT_LIFT_NBA = 3.4;   // v36a: rookie deals count at their cap hit; NBA lift ceiling (10 seasons x2 seeds with 3.0: payroll 169.4 / 170.3)
 function computeMarket(L) {
   updateAskShift(L);
   const ps = active(L).filter(p => !p.prospect);
@@ -421,7 +422,10 @@ function computeMarket(L) {
   ps.sort((a, b) => W(b) - W(a));
   const top = ps.slice(0, 13 * L.teams.length);
   const budget = L.teams.length * CAP * SPEND_K;
-  const total = (s, rmp) => top.reduce((sum, p) => { let v = Math.min(maxFor(p), s * W(p)); if (rmp) v = rampAmt(L, p, v); return sum + (v < 1.5 ? 0 : v); }, 0);
+  // v36a: NBA: a player on his rookie deal is paid the scale, not his value, so he counts at his cap hit (the budget went to unpaid
+  // rookie value: S11 save 60+ rookies valued $43.6M a team, paid $9.1M; most teams sat at the floor)
+  const fixed = p => MKT_ROOKIE_FIXED && NBA_ON && p.contract && p.contract.type === 'rookie' && p.team != null ? capHit(L, p, capSeason(L)) : null;
+  const total = (s, rmp) => top.reduce((sum, p) => { const f = fixed(p); if (f != null) return sum + f; let v = Math.min(maxFor(p), s * W(p)); if (rmp) v = rampAmt(L, p, v); return sum + (v < 1.5 ? 0 : v); }, 0);
   // scale so expected league-wide spending lands near the budget (between the $120M floor and the cap)
   const fit = rmp => { let lo = 0, hi = CAP * 4; for (let i = 0; i < 40; i++) { const m = (lo + hi) / 2; if (total(m, rmp) > budget) hi = m; else lo = m; } return lo; };
   // v32e: low-rated players are paid less (ramp); part of that money moves up to better players (the scale may rise up to 20%), the rest stays as team room
@@ -430,7 +434,7 @@ function computeMarket(L) {
   if (total(scale, true) < budget * 0.995) {
     let lo = 1, hi = RAMP_K_MAX; L.rampK = hi;
     if (total(scale, true) >= budget) { for (let i = 0; i < 24; i++) { L.rampK = (lo + hi) / 2; if (total(scale, true) > budget) hi = L.rampK; else lo = L.rampK; } L.rampK = Math.round(lo * 100) / 100; }
-    else scale = Math.min(fit(true), f0 * MKT_LIFT_MAX);
+    else scale = Math.min(fit(true), f0 * (NBA_ON ? MKT_LIFT_NBA : MKT_LIFT_MAX));   // v36a: NBA may lift further (the rookie fix hit 3.0)
   }
   L.marketScale = r1(scale); L.marketLift = Math.round(scale / Math.max(1e-6, f0) * 100) / 100;
   for (const p of active(L)) { const b = accBoost(p, L.season); p.accPrem = Math.round(b * 100); const raw = scale * wv(p) * (1 + b + fb(p)) * (p.prone >= L.season - 1 ? 0.95 : 1) * (layoffAhead(L, p) >= 20 ? 1 - 0.35 * Math.min(1, layoffAhead(L, p) / SEASON_GAMES) : 1), v = Math.min(maxFor(p), raw); p.mval = v < 1.5 ? MINSAL : r1(v); p.mvalRaw = r1(raw); const rv = rampAmt(L, p, p.mval); if (rv < p.mval) { p.mval = rv; p.mvalRaw = Math.min(p.mvalRaw, rv); } }
@@ -3462,7 +3466,8 @@ function closeSeasonFinance(L) {
 }
 // ---------- Owners: goals, spending limits, trust; GMs on the hot seat ----------
 // A small-market owner who is losing money scales back: still wants a competitive team, but within budget
-function cuttingLosses(L, t) { const last = (t.finHist || []).slice(-1)[0]; return t.market === 1 && !!last && (last.profit < -5 || (t.cash || 0) < 0); }
+function cuttingLosses(L, t) { const last = (t.finHist || []).slice(-1)[0]; return !!last && ((t.market === 1 && (last.profit < -5 || (t.cash || 0) < 0)) || (t.cash || 0) < OWNER_RED); }   // v36a part 3: any owner in the red (cash below OWNER_RED) cuts back too
+const OWNER_RED = -10;
 function ownerGoalFor(L, t) {
   const m = t.expMode || t.mode;
   if (t.lastPo === 'Champion' && (m === 'contend' || m === 'hopeful')) return { key: 'finals', txt: 'Defend the title: reach the Finals' };
@@ -3494,7 +3499,8 @@ function taxTolerance(L, t) { if ((t.expMode || t.mode) !== 'contend') return 0;
 // v21: what each status will spend to: All-in up to the hard cap, Contender up to the tax line (rich owners and big markets a bit past it), Push up to the tax line
 function statusFloor(L, t) { const s = t.status; return s === 'allin' ? APRON : s === 'contend' ? TAXLINE + taxTolerance(L, t) : s === 'push' ? TAXLINE : 0; }
 // v24.5.1: the season's spending limit as setOwnerGoals sets it (also used to preview next season's limit during the offseason)
-function seasonLimit(L, t) { return cuttingLosses(L, t) ? r1(Math.min(APRON, ownerLimit(L, t))) : r1(Math.min(APRON, Math.max(ownerLimit(L, t), taxTolerance(L, t) ? TAXLINE + taxTolerance(L, t) : 0, statusFloor(L, t)))); }
+function seasonLimit(L, t) { const low = (t.cash || 0) < OWNER_TAXCASH, sf = low ? Math.min(TAXLINE, statusFloor(L, t)) : statusFloor(L, t), tt = low ? 0 : taxTolerance(L, t); return cuttingLosses(L, t) ? r1(Math.min(APRON, ownerLimit(L, t))) : r1(Math.min(APRON, Math.max(ownerLimit(L, t), tt ? TAXLINE + tt : 0, sf))); }   // v36a part 3: with under $20M in the bank, all-in / contending owners stop at the tax line (deep repeat tax took owners to -$85M / -$101M)
+const OWNER_TAXCASH = 20;
 function setOwnerGoals(L) { for (const t of L.teams) { if (!t.owner) initFinance(L, t); t.owner.goal = ownerGoalFor(L, t); { const e = t.owner.esc; if (e && e.s === L.season) { if (goalRank(e.goal) >= goalRank(t.owner.goal)) t.owner.goal = e.goal; else t.owner.esc = null; } } t.owner.tight = cuttingLosses(L, t); t.owner.limit = seasonLimit(L, t); } }   // v24.5.1: a promise outranked by the new base goal is dropped (nothing extra at stake)
 // v24.5.1: the limit that applies to signings now: this season's, or during the offseason a preview of next season's
 function ownerLimitFor(L, t, cs) { cs = cs == null ? capSeason(L) : cs; return cs === L.season || !t.owner ? (t.owner ? t.owner.limit : APRON) : Math.max(0, seasonLimit(L, t)); }
@@ -4159,7 +4165,7 @@ function extensionDeadline(L) {
       if (!want) continue;
       if (p.ask == null) setAsk(L, p);
       const race = awardRace(L, p);
-      const ask = race ? maxFor(p) : Math.min(maxForTeam(L, p, t.id), r1(Math.max(p.ask * loyDisc(p), Math.min(p.ask * loyDisc(p) * (t.mode === 'contend' && p.ovr >= 78 ? 1.2 : 1), p.mval * 1.1))));
+      const ask = race ? maxFor(p) : Math.min(maxForTeam(L, p, t.id), r1(Math.max(p.ask * loyDisc(p), Math.min(p.ask * loyDisc(p) * (t.mode === 'contend' && p.ovr >= 78 ? 1.2 : 1), p.mval * 1.1), p.ovr >= RESIGN_K.valOvr ? (p.mval || 0) * RESIGN_K.val : 0)));   // v36a: 60+ extensions at market value too (S11 save: 60+ extensions $84M a team vs $96M value)
       if (race) p.bet = { s: L.season, race };
       const offer = Math.min(maxForTeam(L, p, t.id), (superOK(L, p) ? Math.max(p.mval, p.mvalRaw || 0) : p.mval) * Math.max(needMult(L, t, p), demPay(p)) * (p.age >= 30 ? Math.max(0.85, 1 - 0.03 * (p.age - 29)) : 1) * modeSpend(t, p) * wetPay(p) * (t.mode === 'contend' && p.ovr >= 70 ? 1.08 : 1));
       const hg = p.draftTid === t.id && ask >= 10;
@@ -5228,14 +5234,17 @@ function startResign(L) {
       let offer = Math.min(maxForTeam(L, p, t.id), (superOK(L, p) ? Math.max(p.mval, p.mvalRaw || 0) : p.mval) * Math.max(needMult(L, t, p), demPay(p)) * (p.age >= 30 ? Math.max(0.85, 1 - 0.03 * (p.age - 29)) : 1) * modeSpend(t, p) * wetPay(p) * (t.mode === 'contend' && p.ovr >= 70 ? 1.08 : 1));
       const hg = p.draftTid === t.id && p.ask >= 10;
       if (icon) offer = Math.max(offer, p.ask);
-      let keep = icon && p.age >= 33 ? Math.max(MINSAL, Math.min(p.ask, r1(p.mval * 1.05))) : t.mode === 'contend' && p.ovr >= 78 ? Math.min(maxForTeam(L, p, t.id), r1(Math.max(p.ask, Math.min(p.ask * 1.2, p.mval * 1.1)))) : p.ask;   // v18: premium only for stars, capped near value   // contenders pay a premium to keep their core
+      let keep = icon && p.age >= 33 ? Math.max(MINSAL, Math.min(p.ask, r1(p.mval * 1.05))) : t.mode === 'contend' && p.ovr >= 78 ? Math.min(maxForTeam(L, p, t.id), r1(Math.max(p.ask, Math.min(p.ask * 1.2, p.mval * 1.1)))) : p.ovr >= RESIGN_K.valOvr ? Math.min(maxForTeam(L, p, t.id), r1(Math.max(p.ask, p.mval * RESIGN_K.val))) : p.ask;   // v36a: Bird-rights price: a 60+ player re-signs at his market value (asks ran ~15% under: 60-64 $13.3M vs $15.6M)   // v18: premium only for stars, capped near value   // contenders pay a premium to keep their core
       const iconStay = icon >= 1 && p.ovr >= 58 && !(p.morale != null && p.morale < 25) && !(rs.leave && R() < 0.5) && (icon === 2 || R() < 0.75);   // v27 L2: an icon re-signs (Bird rights, owner signs off); v32e: sometimes even an icon leaves
-      const fits = (canFit(L, t, keep, hg, 're-sign') || keep <= MINSAL) && (ownerOK(L, t, keep) || resignOwnerOK(L, t, p, keep)), pays = offer >= p.ask * rs.pay;
+      const fitsAt = k => (canFit(L, t, k, hg, 're-sign') || k <= MINSAL) && (ownerOK(L, t, k) || resignOwnerOK(L, t, p, k)), pays = offer >= p.ask * rs.pay;
+      let fits = fitsAt(keep); if (!fits && keep > p.ask + 0.05 && fitsAt(p.ask)) { keep = p.ask; fits = true; }   // v36a: value doesn't fit (cap / owner): his ask still may
+      if (!fits && want && !rs.leave && p.ovr >= 60 && !icon) { const room = r1(Math.min(APRON - payroll(L, t), futRoom(L, t))); if (room >= p.ask * RESIGN_K.disc && room > MINSAL && fitsAt(room)) { keep = room; fits = true; p.tx.push({ s: S, t: `Took a discount to stay with ${t.abbr} (hard cap)` }); } }   // v36a part 3: a wanted 60+ player takes up to 15% less to stay when the hard cap is the problem (60+ lost on cap / owner: 118 in 20 seasons)
       // v32h: an icon re-signs under the hard cap too (a hometown discount of up to 25% if needed); if even that won't fit, he leaves
       let iconOk = iconStay && fits;
       if (iconStay && !fits) { const room = r1(Math.min(APRON - payroll(L, t), futRoom(L, t))); if (room >= Math.max(MINSAL, keep * 0.75) && ownerOK(L, t, room)) { keep = room; iconOk = true; } }
       const out = iconOk ? null : iconStay ? 't:cap' : rs.leave ? 'p:' + rs.leave : !want ? 't:team' : !pays ? 't:price' : !fits ? 't:cap' : null;
       resignLog(L, p, out);
+      if (out === 't:cap' && p.ovr >= 60 && L.resignLog && L.resignLog.o60) { const o = L.resignLog.o60, k = iconStay ? 'capIcon' : !(canFit(L, t, p.ask, hg, 're-sign') || p.ask <= MINSAL) ? 'capHard' : 'capOwner'; o[k] = (o[k] || 0) + 1; }   // v36a: why the cap / owner said no (counted apart from the t:* reasons)
       if (iconOk) signContract(L, p, t.id, keep, Math.min(yrsFor(p, keep), p.age >= 34 ? 1 : p.age >= 31 ? 2 : 4), 're-sign');
       else if (!out) signContract(L, p, t.id, keep, yrsFor(p, keep), 're-sign');
       else if (rs.leave) { p.tx.push({ s: S, t: `Turned down ${t.abbr}: ${RESIGN_WHY[rs.leave]}` }); if (rs.leave === 'win') p.tx.push({ s: S, t: `Wants to join a contender` }); if (p.ovr >= 68) logNews(L, flL(L, 'news.leave', { name: p.name, team: t.abbr, why: RESIGN_WHY[rs.leave] }), t.id, 'tx', 'walk'); }
@@ -5359,11 +5368,11 @@ function wetPay(p) { if (p.wet == null) return 1; return 1 + WET_PAY[p.wet] * tr
 //   Loyalty cuts all of them.
 // v34 A1: Bird-rights money stays: teams want more of their own 58+ players (was rot .92 / young .85 / top-10 .75 / 26- .6 / 60+ .3, tax x.75),
 // players leave less often (x leave) and teams go a bit lower against the ask (pay: was .7-.95)
-const RESIGN_K = { floor: 0.95, rot: 0.97, young: 0.92, top10: 0.92, y26: 0.85, o60: 0.75, tax: 0.9, leave: 0.55, pay: [0.6, 0.88], own75: 30, own68: 18, own62: 8, mid60: 0.95, mid60old: 0.8 };   // v36a: mid60 / mid60old (middle teams under the tax)   // round 2 (10 seasons from the S10 save: NBA +4M with round 1)
+const RESIGN_K = { floor: 0.95, rot: 0.97, young: 0.92, top10: 0.92, y26: 0.85, o60: 0.75, tax: 0.9, leave: 0.55, pay: [0.6, 0.88], own75: 30, own68: 18, own62: 8, mid60: 0.95, mid60old: 0.8, val: 1.0, valOvr: 60, disc: 0.85 };   // v36a: mid60 / mid60old (middle teams under the tax)   // round 2 (10 seasons from the S10 save: NBA +4M with round 1)
 const RESIGN_WHY = { money: 'wants more money', win: 'wants to win', role: 'wants a bigger role', mood: 'unhappy with the team', coach: 'poor fit with the coach', fresh: 'wanted a fresh start' };
 // v34 A1: Bird rights: an owner stretches past his limit to keep his own good players (a 98 OVR walked over $7M in the trace); hard cap still holds
 function resignOwnerOK(L, t, p, amt) {
-  if (!t.owner || t.owner.tight || p.ovr < 62) return false;
+  if (!t.owner || t.owner.tight || p.ovr < 62 || (t.cash || 0) < 0) return false;   // v36a part 3: no stretch with the bank account in the red
   const slack = p.ovr >= 75 ? RESIGN_K.own75 : p.ovr >= 68 ? RESIGN_K.own68 : RESIGN_K.own62;
   return ownerPay(L, t) + contractHit(amt, false) <= Math.max(t.owner.limit, ownerPay(L, t)) + 5 + slack;
 }
@@ -6375,7 +6384,7 @@ function setupDivisions(L) {
 // floor 148.5, non-taxpayer MLE 15.0; teams spend about 115% of the cap; media money scaled so payrolls stay affordable.
 function setEconomy(L) {
   NBA_ON = !!(L && L.nba);
-  if (NBA_ON) { CAP = 165.0; MINSAL = 1.3; MINPAY = 148.5; TAXLINE = 200.4; APRON = 221.7; MLE = 15.0; SPEND_K = 1.15; MEDIA = 142; }
+  if (NBA_ON) { CAP = 165.0; MINSAL = 1.3; MINPAY = 148.5; TAXLINE = 200.4; APRON = 221.7; MLE = 15.0; SPEND_K = 1.15; MEDIA = 150; }   // v36a part 3: MEDIA 142 -> 150 (payroll +$9M a team in part 2; 1-5 owners below $0 every season)
   else { CAP = 150; MINSAL = 1; MINPAY = 120; TAXLINE = 160; APRON = 170; MLE = 8; SPEND_K = 0.93; MEDIA = 98; }
   if (typeof nbaApply === 'function') nbaApply(L);
 }

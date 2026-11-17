@@ -1,3 +1,13 @@
+# TASK_STATE — merge v36a part 3 + v36b (Nov 17 2026), work dir /home/claude/pbl-chk (GitHub clone)
+- [x] 1. league.js = part 3 + v36b AW_ADV line (only v36b hunk); node --check ok
+- [x] 2. tools from part 3: r30.js, t36.js, v34sum.py.txt (part 3 = updated lines), runs32/v36a3-*, snap/* (part 3 saves)
+- [x] 3. Part 2 files added from Kenneth's zips: src/engine.js, tools/t34.js, t33b.js, per36.js, per36show.py.txt, runs32/v36a2-* (was: missing (not in GitHub, not in part 3 zips): src/engine.js (ENG.shareCap/shareK/useTax), tools/t34.js + t33b.js (part 2 edits), tools/per36.js, per36show.py.txt, runs32/v36a2-*. t36 18/19 (B2 PER engine FAIL). Waiting for Kenneth's part 2 zip
+- [x] 4. PROGRESS.md merge (v36 section + v36a parts 1-3), README, TESTING, TASK_STATE
+- [x] 5a. Tests all pass: t36 19/19, t34 19/19, t33b 30/30, t33c 24/24, t33d 17/17, t32e 21/21, t32f 21/21, t32h 11/11, t30a 29/0, lint
+- [x] 5b. award run (part 3 save, merged code): MVP = WS leader 4/10 (target 6-7), top-3 9/10, 7 winners -> open, retune AW_ADV (Sonnet)
+- [x] 6. Zips: /home/claude/pbl-v36-merged-src.zip, pbl-v36-merged-other.zip
+
+---
 # TASK_STATE — v36 MVP WS 35% + t33c multi-seed check (Nov 17 2026)
 
 - [x] 0. Clone, read PROGRESS (v34 section; v36a section NOT in PROGRESS.md, only in TESTING.md + tools/t36.js) + TESTING. B already in repo (t33c WS_SEEDS 21/22/23, bar 0.94, from v34 follow-ups)
@@ -6,7 +16,7 @@
 - [x] A2b. New tools/t36-awsnap.js (dump league at award time, re-score sets offline in 5 s; matches the grid run). Grids on SEED 21 seasons: 136 + 400 random + 111 in-spec sets. Sets meeting all targets exist (r75/r116/r120 6/9/8) but all use ws48 .20 (WS family 55%, gs .10-.22); in-spec (ws48 .10, per .05) max = WS leader 6, top-3 8 (S17/S18 WS rank-4 winners are near-ties: WS #1-#4 within 0.5-1.0)
 - [x] A2c. Hold-out SEED 22 (G there: leader 8, top-3 10). 647 sets scored on both. gs/bpm split barely matters, fatigue does. Chosen in-spec: gs .25 ws .35 ws48 .10 per .05 bpm .25, fat .10/.15/.05 -> seed 21: leader 6, top-3 8, 9 winners (most 2), worst rank 4; seed 22: 7 / 10 / 7 winners, worst 3. Top-3 9+ on seed 21 only with ws48 .20 sets (WS family 55%) — not used
 - [x] A3. src/league.js AW_ADV set (node --check ok)
-- [ ] A4. tools/t33c-awards.js 10 seasons -> tools/runs32/v36-awards-*.txt, report vs v34-awards-report.txt
+- [x] A4. (done; PROGRESS v36) tools/t33c-awards.js 10 seasons -> tools/runs32/v36-awards-*.txt, report vs v34-awards-report.txt
 - [x] B1. t33c 3-seed check already in repo (v34 follow-ups); re-run on current code: avg corr 0.956 (0.934/0.966/0.969), gap 3.26, t33c 24/24. No code change
 - [x] T. Tests: t33c 24/24, t33d 17/17 (weights check updated), t34 19/19
 - [x] P. PROGRESS.md + TESTING.md + TASK_STATE, zips: /home/claude/outputs/pbl-v36-src.zip, pbl-v36-tools.zip (not committed, no commit requested)
@@ -24,6 +34,38 @@
 
 ---
 
+# TASK_STATE — v36a part 3: owner money + 60+ cap/owner losses (Opus) — Nov 16 2026 (Kenneth: small time on 60+, -10% is enough)
+
+- [x] Q1. Owners below 0 are overspenders (HOU 235 + $38M tax: -58; small markets at 205-237 vs revenue 200-235); ownerLimit is revenue-based but status floors + resignOwnerOK stretch go past it. t:cap split logged (resignLog o60 capHard / capOwner / capIcon): mostly hard cap
+- [x] Q2. MEDIA 142 -> 150 (NBA); cuttingLosses: any market tight below cash -10 (OWNER_RED); resignOwnerOK no stretch below 0. 10 seasons from the part-2 save (starts with 4 teams in the red): 0 below 0 from S3 (SEED 21, 1 in S10) / S6 (SEED 22); v36a2 S11-20 had 1-5 every season
+- [x] Q3. RESIGN_K.disc 0.85: a wanted 60+ player takes up to 15% less to fit the hard cap. t:cap 8.9% of 60+ expiring (64/723, 2 seeds) vs 10.1% (v36a2 S11-20) / 11.4% (part-2 runs): -12..-22%. Payroll 173.2 / 168.2
+- [x] Q4. 20 seasons NBA + PBL (v36a3-*, saves remade); then OWNER_TAXCASH tax-line rule (2 x 10 seasons from the save: 0 teams below $0); tests all pass; docs, zips
+
+---
+# TASK_STATE — v36a part 2: payroll lever + PER fix (Opus) — Nov 16 2026 (Kenneth: finish both this session; MVP later with Sonnet)
+
+- [x] P1. PER diagnosis (tools/per36.js): formula is standard; PER 36-40 leaders use 40-47% of plays (real best ~36%) at TS .60-.67; usage weight cap (2.1x) barely binds (1.7 same), shots come via handler / plays
+- [x] P2. engine.js ENG.shareCap .25 / shareK 5 (shot passed on past 25% of team FGA tonight) + useTax 0.5 -> 1.0: SEED 21/22/23 top PER 36.4/34.9/35.4 (base 36.5/40.2), usage top 36-38.5, ppg top ~31, n25 14-15, lgTS .565 (.571)
+- [x] P3. RESIGN_K.val 1.0 / valOvr 60: a 60+ player re-signs at max(ask, mval) (falls back to the ask if value does not fit cap/owner). One summer same stream (new save): payroll after FA 168.6 -> 170.9, kept same 27/35
+- [x] P4. 10-season runs from the save (tools/runs32/v36a2-*): ask-only 164.4, value re-sign 164.8, +SPEND_K 1.24 168.8 / 1.30 165.4, +60+ extensions at value 168.2, +market counts rookie deals at cap hit (MKT_ROOKIE_FIXED, NBA) 169.4 (SEED 21) / 170.3 (SEED 22); most teams sat at the floor (market ~25% under its budget: unpaid rookie value). MKT_LIFT_NBA 3.4 (lift hit 3.0). SPEND_K kept 1.15. PER 32.6-38.3 (one 42.2)
+- [x] P5. Tests (new saves): t36 16/16, t34 19/19 (fog K check widened), t33b 30/30 (market sum counts rookie deals), t33c 23/23, t33d 17/17, t32e 21/21, t32h 11/11, t30a 29/0, lint
+- [x] P6. 20 seasons: NBA payroll 175.5, top PER 29.9-38.9, WS <= 18.7, floor 20/20; PBL 134.7, PER <= 33.7. Saves remade, docs, zips
+
+---
+# TASK_STATE — v36a NBA payroll + NBA PER + owner cash of yearly deals + forced PBL cap test (Opus) — Nov 16 2026
+
+- [x] 0. Clone, read PROGRESS (v35b/v35a/v34), TESTING, v36-prompts. Baseline = tools/runs32/v35a-nba-commish.txt (payroll 166.5, top PER 34.4-40.4, WS <= 19.4; why60 losses t:team 1-9 + t:cap 1-7 a summer)
+- [x] 1. C: schedAmt + cashPayroll (league.js) use contract.sched; new NBA league S2: cash 154.4 -> 165.8 avg (= cap payroll 165.7)
+- [x] 2. B: NBA_BAL t95 2->1, cap 97->96, capGen 98->97 (league.js); S11 save: Wemby 97 (32), gen Fraser 95; PER 39.6 also from OVR 80-84 (S19-20), not rating-driven
+- [x] 3. A2: resignWantP mid60 .95 / mid60old .8 (RESIGN_K) for 60+ top-9 players, team not tanking, payroll+ask <= TAXLINE; S11 summer o60 kept 40/45
+- [x] 4. A1: FA_EARLY + faEarly (league.js faRound): days 1-3 middle teams bid ask x1.05 on 60+ top-10 fits (room/MLE/ramp/hard cap kept). S11 FA has only 3 60+ FAs (pool tiny), so A1 moves little; A2 is the lever
+- [x] 5. tools/t36.js 13/13 (D forced PBL 96 -> 92, gen 99 -> 97; A1, A2, B, C). Found: growTo stops short, a gen 99 stayed 98 over capG 97 -> nbaTopCap / leagueTopCap repeat the nudge (league.js). r30 row cash + v34sum why60 / owner cash lines
+- [x] 6. 10 seasons from NBA save, B+C base vs +A1+A2 (tools/runs32/v36a-nba-snap10-ab-*.txt): 60+ lost 91 -> 74 of ~400 (t:team 23->21, t:cap 23->14, t:price 19->10); payroll 164.7 -> 159.8 (streams diverge; one summer same stream: 160.0 vs 159.9, kept 39 vs 40). FA pool has ~3-4 60+ players; re-signs at ask (60-64: 13.3 vs mval 15.6) -> levers do not move payroll
+- [x] 7. Tests (new saves): t36 13/13, t34 19/19, t33b 30/30, t33d 17/17, t32e 21/21, t32h 11/11, t30a 29/0, lint PASS. t36 B found extras at 95+ only lost 1 (96->95): nbaTopCap now takes them under 95 (league.js); 3-season NBA check after
+- [x] 8. 20 seasons (tools/runs32/v36a-*): NBA payroll 166.8 (v35a 166.5; S10-19 155-169), 60+ lost 213/825 (t:team 68->51, t:cap 56->67), top PER 35-42.6 (8/20 > 39) with top OVR 91-96 -> PER outliers are OVR 83-91 players (Ellery 84 PER 41.6), not the top cap. PBL 132.5, floor 20/20, 60+ lost 122->106, top PER <= 33.8. Owner cash NBA: 1-2 teams negative S1-6 (min -46), avg 50->90; 0 errors. Saves remade (3)
+- [x] 9. PROGRESS + README + TESTING, commit, zips
+
+---
 # TASK_STATE — v35b PBL top-rating cap + pro-fog sorting (Opus) — Nov 16 2026
 
 - [x] 0. Clone, read PROGRESS (v34/v35a), TESTING

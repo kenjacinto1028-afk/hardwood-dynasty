@@ -21,7 +21,8 @@ for f in sys.argv[1:]:
     tot={}
     for x in w:
         for k,v in x.items():
-            if k not in ('n','kept'): tot[k]=tot.get(k,0)+v
+            if k not in ('n','kept','capHard','capOwner','capIcon'): tot[k]=tot.get(k,0)+v
     print(' why60 lost', sum(x.get('n',0)-x.get('kept',0) for x in w), 'of', sum(x.get('n',0) for x in w), dict(sorted(tot.items(),key=lambda kv:-kv[1])), 't:team per season', [x.get('t:team',0) for x in w])
+    print(' t:cap split hard/owner/icon', sum(x.get('capHard',0) for x in w), sum(x.get('capOwner',0) for x in w), sum(x.get('capIcon',0) for x in w))
     c=[r['cash'] for r in rows if r.get('cash')]
     if c: print(' owner cash avg', [round(x['avg']) for x in c], 'min', [round(x['min']) for x in c], 'neg teams', [x['neg'] for x in c])

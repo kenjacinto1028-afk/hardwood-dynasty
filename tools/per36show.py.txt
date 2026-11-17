@@ -1,0 +1,4 @@
+import json,sys
+for f in sys.argv[1:]:
+    d=json.load(open(f)); print(f,{k:d[k] for k in ['ppg','usgTop','wsTop','n25','n30','n35','lgTS']})
+    for x in d['top']: print('  ',x['n'],x['ovr'],x['per'],x['usg'],x['ts'],x['p36'])

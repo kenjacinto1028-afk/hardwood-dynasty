@@ -16,7 +16,7 @@ const J = c => JSON.parse(run(`JSON.stringify((function(){const L=SL;${c}})())`)
     const sc=L.teams[u].scout;const keep=[sc.pro,L.teams[u].scoutLv];sc.pro=85;L.teams[u].scoutLv=0;const sHi=proSd(L,u,p0);sc.pro=40;const sLo=proSd(L,u,p0);L.teams[u].scoutLv=2;const sLoE=proSd(L,u,p0);sc.pro=keep[0];L.teams[u].scoutLv=keep[1]||0;
     const attrOwn=own.every(p=>proAttr(L,u,p,'tp')===p.tp);const attrDiff=ps.filter(p=>p.team!==u).some(p=>proAttr(L,u,p,'tp')!==p.tp);
     const md=L.mode;L.mode='commish';const com=ps.filter(p=>p.team!==u).every(p=>proOvr(L,u,p)===p.ovr);L.mode=md;
-    const ks=fa.map(p=>proValK(L,(u+3)%L.teams.length,p));
+    const ks=fa.concat(ps.filter(p=>p.team!==u&&p.team!==(u+3)%L.teams.length)).map(p=>proValK(L,(u+3)%L.teams.length,p));   /* v36a: free agents + other teams' players (the v36a save starts with 9 free agents) */
     const rep=proReport(L,u,ps.find(p=>p.team!==u&&p.ovr>=70));const txt=fl('sc.pro',{name:'X',role:rep.role,lo:rep.lo,hi:rep.hi},3)+fl('sc.proconf',{conf:rep.conf,why:rep.why.join(', ')},1);
     return {n:d.length,mean:d.reduce((x,y)=>x+y,0)/d.length,med:a[a.length>>1],max:a[a.length-1],own:own.every(p=>proOvr(L,u,p)===p.ovr),attrOwn,attrDiff,sHi,sLo,sLoE,com,kMin:Math.min(...ks),kMax:Math.max(...ks),kAvg:ks.reduce((x,y)=>x+y,0)/ks.length,rep:!!rep,ownRep:proReport(L,u,own[0]),txt,
       teamOvrProspect:(()=>{const q=active(L).find(x=>x.prospect);return q?teamOvr(L,u,q)===ovrRead(L,u,q):true;})()};`);

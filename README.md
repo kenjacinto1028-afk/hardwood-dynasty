@@ -14,6 +14,19 @@ The game is split into small files so a change rewrites one file, not 1.3 MB.
 | `src/nba-setup.js` | v30a NBA setup extras: real rookies (`nbaRookies`) + real jersey numbers (`NBA_JERSEY_CSV`, `nbaJerseys`) |
 | `src/index.template.html` | Page shell with markers `/*CSS*/ /*VENDOR*/ /*ENGINE*/ /*LEAGUE*/ /*NBA*/ /*APP*/` for the single-file build (`python3 -I build.py --single . [out.html]`, v33e) |
 
+## v36b (Sonnet, Nov 17 2026): MVP win shares 35%
+- `AW_ADV` (league.js): MVP game score .25, WS .35, WS/48 .10, PER .05, BPM .25; team record 0.5; voter fatigue .10 / .15 / .05. Tools: `tools/t36-awsnap.js` (frozen award seasons, offline grids), `tools/t34-awgrid.js` W1-W5. t33c team WS vs wins over 3 seeds
+
+## v36a part 3 (Opus, Nov 16 2026): owner money + 60+ cap losses
+- NBA media money 150; owners in the red (any market) cut back; under $20M cash, all-in / contending owners stop at the tax line: 0 teams below $0 over 2 x 10 seasons (was 1-5 a season)
+- A wanted 60+ player takes up to 15% less to fit the hard cap: 60+ lost on cap / owner 14.2% -> 8.3% of expiring 60+ players
+- Details: PROGRESS.md v36a part 3
+
+## v36a part 2 (Opus, Nov 16 2026): NBA payroll and PER on target
+- NBA payroll 175.5 (target 170-185): the market counts rookie deals at their cap hit; 60+ re-signs and AI extensions at market value
+- PER: shot share past 25% of a team's shots gets passed on, volume costs more efficiency: top PER 29.9-38.9, top usage ~36-38%
+- Open: more 60+ players lost on cap / owner grounds; 1-5 NBA owners below $0 a season. Tests: t36 (16) + t34, t33b, t33c, t33d, t32e, t32h, t30a; `tools/per36.js`. Details: PROGRESS.md
+
 ## v36a (Opus, Nov 16 2026): NBA payroll levers, NBA top cap, owner cash, forced PBL cap test
 - Owner cash now charges each season's scheduled salary (real yearly deals, renegotiated raises)
 - NBA re-sign: middle teams under the tax keep their 60+ rotation players (0.95); early free agency: middle teams bid the ask on 60+ players days 1-3

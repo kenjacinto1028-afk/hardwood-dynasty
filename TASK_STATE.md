@@ -1,3 +1,15 @@
+# TASK_STATE — Phases A/B/C: expansion teams, save safety + tutorial, desktop app (Opus) — Nov 18 2026
+Plan: /mnt/project-files/plans/desktop-release-plan.md. One PR per phase, merge when tests pass.
+- [ ] A1. league.js: expansion logic (candidates, plan, new team setup, expansion draft at start of FA, any-size schedule, playoff size by league size)
+- [ ] A2. src/xp.js: Expansion page (pick cities, team creator, protect list, results popup) + wiring (index.html, template, build.py, sw.js)
+- [ ] A3. Tests: tools/t-exp.js (PBL 16->18, NBA 30->32, 3 seasons after), browser check; PR, merge
+- [ ] B1. Auto-backups (last 3 saves) + restore in Saves popup
+- [ ] B2. Error screen ("your save is safe") + first-time tutorial
+- [ ] B3. Tests, PR, merge
+- [ ] C1. Desktop app (Tauri config + build workflow) + saves as real files
+- [ ] C2. Tests, PR, merge
+
+---
 # TASK_STATE — Sonnet batch: popups, spoilers, phone layout, app install (Nov 18 2026)
 Branch `sonnet-popups-phone-pwa`. Items: F1 F2 U1 U2 I2 I1.
 - [x] F1 popup queue: app.js popupBusy/flushDialogs (one popup at a time; ceremonies/story/to-do toasts wait)

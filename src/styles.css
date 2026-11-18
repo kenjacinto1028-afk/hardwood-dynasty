@@ -912,3 +912,13 @@ body.p3-phone .p-acts * { flex-wrap: nowrap !important; } body.p3-phone .p-acts 
 body.p3-phone .pactions { display: flex; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 6px; padding: 2px; }
 body.p3-phone .pactions::-webkit-scrollbar { display: none; }
 body.p3-phone .pactions > * { flex: none; white-space: nowrap; }
+
+/* trade news pictures */
+.np{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:5px}
+.np-g{display:inline-flex;align-items:flex-end;gap:3px}
+.np-t{display:inline-flex;align-self:center;margin-right:2px;cursor:pointer}
+.np-p{cursor:pointer}
+.face.np{width:24px;height:36px;border-radius:5px}
+.tk-row.tk-me-good{background:color-mix(in srgb,var(--win) 15%,transparent)}
+.tk-row.tk-me-bad{background:color-mix(in srgb,var(--loss) 12%,transparent)}
+.tk-me-bad.tk-miss .tk-x{color:inherit}

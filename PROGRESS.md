@@ -1,5 +1,13 @@
 # PBL progress
 
+## Phase A: expansion teams (Opus, Nov 18 2026)
+- [x] **League > Expansion page**: pick 2 or 4 new cities (12 ready-made PBL cities, 12 NBA-mode cities) or make your own: city, nickname, short name, two colors, logo, market size. Half go to each conference. Call it off any time before it happens.
+- [x] **When**: the new teams join at the start of free agency (after the draft and re-signing). Planned during free agency = next offseason.
+- [x] **Expansion draft**: every team protects 8 players (expiring deals and this year's rookies are safe anyway); new teams take turns picking (about 11 each), each old team loses at most 1 (2 in a 16-team league). Franchise mode: choose your 8 on the Expansion page (a reminder pops up at re-signing). Results popup + kept on the page.
+- [x] **New teams get**: a coach from the pool, GM, owner, arena, sponsor, finances, future draft picks (not this year's), a division in 24+ team leagues, then free agency fills the roster.
+- [x] **Any league size works** (up to 36): schedule gives every team exactly the season's games (engine.js `pairMatrix`); 18-22 teams use the 16-team playoff/lottery format, 24+ the 30-team one (`isBig`).
+- Code: league.js end (`xpnPlan`, `xpnRun`, hook in `startFA`), src/xp.js (page + popup), engine.js (`pairMatrix`, `isBig`, `poStages`). Tests: tools/t-exp.js (16->18, 16->20, NBA 30->32 + a season after), tools/browser-xp.js (franchise 1300px + commish 390px).
+
 ## Popups, spoilers, phone layout, app install (Sonnet, Nov 18 2026)
 - [x] **F1 popups one at a time**: popups, story cards and the to-do toast wait for each other (and for ceremonies). `popupBusy()` / `flushDialogs()` in app.js; a story card hides the to-do toast.
 - [x] **F2 no spoilers in Watch live**: while your game is live the top bar shows the record from before the game, the news ticker is hidden, and popups / story cards wait until the final buzzer (or until you leave the live screen).

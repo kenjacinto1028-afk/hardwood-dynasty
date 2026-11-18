@@ -3476,7 +3476,7 @@ function ownerGoalFor(L, t) {
     if (m === 'hopeful') { const n = Math.max(22, Math.round((t.expW || 0.45) * SEASON_GAMES) - 2); return { key: 'wins', n, txt: `Win at least ${n} games and lose no more than ${money(15)}` }; }
   }
   if (m === 'contend') return { key: 'cf', txt: 'Reach the conference finals' };
-  if (m === 'hopeful') return { key: 'po', txt: 'Make the playoffs (top-3 seed)' };
+  if (m === 'hopeful') return { key: 'po', txt: `Make the playoffs (top ${poDirect(L)} seed)` };
   // owners lose patience with long rebuilds: after 3 seasons out of the playoffs they want progress, after 5 the playoffs
   if (t.pstate === 'final') return { key: 'po', txt: 'Make the playoffs, or the GM is fired' };
   if (t.pstate === 'demand') return { key: 'po', txt: `Make the playoffs (${t.strikes} season${t.strikes > 1 ? 's' : ''} left before a change)` };

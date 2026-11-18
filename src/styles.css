@@ -922,3 +922,8 @@ body.p3-phone .pactions > * { flex: none; white-space: nowrap; }
 .tk-row.tk-me-good{background:color-mix(in srgb,var(--win) 15%,transparent)}
 .tk-row.tk-me-bad{background:color-mix(in srgb,var(--loss) 12%,transparent)}
 .tk-me-bad.tk-miss .tk-x{color:inherit}
+/* Quick fixes (Nov 18 2026): phone Notes button and to-do toast no longer hide text; search box has room for its placeholder */
+@media (max-width: 700px) { #pnote.min button .muted { display: none; } }
+body.p3-phone #pnote.min button { font-size: 13px; padding: 6px 10px; }
+body.p3-phone #todotoast { left: 8px; right: 8px; transform: none; max-width: none; bottom: calc(70px + env(safe-area-inset-bottom, 0px)); font-size: 12px; padding: 6px 10px; }
+body.p3-phone .controls > .search { flex: 1 1 200px; }

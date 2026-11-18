@@ -5322,12 +5322,12 @@ function interruptKind() {
   if (L.mode === 'commish' && (L.pending || []).some(t => t.isNew)) return 'pending';
   if (L.phase === 'regular' && L.pauseDrama !== false && dramaOpen(L) && ui.dramaSeen !== dramaOpen(L).id) return 'drama';   // v28.7
   if (L.user != null && L.pauseIv !== false && ivOpen(L) && ui.ivSeen !== ivOpen(L).id) return 'iv';   // v28.8
-  if (L.user != null && L.phase === 'regular' && mtgOpen(L) && mtgOpen(L).by === 'player' && ui.mtgSeen !== mtgOpen(L).id) return 'mtg';
+  if (L.pauseMtg !== false && L.user != null && L.phase === 'regular' && mtgOpen(L) && mtgOpen(L).by === 'player' && ui.mtgSeen !== mtgOpen(L).id) return 'mtg';
   if (L.pauseOffers !== false && (L.offers || []).some(o => o.isNew)) return 'offer';
-  if (L.phase === 'regular' && L.user != null && L.ddWarned !== L.season && L.day === deadlineDay(L) - 1 && (rosterOf(L, L.teams[L.user]).some(p => p.block) || (L.offers || []).length)) return 'dday';   // v18: stop on deadline day only if you're shopping someone or have offers
-  if (L.phase === 'regular' && L.user != null && L.extWarned !== L.season && L.day === deadlineDay(L) - 1 && teamPlayers(L.user).some(p => canExtend(L, p))) return 'ext';
-  if (L.phase === 'regular' && L.user != null && L.buyWarned !== L.season && L.day === buyoutDeadlineDay(L) - 1 && teamPlayers(L.user).some(p => buyoutTerms(L, p))) return 'buyout';
-  if (L.phase === 'regular' && L.user != null && L.twWarned !== L.season && L.day === twPoDay(L) && twOf(L, L.teams[L.user]).length) return 'twpo';   // v23
+  if (L.pauseWarn !== false && L.phase === 'regular' && L.user != null && L.ddWarned !== L.season && L.day === deadlineDay(L) - 1 && (rosterOf(L, L.teams[L.user]).some(p => p.block) || (L.offers || []).length)) return 'dday';   // v18: stop on deadline day only if you're shopping someone or have offers
+  if (L.pauseWarn !== false && L.phase === 'regular' && L.user != null && L.extWarned !== L.season && L.day === deadlineDay(L) - 1 && teamPlayers(L.user).some(p => canExtend(L, p))) return 'ext';
+  if (L.pauseWarn !== false && L.phase === 'regular' && L.user != null && L.buyWarned !== L.season && L.day === buyoutDeadlineDay(L) - 1 && teamPlayers(L.user).some(p => buyoutTerms(L, p))) return 'buyout';
+  if (L.pauseWarn !== false && L.phase === 'regular' && L.user != null && L.twWarned !== L.season && L.day === twPoDay(L) && twOf(L, L.teams[L.user]).length) return 'twpo';   // v23
   return null;
 }
 const dlgQueue = [];
@@ -5371,7 +5371,7 @@ function afterRun(ph0) {
     const g = L.games.slice(ui.liveFrom).find(x => x.pbp && (isUser(x.home) || isUser(x.away))); ui.liveFrom = null;
     if (g) { backStack.push(snapNow()); ui.game = g.id; ui.player = null; ui.coach = null; ui.liveMode = g.id; ui.lv = null; lvState(g); render(); window.scrollTo(0, 0); lvTick(); }
   }
-  { const P = pressActive(); if (P && ui.pressSeen !== P.id) { ui.pressSeen = P.id; queueDialog(pressDialog); } }
+  { const P = pressActive(); if (P && L.pausePress !== false && ui.pressSeen !== P.id) { ui.pressSeen = P.id; queueDialog(pressDialog); } }
   const k = interruptKind();
   if (k === 'drama') { ui.dramaSeen = dramaOpen(L).id; queueDialog(dramaDialog); }
   if (k === 'iv') { ui.ivSeen = ivOpen(L).id; queueDialog(ivDialog); }

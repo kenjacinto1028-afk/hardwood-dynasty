@@ -204,7 +204,35 @@
     ${ck('draftShow', 'Draft night show', 'Animated pick reveals and crowd reactions')}
     ${ck('draftTimer', 'Auto-pick when your draft clock runs out', 'Off: the clock is just for fun')}
     ${ck('stories', 'Story popups', 'Illustrated story cards for big moments: rivalries, injuries, streaks, press conferences')}
+    ${stopHtml()}
+    ${installHtml()}
     <div class="row" style="margin-top:14px;gap:8px"><button class="primary" id="fx-done">Done</button><button id="fx-reset">Reset to default</button><button id="fx-demo">Preview a win</button></div>`;
+  }
+  // I2: every "stop the sim for this" switch in one place. These are saved with the league (L.pause*), not with the sound / animation settings.
+  const STOPS = [
+    ['pauseOffers', 'Trade offers for you', 'New offers wait on the Trades page instead', L => L.pauseOffers !== false, (L, v) => { L.pauseOffers = v ? true : false; }],
+    ['pauseIv', 'Interviews', 'Open interview questions wait for you', L => L.pauseIv !== false, (L, v) => { L.pauseIv = v ? true : false; }],
+    ['pauseDrama', 'Locker room issues', 'Issues settle themselves after a week', L => L.pauseDrama !== false, (L, v) => { L.pauseDrama = v ? true : false; }],
+    ['pauseMtg', 'Player meeting requests', 'A player asks to talk to you', L => L.pauseMtg !== false, (L, v) => { L.pauseMtg = v ? true : false; }],
+    ['pausePress', 'Press conferences', 'The popup is skipped; answer from the News page', L => L.pausePress !== false, (L, v) => { L.pausePress = v ? true : false; }],
+    ['pauseWarn', 'Deadline reminders', 'Trade deadline eve (offers, players on the block), contract extensions, buyouts, two-way playoff slot', L => L.pauseWarn !== false, (L, v) => { L.pauseWarn = v ? true : false; }],
+    ['todoStop', 'Starred to-do items', '3 days before the trade deadline and in the last week of the season', L => { const T = window.__pbl.v30.todo.state(); return !!T.stop; }, (L, v) => { window.__pbl.v30.todo.state().stop = !!v; }],
+    ['trainRemind', 'Training focus reminder', 'At the start of each season', L => !L.noTrainRemind, (L, v) => { L.noTrainRemind = !v; }]
+  ];
+  // I1: "Install as an app" (Android / desktop Chrome give a button; iPhone needs Share > Add to Home Screen)
+  let installEv = null;
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEv = e; });
+  window.addEventListener('appinstalled', () => { installEv = null; });
+  function installHtml() {
+    if (!/^https?:$/.test(location.protocol)) return '';
+    const standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone;
+    if (standalone) return `<h3 style="margin-top:14px">App</h3><p class="muted" style="font-size:13px;margin:0">You're using the installed app. It works offline; your leagues are saved on this device.</p>`;
+    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    return `<h3 style="margin-top:14px">Install as an app</h3><p class="muted" style="font-size:13px;margin:0 0 6px">Puts the game on your home screen, opens full screen and works with no internet. Your leagues stay saved on this device.</p>${installEv ? '<button class="primary" id="fx-install">Install app</button>' : ios ? '<p style="font-size:13px;margin:0">On iPhone / iPad: tap the Share button in Safari, then <strong>Add to Home Screen</strong>.</p>' : '<p class="muted" style="font-size:13px;margin:0">In Chrome or Edge, open the browser menu and choose <strong>Install app</strong> (or <strong>Add to Home screen</strong>).</p>'}`;
+  }
+  function stopHtml() {
+    const L = window.PBL && window.PBL.L; if (!L || L.user == null) return '';
+    return `<h3 style="margin-top:14px">Stop the sim for…</h3><p class="muted" style="font-size:12px;margin:0 0 6px">Checked = the sim stops and asks you. Unchecked = it keeps going (things wait for you on their page). Your roster being over 15 players always stops it.</p>${STOPS.map(([k, t, d, get]) => { let on = true; try { on = get(L); } catch (e) { } return `<label class="fx-ck"><input type="checkbox" data-stop="${k}" ${on ? 'checked' : ''}><span><strong>${t}</strong><br><span class="muted" style="font-size:12px">${d}</span></span></label>`; }).join('')}`;
   }
   function openSettings() {
     let m = document.getElementById('fx-modal');
@@ -221,6 +249,8 @@
       vol.onchange = () => sfx('bounce');
       const mv = m.querySelector('#fx-mvol');
       mv.oninput = () => { S.mvol = +mv.value / 100; m.querySelector('#fx-mvolv').textContent = mv.value + '%'; saveS(); };
+      const ib = m.querySelector('#fx-install'); if (ib) ib.onclick = () => { const e = installEv; installEv = null; if (e) { e.prompt(); e.userChoice.finally(draw); } };
+      m.querySelectorAll('[data-stop]').forEach(c => c.onchange = () => { const L = window.PBL.L, d = STOPS.find(x => x[0] === c.dataset.stop); if (!L || !d) return; d[4](L, c.checked); try { window.PBL.save(); } catch (e) { } });
       m.querySelectorAll('[data-fxc]').forEach(c => c.onchange = () => { S[c.dataset.fxc] = c.checked; saveS(); });
       m.querySelectorAll('[data-fxs]').forEach(b => b.onclick = () => { S.speed = b.dataset.fxs; saveS(); draw(); });
       m.querySelectorAll('[data-fxt]').forEach(b => b.onclick = () => sfx(b.dataset.fxt));

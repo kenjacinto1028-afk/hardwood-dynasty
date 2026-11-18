@@ -38,6 +38,8 @@ jobs:
         working-directory: desktop
         run: npm ci || npm install && node copy-web.js
       - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: desktop
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || 'desktop-v__VERSION__' }}
@@ -46,3 +48,15 @@ jobs:
           releaseDraft: true
           args: ${{ matrix.args }}
           tauriScript: npx tauri
+      - name: Keep the installers as a download too
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: installers-${{ matrix.os }}
+          path: |
+            desktop/src-tauri/target/**/bundle/**/*.exe
+            desktop/src-tauri/target/**/bundle/**/*.msi
+            desktop/src-tauri/target/**/bundle/**/*.dmg
+            desktop/src-tauri/target/**/bundle/**/*.AppImage
+            desktop/src-tauri/target/**/bundle/**/*.deb
+          if-no-files-found: ignore

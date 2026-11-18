@@ -1,3 +1,9 @@
+# TASK_STATE — Back arrow keeps scroll position (Opus) — Nov 18 2026
+Branch `back-keeps-scroll`.
+- [x] 1. app.js: save scroll on every back/forward snapshot, restore it on Back/Forward (backStack.push/snapNow/applyNav; route() opens new pages at top)
+- [x] 2. Browser test (desktop + phone): tools/browser-backscroll.js ALL PASS
+- [x] 3. PROGRESS.md, commit, push, PR (ask before merge)
+
 # TASK_STATE — Playtime counter, per save + overall (Sonnet-size, Nov 18 2026)
 Branch `playtime-counter`.
 - [x] 1. app.js: playtime tracker (counts while the tab is visible and you touched it in the last 5 min), L.playMs per league, 'playtotal' overall

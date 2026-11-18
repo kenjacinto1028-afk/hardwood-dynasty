@@ -1,5 +1,8 @@
 # PBL progress
 
+## Back arrow keeps your spot (Opus, Nov 18 2026)
+- [x] Back (and Forward) now return you to the same place on the page you left, e.g. My Team > Lineup & rotation > News > Back. Also keeps the My Team sub-tab. New pages still open at the top. Works in browser, phone layout and desktop app (same code). Test: tools/browser-backscroll.js (desktop + phone) ALL PASS.
+
 ## Playtime counter (Nov 18 2026)
 - [x] **Per league + overall playtime**: Saves popup shows "Total playtime, all leagues" and "played X h Y min" on each save; Settings > Game shows both. Counts only while the game is on screen and you used it in the last 5 minutes. Stored as `L.playMs` (travels with exports), plus small `pt:<slot>` / `playtotal` keys written every 15 s. The total keeps time from deleted leagues. Old saves start at 0.
 - Tests: tools/browser-play.js (11 checks), browser-pb, browser-desk ALL PASS.

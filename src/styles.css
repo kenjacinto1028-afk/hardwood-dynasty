@@ -932,7 +932,7 @@ body.p3-phone #simctl.open .sim-x { display: inline-flex; }
 body.p3-phone #simctl { order: 1; flex: 0 1 auto; width: auto; gap: 6px; flex-wrap: wrap; overflow: visible; }
 body.p3-phone #simctl.open { flex: 1 1 100%; width: 100%; }
 body.p3-phone .controls { flex-wrap: wrap; }
-body.p3-phone .controls > .search { order: 2; flex: 1 1 70px; min-width: 0; }
+body.p3-phone header .controls > .search { order: 2; flex: 1 1 70px; min-width: 0; }
 body.p3-phone .controls > .b-more { order: 3; width: 44px; padding: 0; flex: none; font-size: 22px; line-height: 1; }
 body.p3-phone .controls > #b-mute, body.p3-phone .controls > #b-settings, body.p3-phone .controls > #b-recent, body.p3-phone .controls > #b-menu { order: 4; display: none; }
 body.p3-phone header.top.more-open .controls > #b-mute, body.p3-phone header.top.more-open .controls > #b-settings, body.p3-phone header.top.more-open .controls > #b-recent, body.p3-phone header.top.more-open .controls > #b-menu { display: inline-flex; align-items: center; justify-content: center; }

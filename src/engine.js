@@ -2600,7 +2600,7 @@ function simPlayoffDay(league) {
 
 
 // ===== v29 Draft pipeline: quick stat sim (season lines only, no games) =====
-// Role targets per game from PIPELINE-SPEC.md: [pts, reb, ast, min]. 'walkon' (NCHF 10th man and below) is not in the spec: garbage minutes only.
+// Role targets per game from archive/notes/PIPELINE-SPEC.md: [pts, reb, ast, min]. 'walkon' (NCHF 10th man and below) is not in the spec: garbage minutes only.
 const PIPE_ROLES = {
   NCHF: { poy: [22.5, 8.0, 4.5, 34], all1: [18.5, 6.5, 3.5, 33], second: [14.5, 5.5, 3.0, 31], starter: [10.0, 4.5, 2.0, 27], sixth: [8.5, 3.5, 1.5, 22], bench: [4.5, 2.5, 1.0, 14], walkon: [1.2, 0.7, 0.3, 4] },
   EABL: { mvp: [18.0, 5.5, 5.0, 30], all1: [15.5, 6.0, 3.5, 29], high: [12.0, 4.5, 2.5, 26.5], avg: [9.0, 4.0, 2.0, 22], sixth: [8.0, 3.0, 2.0, 19], deep: [3.5, 1.5, 0.8, 10] },

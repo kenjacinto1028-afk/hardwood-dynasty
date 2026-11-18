@@ -898,3 +898,17 @@ body.p3-phone .dialog .dx { font-size: 26px; padding: 8px 12px; top: 4px; right:
 @keyframes p3-bump { 30% { transform: translateX(-10px); } 60% { transform: translateX(6px); } }
 #main.p3-swl { animation: p3-swl calc(.25s * var(--fx-mult,1)) ease-out; } #main.p3-swr { animation: p3-swr calc(.25s * var(--fx-mult,1)) ease-out; } #main.p3-bump { animation: p3-bump .3s ease-out; }
 .fx-off #main.p3-swl, .fx-off #main.p3-swr, .fx-off #main.p3-bump { animation: none; }
+/* Mobile pass (Nov 18 2026) */
+body.p3-phone #b-recent { font-size: 0; width: 44px; padding: 0; flex: none; }
+body.p3-phone #b-recent::before { content: "\21BA"; font-size: 20px; line-height: 1; }
+body.p3-phone #b-mute, body.p3-phone #b-settings { width: 44px; padding: 0; flex: none; }
+body.p3-phone .controls > .search { flex: 1 1 90px; }
+body.p3-phone .p-acts { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; margin-inline: -2px; padding: 2px; }
+body.p3-phone .p-acts::-webkit-scrollbar { display: none; }
+body.p3-phone .p-acts > * { flex: none; white-space: nowrap; }
+body.p3-phone .mvtbl td.nw { min-width: 86px; }
+body.p3-phone .dialog td.l { white-space: normal; min-width: 80px; overflow-wrap: anywhere; }
+body.p3-phone .p-acts * { flex-wrap: nowrap !important; } body.p3-phone .p-acts button, body.p3-phone .p-acts .btn { flex: none; white-space: nowrap; }
+body.p3-phone .pactions { display: flex; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 6px; padding: 2px; }
+body.p3-phone .pactions::-webkit-scrollbar { display: none; }
+body.p3-phone .pactions > * { flex: none; white-space: nowrap; }

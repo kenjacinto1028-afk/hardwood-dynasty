@@ -16,6 +16,10 @@ The game is split into small files so a change rewrites one file, not 1.3 MB.
 | `src/court.js` | Phase 2: animated court on a canvas: live game scenes per play (`COURT.live`) and the top-plays half-court replay (`COURT.reel`); reads the league through `window.__pblCourt` |
 | `src/index.template.html` | Page shell with markers `/*CSS*/ /*VENDOR*/ /*ENGINE*/ /*LEAGUE*/ /*NBA*/ /*APP*/` for the single-file build (`python3 -I build.py --single . [out.html]`, v33e) |
 
+## Mobile pass (Opus, Nov 18 2026)
+- `tools/browser-mobile.js [PAGE]`: opens every page, every in-page sub tab, a player / team / coach page, a box score, the live game and the main popups at 390 and 360 px (touch), plus the draft save; checks side-scroll, anything sticking out of the screen (outside a sideways-scrolling box) and buttons under 28px. 178 screens. `SHOTS=1` saves full-page screenshots (tools/_mob-*.png), `ONLY=view1,view2`, `WIDTHS=360`.
+- Fixes: header one row shorter on phones (Recent becomes an icon, mute / settings square, Saves no longer wraps), player page action buttons in one swipeable row each, moves table date cells 2 lines not 3, popup tables wrap long text (Compare teams).
+
 ## Phase 3 part 3 (Opus, Nov 18 2026): phone-friendly layout
 - Under 700px wide (`body.p3-phone`, set by src/p3.js): bottom tab bar (My team / League / Moves / News / Help, 52px tall, badges), the sub tabs move up beside Back / Forward / Home (one header row less), buttons 44px tall (small ones 36px), bigger close X and checkboxes. Notes, to-do toast and story popups sit above the bar.
 - Swipe left / right on a page to go to the next / previous sub tab (slide animation; a bump at the ends). Not on tables, tab strips, courts, sliders or popups. One-time tip banner.

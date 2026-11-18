@@ -14,6 +14,7 @@ The game is split into small files so a change rewrites one file, not 1.3 MB.
 | `src/nba-setup.js` | v30a NBA setup extras: real rookies (`nbaRookies`) + real jersey numbers (`NBA_JERSEY_CSV`, `nbaJerseys`) |
 | `src/fx.js` | Phase 1: sound effects (Web Audio, no files), screen animations, settings popup (`window.FX`, settings in localStorage `pbl-fx`) |
 | `src/court.js` | Phase 2: animated court on a canvas: live game scenes per play (`COURT.live`) and the top-plays half-court replay (`COURT.reel`); reads the league through `window.__pblCourt` |
+| `manifest.webmanifest`, `sw.js`, `icons/` | Install as an app + offline (I1): the service worker saves the game files; saves stay in IndexedDB. Needs https or localhost |
 | `src/index.template.html` | Page shell with markers `/*CSS*/ /*VENDOR*/ /*ENGINE*/ /*LEAGUE*/ /*NBA*/ /*APP*/` for the single-file build (`python3 -I build.py --single . [out.html]`, v33e) |
 
 ## Mobile pass (Opus, Nov 18 2026)

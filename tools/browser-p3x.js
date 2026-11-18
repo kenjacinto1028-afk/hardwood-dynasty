@@ -67,7 +67,7 @@ module.exports = async function (pg, T, click, W, touch, load, ok, ev, wait, sho
   await ev(dp, "FX.set('draftShow',true);FX.set('skip',false);location.hash='#draft'"); await wait(dp, 1500);
   const mine = await ev(dp, "(()=>{const s=L.draftOrder[L.draftIdx];return L.user!=null&&s.owner===L.user})()");
   if (mine) { await ev(dp, "document.querySelector('#simctl [data-sim=\"autopick\"]').click()"); await wait(dp, 400); }
-  else { await dclick('#simctl [data-sim="pick1"]'); await wait(dp, 400); }
+  else { await dp.evaluate(() => { const m = document.querySelector('#simctl .sim-more'); if (m && getComputedStyle(m).display !== 'none' && !document.querySelector('#simctl.open')) m.click(); }); await dclick('#simctl [data-sim="pick1"]'); await wait(dp, 400); }
   ok(T + 'draft pick reveal opens', await ev(dp, "!!document.querySelector('#p3-draft .p3-dcard svg')"));
   const dst = await ev(dp, "(()=>{const t=document.querySelector('#p3-draft .p3-dname').textContent,p=Object.values(L.players).find(x=>x.name===t&&x.draft&&x.draft.s===L.season),h=(p.pre||[]).filter(x=>x.gp).sort((a,b)=>a.s-b.s).slice(-1)[0],svg=document.querySelector('#p3-draft .p3-dcard svg').textContent;return {n:t,h:h?[h.lg,h.pts,h.reb,h.ast]:null,ok:h?svg.includes(h.lg)&&svg.includes((Math.round(h.pts*10)/10).toFixed(1)):svg.includes('0.0')}})()");
   ok(T + 'draft card shows college / international stats', dst.ok, dst);

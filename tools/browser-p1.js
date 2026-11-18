@@ -118,7 +118,7 @@ async function run(W, touch) {
   for (let k = 0; k < 4 && !live; k++) {
     await closeModals(pg); await pg.evaluate(() => { window.__fxLog = window.__snd = []; });
     if (!await ev(pg, "!!document.querySelector('#simctl [data-sim=\"live\"]')")) { await click('#simctl [data-sim="day"]'); await wait(pg, 3000); continue; }
-    await click('#simctl [data-sim="live"]'); await wait(pg, 3500); await closeModals(pg);
+    await pg.evaluate(() => { const m = document.querySelector('#simctl .sim-more'); if (m && getComputedStyle(m).display !== 'none' && !document.querySelector('#simctl.open')) m.click(); }); await click('#simctl [data-sim="live"]'); await wait(pg, 3500); await closeModals(pg);
     live = await ev(pg, "!!document.querySelector('#lv-board')");
   }
   if (live) {

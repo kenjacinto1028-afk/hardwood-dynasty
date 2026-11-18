@@ -2,10 +2,10 @@
 Branch `sonnet-popups-phone-pwa`. Items: F1 F2 U1 U2 I2 I1.
 - [x] F1 popup queue: app.js popupBusy/flushDialogs (one popup at a time; ceremonies/story/to-do toasts wait)
 - [x] F2 no spoilers: top bar record before live game, ticker hidden, dialogs + story toasts held until the live game ends
-- [ ] U1 phone top bar
-- [ ] U2 phone tables
-- [ ] I2 Settings stop-the-sim section
-- [ ] I1 installable offline app
+- [x] U1 phone top bar: styles.css (end), index.html/template b-more, app.js Sim menu, p3.js scroll hide
+- [x] U2 phone tables: data-ph columns (app.js tables), p3.js phoneCols, styles.css
+- [x] I2 Settings stop-the-sim section: fx.js STOPS, app.js interruptKind flags (pauseMtg/pausePress/pauseWarn)
+- [x] I1 installable offline app: manifest.webmanifest, sw.js, icons/, fx.js Install section, index.html (offline load checked)
 - [ ] tests, PR, merge
 
 ---

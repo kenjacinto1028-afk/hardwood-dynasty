@@ -237,6 +237,7 @@
     const d = L.diff || 'normal', b = k => `<button class="sm ${d === k ? 'primary' : ''}" data-fxdiff="${k}">${{ easy: 'Easy', normal: 'Normal', hard: 'Hard' }[k]}</button>`;
     return `<h3 style="margin-top:14px">Game</h3><div class="fx-row"><span>Difficulty</span><span class="seg">${b('easy')}${b('normal')}${b('hard')}</span></div>
     <p class="muted" style="font-size:12px;margin:0 0 6px">${{ easy: 'Easy: AI teams take fair trades and your owner is patient.', normal: 'Normal: the game as designed.', hard: 'Hard: AI teams want a clear win in trades and your owner loses patience fast.' }[d]} Saved with this league; change it any time.</p>
+    <div class="fx-row"><span>Playtime</span><span><strong>${window.PBL.fmtPlay(L.playMs)}</strong> this league · <strong id="fx-ptot">…</strong> all leagues</span></div>
     <div class="row" style="gap:8px"><button class="sm" id="fx-tour">Take the tour</button><span class="muted" style="font-size:12px">A quick guide to the main buttons.</span></div>`;
   }
   function stopHtml() {
@@ -264,6 +265,7 @@
       m.querySelectorAll('[data-fxs]').forEach(b => b.onclick = () => { S.speed = b.dataset.fxs; saveS(); draw(); });
       m.querySelectorAll('[data-fxt]').forEach(b => b.onclick = () => sfx(b.dataset.fxt));
       m.querySelectorAll('[data-fxdiff]').forEach(b => b.onclick = () => { const L = window.PBL.L; if (!L) return; L.diff = b.dataset.fxdiff; try { window.PBL.save(); } catch (e) { } draw(); });
+      const pt = m.querySelector('#fx-ptot'); if (pt && window.PBL.playTotal) window.PBL.playTotal().then(v => { pt.textContent = window.PBL.fmtPlay(v); }).catch(() => { });
       const tb = m.querySelector('#fx-tour'); if (tb) tb.onclick = () => { close(); if (window.PB) PB.tour(true); };
     };
     draw();

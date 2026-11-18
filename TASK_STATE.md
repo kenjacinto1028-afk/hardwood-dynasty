@@ -1,3 +1,11 @@
+# TASK_STATE — Playtime counter, per save + overall (Sonnet-size, Nov 18 2026)
+Branch `playtime-counter`.
+- [x] 1. app.js: playtime tracker (counts while the tab is visible and you touched it in the last 5 min), L.playMs per league, 'playtotal' overall
+- [x] 2. Show it: Saves popup (total at top, each save's time) + Settings > Game
+- [x] 3. tools/browser-play.js ALL PASS; browser-pb + browser-desk ALL PASS; PROGRESS.md
+- [ ] 4. Commit, PR, merge if tests pass
+
+---
 # TASK_STATE — Phases A/B/C: expansion teams, save safety + tutorial, desktop app (Opus) — Nov 18 2026
 Plan: /mnt/project-files/plans/desktop-release-plan.md. One PR per phase, merge when tests pass.
 - [x] A1. league.js: expansion logic (xpnPlan/xpnRun at end of league.js, startFA hook; engine.js pairMatrix any-size schedule, isBig = 24+ teams); tools/t-exp.js PASS 16->18

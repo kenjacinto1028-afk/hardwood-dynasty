@@ -7,10 +7,10 @@ PR A: offensive-rebound fix. PR B/C/D: Phase 3 (#4 cards, #13 music, #12 trophie
 - [x] B2. #13 music -> src/fx.js SONGS menu/game, settings Music + Shows
 - [x] B3. #12 Trophy room view + MVP/title ceremonies (p3.js, app.js afterRun)
 - [x] B4. tools/browser-p3.js 52/52 (index + single), p1 70/70, p2 67/67, lint
-- [ ] C1. #7 save / share / import (file + link)
-- [ ] C2. #11 draft night show
-- [ ] C3. #8 story events
-- [ ] C4. tests, PR, merge
+- [x] C1. #7 packed file + share + team link + import (p3.js savesExtra/readLeagueFile, app.js Saves popup)
+- [x] C2. #11 draft show + pick clock (p3.js draftWatch/draftNext/draftClock)
+- [x] C3. #8 story popups + Stories view + popup art (p3.js storyOf/art/dialogArt; app.js runDialog)
+- [x] C4. browser-p3 98/98 (tools/browser-p3x.js, tools/_mkdraft.js), p1, p2, lint
 - [ ] D1. #6 phone layout (bigger buttons, swipe tabs)
 - [ ] E1. Mobile pass: every screen at 390 / 360 px, fix overflow
 - [ ] E2. tests, PR, merge

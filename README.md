@@ -16,6 +16,12 @@ The game is split into small files so a change rewrites one file, not 1.3 MB.
 | `src/court.js` | Phase 2: animated court on a canvas: live game scenes per play (`COURT.live`) and the top-plays half-court replay (`COURT.reel`); reads the league through `window.__pblCourt` |
 | `src/index.template.html` | Page shell with markers `/*CSS*/ /*VENDOR*/ /*ENGINE*/ /*LEAGUE*/ /*NBA*/ /*APP*/` for the single-file build (`python3 -I build.py --single . [out.html]`, v33e) |
 
+## Phase 3 part 2 (Opus, Nov 18 2026): save / share / import, draft night show, story events
+- Saves popup: **Save league file (small)** packs the league (gzip, about 8x smaller, `.pbl.gz`); **Share league file** uses the phone share sheet (falls back to saving); **Copy my team link** (`#team=` opens a read-only sheet of your roster anywhere). Import league file takes plain `.json` or the packed file.
+- Draft night: each pick is revealed (drumroll, card flips from a shadow, name, consensus rank, crowd reaction: Steal / Reach + boos / Solid pick / Your pick + confetti). Sim to my pick / Sim draft show the top 5, the lottery and your picks (max 8; Skip show). Pick clock (2:00) on the Draft page while you're on the clock; auto-pick at 0:00 only if you turn it on in Settings.
+- Story events: illustrated story popups (bottom corner, max 2 per sim) for your team's big moments (injuries, trades, locker room, streaks, rivalries, milestones, big nights) and the champion. News & history → Stories lists them as illustrated cards (Your team / Whole league). Press conference, locker room, interview, one-on-one, holdout and rivalry-night popups get art on top.
+- Test: browser-p3 98 checks now (draft part needs `node tools/_mkdraft.js` first, ~70 s).
+
 ## Phase 3 part 1 (Opus, Nov 18 2026): player cards, trophy room, ceremonies, music
 - New file `src/p3.js` (loaded after court.js; in the single-file build too). It reads app helpers through `window.PBL` (set at the end of app.js) and adds views through `window.P3V`.
 - Player cards (My team → Player cards, and a Player card button on every player page): trading card with face, team colors, rating, position, season PTS/REB/AST, rarity border (Common < 60, Rare 60+, Epic 70+ shine, Legendary 80+ holo + sparkles, Hall of Fame). Tilt on hover, flip-in. Save image (PNG), Share (phone share sheet), Copy link (`#card=` link opens the card anywhere).

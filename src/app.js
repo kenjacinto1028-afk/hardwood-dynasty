@@ -878,7 +878,7 @@ function renderHeader() {
     L.user != null ? { k: 'team', t: 'My team', v: ['myteam', 'cards', 'coaches'] } : { k: 'team', t: 'Staff & GMs', v: ['coaches', 'cards'] },
     { k: 'league', t: 'League', v: ['standings', ...(L.offSummary ? ['review'] : []), 'schedule', 'teams', 'stats', 'players', 'injuries', 'discipline', 'awards', 'pipeline'] },
     { k: 'moves', t: 'Roster moves', v: ['rmoves', 'trades', 'fa', 'draft'] },
-    { k: 'story', t: 'News & history', v: [...(showPre ? ['preview'] : []), 'weekly', 'news', 'feed', 'topplays', 'history', 'trophies', 'hofc'] },
+    { k: 'story', t: 'News & history', v: [...(showPre ? ['preview'] : []), 'weekly', 'news', 'stories', 'feed', 'topplays', 'history', 'trophies', 'hofc'] },
     { k: 'help', t: 'How it works', v: ['rules'] }
   ];
   const badge = v => v === 'trades' ? ((L.pending || []).length + (L.offers || []).length) : 0;
@@ -5323,7 +5323,7 @@ function cutDialog() {
 }
 function cutCheck() { if (L.user != null && L.phase === 'regular' && L.teams[L.user].roster.length > 15) queueDialog(cutDialog); }
 // Popups shown after sims are remembered so you can reopen them (Recent button, or Back to popup after clicking a name)
-function runDialog(fn) { fn(); const h = $('#modal h2'); if (h) { ui.curDlg = fn; ui.recent = [{ t: h.textContent.trim(), fn, s: L.season, ph: L.phase }].concat((ui.recent || []).filter(r => r.fn !== fn && r.t !== h.textContent.trim())).slice(0, 8); } }
+function runDialog(fn) { fn(); try { if (window.P3) P3.dialogArt(); } catch (e) { } const h = $('#modal h2'); if (h) { ui.curDlg = fn; ui.recent = [{ t: h.textContent.trim(), fn, s: L.season, ph: L.phase }].concat((ui.recent || []).filter(r => r.fn !== fn && r.t !== h.textContent.trim())).slice(0, 8); } }
 function queueDialog(fn) { if ($('#ov')) dlgQueue.push(fn); else runDialog(fn); }
 function recentDialog() {
   const r = ui.recent || [];
@@ -5568,11 +5568,13 @@ $('#b-recent').onclick = () => { if (L) recentDialog(); };
 $('#b-menu').onclick = () => {
   dialog(`<h2>Saves</h2><div id="x-slots" class="muted">Loading saves…</div>
   ${L ? `<div class="row" style="margin:10px 0"><label>Save name <input type="search" id="x-name" value="${esc(L.saveName || defaultSaveName())}" style="width:220px"></label><button class="sm" id="x-rename">Rename</button><button class="sm" id="x-dup">Save a copy</button></div>` : ''}
-  <div class="row" style="margin:10px 0 14px"><button class="primary" id="x-new">New league</button><button id="x-exp" ${L ? '' : 'disabled'}>Export this league</button><label class="btn" for="x-file">Import league file</label><input type="file" id="x-file" accept=".json,application/json" hidden></div>
+  <div class="row" style="margin:10px 0 14px"><button class="primary" id="x-new">New league</button><button id="x-exp" ${L ? '' : 'disabled'}>Export this league</button><label class="btn" for="x-file">Import league file</label><input type="file" id="x-file" accept=".json,.gz,.pbl,application/json,application/gzip" hidden></div>
+  ${L ? '<div id="x-p3" style="margin:-4px 0 12px"></div>' : ''}
   <div id="x-msg" class="muted"></div>
   <p class="muted" style="font-size:12px">Saves live in this browser on this device. Clearing browser data erases them, so export a backup now and then.</p>
   <div class="row"><button id="x-close">Close</button></div>`);
   $('#x-close').onclick = closeDialog;
+  try { if (window.P3) P3.savesExtra(); } catch (e) { console.error(e); }   // Phase 3: small file, share, team link
   const drawSlots = async () => {
     const slots = await getSlots();
     $('#x-slots').innerHTML = slots.length ? slots.map(x => `<div class="check"><span class="grow"><strong>${esc(x.name)}</strong>${x.id === SLOT ? ' <span class="pill pos">Open</span>' : ''}<br><span class="muted">${x.mode === 'team' ? 'Franchise Mode' : 'Commissioner'} · ${seasonName(x.season)} · ${esc(PHASE_TXT[x.phase] || (x.phase === 'regular' ? 'Regular season' : x.phase === 'playoffs' ? 'Playoffs' : x.phase))} · saved ${new Date(x.updated).toLocaleString()}</span></span>${x.id === SLOT ? '' : `<button class="sm primary" data-sl="${x.id}">Load</button>`}<button class="sm danger" data-sd="${x.id}">Delete</button></div>`).join('') : '<p class="muted">No saves yet.</p>';
@@ -5604,7 +5606,9 @@ $('#b-menu').onclick = () => {
   };
   $('#x-file').onchange = e => {
     const f = e.target.files[0]; if (!f) return;
-    const r = new FileReader();
+    // Phase 3: plain .json or the packed (gzip) file from "Save league file (small)"
+    const r = {}; const read = window.P3 ? P3.readLeagueFile(f) : f.text();
+    read.then(t => { r.result = t; r.onload(); }, () => { $('#x-msg').textContent = 'That file could not be read.'; });
     r.onload = () => {
       try {
         const x = JSON.parse(r.result);
@@ -5612,7 +5616,6 @@ $('#b-menu').onclick = () => {
         SLOT = 'slot-' + Date.now(); setLeague(x); ui.setupOpen = false; backStack.length = 0; ui.cur = null; save(); closeDialog(); location.hash = x.user != null ? '#myteam' : '#standings'; route();
       } catch (err) { $('#x-msg').textContent = 'That file isn’t a league export from this version of the page. Choose a .json file made with Export league.'; }
     };
-    r.readAsText(f);
   };
 };
 

@@ -11,7 +11,7 @@ const ev = (pg, js) => pg.evaluate(js0 => { const L = window.__pbl.L, ui = windo
 const wait = (pg, ms) => pg.waitForTimeout(ms);
 const closeModals = pg => pg.evaluate(() => { document.querySelector('#modal').innerHTML = ''; const m = document.getElementById('fx-modal'); if (m) m.innerHTML = ''; });
 
-async function load(W, touch) {
+async function load(W, touch, SAVE2) {
   const b = await chromium.launch({ args: ['--no-sandbox', '--autoplay-policy=no-user-gesture-required'] });
   const ctx = await b.newContext({ viewport: { width: W, height: 900 }, hasTouch: touch, isMobile: touch });
   await ctx.route(BASE + '**', r => { const f = path.join(ROOT, decodeURIComponent(new URL(r.request().url()).pathname)); if (!f.startsWith(ROOT) || !fs.existsSync(f)) return r.fulfill({ status: 404, body: '' }); r.fulfill({ status: 200, body: fs.readFileSync(f), contentType: MIME[path.extname(f)] || 'application/octet-stream' }); });
@@ -22,7 +22,7 @@ async function load(W, touch) {
     const db = await new Promise((res, rej) => { const r = indexedDB.open('pbl-league', 1); r.onupgradeneeded = () => r.result.createObjectStore('s'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
     const put = (k, v) => new Promise((res, rej) => { const tx = db.transaction('s', 'readwrite'); tx.objectStore('s').put(v, k); tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
     await put('league:slot-p3', txt); await put('slots', JSON.stringify([{ id: 'slot-p3', name: 'p3', mode: 'team', season: 11, phase: 'regular', updated: Date.now() }])); await put('current', 'slot-p3');
-  }, '/' + SAVE);
+  }, '/' + (SAVE2 || SAVE));
   await pg.reload(); await wait(pg, 5000); await closeModals(pg);
   return { b, pg, errs };
 }
@@ -88,7 +88,7 @@ async function run(W, touch) {
   ok(T + 'music off stops it', await ev(pg, "FX.musicMood===null&&FX.settings.music===false"));
   await click('[data-fxc="music"]'); await wait(pg, 200); await click('#fx-done');
   ok(T + 'music back on', await ev(pg, "FX.musicMood==='menu'"));
-  if (typeof extra === 'function') await extra(pg, T, click, W, touch);
+  if (typeof extra === 'function') await extra(pg, T, click, W, touch, load, ok, ev, wait, shot);
   ok(T + 'no page errors', !errs.length, errs.slice(0, 3));
   await b.close();
 }

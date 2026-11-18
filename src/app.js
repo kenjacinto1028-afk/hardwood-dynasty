@@ -872,13 +872,13 @@ function renderHeader() {
     $('#simctl').innerHTML = btns.map(([k, t], i) => `<button data-sim="${k}" title="${esc(SIM_TIP[k] || '')}" class="${i === 0 ? 'primary' : ''}${k === 'multi' ? ' multi' : ''}" ${ui.busy && k !== 'autostop' ? 'disabled' : ''}>${t}</button>`).join('');
   }
   // v24: tabs are grouped. The top row has five groups; the row under it lists the views in the group you are in.
-  const NAME = { rmoves: 'Overview', hofc: 'Hall of Fame', feed: 'Feed', myteam: 'My team', coaches: 'Staff & GMs', preview: 'Season preview', weekly: 'Weekly report', standings: 'Standings', review: 'Progression', schedule: 'Schedule', stats: 'Stats', players: 'Players', awards: 'Awards', teams: 'Teams', trades: 'Trades', fa: 'Free agency', draft: 'Draft', news: 'News & events', injuries: 'Injuries', discipline: 'Discipline', pipeline: 'Pipeline', history: 'History', rules: 'How it works' };
+  const NAME = { rmoves: 'Overview', hofc: 'Hall of Fame', feed: 'Feed', topplays: 'Top plays', myteam: 'My team', coaches: 'Staff & GMs', preview: 'Season preview', weekly: 'Weekly report', standings: 'Standings', review: 'Progression', schedule: 'Schedule', stats: 'Stats', players: 'Players', awards: 'Awards', teams: 'Teams', trades: 'Trades', fa: 'Free agency', draft: 'Draft', news: 'News & events', injuries: 'Injuries', discipline: 'Discipline', pipeline: 'Pipeline', history: 'History', rules: 'How it works' };
   const showPre = L.phase === 'regular' && L.day <= 7 || ui.view === 'preview';
   const groups = [
     L.user != null ? { k: 'team', t: 'My team', v: ['myteam', 'coaches'] } : { k: 'team', t: 'Staff & GMs', v: ['coaches'] },
     { k: 'league', t: 'League', v: ['standings', ...(L.offSummary ? ['review'] : []), 'schedule', 'teams', 'stats', 'players', 'injuries', 'discipline', 'awards', 'pipeline'] },
     { k: 'moves', t: 'Roster moves', v: ['rmoves', 'trades', 'fa', 'draft'] },
-    { k: 'story', t: 'News & history', v: [...(showPre ? ['preview'] : []), 'weekly', 'news', 'feed', 'history', 'hofc'] },
+    { k: 'story', t: 'News & history', v: [...(showPre ? ['preview'] : []), 'weekly', 'news', 'feed', 'topplays', 'history', 'hofc'] },
     { k: 'help', t: 'How it works', v: ['rules'] }
   ];
   const badge = v => v === 'trades' ? ((L.pending || []).length + (L.offers || []).length) : 0;
@@ -913,6 +913,104 @@ function feedBox(n) {
   const l = feedList(L, 'all', n);
   return `<div class="panel"><h3>Latest <a class="lk" href="#feed" style="font-weight:400;font-size:13px">Feed →</a></h3>${l.length ? l.map(postCard).join('') : '<p class="muted">No posts yet.</p>'}</div>`;
 }
+// ---------- Phase 2: top plays of the night ----------
+// Every game keeps its 3 best plays (engine game.hl). A night = all games of one day; the reel shows its top 10
+// (at most 2 per player), each with the player's face, what happened and a small court replay (court.js COURT.reel).
+const TP_KIND = { D: 'Dunk', 3: 'Three', A: 'And-one', P: 'Putback slam', B: 'Block', G: 'Game-winner' };
+const TP_ICON = { D: '💥', 3: '🔥', A: '💪', P: '💥', B: '🚫', G: '🏆' };
+function tpOf(g) {
+  return (g.hl || []).map((h, k) => { const [sc, kind, pid, side, q, c, hs, as, zone, type, ast, other] = h; const tid = side === 0 ? g.home : g.away; return { sc, kind, pid, side, q, c, hs, as, zone, type, ast, other, gid: g.id, k, tid, oppTid: side === 0 ? g.away : g.home }; }).filter(x => L.players[x.pid]);
+}
+function tpNights() {
+  const m = new Map();
+  for (const g of L.games) { if (!g.hl || g.season !== L.season) continue; const key = g.day + (g.playoff ? 'p' : ''); if (!m.has(key)) m.set(key, { key, day: g.day, playoff: !!g.playoff, games: [] }); m.get(key).games.push(g); }
+  return [...m.values()].sort((a, b) => b.games[0].id - a.games[0].id);
+}
+function tpNightList(n) {
+  const all = n.games.flatMap(tpOf).sort((a, b) => b.sc - a.sc), per = {}, out = [];
+  for (const x of all) { if ((per[x.pid] = (per[x.pid] || 0) + 1) > 2) continue; out.push(x); if (out.length >= 10) break; }
+  return out;
+}
+function tpList() {
+  if (ui.tpGame != null) { const g = L.games.find(x => x.id === ui.tpGame); if (g) return { list: tpOf(g).sort((a, b) => b.sc - a.sc), title: `${L.teams[g.away].abbr} at ${L.teams[g.home].abbr}`, game: g }; }
+  const ns = tpNights(), n = ns.find(x => x.key === ui.tpNight) || ns[0];
+  return n ? { list: tpNightList(n), title: n.games[0] ? dayTxt(n.day, L.season) + (n.playoff ? ' · playoffs' : '') : '', night: n, nights: ns } : { list: [], nights: ns };
+}
+function tpWhat(x) {
+  const p = L.players[x.pid], nm = p ? shortName(p) : 'Player', o = x.other && L.players[x.other] ? shortName(L.players[x.other]) : null, a = x.ast && L.players[x.ast] ? shortName(L.players[x.ast]) : null;
+  const shot = ['dunk', 'layup', 'shot in the paint', 'mid-range jumper', 'three'][x.type] || 'shot';
+  const t = { D: `${nm} throws down a monster dunk`, 3: `${nm} drills a ${x.zone === 9 || x.zone === 13 ? 'corner ' : 'deep '}three`, A: `${nm} scores through contact on a ${shot}, and one`, P: `${nm} flies in for the putback slam`, B: `${nm} rejects ${o || 'the shot'} at the ${x.type <= 1 ? 'rim' : 'shot'}`, G: `${nm} hits the game-winning ${shot}${x.other ? ', and one' : ''}` }[x.kind] || nm;
+  return t + (a && x.kind !== 'B' ? ` (assist ${a})` : '') + '.';
+}
+function tpWhen(x) {
+  const own = x.side === 0 ? x.hs : x.as, opp = x.side === 0 ? x.as : x.hs, me = L.teams[x.tid].abbr, them = L.teams[x.oppTid].abbr;
+  return `${qTxt(x.q)} ${clockTxt(x.c)} · ${me} ${own}-${opp} ${them}`;
+}
+function tpRow(x, i, on) {
+  const p = L.players[x.pid];
+  return `<button class="tp-row ${on ? 'on' : ''}" data-tp="i:${i}" aria-label="Play ${i + 1}: ${esc(tpWhat(x))}"><span class="tp-rk">${i + 1}</span>${portrait('p', x.pid, p.nat, x.tid, 'xs')}<span class="tp-rx"><strong>${esc(shortName(p))}</strong> <span class="pill tp-k tp-k${x.kind}">${TP_ICON[x.kind] || ''} ${TP_KIND[x.kind] || ''}</span><br><span class="muted">${esc(L.teams[x.tid].abbr)} vs ${esc(L.teams[x.oppTid].abbr)} · ${qTxt(x.q)} ${clockTxt(x.c)}</span></span></button>`;
+}
+function tpCard(x, i, n) {
+  const p = L.players[x.pid];
+  return `<div class="tp-face">${portrait('p', x.pid, p.nat, x.tid)}<span class="tp-num">#${i + 1}</span></div><div class="tp-info"><div class="k">${TP_ICON[x.kind] || ''} ${TP_KIND[x.kind] || ''} · play ${i + 1} of ${n}</div><h3 class="tp-name">${plink(p)} <span class="muted" style="font-weight:400">${logo(x.tid, 22)} ${esc(L.teams[x.tid].abbr)}</span></h3><p class="tp-what">${esc(tpWhat(x))}</p><p class="muted tp-when">${esc(tpWhen(x))} · <a class="lk" data-game="${x.gid}">Box score</a></p></div>`;
+}
+function vTopPlays() {
+  const r = tpList(), list = r.list, i = Math.min(ui.tpI || 0, Math.max(0, list.length - 1)), x = list[i];
+  const pick = r.nights && r.nights.length > 1 && ui.tpGame == null ? `<label class="muted" style="font-size:13px">Night <select id="tp-night">${r.nights.slice(0, 30).map(n => `<option value="${n.key}" ${n === r.night ? 'selected' : ''}>${esc(dayTxt(n.day, L.season))}${n.playoff ? ' · playoffs' : ''} (${n.games.length} game${n.games.length === 1 ? '' : 's'})</option>`).join('')}</select></label>` : '';
+  const back = ui.tpGame != null ? `<button class="sm" data-tp="all">All games that night</button>` : '';
+  if (!x) return `<h2>Top plays</h2><p class="muted">No top plays yet. Every game played from now on keeps its best plays: dunks, deep threes, and-ones, big blocks and game-winners. Sim a day and come back.</p>`;
+  return `<h2>${ui.tpGame != null ? 'Top plays · ' + esc(r.title) : 'Top plays of the night'}</h2><div class="row" style="gap:10px;flex-wrap:wrap;align-items:center;margin:-4px 0 10px">${pick || (ui.tpGame != null ? '' : `<span class="muted">${esc(r.title)}</span>`)}${back}</div>
+  <section class="panel tp-reel"><div class="tp-main"><div class="tp-stage"><canvas id="tp-canvas" role="img" aria-label="Replay of the play"></canvas></div><div class="tp-card" id="tp-card">${tpCard(x, i, list.length)}</div></div>
+  <div class="row tp-ctl"><button class="sm" data-tp="prev" aria-label="Previous play">◀ Prev</button><button class="sm primary" data-tp="pause" id="tp-pause">${ui.tpPaused ? '▶ Play' : '❚❚ Pause'}</button><button class="sm" data-tp="next" aria-label="Next play">Next ▶</button><span class="muted" id="tp-pos">${i + 1} / ${list.length}</span></div></section>
+  <section class="panel"><h3>${list.length} play${list.length === 1 ? '' : 's'}</h3><div class="tp-list" id="tp-list">${list.map((y, k) => tpRow(y, k, k === i)).join('')}</div></section>`;
+}
+// small strip for My team and the box score
+function tpStrip() {
+  const ns = tpNights(); if (!ns.length) return '';
+  const list = tpNightList(ns[0]).slice(0, 3); if (!list.length) return '';
+  return `<div class="panel tp-strip"><div class="row" style="justify-content:space-between;align-items:center;gap:8px"><h3 style="margin:0">Top plays of the night <span class="muted" style="font-weight:400;font-size:13px">${esc(dayTxt(ns[0].day, L.season))}</span></h3><a class="lk" href="#topplays" data-tpgo="night">▶ Watch the reel</a></div><div class="tp-mini">${list.map((x, k) => { const p = L.players[x.pid]; return `<a class="tp-mrow" href="#topplays" data-tpgo="n:${k}">${portrait('p', x.pid, p.nat, x.tid, 'xs')}<span><strong>${k + 1}. ${esc(shortName(p))}</strong> <span class="muted">${esc(L.teams[x.tid].abbr)}</span><br><span class="muted" style="font-size:12px">${TP_ICON[x.kind] || ''} ${TP_KIND[x.kind] || ''}</span></span></a>`; }).join('')}</div></div>`;
+}
+function tpGamePanel(g) {
+  const list = g.hl ? tpOf(g) : null;
+  if (!list || !list.length) return '';
+  return `<section class="panel"><div class="row" style="justify-content:space-between;align-items:center"><h3 style="margin:0">Top plays</h3><button class="sm" data-tpgo="g:${g.id}">▶ Watch</button></div>${list.sort((a, b) => b.sc - a.sc).map(x => `<div class="leader" style="grid-template-columns:22px minmax(0,1fr) auto"><span>${TP_ICON[x.kind] || ''}</span><span>${esc(tpWhat(x))}</span><span class="muted">${qTxt(x.q)} ${clockTxt(x.c)}</span></div>`).join('')}</section>`;
+}
+let tpTimer = null;
+function tpAfter() {
+  clearTimeout(tpTimer); tpTimer = null;
+  if (ui.view !== 'topplays' || ui.game != null || ui.player != null || ui.coach != null || ui.gm != null) { if (window.COURT) COURT.stop('tp-canvas'); return; }
+  const r = tpList(), list = r.list; if (!list.length || !window.COURT) return;
+  const i = Math.min(ui.tpI || 0, list.length - 1); ui.tpI = i;
+  const m = (window.FX && FX.settings && { slow: 1.6, fast: 0.5 }[FX.settings.speed]) || 1, play = 2600 * m;
+  COURT.reel('tp-canvas', list[i], play);
+  if (!ui.tpPaused) tpTimer = setTimeout(() => { if (ui.view !== 'topplays' || !document.getElementById('tp-canvas')) return; tpGo((ui.tpI || 0) + 1, list.length); }, play + 1400 * m);
+}
+// move the reel without re-rendering the page (keeps the scroll position and the canvas)
+function tpGo(i, n) {
+  const r = tpList(), list = r.list; if (!list.length) return;
+  ui.tpI = ((i % list.length) + list.length) % list.length; const x = list[ui.tpI];
+  const card = document.getElementById('tp-card'); if (!card) { render(); return; }
+  card.innerHTML = tpCard(x, ui.tpI, list.length);
+  document.querySelectorAll('#tp-list .tp-row').forEach((b, k) => b.classList.toggle('on', k === ui.tpI));
+  const pos = document.getElementById('tp-pos'); if (pos) pos.textContent = `${ui.tpI + 1} / ${list.length}`;
+  tpAfter(); void n;
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-tp],[data-tpgo]'); if (!b || !L) return;
+  if (b.dataset.tpgo) { e.preventDefault(); e.stopImmediatePropagation(); const v = b.dataset.tpgo; backStack.push(snapNow());
+    ui.player = null; ui.coach = null; ui.gm = null; ui.tpPaused = false;
+    if (v.startsWith('g:')) { ui.tpGame = +v.slice(2); ui.tpI = 0; ui.game = null; ui.liveMode = null; }
+    else { ui.tpGame = null; ui.tpNight = null; ui.tpI = v.startsWith('n:') ? +v.slice(2) : 0; ui.game = null; }
+    ui.view = 'topplays'; if (location.hash !== '#topplays') history.replaceState(null, '', '#topplays'); render(); window.scrollTo(0, 0); return; }
+  e.stopImmediatePropagation();
+  const v = b.dataset.tp;
+  if (v === 'pause') { ui.tpPaused = !ui.tpPaused; b.textContent = ui.tpPaused ? '▶ Play' : '❚❚ Pause'; if (ui.tpPaused) { clearTimeout(tpTimer); tpTimer = null; } else tpGo((ui.tpI || 0) + 1); return; }
+  if (v === 'all') { ui.tpGame = null; ui.tpI = 0; render(); return; }
+  if (v === 'prev') return tpGo((ui.tpI || 0) - 1);
+  if (v === 'next') return tpGo((ui.tpI || 0) + 1);
+  if (v.startsWith('i:')) return tpGo(+v.slice(2));
+}, true);
+document.addEventListener('change', e => { const s = e.target.closest('#tp-night'); if (!s || !L) return; ui.tpNight = s.value; ui.tpI = 0; ui.tpGame = null; render(); });
 function vFeed() {
   const f = ui.feedF || 'all', n = ui.feedN || 25, all = feedList(L, f, 100), list = all.slice(0, n);
   return `<h2>Feed</h2><section class="panel"><div class="row" style="margin-bottom:10px">${FEED_F.map(([k, nm]) => `<button class="sm chipbtn ${f === k ? 'primary' : ''}" data-feedf="${k}">${nm}</button>`).join('')}</div>${list.length ? list.map(postCard).join('') : '<p class="muted">No posts here yet. Play some games.</p>'}${all.length > n ? '<div class="row" style="margin-top:10px"><button id="feed-more">More</button></div>' : ''}</section>`;
@@ -1363,7 +1461,7 @@ function vTeam(t) {
   const head = teamHeader(t);
   const todoAtt = isUser(t.id) && tab === 'overview' ? (() => { const td = todoPanel(), at = attentionPanel(t); return td ? `<div class="grid2e todo-att">${td}${at}</div>` : at; })() : '';   // v28.7 U1: to-do beside Needs attention
   const sub = `<div class="subtabs"><button class="sm" data-cmpt="${t.id}">Compare</button><button class="sm ${tab === 'overview' ? 'primary' : ''}" data-teamtab="overview">Overview</button><button class="sm ${tab === 'fin' ? 'primary' : ''}" data-teamtab="fin">Finances</button><button class="sm ${tab === 'history' ? 'primary' : ''}" data-teamtab="history">Team history</button></div>`;
-  return `${ui.view === 'teams' ? '<div class="row" style="margin-bottom:10px"><button data-back="teams">All teams</button></div>' : ''}${isUser(t.id) ? phaseNote() : ''}${head}${tab === 'overview' ? recentStrip(t) : ''}${todoAtt}${sub}${tab === 'history' ? teamHistory(t) + (typeof hxTeamPanels === 'function' ? hxTeamPanels(L, t) : '') : tab === 'fin' ? teamFinance(t) : teamOverview(t)}`;
+  return `${ui.view === 'teams' ? '<div class="row" style="margin-bottom:10px"><button data-back="teams">All teams</button></div>' : ''}${isUser(t.id) ? phaseNote() : ''}${head}${tab === 'overview' ? recentStrip(t) + (isUser(t.id) ? tpStrip() : '') : ''}${todoAtt}${sub}${tab === 'history' ? teamHistory(t) + (typeof hxTeamPanels === 'function' ? hxTeamPanels(L, t) : '') : tab === 'fin' ? teamFinance(t) : teamOverview(t)}`;
 }
 // ---------- finances ----------
 const meter = (v, cls) => `<div class="meter"><i class="${cls || ''}" style="width:${Math.max(0, Math.min(100, v))}%"></i></div>`;
@@ -2940,7 +3038,7 @@ function vGame(g) {
   <div class="tblwrap"><table class="linescore" style="max-width:520px;margin-top:8px"><thead><tr><th class="l">Team</th>${qh}<th>Final</th></tr></thead><tbody>
   <tr><td class="l">${tlabel(g.away)}<div class="muted lv-rec" style="font-size:11px">${esc(recLine(g, g.away, false))}</div></td>${g.q.map(x => `<td>${x[1]}</td>`).join('')}<td><strong data-cu>${g.as}</strong></td></tr>
   <tr><td class="l">${tlabel(g.home)}<div class="muted lv-rec" style="font-size:11px">${esc(recLine(g, g.home, true))}</div></td>${g.q.map(x => `<td>${x[0]}</td>`).join('')}<td><strong data-cu>${g.hs}</strong></td></tr></tbody></table></div>${g.lg ? `<p class="muted" style="font-size:12px;margin:6px 0 0">Timeouts used: ${L.teams[g.away].abbr} ${g.lg.to[1]}, ${L.teams[g.home].abbr} ${g.lg.to[0]}${g.lg.ifl[0] + g.lg.ifl[1] ? ` · Intentional fouls late: ${L.teams[g.away].abbr} ${g.lg.ifl[1]}, ${L.teams[g.home].abbr} ${g.lg.ifl[0]}` : ''}${g.lg.hack[0] + g.lg.hack[1] ? ` · Hack-a-player: ${L.teams[g.away].abbr} ${g.lg.hack[1]}, ${L.teams[g.home].abbr} ${g.lg.hack[0]}` : ''}</p>` : ''}${injuries}</section>
-  ${rxPanel(g)}${side(1)}${side(0)}${gameShotPanel(g)}${rotChartPanel(g, 1)}${rotChartPanel(g, 0)}${g.pbp ? `<details class="panel"><summary><strong>Play-by-play</strong> <span class="muted">· ${g.pbp.length} entries · defensive adjustments: ${g.pbp.filter(e => e[6].includes('a')).length}</span></summary><div class="lv-feed" style="max-height:none">${g.pbp.map(e => lvEntryHtml(g, e)).join('')}</div></details>` : ''}`;
+  ${rxPanel(g)}${side(1)}${side(0)}${tpGamePanel(g)}${gameShotPanel(g)}${rotChartPanel(g, 1)}${rotChartPanel(g, 0)}${g.pbp ? `<details class="panel"><summary><strong>Play-by-play</strong> <span class="muted">· ${g.pbp.length} entries · defensive adjustments: ${g.pbp.filter(e => e[6].includes('a')).length}</span></summary><div class="lv-feed" style="max-height:none">${g.pbp.map(e => lvEntryHtml(g, e)).join('')}</div></details>` : ''}`;
 }
 
 // ---------- trades ----------
@@ -4771,7 +4869,7 @@ function render() {
   else {
     const v = ui.view;
     if (v === 'myteam' && L.user != null) html = vTeam(L.teams[L.user]);
-    else html = ({ preview: vPreview, weekly: vWeekly, standings: vStandings, review: vReviewPage, schedule: vSchedule, stats: vStats, players: vPlayerDir, awards: vAwards, teams: vTeams, rmoves: vRMoves, hofc: vHofCeremony, trades: vTrades, fa: vFA, draft: vDraft, coaches: vCoaches, history: vHistory, news: vNews, feed: vFeed, injuries: vInjuries, discipline: vDiscipline, pipeline: vPipeline, rules: vRules }[v] || vStandings)();
+    else html = ({ preview: vPreview, weekly: vWeekly, standings: vStandings, review: vReviewPage, schedule: vSchedule, stats: vStats, players: vPlayerDir, awards: vAwards, teams: vTeams, rmoves: vRMoves, hofc: vHofCeremony, trades: vTrades, fa: vFA, draft: vDraft, coaches: vCoaches, history: vHistory, news: vNews, feed: vFeed, topplays: vTopPlays, injuries: vInjuries, discipline: vDiscipline, pipeline: vPipeline, rules: vRules }[v] || vStandings)();
     if (L.phase === 'off-review' && L.offSummary && (v === 'standings' || v === 'myteam')) html = reviewBanner() + html;   // v30a #20: the report has its own page
   }
   html = undoBar() + html;
@@ -4782,6 +4880,7 @@ function render() {
   { const b = $('#b-backdlg'); if (b) b.onclick = () => { const f = ui.backDlg; ui.backDlg = null; render(); if (f) runDialog(f); }; }
   ui.cur = snapNow();
   bindView();
+  try { tpAfter(); } catch (e) { console.error(e); }   // Phase 2: top-plays reel
   try { if (window.FX) FX.afterRender(JSON.stringify([ui.cur, ui.mtab, ui.teamTab, ui.liveMode, ui.setupOpen ? 1 : 0])); } catch (e) { }   // Phase 1: page fade + count-ups (src/fx.js)
   renderNote();
   try { renderTicker(); } catch (e) { console.error(e); }
@@ -5150,7 +5249,7 @@ document.addEventListener('click', e => {
   render(); window.scrollTo(0, 0);
 });
 
-const VIEWS = ['rmoves', 'hofc', 'preview', 'weekly', 'myteam', 'standings', 'review', 'schedule', 'stats', 'players', 'injuries', 'discipline', 'awards', 'pipeline', 'teams', 'trades', 'fa', 'draft', 'coaches', 'history', 'news', 'feed', 'rules'];
+const VIEWS = ['rmoves', 'hofc', 'topplays', 'preview', 'weekly', 'myteam', 'standings', 'review', 'schedule', 'stats', 'players', 'injuries', 'discipline', 'awards', 'pipeline', 'teams', 'trades', 'fa', 'draft', 'coaches', 'history', 'news', 'feed', 'rules'];
 // old tab names still work as links
 const VIEW_ALIAS = { leaders: ['stats', 'leaders'], tstats: ['stats', 'teams'], playoffs: ['standings', null] };
 function route() {
@@ -5161,6 +5260,7 @@ function route() {
   if (ui.cur && !ui.restoring) { backStack.push(ui.cur); if (backStack.length > 60) backStack.shift(); }
   ui.player = null; ui.game = null; ui.team = null; ui.hs = null; ui.coach = null; ui.gm = null;
   if (ui.view === 'schedule') ui.day = null;
+  if (ui.view === 'topplays') { ui.tpGame = null; ui.tpI = 0; }
   render();
 }
 window.addEventListener('hashchange', route);

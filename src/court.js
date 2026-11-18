@@ -50,54 +50,54 @@
     return [h, a];
   }
   // ---------- drawing ----------
+  // half = the right basket only, turned so the baseline is at the top (like the shot charts): 50 ft across, 34 ft deep
+  const HALF_D = 34;
   function size(cv, half) {
-    const w = Math.max(200, Math.round(cv.parentElement ? cv.parentElement.clientWidth : 600)), h = Math.round(w * (half ? 50 / 47 : FT_H / FT_W) * (half ? 0.62 : 1));
+    const w = Math.max(200, Math.round(cv.parentElement ? cv.parentElement.clientWidth : 600)), h = Math.round(w * (half ? HALF_D / FT_H : FT_H / FT_W));
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); cv.style.width = w + 'px'; cv.style.height = h + 'px'; }
     return { w, h, dpr };
   }
-  // view: full court, or the right half (reel) — returns feet -> pixels
+  // v.P(x, y): court feet -> canvas pixels; v.s: pixels per foot
   function viewOf(cv, half) {
-    const { w, h, dpr } = size(cv, half);
-    if (!half) { const s = w / FT_W; return { s: s * dpr, ox: 0, oy: 0, w, h, dpr, x0: 0 }; }
-    const x0 = FT_W - 47, s = w / 47; return { s: s * dpr, ox: -x0 * s * dpr, oy: -((50 - h / s) / 2) * s * dpr, w, h, dpr, x0 };
+    const { w, h, dpr } = size(cv, half), s = (half ? w / FT_H : w / FT_W) * dpr;
+    const P = half ? (x, y) => [y * s, (FT_W - x) * s] : (x, y) => [x * s, y * s];
+    return { s, P, w, h, dpr, half };
   }
+  function poly(g, pts, close) { g.beginPath(); pts.forEach((q, i) => i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])); if (close) g.closePath(); }
+  function arcPts(v, cx, cy, r, a0, a1) { const n = 40, out = []; for (let i = 0; i <= n; i++) { const a = a0 + (a1 - a0) * i / n; out.push(v.P(cx + Math.cos(a) * r, cy + Math.sin(a) * r)); } return out; }
   function drawCourt(g, v, paint, label) {
-    const S = v.s, P = (x, y) => [v.ox + x * S, v.oy + y * S];
+    const P = v.P, S = v.s;
     g.fillStyle = '#d9b382'; g.fillRect(0, 0, v.w * v.dpr, v.h * v.dpr);
-    // floor boards
     g.strokeStyle = 'rgba(120,80,40,.10)'; g.lineWidth = 1;
-    for (let y = 0; y < FT_H; y += 2.5) { const a = P(0, y), b = P(FT_W, y); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
+    for (let y = 0; y <= FT_H; y += 2.5) { poly(g, [P(0, y), P(FT_W, y)]); g.stroke(); }
     g.strokeStyle = 'rgba(255,255,255,.92)'; g.lineWidth = Math.max(1.2, S * 0.17);
-    const line = (x1, y1, x2, y2) => { const a = P(x1, y1), b = P(x2, y2); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); };
-    const arc = (x, y, r, a0, a1) => { const c = P(x, y); g.beginPath(); g.arc(c[0], c[1], r * S, a0, a1); g.stroke(); };
-    { const a = P(0, 0); g.strokeRect(a[0], a[1], FT_W * S, FT_H * S); }
-    line(47, 0, 47, 50); arc(47, 25, 6, 0, 7);
+    const line = (x1, y1, x2, y2) => { poly(g, [P(x1, y1), P(x2, y2)]); g.stroke(); };
+    const rect = (x1, y1, x2, y2, fill) => { poly(g, [P(x1, y1), P(x2, y1), P(x2, y2), P(x1, y2)], true); if (fill) { g.fillStyle = fill; g.fill(); } g.stroke(); };
+    const arc = (cx, cy, r, a0, a1) => { poly(g, arcPts(v, cx, cy, r, a0, a1)); g.stroke(); };
+    rect(0, 0, FT_W, FT_H); line(47, 0, 47, 50); arc(47, 25, 6, 0, Math.PI * 2);
     for (const right of [false, true]) {
       const bx = right ? FT_W - RIM_IN : RIM_IN, sg = right ? -1 : 1, base = right ? FT_W : 0;
-      // paint
-      const a = P(right ? FT_W - 19 : 0, 17); g.fillStyle = paint; g.fillRect(a[0], a[1], 19 * S, 16 * S);
-      { const a2 = P(right ? FT_W - 19 : 0, 17); g.strokeRect(a2[0], a2[1], 19 * S, 16 * S); }
+      rect(base, 17, base + sg * 19, 33, paint);
       arc(base + sg * 19, 25, 6, right ? Math.PI / 2 : -Math.PI / 2, right ? Math.PI * 1.5 : Math.PI / 2);
-      // three-point line: corners 22 ft, arc 23.75 ft
-      const cy = Math.sqrt(23.75 * 23.75 - 22 * 22), cx = bx + sg * cy;
+      const cy = Math.sqrt(23.75 * 23.75 - 22 * 22), cx = bx + sg * cy, t = Math.atan2(22, cy);
       line(base, 3, cx, 3); line(base, 47, cx, 47);
-      { const c = P(bx, 25); g.beginPath(); const t = Math.atan2(22, cy); if (right) g.arc(c[0], c[1], 23.75 * S, Math.PI - t, Math.PI + t); else g.arc(c[0], c[1], 23.75 * S, -t, t); g.stroke(); }
-      // backboard + rim
+      if (right) arc(bx, 25, 23.75, Math.PI - t, Math.PI + t); else arc(bx, 25, 23.75, -t, t);
       line(base + sg * 4, 22, base + sg * 4, 28);
-      g.strokeStyle = '#e8562a'; arc(bx, 25, 0.75, 0, 7); g.strokeStyle = 'rgba(255,255,255,.92)';
+      g.strokeStyle = '#e8562a'; arc(bx, 25, 0.75, 0, Math.PI * 2); g.strokeStyle = 'rgba(255,255,255,.92)';
     }
-    if (label) { const c = P(47, 25); g.fillStyle = 'rgba(255,255,255,.5)'; g.font = `700 ${Math.round(S * 3.2)}px system-ui,sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(label, c[0], c[1]); }
+    if (label && !v.half) { const c = P(47, 25); g.fillStyle = 'rgba(255,255,255,.5)'; g.font = `700 ${Math.round(S * 3.2)}px system-ui,sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(label, c[0], c[1]); }
   }
+  const dotR = v => Math.max(6 * v.dpr, v.s * (v.half ? 1.05 : 1.35));
   function drawDot(g, v, x, y, col, num, hi) {
-    const S = v.s, c = [v.ox + x * S, v.oy + y * S], r = Math.max(6 * v.dpr, S * 1.35);
+    const c = v.P(x, y), r = dotR(v);
     if (hi) { g.beginPath(); g.arc(c[0], c[1], r * 1.55, 0, 7); g.fillStyle = 'rgba(255,230,90,.55)'; g.fill(); }
     g.beginPath(); g.arc(c[0] + r * 0.12, c[1] + r * 0.18, r, 0, 7); g.fillStyle = 'rgba(0,0,0,.22)'; g.fill();
     g.beginPath(); g.arc(c[0], c[1], r, 0, 7); g.fillStyle = col.fill; g.fill(); g.lineWidth = Math.max(1.5, r * 0.22); g.strokeStyle = col.line; g.stroke();
     if (num != null && num !== '') { g.fillStyle = col.ink; g.font = `700 ${Math.round(r * 1.05)}px system-ui,sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(String(num), c[0], c[1] + r * 0.05); }
   }
   function drawBall(g, v, x, y, z) {
-    const S = v.s, c = [v.ox + x * S, v.oy + y * S], r = Math.max(3.5 * v.dpr, S * (0.55 + z * 0.035));
+    const S = v.s, c = v.P(x, y), r = Math.max(3.5 * v.dpr, S * (v.half ? 0.45 : 0.55) * (1 + z * 0.06));
     if (z > 0.3) { g.beginPath(); g.ellipse(c[0] + z * S * 0.08, c[1] + z * S * 0.12, r * 0.8, r * 0.5, 0, 0, 7); g.fillStyle = 'rgba(0,0,0,.25)'; g.fill(); }
     const cy = c[1] - z * S * 0.18;
     g.beginPath(); g.arc(c[0], cy, r, 0, 7); g.fillStyle = '#f07a24'; g.fill(); g.lineWidth = Math.max(1, r * 0.22); g.strokeStyle = '#7a3208'; g.stroke();
@@ -105,15 +105,15 @@
   }
   function drawTag(g, v, x, y, text, col) {
     if (!text) return;
-    const S = v.s, c = [v.ox + x * S, v.oy + y * S - Math.max(6 * v.dpr, S * 1.35) - 4 * v.dpr], fs = Math.round(Math.max(10 * v.dpr, S * 1.5));
+    const p = v.P(x, y), c = [p[0], p[1] - dotR(v) - 4 * v.dpr], fs = Math.round(Math.max(10 * v.dpr, Math.min(16 * v.dpr, v.s * 1.5)));
     g.font = `700 ${fs}px system-ui,sans-serif`; const w = g.measureText(text).width + fs * 0.8;
     const bx = clamp(c[0] - w / 2, 2, v.w * v.dpr - w - 2), by = Math.max(2, c[1] - fs * 1.3);
     g.fillStyle = 'rgba(20,20,24,.82)'; g.beginPath(); if (g.roundRect) g.roundRect(bx, by, w, fs * 1.35, fs * 0.35); else g.rect(bx, by, w, fs * 1.35); g.fill();
     g.fillStyle = col || '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, bx + w / 2, by + fs * 0.7);
   }
   function drawPop(g, v, x, y, text, k, col) {
-    const S = v.s, c = [v.ox + x * S, v.oy + y * S - k * S * 4];
-    g.globalAlpha = clamp(1.4 - k, 0, 1); g.beginPath(); g.arc(v.ox + x * S, v.oy + y * S, S * (1 + k * 3), 0, 7); g.lineWidth = 2 * v.dpr; g.strokeStyle = col; g.stroke();
+    const S = Math.min(v.s, 14 * v.dpr), p = v.P(x, y), c = [p[0], p[1] + (v.half ? 1 : -1) * k * S * 4];
+    g.globalAlpha = clamp(1.4 - k, 0, 1); g.beginPath(); g.arc(p[0], p[1], S * (1 + k * 3), 0, 7); g.lineWidth = 2 * v.dpr; g.strokeStyle = col; g.stroke();
     g.font = `800 ${Math.round(S * 3)}px system-ui,sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineWidth = 3 * v.dpr; g.strokeStyle = 'rgba(0,0,0,.6)'; g.strokeText(text, c[0], c[1]); g.fillStyle = '#fff'; g.fillText(text, c[0], c[1]);
     g.globalAlpha = 1;
   }

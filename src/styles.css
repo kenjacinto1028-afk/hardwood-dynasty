@@ -708,3 +708,25 @@ td.wrapt.m { min-width: 130px; max-width: 200px; }
 /* v37b: History book / seasons list / All-time greats: name cells wrap instead of widening the table */
 table.hwrap td.l { white-space: normal; min-width: 80px; max-width: 170px; }
 table.hwrap td.l .muted { white-space: nowrap; }
+
+/* Phase 1: animations, confetti, result banner, settings (src/fx.js). --fx-mult = animation speed; .fx-off = skip animations */
+:root { --fx-mult: 1; }
+@keyframes fx-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+#main.fx-in { animation: fx-in calc(240ms * var(--fx-mult)) ease-out; }
+.fx-off #main.fx-in { animation: none; }
+.fx-confetti { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 60; }
+@keyframes fx-pop { 0% { opacity: 0; transform: translate(-50%, -10px) scale(.8); } 15% { opacity: 1; transform: translate(-50%, 0) scale(1.05); } 25% { transform: translate(-50%, 0) scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -6px); } }
+.fx-banner { position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 84px); transform: translateX(-50%); z-index: 61; padding: 10px 22px; border-radius: 999px; font-weight: 800; font-size: 20px; letter-spacing: .02em; color: #fff; box-shadow: 0 6px 24px rgba(0,0,0,.25); pointer-events: none; animation: fx-pop calc(1900ms * var(--fx-mult)) ease-out forwards; }
+.fx-banner.win { background: var(--a-green); }
+.fx-banner.loss { background: #5a6660; }
+#fx-modal .overlay { z-index: 40; }
+.fx-ck { display: flex; gap: 8px; align-items: flex-start; margin: 6px 0; cursor: pointer; }
+.fx-ck input { margin-top: 3px; width: 18px; height: 18px; }
+.fx-row { display: flex; align-items: center; gap: 10px; margin: 8px 0; flex-wrap: wrap; }
+.fx-row input[type=range] { flex: 1; min-width: 140px; max-width: 260px; }
+#b-mute { min-width: 36px; }
+/* shot charts: makes and misses */
+.scdots .mk { fill: var(--a-green); stroke: #fff; stroke-width: 1; }
+.scdots .ms { stroke: var(--a-red); stroke-width: 2.4; stroke-linecap: round; }
+.sc-pick { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
+.sc-pick button.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }

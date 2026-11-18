@@ -5,10 +5,10 @@
 (function () {
   const KEY = 'pbl-fx';
   const reduce = (() => { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } })();
-  const DEF = { vol: 0.6, mute: false, speed: 'normal', skip: reduce, confetti: true, live: true, ui: true };
+  const DEF = { vol: 0.6, mute: false, speed: 'normal', skip: reduce, confetti: true, live: true, ui: true, music: true, mvol: 0.35, cer: true, draftShow: true, draftTimer: false, stories: true };   // Phase 3: music, ceremonies, draft show, story popups
   let S = Object.assign({}, DEF);
   try { const raw = localStorage.getItem(KEY); if (raw) S = Object.assign({}, DEF, JSON.parse(raw)); } catch (e) { }
-  const saveS = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { } applyCss(); syncMute(); };
+  const saveS = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { } applyCss(); syncMute(); musicSync(); };
   const SPEED = { slow: 1.6, normal: 1, fast: 0.5 };
   const mult = () => SPEED[S.speed] || 1;
   function applyCss() {
@@ -54,7 +54,14 @@
     buzzer(c, t) { for (const f of [196, 247, 294]) tone(c, t, 'sawtooth', f, f, 0.01, 0.9, 0.12); },
     cheer(c, t, big) { const d = big ? 3.2 : 1.8; noise(c, t, 0.35, d, big ? 0.7 : 0.45, 'bandpass', 900, 1300, 0.7); noise(c, t + 0.1, 0.3, d * 0.9, 0.25, 'bandpass', 2400, 2000, 2); for (let i = 0; i < (big ? 8 : 4); i++) { const s = t + 0.2 + Math.random() * d * 0.6; tone(c, s, 'sine', 700 + Math.random() * 500, 1100 + Math.random() * 600, 0.08, 0.35, 0.04); } },
     groan(c, t) { noise(c, t, 0.2, 0.9, 0.3, 'bandpass', 700, 350, 0.8); },
-    click(c, t) { tone(c, t, 'sine', 900, 600, 0.002, 0.04, 0.15); }
+    click(c, t) { tone(c, t, 'sine', 900, 600, 0.002, 0.04, 0.15); },
+    // Phase 3
+    drumroll(c, t) { for (let i = 0; i < 26; i++) { const k = i / 26; noise(c, t + i * 0.06, 0.002, 0.05, 0.12 + 0.35 * k, 'bandpass', 260 + 200 * k, 0, 1.4); } tone(c, t + 1.56, 'sine', 120, 50, 0.003, 0.4, 1); noise(c, t + 1.56, 0.002, 0.5, 0.5, 'highpass', 5000); },
+    fanfare(c, t) { const n = [[392, 0, 0.16], [523, 0.16, 0.16], [659, 0.32, 0.16], [784, 0.48, 0.55], [659, 1.06, 0.14], [784, 1.2, 0.9]]; for (const [f, d, l] of n) { tone(c, t + d, 'sawtooth', f, f, 0.02, l, 0.09); tone(c, t + d, 'square', f / 2, f / 2, 0.02, l, 0.04); tone(c, t + d, 'triangle', f * 2, f * 2, 0.02, l, 0.05); } },
+    boo(c, t) { noise(c, t, 0.25, 1.3, 0.35, 'bandpass', 380, 260, 1.5); tone(c, t, 'sawtooth', 140, 110, 0.3, 1.1, 0.03); },
+    reveal(c, t) { tone(c, t, 'sine', 523, 1046, 0.01, 0.35, 0.18); tone(c, t + 0.08, 'triangle', 784, 1568, 0.01, 0.3, 0.1); },
+    tick(c, t) { tone(c, t, 'square', 1800, 1800, 0.001, 0.025, 0.06); },
+    page(c, t) { noise(c, t, 0.01, 0.12, 0.18, 'bandpass', 3000, 1200, 0.8); }
   };
   let lastAt = 0;
   function sfx(name, opt) {
@@ -64,6 +71,46 @@
     const now = c.currentTime; if (opt && opt.throttle && now - lastAt < opt.throttle) return; lastAt = now;
     try { SOUNDS[name](c, now + 0.01, opt && opt.big); } catch (e) { }
   }
+
+  // ---------- Phase 3: background music (made live with Web Audio, no files) ----------
+  // Two loops: 'menu' (laid-back chords) and 'game' (game-day groove while you watch a game live). Own volume (S.mvol), off with S.music or mute.
+  const SONGS = {
+    menu: { bpm: 84, ch: [[48, 55, 59, 64], [45, 52, 55, 60], [41, 48, 52, 57], [43, 50, 53, 59]], drums: 'soft', lead: [76, 74, 72, 71, 72, 74, 76, 79] },
+    game: { bpm: 112, ch: [[45, 52, 57, 60], [41, 48, 53, 57], [43, 50, 55, 59], [40, 47, 52, 56]], drums: 'beat', lead: [69, 72, 74, 76, 74, 72, 69, 67] }
+  };
+  let mus = { mood: null, want: 'menu', gain: null, timer: null, next: 0, step: 0, started: false };
+  const hz = m => 440 * Math.pow(2, (m - 69) / 12);
+  function mtone(c, t, type, f, a, d, peak, cut) {
+    const o = c.createOscillator(), g = c.createGain(), fl = c.createBiquadFilter(); o.type = type; o.frequency.value = f; fl.type = 'lowpass'; fl.frequency.value = cut || 1800;
+    env(g, t, a, peak, d); o.connect(fl); fl.connect(g); g.connect(mus.gain); o.start(t); o.stop(t + a + d + 0.05);
+  }
+  function mnoise(c, t, d, peak, type, f) { const s = c.createBufferSource(), fl = c.createBiquadFilter(), g = c.createGain(); s.buffer = noiseBuf; fl.type = type; fl.frequency.value = f; env(g, t, 0.002, peak, d); s.connect(fl); fl.connect(g); g.connect(mus.gain); s.start(t, Math.random()); s.stop(t + d + 0.05); }
+  function musicStep(c) {
+    const song = SONGS[mus.mood]; if (!song) return;
+    const q = 60 / song.bpm / 2;   // eighth notes
+    while (mus.next < c.currentTime + 0.25) {
+      const t = mus.next, st = mus.step, bar = Math.floor(st / 8) % song.ch.length, e = st % 8, ch = song.ch[bar];
+      if (e === 0) { for (const m of ch.slice(1)) mtone(c, t, 'triangle', hz(m), 0.08, q * 7, 0.05, 1400); mtone(c, t, 'sine', hz(ch[0] - 12), 0.01, q * 3, 0.22, 600); }
+      if (e === 4) mtone(c, t, 'sine', hz(ch[0] - 12 + (song.drums === 'beat' ? 7 : 0)), 0.01, q * 3, 0.18, 600);
+      if (song.drums === 'beat') { if (e === 0 || e === 3 || e === 4) mtone(c, t, 'sine', 70, 0.002, 0.18, 0.35, 300); if (e === 2 || e === 6) mnoise(c, t, 0.12, 0.12, 'bandpass', 1800); mnoise(c, t, 0.03, 0.035, 'highpass', 7000); }
+      else if (e % 2 === 0) mnoise(c, t, 0.04, 0.02, 'highpass', 8000);
+      if ((st >> 3) % 4 >= 2 && e % 2 === 0) { const m = song.lead[(st >> 1) % song.lead.length]; mtone(c, t, 'sine', hz(m), 0.02, q * 1.6, 0.04, 2400); }
+      mus.step++; mus.next += q;
+    }
+  }
+  function musicOn() { return S.music && !S.mute && S.vol > 0 && S.mvol > 0; }
+  function musicSync() {
+    if (!mus.started) return;
+    if (!musicOn()) { if (mus.gain) mus.gain.gain.value = 0; if (mus.timer) { clearInterval(mus.timer); mus.timer = null; } mus.mood = null; return; }
+    const c = ac(); if (!c) return;
+    if (!mus.gain) { mus.gain = c.createGain(); mus.gain.connect(c.destination); }
+    mus.gain.gain.value = S.mvol * S.mvol * S.vol;
+    if (mus.mood !== mus.want) { if (window.__fxLog) window.__fxLog.push('music:' + mus.want); mus.mood = mus.want; mus.step = 0; mus.next = c.currentTime + 0.1; }
+    if (!mus.timer) mus.timer = setInterval(() => { try { if (ctx) musicStep(ctx); } catch (e) { } }, 90);
+  }
+  function music(mood) { if (mood && mood !== mus.want) { mus.want = mood; musicSync(); } }
+  const musicStart = () => { if (mus.started) return; mus.started = true; musicSync(); };
+  ['pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, musicStart, { once: true, capture: true }));
 
   // ---------- animations ----------
   let lastKey = null;
@@ -144,11 +191,19 @@
     <div class="fx-row"><span>Volume</span><input type="range" id="fx-vol" min="0" max="100" step="5" value="${Math.round(S.vol * 100)}" aria-label="Volume"><span id="fx-volv" class="muted">${Math.round(S.vol * 100)}%</span></div>
     ${ck('live', 'Sounds while watching a game live', 'Swish, dunk, rim, block, whistle and buzzer')}
     ${ck('ui', 'Sim button sound', 'A ball bounce when you press a sim button')}
+    <h3 style="margin-top:14px">Music</h3>
+    ${ck('music', 'Background music', 'A laid-back loop on menus, a game-day groove when you watch a game live')}
+    <div class="fx-row"><span>Music volume</span><input type="range" id="fx-mvol" min="0" max="100" step="5" value="${Math.round(S.mvol * 100)}" aria-label="Music volume"><span id="fx-mvolv" class="muted">${Math.round(S.mvol * 100)}%</span></div>
     <div class="row" style="flex-wrap:wrap;gap:6px;margin:6px 0 4px"><span class="muted" style="font-size:12px">Try:</span>${['bounce', 'swish', 'dunk', 'rim', 'whistle', 'buzzer', 'cheer'].map(n => `<button class="sm" data-fxt="${n}">${n[0].toUpperCase() + n.slice(1)}</button>`).join('')}</div>
     <h3 style="margin-top:14px">Animations</h3>
     ${ck('skip', 'Skip animations', 'No page fades, count-ups, confetti or result banners')}
     <div class="fx-row"><span>Animation speed</span><span class="seg">${sp('slow')}${sp('normal')}${sp('fast')}</span></div>
     ${ck('confetti', 'Confetti when your team wins')}
+    <h3 style="margin-top:14px">Shows</h3>
+    ${ck('cer', 'Award and title ceremonies', 'Spotlights, drumroll and trophy reveal for the MVP and the champions')}
+    ${ck('draftShow', 'Draft night show', 'Animated pick reveals and crowd reactions')}
+    ${ck('draftTimer', 'Auto-pick when your draft clock runs out', 'Off: the clock is just for fun')}
+    ${ck('stories', 'Story popups', 'Illustrated story cards for big moments: rivalries, injuries, streaks, press conferences')}
     <div class="row" style="margin-top:14px;gap:8px"><button class="primary" id="fx-done">Done</button><button id="fx-reset">Reset to default</button><button id="fx-demo">Preview a win</button></div>`;
   }
   function openSettings() {
@@ -164,6 +219,8 @@
       const vol = m.querySelector('#fx-vol');
       vol.oninput = () => { S.vol = +vol.value / 100; m.querySelector('#fx-volv').textContent = vol.value + '%'; saveS(); };
       vol.onchange = () => sfx('bounce');
+      const mv = m.querySelector('#fx-mvol');
+      mv.oninput = () => { S.mvol = +mv.value / 100; m.querySelector('#fx-mvolv').textContent = mv.value + '%'; saveS(); };
       m.querySelectorAll('[data-fxc]').forEach(c => c.onchange = () => { S[c.dataset.fxc] = c.checked; saveS(); });
       m.querySelectorAll('[data-fxs]').forEach(b => b.onclick = () => { S.speed = b.dataset.fxs; saveS(); draw(); });
       m.querySelectorAll('[data-fxt]').forEach(b => b.onclick = () => sfx(b.dataset.fxt));
@@ -181,5 +238,5 @@
   }
   applyCss();
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind); else bind();
-  window.FX = { sfx, afterRender, gameResult, pbp, confetti, openSettings, get settings() { return Object.assign({}, S); }, set(k, v) { S[k] = v; saveS(); } };
+  window.FX = { sfx, afterRender, gameResult, pbp, confetti, banner, music, get musicMood() { return mus.mood; }, openSettings, get settings() { return Object.assign({}, S); }, set(k, v) { S[k] = v; saveS(); } };
 })();

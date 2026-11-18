@@ -1,5 +1,11 @@
 # PBL progress
 
+## Phase 3 part 1 (Opus, Nov 18 2026): #4 player cards, #12 trophies + ceremonies, #13 music
+- [x] **#4 Player cards** (`src/p3.js`): card per player (face, team colors, rating as you see it, position, season line, rarity border + shine). My team → Player cards (any team), Player card button on player pages. Save image / Share / Copy link (`#card=`).
+- [x] **#12 Trophies**: Trophy room view (banners, trophies, awards won there, retired numbers, Hall of Famers); MVP and title ceremonies (once per season, on top of the awards / champion popups).
+- [x] **#13 Music** (`src/fx.js`): menu + game-day loops, Background music + Music volume in Settings (also new: Shows section for ceremonies, draft show, draft clock auto-pick, story popups).
+- Tests: browser-p3 52/52 (index + single), browser-p1 70/70, browser-p2 67/67, lint PASS.
+
 ## Rebound fix (Opus, Nov 18 2026)
 - [x] **Fix**: after an offensive rebound on a missed shot, the offense now keeps the ball (and the rebounder can go straight back up for a putback). Before, the code for this sat inside a comment in engine.js, so the ball went to the other team.
 - [x] **Test season** (`tools/oreb-check.js`, NBA save at season 11, 2 seeds, per team per game, before -> after): points 107.4 -> 108.8, FG% 46.1 -> 47.0 (putbacks), assists 25.4 -> 24.9 (putbacks are unassisted), off. rebounds 10.6 -> 10.4, turnovers 14.6 (same), win% spread about the same. Small, realistic change; no retune needed.

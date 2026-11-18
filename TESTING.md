@@ -56,3 +56,5 @@ v37b: `node tools/t37b.js` (legacy mapping: day-1 top 3, legends' estimates, awa
 Phase 1 (Nov 18 2026): sound / animations / settings / shot charts: `node tools/browser-p1.js 8801 [index.html|pbl-single.html]` (Node Playwright; needs tools/_t1.json from the franchise snap).
 
 Phase 2 (Nov 18 2026): live court / commentary / top plays: `node tools/browser-p2.js [index.html|pbl-single.html]` (serves the folder through Playwright, no web server). `tools/browser-p1.js` also takes `route` as PORT for the same no-server mode.
+
+Phase 3: `node tools/browser-p3.js [index.html|pbl-single.html]` (cards, trophy room, ceremonies, music; later parts add draft show, stories, save/share, phone layout). `SHOTS=1` writes screenshots to tools/_p3-*.png.

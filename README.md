@@ -16,6 +16,14 @@ The game is split into small files so a change rewrites one file, not 1.3 MB.
 | `src/court.js` | Phase 2: animated court on a canvas: live game scenes per play (`COURT.live`) and the top-plays half-court replay (`COURT.reel`); reads the league through `window.__pblCourt` |
 | `src/index.template.html` | Page shell with markers `/*CSS*/ /*VENDOR*/ /*ENGINE*/ /*LEAGUE*/ /*NBA*/ /*APP*/` for the single-file build (`python3 -I build.py --single . [out.html]`, v33e) |
 
+## Phase 3 part 1 (Opus, Nov 18 2026): player cards, trophy room, ceremonies, music
+- New file `src/p3.js` (loaded after court.js; in the single-file build too). It reads app helpers through `window.PBL` (set at the end of app.js) and adds views through `window.P3V`.
+- Player cards (My team → Player cards, and a Player card button on every player page): trading card with face, team colors, rating, position, season PTS/REB/AST, rarity border (Common < 60, Rare 60+, Epic 70+ shine, Legendary 80+ holo + sparkles, Hall of Fame). Tilt on hover, flip-in. Save image (PNG), Share (phone share sheet), Copy link (`#card=` link opens the card anywhere).
+- Trophy room (News & history → Trophy room): any team's banners, championship trophies, player awards won there, coach / executive awards, retired numbers, Hall of Famers.
+- Ceremonies: spotlights, drumroll and trophy reveal for the MVP (end of regular season) and the champions (banner drop, fanfare, confetti). Click / Esc / Continue to close. Off with Skip animations or the new setting.
+- Music (src/fx.js): made live with Web Audio, no files. Laid-back menu loop; game-day groove while you watch a game live. Settings: Background music on/off + Music volume. Starts after your first tap (browser rule).
+- Test: `node tools/browser-p3.js [index.html|pbl-single.html]` (52 checks, 1300 + 390).
+
 ## Phase 2 (Opus, Nov 18 2026): live court, commentary ticker, top plays
 - Live game: animated top-down court above the floor lists (dots in team colors with jersey numbers move, pass, shoot; ball flight, makes, rebounds, blocks, steals, free throws, timeouts). Follows the live speed; Pause freezes it; Skip animations / Instant jump to the end of each play.
 - Commentary ticker beside the court (under it on phones): a commentator line per play plus runs, ties, lead changes, 20/30/40-point games, double- and triple-doubles.

@@ -2,11 +2,11 @@
 PR A: offensive-rebound fix. PR B/C/D: Phase 3 (#4 cards, #13 music, #12 trophies / #7 save-share, #11 draft night / #8 story events, #6 phone layout). PR E: mobile pass.
 - [x] A1. engine.js: un-comment the offensive-rebound code (keep ball, putback) -> src/engine.js line ~2234
 - [x] A2. Test season before/after (tools/oreb-check.js): pts +1.4, FG% +0.9, ast -0.5; t36 27/27, t34 19/19, lint, browser-p2 67/67
-- [ ] A3. PROGRESS + PR + merge
-- [ ] B1. #4 player cards (rarity borders, save as image)
-- [ ] B2. #13 background music (Web Audio loops, volume in Settings)
-- [ ] B3. #12 trophies + awards ceremonies + trophy case
-- [ ] B4. tests, PR, merge
+- [x] A3. PR #3 merged (7a06ac2)
+- [x] B1. #4 player cards -> src/p3.js (cards view, card popup, PNG/share/link), app.js PBL + P3V hooks, styles.css
+- [x] B2. #13 music -> src/fx.js SONGS menu/game, settings Music + Shows
+- [x] B3. #12 Trophy room view + MVP/title ceremonies (p3.js, app.js afterRun)
+- [x] B4. tools/browser-p3.js 52/52 (index + single), p1 70/70, p2 67/67, lint
 - [ ] C1. #7 save / share / import (file + link)
 - [ ] C2. #11 draft night show
 - [ ] C3. #8 story events

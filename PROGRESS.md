@@ -1,5 +1,10 @@
 # PBL progress
 
+## Phase 2 (Opus, Nov 18 2026): animated court view, play-by-play ticker, top plays
+Plan: Phase 2 of Kenneth's plan (features #1, #10, #5). Branch `phase2-live-court-ticker-highlights`.
+- [x] **Engine** (no change to results: same scores on a 5-day check): shot entries in the play-by-play keep a shot code (`entry[10]` = zone x 10 + type: 0 dunk, 1 layup, 2 paint, 3 mid, 4 three). Every game (not only yours) keeps its top 3 plays in `game.hl` = [score, kind, player, side, q, clock, home pts, away pts, zone, type, assist, other]; kinds D dunk, 3 three, A and-one, P putback dunk, B block, G game-winner (go-ahead shot by the winner in the last 24 s).
+- [x] **#1 Animated court** (`src/court.js`, canvas): full court with both teams' dots (team colors, jersey numbers); each play moves them into a set, the ball goes from the handler to the shooter (pass when assisted), flies to the rim, then drops in (+2 / +3 pop) or caroms to the rebounder; blocks, steals, free throws, timeouts and quarter breaks have their own moves. Home attacks right in the first half. Timing follows the live speed; Instant or "Skip animations" jumps to the end of each play.
+
 ## Phase 1 (Opus, Nov 18 2026): sound effects + mute, screen animations, settings page, shot charts
 Plan: Phase 1 of Kenneth's plan (features #3, #9, #14, #2). Branch `phase1-sound-anim-settings-shotcharts`.
 - [x] **#3 Sound effects** (`src/fx.js`, new): all sounds made with the Web Audio API, no audio files: bounce, swish, rim, dunk, block, whistle, buzzer, cheer, groan. Sim buttons bounce; after a sim your last game gives a cheer (win) or groan (loss) with a banner ("Win 112-104" / "Won last game … · 3-1 this sim"); a title gives the buzzer + big crowd. Live games (`fxLive` in `lvTick`): sound per play from the play-by-play (score change + text: dunk / 3PT / make / block / miss, timeout whistle, quarter buzzer), final buzzer then crowd or groan for your team. Fast live speeds are throttled. 🔊 header button mutes (🔇 when off).

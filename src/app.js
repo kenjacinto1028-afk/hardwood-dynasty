@@ -2784,9 +2784,11 @@ function vLive(g) {
     return `<div class="tblwrap"><table class="lv-box"><thead><tr><th class="l">${esc(L.teams[tid].abbr)}</th><th>Min</th><th>Pts</th><th>Reb</th><th>Ast</th><th>Stl</th><th>Blk</th><th>TO</th><th>PF</th><th>FG</th><th>3P</th><th>FT</th><th title="Plus-minus">+/-</th></tr></thead><tbody>${ps.map(id => { const x = st[id], p = L.players[id], pmv = rp.pm[id] || 0; return `<tr class="${onSet.has(id) ? 'oncourt' : ''}"><td class="l">${onSet.has(id) ? '<span class="lv-dot" title="On the floor"></span>' : ''}${p ? esc(shortName(p)) : 'Player'}</td><td>${minTxt(rp.min[id] || 0)}</td><td><strong>${v(x, 1)}</strong></td><td>${v(x, 8) + v(x, 9)}</td><td>${v(x, 10)}</td><td>${v(x, 11)}</td><td>${v(x, 12)}</td><td>${v(x, 13)}</td><td class="${v(x, 14) >= 5 ? 'lo' : ''}">${v(x, 14)}</td><td>${v(x, 2)}-${v(x, 3)}</td><td>${v(x, 4)}-${v(x, 5)}</td><td>${v(x, 6)}-${v(x, 7)}</td><td class="${pmv > 0 ? 'w' : pmv < 0 ? 'lo' : ''}">${pmTxt(pmv)}</td></tr>`; }).join('')}</tbody></table></div>`; };
   const ctl = `<div class="row" style="gap:6px;flex-wrap:wrap;align-items:center"><button class="sm ${lv.paused ? 'primary' : ''}" data-lv="pause" ${done ? 'disabled' : ''}>${lv.paused ? '▶ Play' : '❚❚ Pause'}</button><span class="seg">${LV_SPEED.map(([k, t]) => `<button class="sm ${lv.speed === k ? 'primary' : ''}" data-lv="sp:${k}" ${done ? 'disabled' : ''}>${t}</button>`).join('')}</span><span class="seg">${[['all', 'All'], ['score', 'Scoring plays'], ['close', 'Close & late']].map(([k, t]) => `<button class="sm ${lv.f === k ? 'primary' : ''}" data-lv="f:${k}">${t}</button>`).join('')}</span><button class="sm" data-lv="box">Final box score</button></div>`;
   return `<div class="row" style="margin-bottom:10px"><button data-back="1">Back</button></div><section class="panel" style="margin-bottom:12px"><div class="k">${seasonName(g.season)} · ${g.playoff ? esc(g.stage) + ' · Game ' + g.gnum : dayTxt(g.day, g.season)} · Live</div>
-  <div class="lv-board" id="lv-board">${team(1, g.away, as)}<div class="lv-clock">${done ? '<strong>Final</strong>' + (g.ot ? '/' + (g.ot > 1 ? g.ot : '') + 'OT' : '') : `<strong>${qTxt(q)}</strong><br>${clockTxt(c)}`}</div>${team(0, g.home, hs)}</div><div class="lv-court" id="lv-court">${courtWin(1, g.away)}${courtWin(0, g.home)}</div>${ctl}</section>
+  <div class="lv-board" id="lv-board">${team(1, g.away, as)}<div class="lv-clock">${done ? '<strong>Final</strong>' + (g.ot ? '/' + (g.ot > 1 ? g.ot : '') + 'OT' : '') : `<strong>${qTxt(q)}</strong><br>${clockTxt(c)}`}</div>${team(0, g.home, hs)}</div><div class="lv-stage"><div class="lv-anim"><canvas id="lv-canvas" role="img" aria-label="Animated court: dots are players, orange is the ball"></canvas><div class="lv-key muted"><span class="lv-sw" style="background:${esc(L.teams[g.away].c1 || '#888')}"></span>${esc(L.teams[g.away].abbr)} <span class="lv-sw" style="background:${esc(L.teams[g.home].c1 || '#888')}"></span>${esc(L.teams[g.home].abbr)} · numbers are jerseys</div></div>${lvTicker(g, n)}</div><div class="lv-court" id="lv-court">${courtWin(1, g.away)}${courtWin(0, g.home)}</div>${ctl}</section>
   <div class="grid2"><section class="panel"><h3>Play-by-play</h3><div class="lv-feed" id="lv-feed">${shown.slice(0, 400).map(e => lvEntryHtml(g, e)).join('') || '<p class="muted">Tip-off…</p>'}</div></section><section class="stack"><div class="panel"><h3>Box score</h3>${boxT(1, g.away)}${boxT(0, g.home)}</div></section></div>`;
 }
+// Phase 2: commentary ticker beside the court (filled in step 3)
+function lvTicker(g, n) { return ''; }
 // Phase 1: live-game sounds for the entry just shown; buzzer + crowd at the final
 function fxLive(g, i) {
   if (!window.FX || !i) return;
@@ -2797,9 +2799,10 @@ function lvTick() {
   const lv = ui.lv; if (!lv) return; clearTimeout(lv.timer); lv.timer = null;
   const g = L && L.games.find(x => x.id === lv.gid);
   if (!g || ui.game !== lv.gid || ui.liveMode !== lv.gid || !g.pbp) return;
+  if (window.COURT) { const sp0 = LV_SPEED.find(x => x[0] === lv.speed) || LV_SPEED[1]; COURT.live(g, Math.min(lv.i, g.pbp.length), lv.paused ? 0 : sp0[2]); }   // Phase 2: animated court
   if (lv.paused || lv.i >= g.pbp.length) return;
   const sp = LV_SPEED.find(x => x[0] === lv.speed) || LV_SPEED[1];
-  if (!sp[2]) { lv.i = g.pbp.length; render(); fxLive(g, lv.i); return; }
+  if (!sp[2]) { lv.i = g.pbp.length; render(); fxLive(g, lv.i); if (window.COURT) COURT.live(g, lv.i, 0); return; }
   lv.timer = setTimeout(() => { if (ui.lv !== lv || ui.liveMode !== lv.gid) return; lv.i++; const y = window.scrollY; render(); window.scrollTo(0, y); fxLive(g, lv.i); lvTick(); }, sp[2]);
 }
 // Phase 1: shot chart pickers (box score team / player; player page view + season)
@@ -5529,6 +5532,7 @@ function doUndo() {
 }
 // ---------- boot ----------
 // test hook (read-only access for automated tests)
+window.__pblCourt = { get L() { return L; }, scSpot, scRng };   // Phase 2: court.js reads the league and the shot-zone helpers
 window.__pbl = { get L() { return L; }, save: () => save(), render: () => render(), awardsDialog: t => awardsDialog(t), championDialog: () => championDialog(), trainCheckDialog: () => queueDialog(trainCheckDialog), openPlayer: id => { ui.player = id; render(); }, review: S => seasonReviewDialog(S), get ui() { return ui; }, interruptKind: () => interruptKind(), dlg: n => runDialog({ iv: ivDialog, mtg: mtgDialog, drama: dramaDialog }[n]), v30: { logo, logoBody, hexContrast, pipeLogo, todo: { on: () => todoOn(), state: () => todoState(), group: () => todoGroup(), list: g => todoList(g), open: g => todoOpenCount(g), stopEnd: e => todoStopEnd(e) } }, pipeUi: { pipeSchool: p => pipeSchool(p), pipeLatest: () => pipeLatest(), stockChip: p => stockChip(p) } };   // v29: test hooks
 (async () => {
   $('#main').innerHTML = '<p class="muted">Loading your league…</p>';

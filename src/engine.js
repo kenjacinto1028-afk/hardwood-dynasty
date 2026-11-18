@@ -409,7 +409,7 @@ const MARKET = { MNL: 3, CEB: 3, DAV: 3, ANT: 2, BAG: 2, ANG: 2, ILO: 2, BAC: 2,
   TPE: 3, HKG: 3, BKK: 3, JKT: 3, SIN: 3, HAN: 2, MAC: 2, VTE: 2, KUL: 2, PNH: 2, POM: 2, NPT: 1, BWN: 1, DIL: 1 };
 const confOfDef = d => d[7] || (d[3] === 'Luzon' ? 'North' : 'South');
 const leagueDefs = size => size === 16 ? TEAM_DEFS : [...TEAM_DEFS, ...EXP_DEFS];
-const isBig = L => L.teams.length > 16;
+const isBig = L => L.teams.length >= 24;   // Phase A: leagues of 24+ teams use the 30-team formats (expansion can make 18-22 or 32-36)
 // v22: divisions (30-team leagues) for rivalries and division titles; the schedule is unchanged
 const DIVISIONS = { Metro: ['MNL', 'ANT', 'TAG', 'BAT', 'LGZ'], 'Northern Seas': ['BAG', 'ANG', 'VIG', 'TPE', 'HKG'], Mekong: ['BKK', 'HAN', 'MAC', 'VTE', 'NPT'],
   Visayas: ['CEB', 'ILO', 'BAC', 'TAC', 'BWN'], Mindanao: ['DAV', 'ZAM', 'CDO', 'GSC', 'DIL'], Straits: ['JKT', 'SIN', 'KUL', 'PNH', 'POM'] };
@@ -1134,10 +1134,26 @@ function pairGames(teams, i, j, G, slots, s) {
   const [x, y] = a.ci === 0 ? [a, b] : [b, a];                      // 66: 9 x 2 + 6 x 1 = 24 against the other conference
   return ((y.q - x.q - s) % 15 + 30) % 15 <= 5 ? 1 : 2;
 }
+// Phase A: any other league size (after expansion): every team plays exactly G games. Base a games vs each conference rival and b vs each
+// other team, then the leftover games go to a rotating ring of opponents (conference rivals first), so each team gets the same number.
+function pairMatrix(teams, G, s) {
+  const n = teams.length, idx = teams.map((t, i) => i).sort((x, y) => String(teams[x].conf).localeCompare(String(teams[y].conf)) || x - y);
+  const c = teams.filter(t => t.conf === teams[0].conf).length, sm = c - 1, ot = n - c;
+  let best = null;
+  for (let b = 1; b <= 12; b++) for (let a = b; a <= b + 3; a++) { const r = G - sm * a - ot * b; if (r < 0 || r > n - 1 || (r % 2 && n % 2)) continue; const sc = r * 0.2 + Math.abs(a / b - 1.5); if (!best || sc < best.sc) best = { a, b, r, sc }; }
+  if (!best) best = { a: 1, b: 1, r: 0 };
+  const M = Array.from({ length: n }, () => new Array(n).fill(0));
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) if (i !== j) M[i][j] = teams[i].conf === teams[j].conf ? best.a : best.b;
+  const rot = idx.map((_, k) => idx[(k + (s || 0)) % n]), add = (x, y) => { M[x][y]++; M[y][x]++; };
+  for (let k = 1; k <= Math.floor(best.r / 2); k++) for (let q = 0; q < n; q++) add(rot[q], rot[(q + k) % n]);
+  if (best.r % 2) for (let q = 0; q < n / 2; q++) add(rot[q], rot[q + n / 2]);
+  return M;
+}
 function makeSchedule(teams, G, season) {
   const games = [], n = teams.length, slots = schedSlots(teams), s = season || 0;
+  const PM = n !== 16 && n !== 30 ? pairMatrix(teams, G || 58, s) : null;
   for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
-    const cnt = pairGames(teams, i, j, G, slots, s);
+    const cnt = PM ? PM[i][j] : pairGames(teams, i, j, G, slots, s);
     for (let r = 0; r < cnt; r++) games.push((r + i + j + (cnt % 2 ? s : 0)) % 2 ? [i, j] : [j, i]);
   }
   for (let i = games.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [games[i], games[j]] = [games[j], games[i]]; }
@@ -2462,7 +2478,7 @@ const PO_STAGES = ['Play-in', 'Conference semifinals', 'Conference finals', 'Fin
 // First round 1v8, 4v5, 2v7, 3v6, conference semis, conference finals and Finals: all best of 7 (v30a; was best of 5 before the Finals).
 const PO_STAGES_BIG = ['Play-in', 'Play-in: last spot', 'First round', 'Conference semifinals', 'Conference finals', 'Finals'];
 const PO_BIG_BEST = 7;   // v30a #24: first round, conference semis and conference finals are best of 7 in 30-team leagues (was 5); the Finals were already 7
-const poStages = L => (L.po && L.po.big) || (L.teams && L.teams.length > 16) ? PO_STAGES_BIG : PO_STAGES;
+const poStages = L => (L.po && L.po.big != null ? L.po.big : L.teams && isBig(L)) ? PO_STAGES_BIG : PO_STAGES;
 const isPlayin = (L, i) => /Play-in/.test(poStages(L)[i] || '');
 // Result label from the last stage a team reached (works for both formats and old saves)
 function poLabel(stage, won) {

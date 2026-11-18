@@ -5598,6 +5598,7 @@ function startFA(L) {
   for (const id of L.resign || []) { const p = L.players[id]; const t0 = L.teams[p.team]; const wasRookie = p.contract && p.contract.type === 'rookie'; if (!wasRookie && ((p.morale != null && p.morale < 40 && p.ovr >= 65) || (p.ovr >= 70 && rotationOf(L, t0).slice(0, 5).some(x => x.id === p.id)))) addGrudge(L, p, t0.id, 'you let him walk'); p.tx.push({ s: L.season, t: `Contract with ${t0.abbr} expired` }); toFA(L, p); if (wasRookie && p.ovr >= 60) p.rfa = { tid: t0.id, s: L.season, want: true }; }
   expireTwoWays(L);
   L.resign = [];
+  try { if (xpnRun(L)) topUpFA(L, 40 + 12 * L.teams.length / 16); } catch (e) { console.error('expansion', e); }   // Phase A: new teams join before free agency
   for (const id of L.fa) { const p = L.players[id]; if (p.ask == null) setAsk(L, p); }
   if (V244.b2) for (const id of L.fa) { const p = L.players[id]; if (p && p.ovr >= 76 && (p.suitors || 0) >= 3) logNews(L, `${p.name} is expected to draw several bids (${p.suitors} teams can make a real offer)`, null, 'tx'); }   // v24.4
   topUpFA(L, 40);
@@ -6436,7 +6437,7 @@ function hireCoach(L, tid, coachId, silent, yrs) {
 function setupDivisions(L) {
   if (!isBig(L) || L.divsDone) return;
   L.divsDone = true;
-  for (const t of L.teams) t.div = divOf(t.abbr);
+  for (const t of L.teams) t.div = t.div || divOf(t.abbr);
   for (const a of L.teams) for (const b of L.teams) if (a.id < b.id && a.div && a.div === b.div) { const r = h2h(L, a.id, b.id); r.heat = r1(Math.max(r.heat, 2)); r.div = true; }
 }
 // v26.6: season length. Old saves keep 58; the two-way game limit scales with it (20 of 58 -> 28 of 82)
@@ -9519,3 +9520,160 @@ Object.assign(FLAVOR, {
   'mv.t.dump': ['dumped salary', 'needed to shed a big contract', 'paid to move a contract', 'cleared a contract off the books'],
   'mv.t.clear': ['made room under the hard cap to keep a starter', 'cleared hard-cap room for a re-signing', 'moved a contract to keep a key player', 'freed cap room to re-sign one of their own']
 });
+
+// ===== Phase A (Nov 18 2026): expansion teams + expansion draft =====
+// The league office plans new teams (in pairs, one per conference) any time before free agency; they join at the start of free agency
+// (after the draft and re-signing), pick players in an expansion draft (each team protects XPN_PROTECT players), then fill up in free agency.
+// city, nickname, abbr, region, c1, c2, motif, market
+const XPN_PBL = [
+  ['Seoul', 'Tigers', 'SEO', 'Korea', '#c8102e', '#1d2a5c', 'fist', 3], ['Tokyo', 'Thunder', 'TYO', 'Japan', '#1a1a1a', '#e63946', 'fist', 3],
+  ['Osaka', 'Castles', 'OSA', 'Japan', '#3b2f8f', '#f2c14e', 'arch', 3], ['Sydney', 'Harbour Kings', 'SYD', 'Australia', '#0b4f8a', '#f2c230', 'compass', 3],
+  ['Auckland', 'Kiwis', 'AKL', 'New Zealand', '#1a1a1a', '#cfd8dc', 'wing', 2], ['Kaohsiung', 'Steelers', 'KHH', 'Taiwan', '#4a5568', '#f6ad55', 'shield', 2],
+  ['Ho Chi Minh City', 'Dragons', 'SGN', 'Vietnam', '#b91c1c', '#facc15', 'naga', 3], ['Surabaya', 'Sharks', 'SUB', 'Indonesia', '#0e7490', '#f8fafc', 'junk', 2],
+  ['Suva', 'Breakers', 'SUV', 'Fiji', '#0284c7', '#f1f5f9', 'ferry', 1], ['Hagatna', 'Navigators', 'GUM', 'Guam', '#1e3a8a', '#f59e0b', 'compass', 1],
+  ['Penang', 'Pearls', 'PEN', 'Malaysia', '#7c3aed', '#fde68a', 'lotus', 2], ['Chiang Mai', 'Tuskers', 'CNX', 'Thailand', '#065f46', '#fcd34d', 'elephant', 1]];
+const XPN_NBA = [
+  ['Seattle', 'Sound', 'SEA', 'West', '#00653a', '#ffc200', 'peaks', 3], ['Las Vegas', 'Aces High', 'LVG', 'West', '#1a1a1a', '#c8a24a', 'star', 2],
+  ['Vancouver', 'Grizzly Kings', 'VAN', 'West', '#00285e', '#6fb7e8', 'ridge', 2], ['Mexico City', 'Aztecs', 'MEX', 'West', '#006847', '#ce1126', 'volcano', 3],
+  ['Kansas City', 'Monarchs', 'KCM', 'West', '#004687', '#bd9b60', 'shield', 2], ['Louisville', 'Thoroughbreds', 'LOU', 'East', '#c8102e', '#1a1a1a', 'spear', 2],
+  ['Nashville', 'Notes', 'NSH', 'East', '#1f2a44', '#f2a900', 'star', 2], ['Montreal', 'Royals', 'MTL', 'East', '#003da5', '#ef3340', 'cross', 3],
+  ['Pittsburgh', 'Ironmen', 'PIT', 'East', '#1a1a1a', '#ffb612', 'fist', 2], ['St. Louis', 'Spirits', 'STL', 'East', '#002f6c', '#c41e3a', 'arch', 2],
+  ['Baltimore', 'Bullets', 'BAL', 'East', '#e03a3e', '#002b5c', 'compass', 2], ['San Diego', 'Surf', 'SDS', 'West', '#002d62', '#f5b301', 'wing', 2]];
+const XPN_PROTECT = 8, XPN_MAX = 36, XPN_PER_DRAFT = 11;
+const xpnList = L => L.nba ? XPN_NBA : XPN_PBL;
+// cities not in the league and not already planned
+function xpnCandidates(L) {
+  const used = new Set([...L.teams.map(t => t.abbr), ...((L.xpnPlan && L.xpnPlan.teams) || []).map(d => d.abbr)]);
+  const cities = new Set(L.teams.map(t => t.city));
+  return xpnList(L).filter(d => !used.has(d[2]) && !cities.has(d[0])).map(d => ({ city: d[0], name: d[1], abbr: d[2], region: d[3], c1: d[4], c2: d[5], logo: d[6], market: d[7] }));
+}
+// the offseason the plan takes effect: this one until free agency starts, then next season's
+function xpnSeason(L) { return ['off-fa', 'off-ready'].includes(L.phase) ? L.season + 1 : L.season; }
+function xpnMotifs() { return typeof MOTIF === 'object' ? Object.keys(MOTIF) : ['star', 'fist', 'shield', 'compass', 'wing', 'peaks']; }
+// check one team definition (from the team creator); returns an error text or null
+function xpnCheckDef(L, d, others) {
+  if (!d || !String(d.city || '').trim() || !String(d.name || '').trim()) return 'Give the team a city and a nickname.';
+  const ab = String(d.abbr || '').trim().toUpperCase();
+  if (!/^[A-Z]{2,4}$/.test(ab)) return 'The short name needs 2-4 letters.';
+  const all = [...L.teams, ...(others || [])];
+  if (all.some(t => t.abbr === ab)) return `${ab} is already taken.`;
+  if (all.some(t => String(t.city).toLowerCase() === String(d.city).trim().toLowerCase() && String(t.name).toLowerCase() === String(d.name).trim().toLowerCase())) return 'That team name is already taken.';
+  if (!/^#[0-9a-fA-F]{6}$/.test(d.c1 || '') || !/^#[0-9a-fA-F]{6}$/.test(d.c2 || '')) return 'Pick two team colors.';
+  return null;
+}
+// plan expansion: defs = 2 or 4 team definitions (half go to each conference). Returns an error text or null.
+function xpnPlan(L, defs, opts) {
+  opts = opts || {};
+  if (!Array.isArray(defs) || !defs.length || defs.length % 2) return 'Add teams in pairs (one for each conference).';
+  if (defs.length > 4) return 'Up to 4 new teams at a time.';
+  if (L.teams.length + defs.length > XPN_MAX) return `The league can have at most ${XPN_MAX} teams.`;
+  const clean = [];
+  for (const d of defs) { const e = xpnCheckDef(L, d, clean); if (e) return e; clean.push({ city: String(d.city).trim(), name: String(d.name).trim(), abbr: String(d.abbr).trim().toUpperCase(), region: String(d.region || d.city).trim(), c1: d.c1, c2: d.c2, logo: xpnMotifs().includes(d.logo) ? d.logo : 'star', market: [1, 2, 3].includes(+d.market) ? +d.market : 2, conf: CONFS.includes(d.conf) ? d.conf : null }); }
+  // conferences: keep them even
+  const half = clean.length / 2; let n = 0;
+  for (const c of clean) if (c.conf === 'North') n++;
+  for (const c of clean) if (!c.conf) { c.conf = n < half ? 'North' : 'South'; if (c.conf === 'North') n++; }
+  if (clean.filter(c => c.conf === 'North').length !== half) return 'Put half the new teams in each conference.';
+  const prot = opts.protect != null ? clamp(Math.round(opts.protect), 6, 10) : XPN_PROTECT;
+  L.xpnPlan = { s: xpnSeason(L), teams: clean, protect: prot, mine: (L.xpnPlan && L.xpnPlan.mine) || null, made: L.season };
+  logNews(L, `League expansion: ${clean.map(c => `${c.city} ${c.name}`).join(', ')} will join ${L.xpnPlan.s === L.season ? 'this offseason' : 'next offseason'}, before free agency.`, null, 'league');
+  return null;
+}
+function xpnCancel(L) { if (!L.xpnPlan) return 'No expansion is planned.'; logNews(L, 'League expansion called off.', null, 'league'); L.xpnPlan = null; return null; }
+// who a team can lose: under contract past this season, not a rookie from this draft, not a two-way player
+function xpnPool(L, t) { return rosterOf(L, t).filter(p => p.contract && p.contract.exp > L.season && !(p.draft && p.draft.s === L.season) && !p.retired); }
+// value a team puts on keeping a player (AI protection) or an expansion team on taking him
+function xpnValue(L, p, forNew) {
+  const young = p.age <= 24 ? Math.max(0, (p.pot || p.ovr) - p.ovr) * 0.5 : 0, old = p.age >= 31 ? (p.age - 30) * (forNew ? 2.2 : 1.2) : 0;
+  const amt = (p.contract && p.contract.amt) || 0, mv = p.mval != null ? p.mval : amt, over = Math.max(0, amt - mv) * (forNew ? 0.5 : 0.25);
+  return p.ovr + young - old - over;
+}
+function xpnAutoProtect(L, t, n) { return xpnPool(L, t).sort((a, b) => xpnValue(L, b, false) - xpnValue(L, a, false)).slice(0, n).map(p => p.id); }
+// your protected list (franchise mode): set it on the Expansion page; missing or short lists are filled with your best players
+function xpnSetMine(L, ids) {
+  if (!L.xpnPlan) return 'No expansion is planned.';
+  const t = L.teams[L.user]; if (!t) return null;
+  const pool = new Set(xpnPool(L, t).map(p => p.id)), list = [...new Set(ids || [])].filter(id => pool.has(id));
+  if (list.length > L.xpnPlan.protect) return `You can protect ${L.xpnPlan.protect} players.`;
+  L.xpnPlan.mine = list; return null;
+}
+function xpnProtected(L, t, n) {
+  if (t.id === L.user && L.xpnPlan && L.xpnPlan.mine) { const pool = new Set(xpnPool(L, t).map(p => p.id)), mine = L.xpnPlan.mine.filter(id => pool.has(id)).slice(0, n); if (mine.length < n) for (const id of xpnAutoProtect(L, t, n)) if (mine.length < n && !mine.includes(id)) mine.push(id); return mine; }
+  return xpnAutoProtect(L, t, n);
+}
+// build one new team (everything a team has at the start of a league, plus finances, staff, picks)
+function xpnMakeTeam(L, d) {
+  const id = L.teams.length;
+  const t = { id, city: d.city, name: d.name, abbr: d.abbr, region: d.region, conf: d.conf, market: d.market, c1: d.c1, c2: d.c2, logo: d.logo, coach: null, w: 0, l: 0, hw: 0, hl: 0, aw: 0, al: 0, pf: 0, pa: 0, cw: 0, cl: 0, streak: 0, roster: [], dead: [], mode: 'rebuild', titles: 0, retired: [],
+    logoStyle: 'ABC'[id % 3], logoShape: ['shield', 'circle', 'diamond', 'square'][id % 4], xpn: L.season, born: L.season + 1, twoWay: [], scoutAssign: [], coachOwed: [], taxYears: [], finHist: [], sponsorHist: [] };
+  L.teams.push(t);
+  if (typeof MARKET === 'object') MARKET[t.abbr] = t.market;
+  if (!L.coachPool.length) L.coachPool.push(genCoach(usedNames(L)));
+  const c = pickCoachFor(L, t);
+  L.coachPool = L.coachPool.filter(x => x.id !== c.id); L.coachPool.push(c);
+  t.coach = c; hireCoach(L, id, c.id, true);
+  L.coachPool.push(genCoach(usedNames(L)));   // keep the pool size
+  initFinance(L, t);
+  t.cash = 15 + t.market * 10; t.hype = 58 + t.market * 3;   // new-team buzz, less money in the bank
+  if (t.owner) { t.owner.trust = 70; t.owner.goal = null; }
+  if (t.gm) t.gm.since = L.season + 1;
+  ensurePicks(L);
+  L.picks = L.picks.filter(k => !(k.orig === id && k.s <= L.season));   // this season's draft is over
+  return t;
+}
+// put new teams into divisions (leagues with divisions): smallest division of the conference
+function xpnDivisions(L, news) {
+  if (!isBig(L)) return;
+  if (!L.divsDone) { L.divsDone = true; for (const t of L.teams) if (!t.div) t.div = divOf(t.abbr); }
+  const order = (L.nba && typeof NBA_DIV_ORDER === 'object' ? NBA_DIV_ORDER : DIV_ORDER);
+  for (const t of L.teams) if (!t.div || news.includes(t)) {
+    if (news.includes(t) && t.div) continue;
+    const ds = order[t.conf] || []; if (!ds.length) continue;
+    t.div = ds.slice().sort((a, b) => L.teams.filter(x => x.div === a).length - L.teams.filter(x => x.div === b).length)[0];
+  }
+}
+// run it: called at the start of free agency (startFA). Returns the log entry or null.
+function xpnRun(L) {
+  const P = L.xpnPlan; if (!P || P.s !== L.season) return null;
+  L.xpnPlan = null;
+  const S = L.season, old = L.teams.slice(), news = P.teams.map(d => xpnMakeTeam(L, d));
+  xpnDivisions(L, news);
+  // protected lists and the pool
+  const lose = Math.max(1, Math.ceil(XPN_PER_DRAFT * news.length / old.length)), taken = {}, prot = {}, avail = [];
+  for (const t of old) { prot[t.id] = xpnProtected(L, t, P.protect); taken[t.id] = 0; for (const p of xpnPool(L, t)) if (!prot[t.id].includes(p.id)) avail.push(p); }
+  const picks = [], cap = CAP * 0.92, posN = t => { const c = [0, 0, 0, 0, 0]; for (const id of t.roster) c[L.players[id].pos]++; return c; };
+  // order: snake, a random team first
+  const ord = news.slice().sort(() => R() - 0.5);
+  for (let r = 0; r < XPN_PER_DRAFT + 3; r++) {
+    const row = r % 2 ? ord.slice().reverse() : ord;
+    for (const t of row) {
+      if (t.roster.length >= XPN_PER_DRAFT + 2) continue;
+      const pay = payroll(L, t), pc = posN(t);
+      const c = avail.filter(p => p.team != null && taken[p.team] < lose && L.teams[p.team] && !news.some(n => n.id === p.team) && pay + ((p.contract && p.contract.amt) || 0) <= cap && pc[p.pos] < 4)
+        .sort((a, b) => xpnValue(L, b, true) - xpnValue(L, a, true))[0];
+      if (!c) continue;
+      const from = c.team;
+      removeFromTeam(L, c); c.team = t.id; t.roster.push(c.id); taken[from]++;
+      c.exT = { tid: from, s: S }; c.morale = Math.max(c.morale || 55, 55); c.tradeReq = null;
+      c.tx.push({ s: S, t: `Taken by ${t.abbr} from ${L.teams[from].abbr} in the expansion draft` });
+      if (c.contracts && c.contract) c.contracts.push({ s: S, tid: t.id, amt: c.contract.amt, yrs: c.contract.exp - S, type: 'expansion', hg: false });
+      assignNumber(L, c, t);
+      picks.push({ tid: t.id, pid: c.id, from, name: c.name, ovr: c.ovr, age: c.age, pos: c.pos, no: picks.length + 1 });
+      avail.splice(avail.indexOf(c), 1);
+    }
+  }
+  // lost players: teams that lost someone may now need a body (free agency handles it)
+  try { computeModes(L, 'Expansion'); } catch (e) { }
+  try { setExpectations(L); } catch (e) { }
+  for (const t of news) { t.mode = 'rebuild'; try { if (typeof setTeamRoles === 'function') setTeamRoles(L, t); } catch (e) { } }
+  const entry = { s: S, teams: news.map(t => t.id), protect: P.protect, lose, picks, mineLost: L.user != null ? picks.filter(x => x.from === L.user).map(x => x.pid) : [] };
+  (L.xpnLog || (L.xpnLog = [])).push(entry);
+  L.xpnShow = S;
+  logNews(L, `Expansion draft: ${news.map(t => `the ${t.city} ${t.name} (${picks.filter(x => x.tid === t.id).length} players)`).join(' and ')} join the league.`, news[0].id, 'league');
+  for (const x of picks.filter(x => x.ovr >= 68).slice(0, 6)) logNews(L, `${L.teams[x.tid].abbr} took ${x.name} (${x.ovr}) from ${L.teams[x.from].abbr} in the expansion draft`, x.tid, 'tx');
+  if (L.user != null && entry.mineLost.length) logNews(L, `${L.teams[L.user].abbr} lost ${entry.mineLost.map(id => L.players[id].name).join(', ')} in the expansion draft`, L.user, 'team');
+  for (const k of Object.keys(LOT_M)) delete LOT_M[k];
+  if (typeof PROJ_C !== 'undefined') PROJ_C = null;
+  if (L._rc) L._rc = null;
+  return entry;
+}

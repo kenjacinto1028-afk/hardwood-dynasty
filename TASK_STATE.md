@@ -1,6 +1,6 @@
 # TASK_STATE — Phases A/B/C: expansion teams, save safety + tutorial, desktop app (Opus) — Nov 18 2026
 Plan: /mnt/project-files/plans/desktop-release-plan.md. One PR per phase, merge when tests pass.
-- [ ] A1. league.js: expansion logic (candidates, plan, new team setup, expansion draft at start of FA, any-size schedule, playoff size by league size)
+- [x] A1. league.js: expansion logic (xpnPlan/xpnRun at end of league.js, startFA hook; engine.js pairMatrix any-size schedule, isBig = 24+ teams); tools/t-exp.js PASS 16->18
 - [ ] A2. src/xp.js: Expansion page (pick cities, team creator, protect list, results popup) + wiring (index.html, template, build.py, sw.js)
 - [ ] A3. Tests: tools/t-exp.js (PBL 16->18, NBA 30->32, 3 seasons after), browser check; PR, merge
 - [ ] B1. Auto-backups (last 3 saves) + restore in Saves popup

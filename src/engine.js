@@ -2231,7 +2231,7 @@ function playGame0(league, homeId, awayId, playoff) {
               let pO = 0.235 + (offReb - defReb) * ENG.rebSlope + (blocked ? 0.04 : 0) + (is3 ? 0.01 : 0) + (onCourt(off).reduce((a, p) => a + (p.tcr || 40), 0) / onCourt(off).length - 40) * 0.0012 + (OX.orb || 0) + (DX.drb || 0) + SL_FX.glass.orb * slD(off.coach).glass;
               if (R() < clamp(pO, 0.1, 0.4)) {
                 const r = wpick(offC, offC.map(p => Math.pow(rebKey(off, p, 'orb'), ENG.orbPow) * rebPosW(off, p)));
-                if (R() >= ENG.teamReb) off.st[r.id][IX.orb]++; involved.add(r.id); orebPoss = true;   // v32b: some boards are team rebounds (no player credit) switchPoss = false; off.putback = r.id; rebBy = r; rebO = true;
+                if (R() >= ENG.teamReb) off.st[r.id][IX.orb]++; involved.add(r.id); orebPoss = true; switchPoss = false; off.putback = r.id; rebBy = r; rebO = true;   // v32b: some boards are team rebounds (no player credit). Fix (Nov 18): offense keeps the ball after its rebound
               } else {
                 const r = wpick(defC, defC.map(p => Math.pow(rebKey(def, p, 'drb'), ENG.drbPow) * rebPosW(def, p) * (is3 && (p.xo === 'rebG' || p.xo === 'rebW') ? 1.5 : 1)));
                 if (R() >= ENG.teamReb) def.st[r.id][IX.drb]++; rebBy = r; if (r.xo === 'rebG' || r.xo === 'pointW') pushTeam = def;

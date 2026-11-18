@@ -1,6 +1,6 @@
 # TASK_STATE — Phase 2 (Opus) — Nov 18 2026: animated court view, play-by-play ticker, top plays highlights
 - [x] 0. Phase 1 merged on main (9f07c1b); branch `phase2-live-court-ticker-highlights`; read vLive/lvTick/fxLive, engine logE + shot code, scSpot zones, portrait()
-- [ ] 1. engine.js: shot code on play-by-play shot entries (e[10] = zone*10 + type) + per-game top plays `game.hl` for every game (no extra random numbers, results unchanged)
+- [x] 1. engine.js: logE entry[10] shot code (zone*10+type), HL/hlAdd top-4 candidates + game-winner (hlGo) -> `game.hl` top 3 for every game; same scores as before (5-day check)
 - [ ] 2. src/court.js (new): animated top-down court in the live game (dots move, pass, shoot), hooked into lvTick + settings speed/skip; build.py single + index.html + template
 - [ ] 3. Play-by-play ticker: commentary feed beside the court (runs, lead changes, milestones), slide-in on new lines
 - [ ] 4. Top plays: News & history → Top plays (reel with faces + mini replay, pick a night), My team card, box score section

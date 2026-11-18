@@ -1,5 +1,10 @@
 # PBL progress
 
+## Mobile pass (Opus, Nov 18 2026)
+- [x] New checker `tools/browser-mobile.js`: 178 screens (25 pages + sub tabs + player/team/coach/box score/live + popups + draft) at 390 and 360 px: all fit, no tiny buttons, no errors.
+- [x] Fixed by eye from screenshots: taller-than-needed header (Saves wrapped alone; Recent now an icon), player page action buttons (5 rows -> 2 swipeable rows), moves table date wrap, Compare teams popup cut-off text.
+- Tests: browser-mobile 182/182 (index) + 91/91 (single, 390), p1 70/70, p2 67/67, p3 114/114.
+
 ## Phase 3 part 3 (Opus, Nov 18 2026): #6 phone-friendly layout
 - [x] Bottom tab bar, sub tabs beside Back, 44px buttons, swipe between sub tabs (not on tables / tab strips / canvas / popups), tip once.
 - Tests: browser-p3 114/114 (index + single), p1 70/70, p2 67/67.

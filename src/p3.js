@@ -436,6 +436,7 @@ ${sparkle}</svg>`;
   function phoneLayout() {
     const on = phoneQ.matches && !!L && !ui.setupOpen;
     document.body.classList.toggle('p3-phone', on);
+    { const rb = document.getElementById('b-recent'); if (rb && !rb.getAttribute('aria-label')) rb.setAttribute('aria-label', 'Recent popups'); }
     const st = document.getElementById('subtabs'), nr = document.querySelector('header .navrow'), sr = document.getElementById('subrow');
     if (st && nr && sr) { if (on && st.parentElement !== nr) nr.appendChild(st); else if (!on && st.parentElement !== sr) sr.appendChild(st); }
     let bn = document.getElementById('p3-bnav');

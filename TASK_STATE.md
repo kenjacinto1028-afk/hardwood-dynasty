@@ -12,8 +12,8 @@ PR A: offensive-rebound fix. PR B/C/D: Phase 3 (#4 cards, #13 music, #12 trophie
 - [x] C3. #8 story popups + Stories view + popup art (p3.js storyOf/art/dialogArt; app.js runDialog)
 - [x] C4. browser-p3 98/98 (tools/browser-p3x.js, tools/_mkdraft.js), p1, p2, lint
 - [x] D1. #6 phone layout -> p3.js phoneLayout/swipeTab, styles.css body.p3-phone; browser-p3 114/114
-- [ ] E1. Mobile pass: every screen at 390 / 360 px, fix overflow
-- [ ] E2. tests, PR, merge
+- [x] E1. Mobile pass: tools/browser-mobile.js 178 screens at 390/360; fixes in styles.css (Mobile pass block), app.js .p-acts, p3.js Recent label
+- [x] E2. browser-mobile 182/182, p1 70/70, p2 67/67, p3 114/114; PR
 
 ---
 # TASK_STATE — Phase 2 (Opus) — Nov 18 2026: animated court view, play-by-play ticker, top plays highlights

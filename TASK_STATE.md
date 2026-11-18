@@ -2,10 +2,10 @@
 Plan: /mnt/project-files/plans/desktop-release-plan.md. One PR per phase, merge when tests pass.
 - [x] A1. league.js: expansion logic (xpnPlan/xpnRun at end of league.js, startFA hook; engine.js pairMatrix any-size schedule, isBig = 24+ teams); tools/t-exp.js PASS 16->18
 - [x] A2. src/xp.js: Expansion page (pick cities, team creator, protect list, results popup) + wiring (index.html, template, build.py, sw.js)
-- [ ] A3. Tests: tools/t-exp.js (PBL 16->18, NBA 30->32, 3 seasons after), browser check; PR, merge
+- [x] A3. Tests all pass; PR #11 merged
 - [x] B1. Auto-backups (app.js backupMaybe/getBaks/loadBak, recovery in load(), Saves popup list) + difficulty (league.js DIFF, fx.js Game section)
 - [x] B2. Error card + tour (src/pb.js), cleanup to archive/; browser-pb ALL PASS
-- [ ] B3. Tests, PR, merge
+- [x] B3. Tests all pass; PR #12 merged
 - [x] C1. desktop/ (Tauri 2: lib.rs save-file commands, copy-web.js, icons), src/desk.js bridge, .github/workflows/desktop.yml, DESKTOP.md; real Linux build opened a league from a save file; .deb bundle built
 - [x] C2. Tests: browser-desk (fake backend) ALL PASS; PR
 

@@ -1,3 +1,14 @@
+# TASK_STATE — Phase 1 (Opus) — Nov 18 2026: sound effects + mute, screen animations, settings page, shot charts
+- [x] 0. Clone, branch `phase1-sound-anim-settings-shotcharts`, read app.js render/router, engine shot zones (existing zone heat chart on player + team pages)
+- [ ] 1. src/fx.js: settings store (localStorage `pbl-fx`) + Web Audio sounds (buzzer, cheer, bounce, dunk, swish, click), no audio files; added to index.html + build.py single
+- [ ] 2. Mute button in the header + sound hooks (sim results, live game play-by-play, buzzer at final)
+- [ ] 3. Animations: page fade on view change, count-up numbers (`data-cu`), confetti on your team's wins / titles
+- [ ] 4. Settings page (gear button): volume, mute, animation speed, skip animations, test sounds
+- [ ] 5. Shot charts: engine keeps each game's shots (`g.sh`), box score make/miss dot chart per team/player; player page heat / dots toggle + season picker
+- [ ] 6. Tests: node --check, lint, t36/t34, browser test tools/browser-p1.py.txt
+- [ ] 7. PROGRESS + README, push, PR
+
+---
 # TASK_STATE — v37b (Opus) — Nov 17 2026: history book, all-time greats, HoF effect, HoF tab, v37a review
 - [x] 0a. Clone + merge v37a zips (9 files: PROGRESS.md README.md TASK_STATE.md TESTING.md browser-v29.py.txt tools/browser-v29.py.txt tools/browser-v37a.py.txt src/app.js src/styles.css)
 - [x] 0b. Read PROGRESS v37a, TESTING, v37-plan; merged code: node --check ok, t36 27/27, lint PASS

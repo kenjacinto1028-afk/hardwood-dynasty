@@ -2,7 +2,7 @@
 - [x] 1. Draft night cards: college/international stats from prospect pipeline (zeros if none) -> p3.js seasonLine falls back to p.pre (also rookie cards), footer shows NCHF/EABL/APBA + season
 - [x] 2. News page trades: small player faces + team logos -> app.js newsPics (grouped by team), styles.css .np
 - [x] 3. Live commentary colors -> app.js lvTicker mood (tk-me-good/bad), star lines get a side; styles.css uses --win/--loss (both themes)
-- [ ] 4. Tests (lint, browser p1/p2/p3), PROGRESS.md, PR, merge
+- [x] 4. Tests: p2 81/81 (index+single), p3 116/116, p1 70/70, lint; PROGRESS.md; tools/mkdraft.js; PR
 
 ---
 # TASK_STATE — Rebound fix + Phase 3 + mobile (Opus) — Nov 18 2026

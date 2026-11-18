@@ -4485,22 +4485,22 @@ document.addEventListener('click', e => {
 document.addEventListener('change', e => { const pf = e.target.closest && e.target.closest('[data-pipef]'); if (pf && L) { (ui.pipeF = ui.pipeF || {})[pf.dataset.pipef] = pf.value; render(); return; }
   const s = e.target.closest && e.target.closest('select[data-pipesel]'); if (!s || !L) return; (ui.pipeT = ui.pipeT || {})[s.dataset.pipesel] = +s.value; render(); });
 const hofPre = pid => { const p = L.players[pid], n = p && p.preAw ? p.preAw.length : 0; return n ? ` <span class="muted" title="College / international honors">· ${n} before the pros</span>` : ''; };
-// trade news: small team logos + player faces, each player under the team he went to (names read from the text, so old saves work too)
+// trade news: small team logos + player faces, each player beside the team named just before him ("POR acquire X; DET acquire Y").
+// Names come from the text, so old saves work too.
 function newsPics(text) {
   linkify('');
-  const tids = [], pids = [];
+  const gs = [], seen = new Set(); let cur = null;
+  const grp = t => { let x = gs.find(y => y.t === t); if (!x) { x = { t, p: [] }; gs.push(x); } return x; };
   for (const m of String(text).match(ui.nameRx) || []) {
     const ab = L.teams.find(t => t.abbr === m), v = ui.nameMap[m];
-    if (ab) { if (!tids.includes(ab.id)) tids.push(ab.id); }
-    else if (v && v[0] === 't') { if (!tids.includes(+v.slice(1))) tids.push(+v.slice(1)); }
-    else if (v && v[0] === 'p' && L.players[+v.slice(1)] && !pids.includes(+v.slice(1))) pids.push(+v.slice(1));
+    const tid = ab ? ab.id : v && v[0] === 't' ? +v.slice(1) : null;
+    if (tid != null) { cur = grp(tid); continue; }
+    const pid = v && v[0] === 'p' ? +v.slice(1) : null;
+    if (pid != null && L.players[pid] && !seen.has(pid)) { seen.add(pid); (cur || grp(null)).p.push(pid); }
   }
-  if (!tids.length && !pids.length) return '';
+  if (!gs.length) return '';
   const face = id => { const p = L.players[id]; return `<a class="np-p" data-player="${id}" title="${esc(p.name)}">${portrait('p', id, p.nat, p.team, 'np')}</a>`; };
-  const groups = tids.slice(0, 3).map(t => `<span class="np-g"><a class="np-t" data-team="${t}" title="${esc(tname(t))}">${logo(t, 24)}</a>${pids.filter(id => L.players[id].team === t).slice(0, 4).map(face).join('')}</span>`);
-  const rest = pids.filter(id => !tids.slice(0, 3).includes(L.players[id].team)).slice(0, 4);
-  if (rest.length) groups.push(`<span class="np-g">${rest.map(face).join('')}</span>`);
-  return `<span class="np">${groups.join('')}</span>`;
+  return `<span class="np">${gs.slice(0, 4).map(x => `<span class="np-g">${x.t != null ? `<a class="np-t" data-team="${x.t}" title="${esc(tname(x.t))}">${logo(x.t, 24)}</a>` : ''}${x.p.slice(0, 4).map(face).join('')}</span>`).join('')}</span>`;
 }
 function vNews() {
   const cats = [['', 'All'], ['trade', 'Trades'], ['tx', 'Transactions'], ['inj', 'Injuries'], ['feat', 'Feats'], ['award', 'Awards & honors'], ['draft', 'Draft'], ['coach', 'Coaches'], ['watch', 'Watch list'], ['rumor', 'Rumors'], ['beat', 'Beat reports'], ['feature', 'Features'], ['pipe', 'Pipeline'], ['league', 'League']];
@@ -5724,7 +5724,7 @@ function doUndo() {
 window.__pblCourt = { get L() { return L; }, scSpot, scRng };   // Phase 2: court.js reads the league and the shot-zone helpers
 // Phase 3: app helpers for src/p3.js (it reads them through `with (PBL)`)
 window.PBL = { get L() { return L; }, ui, $, esc, f1, render, dialog, closeDialog, queueDialog, ovrTxt, lgTag, portrait, logo, isUser, awardTid, trophySvg, plink, tname, save };
-window.__pbl = { get L() { return L; }, save: () => save(), render: () => render(), awardsDialog: t => awardsDialog(t), championDialog: () => championDialog(), trainCheckDialog: () => queueDialog(trainCheckDialog), openPlayer: id => { ui.player = id; render(); }, review: S => seasonReviewDialog(S), get ui() { return ui; }, interruptKind: () => interruptKind(), dlg: n => runDialog({ iv: ivDialog, mtg: mtgDialog, drama: dramaDialog }[n]), v30: { logo, logoBody, hexContrast, pipeLogo, todo: { on: () => todoOn(), state: () => todoState(), group: () => todoGroup(), list: g => todoList(g), open: g => todoOpenCount(g), stopEnd: e => todoStopEnd(e) } }, pipeUi: { pipeSchool: p => pipeSchool(p), pipeLatest: () => pipeLatest(), stockChip: p => stockChip(p) } };   // v29: test hooks
+window.__pbl = { get L() { return L; }, lvTicker: (g, n) => lvTicker(g, n), lvTickerLines: g => lvTickerLines(g), save: () => save(), render: () => render(), awardsDialog: t => awardsDialog(t), championDialog: () => championDialog(), trainCheckDialog: () => queueDialog(trainCheckDialog), openPlayer: id => { ui.player = id; render(); }, review: S => seasonReviewDialog(S), get ui() { return ui; }, interruptKind: () => interruptKind(), dlg: n => runDialog({ iv: ivDialog, mtg: mtgDialog, drama: dramaDialog }[n]), v30: { logo, logoBody, hexContrast, pipeLogo, todo: { on: () => todoOn(), state: () => todoState(), group: () => todoGroup(), list: g => todoList(g), open: g => todoOpenCount(g), stopEnd: e => todoStopEnd(e) } }, pipeUi: { pipeSchool: p => pipeSchool(p), pipeLatest: () => pipeLatest(), stockChip: p => stockChip(p) } };   // v29: test hooks
 (async () => {
   $('#main').innerHTML = '<p class="muted">Loading your league…</p>';
   const saved = await load();

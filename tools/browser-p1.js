@@ -38,7 +38,7 @@ async function run(W, touch) {
   ok(T + 'mute + settings buttons in header', await ev(pg, "!!document.querySelector('#b-mute') && !!document.querySelector('#b-settings')"));
   ok(T + 'no page side-scroll', await ev(pg, 'document.documentElement.scrollWidth<=innerWidth+1'), await ev(pg, 'document.documentElement.scrollWidth'));
   // settings popup
-  await click('#b-settings'); await wait(pg, 300);
+  await pg.evaluate(() => document.getElementById('b-settings').click()); await wait(pg, 300);
   ok(T + 'settings popup opens', await ev(pg, "!!document.querySelector('#fx-modal .dialog #fx-vol')"));
   await pg.screenshot({ path: `tools/_p1-settings-${W}.png` });
   ok(T + 'settings popup fits the screen', await ev(pg, "(()=>{const r=document.querySelector('#fx-modal .dialog').getBoundingClientRect();return r.left>=0&&r.right<=innerWidth+1})()"));
@@ -53,9 +53,9 @@ async function run(W, touch) {
   ok(T + 'skip off again', await ev(pg, "!document.documentElement.classList.contains('fx-off')"));
   await click('#fx-done'); await wait(pg, 200);
   ok(T + 'settings closes', await ev(pg, "!document.querySelector('#fx-modal .dialog')"));
-  await click('#b-mute'); await wait(pg, 100);
+  await pg.evaluate(() => document.getElementById('b-mute').click()); await wait(pg, 100);
   ok(T + 'mute on: icon + saved', await ev(pg, "document.querySelector('#b-mute').textContent==='🔇' && FX.settings.mute===true"));
-  await click('#b-mute'); await wait(pg, 100);
+  await pg.evaluate(() => document.getElementById('b-mute').click()); await wait(pg, 100);
   ok(T + 'mute off', await ev(pg, "document.querySelector('#b-mute').textContent==='🔊' && FX.settings.mute===false"));
   // page fade + count-ups
   await ev(pg, "location.hash='#standings'"); await wait(pg, 400);
@@ -118,7 +118,7 @@ async function run(W, touch) {
   for (let k = 0; k < 4 && !live; k++) {
     await closeModals(pg); await pg.evaluate(() => { window.__fxLog = window.__snd = []; });
     if (!await ev(pg, "!!document.querySelector('#simctl [data-sim=\"live\"]')")) { await click('#simctl [data-sim="day"]'); await wait(pg, 3000); continue; }
-    await click('#simctl [data-sim="live"]'); await wait(pg, 3500); await closeModals(pg);
+    await pg.evaluate(() => { const m = document.querySelector('#simctl .sim-more'); if (m && getComputedStyle(m).display !== 'none' && !document.querySelector('#simctl.open')) m.click(); }); await click('#simctl [data-sim="live"]'); await wait(pg, 3500); await closeModals(pg);
     live = await ev(pg, "!!document.querySelector('#lv-board')");
   }
   if (live) {

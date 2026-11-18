@@ -922,6 +922,47 @@ body.p3-phone .pactions > * { flex: none; white-space: nowrap; }
 .tk-row.tk-me-good{background:color-mix(in srgb,var(--win) 15%,transparent)}
 .tk-row.tk-me-bad{background:color-mix(in srgb,var(--loss) 12%,transparent)}
 .tk-me-bad.tk-miss .tk-x{color:inherit}
+
+/* U1 (Nov 18 2026): phone top bar. One short row for the title, one for Sim day + "Sim v" + search + "...", one for the tabs. Hides while you scroll down, back when you scroll up. */
+.sim-more, .b-more { display: none; }
+body.p3-phone .b-more { display: inline-flex; align-items: center; justify-content: center; }
+body.p3-phone .sim-more { display: inline-flex; align-items: center; }
+body.p3-phone #simctl .sim-x { display: none; }
+body.p3-phone #simctl.open .sim-x { display: inline-flex; }
+body.p3-phone #simctl { order: 1; flex: 0 1 auto; width: auto; gap: 6px; flex-wrap: wrap; overflow: visible; }
+body.p3-phone #simctl.open { flex: 1 1 100%; width: 100%; }
+body.p3-phone .controls { flex-wrap: wrap; }
+body.p3-phone header .controls > .search { order: 2; flex: 1 1 70px; min-width: 0; }
+body.p3-phone .controls > .b-more { order: 3; width: 44px; padding: 0; flex: none; font-size: 22px; line-height: 1; }
+body.p3-phone .controls > #b-mute, body.p3-phone .controls > #b-settings, body.p3-phone .controls > #b-recent, body.p3-phone .controls > #b-menu { order: 4; display: none; }
+body.p3-phone header.top.more-open .controls > #b-mute, body.p3-phone header.top.more-open .controls > #b-settings, body.p3-phone header.top.more-open .controls > #b-recent, body.p3-phone header.top.more-open .controls > #b-menu { display: inline-flex; align-items: center; justify-content: center; }
+body.p3-phone header.top.more-open .controls > #b-menu { flex: 1 1 auto; width: auto; }
+body.p3-phone .top-row { padding-block: 6px 4px; gap: 6px 10px; }
+body.p3-phone .brand { flex: 1 1 100%; gap: 0 8px; flex-wrap: wrap; }
+body.p3-phone .controls > .search input { width: 100%; min-width: 0; box-sizing: border-box; }
+body.p3-phone .brand > svg { width: 26px; height: 26px; }
+body.p3-phone .brand h1 { font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+body.p3-phone .fchip strong { font-size: 16px; white-space: nowrap; }
+body.p3-phone .fchip svg, body.p3-phone .fchip img { width: 26px; height: 26px; }
+body.p3-phone .brand .when { font-size: 11px; flex: 1 1 100%; min-width: 0; line-height: 1.2; order: 9; }
+body.p3-phone header .navrow { padding-bottom: 2px; }
+body.p3-phone header.top { position: sticky; top: env(safe-area-inset-top, 0px); transition: transform .2s ease; }
+body.p3-phone.p3-hdr-hide header.top { transform: translateY(-100%); }
+.fx-off body.p3-phone header.top, body.fx-off.p3-phone header.top { transition: none; }
+
+/* U2 (Nov 18 2026): phone tables. Columns tagged data-ph drop out (Standings: division / outlook; Players: age, pot, salary, GP, minutes...), team column stays next to the seed. */
+@media (max-width: 700px) {
+  table .ph-x { display: none; }
+  .tblwrap table.st-tbl th:first-child, .tblwrap table.st-tbl td:first-child { min-width: 34px; width: 34px; padding-inline: 4px; }
+  .tblwrap table.st-tbl th:nth-child(2), .tblwrap table.st-tbl td:nth-child(2) { position: sticky; left: 34px; z-index: 1; background: var(--surface); box-shadow: 1px 0 0 var(--line); max-width: 150px; }
+  .tblwrap table.st-tbl thead th:nth-child(2) { background: var(--th); z-index: 2; }
+  .tblwrap table.st-tbl tbody tr:nth-child(even) td:nth-child(2) { background: var(--zebra); }
+  .tblwrap table.st-tbl tr.mine td:nth-child(2) { background: var(--accent-soft); }
+  table[data-ph] td.l, table[data-ph] th.l { white-space: normal; }
+  .tblwrap table[data-ph] td:first-child { max-width: 150px; }
+  .tblwrap table[data-ph] td:nth-child(2) { max-width: 110px; }
+}
+
 /* Quick fixes (Nov 18 2026): phone Notes button and to-do toast no longer hide text; search box has room for its placeholder */
 @media (max-width: 700px) { #pnote.min button .muted { display: none; } }
 body.p3-phone #pnote.min button { font-size: 13px; padding: 6px 10px; }

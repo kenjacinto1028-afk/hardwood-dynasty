@@ -2,7 +2,7 @@
 const DRAFT = 'tools/_draft.json';   // make it with: node tools/mkdraft.js (one season from the franchise snap, stopped at the draft)
 module.exports = async function (pg, T, click, W, touch, load, ok, ev, wait, shot) {
   // --- saves popup
-  await click('#b-menu'); await wait(pg, 600);
+  await pg.evaluate(() => document.getElementById('b-menu').click()); await wait(pg, 600);
   ok(T + 'Saves: small file / share / team link buttons', await ev(pg, "!!document.querySelector('#x-p3exp')&&!!document.querySelector('#x-p3share')&&!!document.querySelector('#x-p3team')"));
   const rt = await pg.evaluate(async () => { const x = await P3.leagueBlob(); const f = new File([x.blob], x.name); const t = await P3.readLeagueFile(f); const o = JSON.parse(t); return { name: x.name, small: x.blob.size, raw: x.raw, same: o.season === PBL.L.season && Object.keys(o.players).length === Object.keys(PBL.L.players).length }; });
   ok(T + 'packed league file is much smaller', rt.small < rt.raw / 4, rt);
@@ -43,7 +43,7 @@ module.exports = async function (pg, T, click, W, touch, load, ok, ev, wait, sho
     ok(T + 'phone: current section lit', await ev(pg, "document.querySelector('#p3-bnav a.on')?.textContent.includes('League')"), await ev(pg, "document.querySelector('#p3-bnav a.on')?.textContent"));
     ok(T + 'phone: sub tabs sit beside Back', await ev(pg, "document.getElementById('subtabs').parentElement.classList.contains('navrow')&&getComputedStyle(document.getElementById('tabs')).display==='none'"));
     ok(T + 'phone: bottom bar buttons are big (52px+)', await ev(pg, "[...document.querySelectorAll('#p3-bnav a')].every(a=>a.getBoundingClientRect().height>=50)"));
-    ok(T + 'phone: header buttons 44px+', await ev(pg, "[...document.querySelectorAll('#simctl button, #b-settings, #b-menu')].every(b=>b.getBoundingClientRect().height>=43)"), await ev(pg, "[...document.querySelectorAll('#simctl button, #b-settings, #b-menu')].map(b=>Math.round(b.getBoundingClientRect().height))"));
+    ok(T + 'phone: header buttons 44px+', await ev(pg, "[...document.querySelectorAll('#simctl button, #b-settings, #b-menu')].filter(b=>b.getBoundingClientRect().width>0).every(b=>b.getBoundingClientRect().height>=43)"), await ev(pg, "[...document.querySelectorAll('#simctl button, #b-settings, #b-menu')].map(b=>Math.round(b.getBoundingClientRect().height))"));
     ok(T + 'phone: page bottom clears the bar', await ev(pg, "parseFloat(getComputedStyle(document.getElementById('main')).paddingBottom)>=80"));
     await shot(pg, 'phone-standings-' + W);
     const swipe = (x0, x1, sel) => ev(pg, `(()=>{const el=document.querySelector('${sel || '#main .panel h2'}')||document.querySelector('#main');const mk=(x)=>new Touch({identifier:1,target:el,clientX:x,clientY:300});el.dispatchEvent(new TouchEvent('touchstart',{touches:[mk(${x0})],changedTouches:[mk(${x0})],bubbles:true}));el.dispatchEvent(new TouchEvent('touchend',{touches:[],changedTouches:[mk(${x1})],bubbles:true}));})()`);
@@ -67,7 +67,7 @@ module.exports = async function (pg, T, click, W, touch, load, ok, ev, wait, sho
   await ev(dp, "FX.set('draftShow',true);FX.set('skip',false);location.hash='#draft'"); await wait(dp, 1500);
   const mine = await ev(dp, "(()=>{const s=L.draftOrder[L.draftIdx];return L.user!=null&&s.owner===L.user})()");
   if (mine) { await ev(dp, "document.querySelector('#simctl [data-sim=\"autopick\"]').click()"); await wait(dp, 400); }
-  else { await dclick('#simctl [data-sim="pick1"]'); await wait(dp, 400); }
+  else { await dp.evaluate(() => { const m = document.querySelector('#simctl .sim-more'); if (m && getComputedStyle(m).display !== 'none' && !document.querySelector('#simctl.open')) m.click(); }); await dclick('#simctl [data-sim="pick1"]'); await wait(dp, 400); }
   ok(T + 'draft pick reveal opens', await ev(dp, "!!document.querySelector('#p3-draft .p3-dcard svg')"));
   const dst = await ev(dp, "(()=>{const t=document.querySelector('#p3-draft .p3-dname').textContent,p=Object.values(L.players).find(x=>x.name===t&&x.draft&&x.draft.s===L.season),h=(p.pre||[]).filter(x=>x.gp).sort((a,b)=>a.s-b.s).slice(-1)[0],svg=document.querySelector('#p3-draft .p3-dcard svg').textContent;return {n:t,h:h?[h.lg,h.pts,h.reb,h.ast]:null,ok:h?svg.includes(h.lg)&&svg.includes((Math.round(h.pts*10)/10).toFixed(1)):svg.includes('0.0')}})()");
   ok(T + 'draft card shows college / international stats', dst.ok, dst);

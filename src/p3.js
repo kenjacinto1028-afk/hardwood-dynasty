@@ -402,7 +402,9 @@ ${sparkle}</svg>`;
   }
   function toastNext() {
     const old = document.getElementById('p3-story'); if (old) old.remove();
+    if (toastQ.length && window.PBL.popupBusy()) { toastOn = true; clearTimeout(toastNext.w); toastNext.w = setTimeout(toastNext, 700); return; }   // F1/F2: wait for popups and live games
     const s = toastQ.shift(); if (!s) { toastOn = false; return; } toastOn = true;
+    { const tt = document.getElementById('todotoast'); if (tt) tt.hidden = true; }   // F1: a story card and the to-do toast never share the corner
     const el = document.createElement('div'); el.id = 'p3-story'; el.className = 'p3-story'; el.setAttribute('role', 'status');
     el.innerHTML = `${art(s.k, s.c1, s.c2, s.extra)}<div class="p3-stbody"><div class="p3-stk">${esc(s.title)}${toastQ.length ? ` <span class="muted">· ${toastQ.length} more</span>` : ''}</div><div class="p3-stx">${esc(s.text)}</div><div class="row" style="gap:6px;margin-top:6px"><button class="sm" id="p3-stall">All stories</button><button class="sm" id="p3-stx" aria-label="Close story">${toastQ.length ? 'Next' : 'Close'}</button></div></div>`;
     document.body.appendChild(el); sfx('page');
@@ -436,8 +438,16 @@ ${sparkle}</svg>`;
     '<path d="M5 4h11v16H6a2 2 0 0 1-2-2V5a1 1 0 0 1 1-1Zm11 4h3v10a2 2 0 0 1-2 2M8 8h5M8 12h5M8 16h3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
     '<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14m0 3v.1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'
   ];
+  // U2: tables can list columns to drop on phones: <table data-ph="2,3"> (0-based). The cells get class ph-x; styles.css hides them under 700px.
+  function phoneCols() {
+    document.querySelectorAll('table[data-ph]:not([data-phd])').forEach(t => {
+      t.dataset.phd = '1'; const ix = new Set(t.dataset.ph.split(',').map(Number));
+      t.querySelectorAll('tr').forEach(r => { let c = 0; for (const cell of r.children) { if (ix.has(c)) cell.classList.add('ph-x'); c += cell.colSpan || 1; } });
+    });
+  }
   function phoneLayout() {
     const on = phoneQ.matches && !!L && !ui.setupOpen;
+    try { phoneCols(); } catch (e) { }
     document.body.classList.toggle('p3-phone', on);
     { const rb = document.getElementById('b-recent'); if (rb && !rb.getAttribute('aria-label')) rb.setAttribute('aria-label', 'Recent popups'); }
     const st = document.getElementById('subtabs'), nr = document.querySelector('header .navrow'), sr = document.getElementById('subrow');
@@ -453,6 +463,10 @@ ${sparkle}</svg>`;
     bn.innerHTML = tabs.map((a, i) => { const n = (a.textContent.match(/\((\d+)\)/) || [])[1]; return `<a href="#${a.dataset.v}" data-v="${a.dataset.v}" class="${a.classList.contains('on') ? 'on' : ''}" ${a.classList.contains('on') ? 'aria-current="page"' : ''}><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">${NAV_ICON[i] || NAV_ICON[4]}</svg><span>${esc(short(a.textContent.trim()))}</span>${n ? `<b class="p3-badge">${n}</b>` : ''}</a>`; }).join('');
     const cur = document.querySelector('#subtabs a.on'); if (cur && cur.scrollIntoView) try { cur.scrollIntoView({ block: 'nearest', inline: 'center' }); } catch (e) { }
   }
+  // U1: header hides while you scroll down the page, comes back when you scroll up; "..." shows the sound / settings / recent / saves buttons
+  { let y0 = window.scrollY, tk = false;
+    window.addEventListener('scroll', () => { if (tk) return; tk = true; requestAnimationFrame(() => { tk = false; const y = window.scrollY, b = document.body; if (!b.classList.contains('p3-phone')) { b.classList.remove('p3-hdr-hide'); y0 = y; return; } if (Math.abs(y - y0) < 8) return; const hdr = document.querySelector('header.top'); b.classList.toggle('p3-hdr-hide', y > y0 && y > 120 && !(hdr && hdr.classList.contains('more-open')) && !document.activeElement.matches('input')); y0 = y; }); }, { passive: true });
+    document.addEventListener('click', e => { const m = e.target.closest('#b-more'), h = document.querySelector('header.top'); if (m) { const o = h.classList.toggle('more-open'); m.setAttribute('aria-expanded', o ? 'true' : 'false'); return; } if (h && h.classList.contains('more-open') && e.target.closest('#b-mute,#b-settings,#b-recent,#b-menu')) { h.classList.remove('more-open'); const mm = document.getElementById('b-more'); if (mm) mm.setAttribute('aria-expanded', 'false'); } }); }
   phoneQ.addEventListener && phoneQ.addEventListener('change', () => { try { phoneLayout(); } catch (e) { } });
   // tapping the current section again goes to its first page
   document.addEventListener('click', e => { const a = e.target.closest('#p3-bnav a[data-v]'); if (a && location.hash === '#' + a.dataset.v) { e.preventDefault(); window.scrollTo(0, 0); } });

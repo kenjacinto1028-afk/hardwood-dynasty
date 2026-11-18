@@ -1,5 +1,14 @@
 # PBL progress
 
+## Popups, spoilers, phone layout, app install (Sonnet, Nov 18 2026)
+- [x] **F1 popups one at a time**: popups, story cards and the to-do toast wait for each other (and for ceremonies). `popupBusy()` / `flushDialogs()` in app.js; a story card hides the to-do toast.
+- [x] **F2 no spoilers in Watch live**: while your game is live the top bar shows the record from before the game, the news ticker is hidden, and popups / story cards wait until the final buzzer (or until you leave the live screen).
+- [x] **U1 phone top bar**: 166px instead of ~250px. Title and date on top, Sim day + one "Sim" menu (the other sim buttons) + search + "..." (sound, settings, recent, saves), then tabs. The bar slides away when you scroll down and comes back when you scroll up.
+- [x] **U2 phone tables**: Standings drops Division / Outlook and pins the team name; Players drops age, pot, salary, GP, minutes (and similar per tab). Any table can do this with `data-ph="2,3"` (0-based columns).
+- [x] **I2 Settings: "Stop the sim for..."**: one list (trade offers, interviews, locker-room issues, player meetings, press conferences, deadline reminders, starred to-do items, training reminder). New switches: `L.pauseMtg`, `L.pausePress`, `L.pauseWarn`. Roster over 15 always stops the sim.
+- [x] **I1 install as an app + offline**: `manifest.webmanifest`, `sw.js` (saves game files, refreshes them in the background), `icons/`. Settings has an Install button (Android / desktop) or the iPhone steps. Needs the game hosted on https (or localhost); the single-file build is unchanged.
+- Tests: tools/browser-sonnet.js (43 checks), p1, p2, p3, mobile (tests now open the Sim menu on phones).
+
 ## Draft card stats, trade pictures, commentary colors (Opus, Nov 18 2026)
 - [x] **Draft night cards**: prospects (and rookies before their first game) show their last college / international season from the pipeline (PTS / REB / AST, footer NCHF / EABL / APBA + season). No pipeline line: zeros.
 - [x] **Trade news** (News & events): small team logos + player faces under each trade, each player beside the team that got him. Read from the news text, so old saves work too.

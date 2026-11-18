@@ -82,7 +82,7 @@ async function run(W, touch) {
   // --- music
   await pg.evaluate(() => { window.__fxLog = []; }); await click('#b-home'); await wait(pg, 600);
   ok(T + 'menu music starts after a tap', await ev(pg, "FX.musicMood==='menu'"), await ev(pg, 'FX.musicMood'));
-  await click('#b-settings'); await wait(pg, 300);
+  await pg.evaluate(() => document.getElementById('b-settings').click()); await wait(pg, 300);
   ok(T + 'settings has music + show options', await ev(pg, "!!document.querySelector('#fx-mvol')&&!!document.querySelector('[data-fxc=\"music\"]')&&!!document.querySelector('[data-fxc=\"cer\"]')&&!!document.querySelector('[data-fxc=\"draftShow\"]')&&!!document.querySelector('[data-fxc=\"stories\"]')"));
   await click('[data-fxc="music"]'); await wait(pg, 200);
   ok(T + 'music off stops it', await ev(pg, "FX.musicMood===null&&FX.settings.music===false"));

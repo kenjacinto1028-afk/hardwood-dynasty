@@ -859,7 +859,10 @@ function renderHeader() {
   const ph = L.phase === 'regular' ? `${dd(Math.min(L.day, total - 1)) ? dd(Math.min(L.day, total - 1)) + ' · ' : ''}Day ${Math.min(L.day + 1, total)} of ${total}` : L.phase === 'playoffs' ? poStages(L)[L.po.stage] : L.phase === 'off-fa' ? `Free agency · day ${L.faDay} of 10` : PHASE_TXT[L.phase];
   $('#b-back').disabled = !backStack.length;
   const ut = L.user != null ? L.teams[L.user] : null;
-  $('#when').textContent = `${seasonName(L.season)} · ${ph}${ut ? ' · ' + ut.w + '-' + ut.l + (L.phase === 'playoffs' && L.po ? ' · playoffs ' + poWL(ut.id) : '') : ' · Commissioner'}`;
+  // F2: while you watch your game live, the top bar shows the record from before that game (no spoiler)
+  const lg = liveGame(), lgMine = lg && ut && (isUser(lg.home) || isUser(lg.away)), lgWon = lgMine && (isUser(lg.home) ? lg.hs > lg.as : lg.as > lg.hs);
+  const recTxt = !ut ? ' · Commissioner' : lgMine ? ` · ${ut.w - (lgWon ? 1 : 0)}-${ut.l - (lgWon ? 0 : 1)}` : ' · ' + ut.w + '-' + ut.l + (L.phase === 'playoffs' && L.po ? ' · playoffs ' + poWL(ut.id) : '');
+  $('#when').textContent = `${seasonName(L.season)} · ${ph}${recTxt}`;
   const fc = $('#fchip'); { const bn = $('#brandname'); if (bn && bn.textContent !== leagueName()) bn.textContent = leagueName(); }
   if (L.user != null) { const k = 'f' + L.user + L.teams[L.user].name; if (fc.dataset.k !== k) { fc.dataset.k = k; fc.innerHTML = `<a class="fchip lk tl" href="#myteam" title="Your team · ${leagueName()}">${logo(L.user, 36)}<strong>${esc(tname(L.user))}</strong><span>Franchise Mode</span></a>`; } fc.hidden = false; $('#brand').classList.add('fm'); document.title = tname(L.user) + ' · ' + leagueName(); }
   else if (L.mode === 'team' && L.jobless) { const k = 'jobless'; if (fc.dataset.k !== k) { fc.dataset.k = k; fc.innerHTML = `<span class="fchip"><strong>Between jobs</strong><span>Watching the league</span></span>`; } fc.hidden = false; $('#brand').classList.add('fm'); document.title = leagueName(); }
@@ -869,7 +872,9 @@ function renderHeader() {
   if (ui.auto) { const a = L.auto; if (a) $('#when').textContent = autoWhen(a); }
   if ($('#simctl').dataset.k !== key) {
     $('#simctl').dataset.k = key;
-    $('#simctl').innerHTML = btns.map(([k, t], i) => `<button data-sim="${k}" title="${esc(SIM_TIP[k] || '')}" class="${i === 0 ? 'primary' : ''}${k === 'multi' ? ' multi' : ''}" ${ui.busy && k !== 'autostop' ? 'disabled' : ''}>${t}</button>`).join('');
+    const PROMPTK = ['press', 'drama', 'iv', 'mtg', 'autostop'], nx = btns.filter(([k], i) => i > 0 && !PROMPTK.includes(k)).length;   // U1: on phones the extra sim buttons live under one "Sim ▾" button
+    $('#simctl').innerHTML = btns.map(([k, t], i) => `<button data-sim="${k}" title="${esc(SIM_TIP[k] || '')}" class="${i === 0 ? 'primary' : ''}${k === 'multi' ? ' multi' : ''}${i > 0 && !PROMPTK.includes(k) ? ' sim-x' : ''}" ${ui.busy && k !== 'autostop' ? 'disabled' : ''}>${t}</button>`).join('') + (nx ? '<button class="sim-more" data-simmore="1" aria-expanded="false" aria-haspopup="true">Sim ▾</button>' : '');
+    $('#simctl').classList.remove('open');
   }
   // v24: tabs are grouped. The top row has five groups; the row under it lists the views in the group you are in.
   const NAME = { cards: 'Player cards', trophies: 'Trophy room', stories: 'Stories', rmoves: 'Overview', hofc: 'Hall of Fame', feed: 'Feed', topplays: 'Top plays', myteam: 'My team', coaches: 'Staff & GMs', preview: 'Season preview', weekly: 'Weekly report', standings: 'Standings', review: 'Progression', schedule: 'Schedule', stats: 'Stats', players: 'Players', awards: 'Awards', teams: 'Teams', trades: 'Trades', fa: 'Free agency', draft: 'Draft', news: 'News & events', injuries: 'Injuries', discipline: 'Discipline', pipeline: 'Pipeline', history: 'History', rules: 'How it works' };
@@ -1207,7 +1212,7 @@ function vStandings() {
       const D = poDirect(L), P = poPlayinTo(L), tag = i < D ? '' : i < P ? ' <span class="pill pos">Play-in</span>' : '';
       return `<tr class="click ${i === D - 1 || i === P - 1 ? 'sep' : ''} ${isUser(t.id) ? 'mine' : ''}" data-team="${t.id}"><td>${i + 1}</td><td class="l">${tlabel(t.id, true)}${ri && ri.status ? `<span class="rs ${ri.status}" title="${RS_TXT[ri.status]}">${ri.status}</span>` : ''}${tag}</td>${L.nba ? `<td class="l muted">${esc(t.div || '')}</td>` : ''}<td class="l">${modePill(t)}</td><td><strong>${t.w}</strong></td><td><strong>${t.l}</strong></td><td>${gp ? pct(t.w, gp) : '.000'}</td><td>${gb ? gb.toFixed(1) : '—'}</td><td>${t.cw}-${t.cl}</td><td>${t.hw}-${t.hl}</td><td>${t.aw || 0}-${t.al || 0}</td><td class="${d > 0 ? 'w' : d < 0 ? 'lo' : ''}">${gp ? (d > 0 ? '+' : '') + f1(d) : '—'}</td><td>${strk}</td><td>${l10.split('').filter(x => x === 'W').length}-${l10.split('').filter(x => x === 'L').length}</td>${rcols}</tr>`;
     }).join('');
-    return `<section class="panel"><h2>${confName(c)} Conference</h2><div class="tblwrap"><table><thead><tr><th>Seed</th><th class="l">Team</th>${L.nba ? '<th class="l">Div</th>' : ''}<th class="l">Outlook</th><th>W</th><th>L</th><th>Pct</th><th>GB</th><th>Conf</th><th>Home</th><th>Away</th><th>Diff</th><th>Strk</th><th>L10</th>${race ? `<th title="Games left">Left</th><th title="Magic number to clinch a top-${poDirect(L)} (playoff) spot">Magic top ${poDirect(L)}</th><th title="Magic number to clinch a top-${poPlayinTo(L)} (play-in or better) spot">Magic top ${poPlayinTo(L)}</th><th title="Strength of remaining schedule: 1 = hardest">SOS left</th>` : ''}</tr></thead><tbody>${rows}</tbody></table></div>${race ? racePanel(c, ids) : ''}</section>`;
+    return `<section class="panel"><h2>${confName(c)} Conference</h2><div class="tblwrap"><table class="st-tbl" data-ph="${L.nba ? '2,3' : '2'}"><thead><tr><th>Seed</th><th class="l">Team</th>${L.nba ? '<th class="l">Div</th>' : ''}<th class="l">Outlook</th><th>W</th><th>L</th><th>Pct</th><th>GB</th><th>Conf</th><th>Home</th><th>Away</th><th>Diff</th><th>Strk</th><th>L10</th>${race ? `<th title="Games left">Left</th><th title="Magic number to clinch a top-${poDirect(L)} (playoff) spot">Magic top ${poDirect(L)}</th><th title="Magic number to clinch a top-${poPlayinTo(L)} (play-in or better) spot">Magic top ${poPlayinTo(L)}</th><th title="Strength of remaining schedule: 1 = hardest">SOS left</th>` : ''}</tr></thead><tbody>${rows}</tbody></table></div>${race ? racePanel(c, ids) : ''}</section>`;
   };
   const lastDay = L.day - 1;
   const poLast = L.po && L.po.day > 0 ? L.po.day - 1 : null;
@@ -1827,7 +1832,7 @@ function vPlayers() {
   return `<section class="panel"><div class="filters"><input type="search" id="pq" placeholder="Search by name" value="${esc(ui.pq)}" aria-label="Search players">
     ${pfTeamAge}
     <select id="pfp" aria-label="Position"><option value="all">All positions</option>${POS.map((x, i) => `<option value="${i}" ${ui.pfPos == i ? 'selected' : ''}>${x}</option>`).join('')}</select><span class="seg"><button class="sm ${adv ? '' : 'primary'}" data-padv="0">Basic</button><button class="sm ${adv ? 'primary' : ''}" data-padv="1">Advanced</button><button class="sm" data-pdef="1">Defense</button></span><select id="pfty" aria-label="Player type"><option value="">All player types</option>${typeOptions(ui.pfType)}</select><label class="muted" style="font-size:13px"><input type="checkbox" id="pall" ${ui.pAll ? 'checked' : ''}> Include players who haven't qualified</label><span class="muted">${ps.length} players${showAll ? '' : ` · qualified: half of their team's ${skey() === 'po' ? 'playoff ' : ''}games`}</span></div>
-    <div class="tblwrap"><table><thead><tr>${(adv ? ACOLS : PCOLS).map(([k, n, c]) => `<th class="sort ${c || ''} ${ui.psort === k ? 'sorted' : ''}" data-sort="${k}" ${COL_TIPS[k] ? `title="${COL_TIPS[k]}"` : ''}>${n}${ui.psort === k ? (ui.pdir > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div><p class="muted" style="font-size:12px;margin:8px 0 0"><strong>NM</strong> = not met. Everyone needs half of his team's games; then FG%, TS% and eFG% need 2 FGA a game or 90 FGA; 3P% 1.5 3PA a game or 75; FT% 1.5 FTA a game or 75; AST/TO 1.5 AST a game or 75; usage, plus-minus and BPM 10 minutes a game or 500. Points, rebounds, assists, steals and blocks have no minimum. Not-met rows sort to the bottom.</p></section>`;
+    <div class="tblwrap"><table data-ph="${adv ? '4,5,10,11' : '3,5,6,7,8,10,11'}"><thead><tr>${(adv ? ACOLS : PCOLS).map(([k, n, c]) => `<th class="sort ${c || ''} ${ui.psort === k ? 'sorted' : ''}" data-sort="${k}" ${COL_TIPS[k] ? `title="${COL_TIPS[k]}"` : ''}>${n}${ui.psort === k ? (ui.pdir > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div><p class="muted" style="font-size:12px;margin:8px 0 0"><strong>NM</strong> = not met. Everyone needs half of his team's games; then FG%, TS% and eFG% need 2 FGA a game or 90 FGA; 3P% 1.5 3PA a game or 75; FT% 1.5 FTA a game or 75; AST/TO 1.5 AST a game or 75; usage, plus-minus and BPM 10 minutes a game or 500. Points, rebounds, assists, steals and blocks have no minimum. Not-met rows sort to the bottom.</p></section>`;
 }
 
 // v28.6: League > Players: every player in one table, Info and Stats tabs (stats start at 0 each season)
@@ -1871,7 +1876,7 @@ function vPlayerDir() {
   const tabs = [['info', 'Ratings & contract'], ['bio', 'Personal & physical'], ['attr', 'Attributes'], ['stats', 'Stats']].map(([k, n]) => `<button class="sm ${tab === k ? 'primary' : ''}" data-pdtab="${k}">${n}</button>`).join('');
   const notes = { info: 'Ath / Off / Def = average of that attribute group, IQ = basketball IQ. Fit = fit with the current head coach.', bio: 'Exp = seasons in the league. Draft = draft year, round and pick.', attr: 'Green / red = 10+ above / below the average starter-level player at his position. Hover a column for its name.', stats: 'Stats are this season only and start at zero.' }[tab];
   return `<h2>Players · ${seasonName(L.season)}</h2><div class="subtabs" style="margin-bottom:12px">${tabs}</div><section class="panel"><div class="filters"><input type="search" id="pdq" placeholder="Search by name" value="${esc(ui.pdq || '')}" aria-label="Search players"><select id="pdt" aria-label="Team"><option value="all">All teams</option>${L.teams.map(t => `<option value="${t.id}" ${f == t.id ? 'selected' : ''}>${esc(tname(t.id))}</option>`).join('')}<option value="fa" ${f === 'fa' ? 'selected' : ''}>Free agents</option><option value="ov" ${f === 'ov' ? 'selected' : ''}>Overseas</option></select><select id="pdp" aria-label="Position"><option value="all">All positions</option>${POS.map((x, i) => `<option value="${i}" ${ui.pdPos == i ? 'selected' : ''}>${x}</option>`).join('')}</select><select id="pdn" aria-label="Country"><option value="all">All countries</option>${nats.map(n => `<option value="${n}" ${ui.pdNat === n ? 'selected' : ''}>${esc(NAT_NAME[n] || n)}</option>`).join('')}</select><label>Age <input type="number" id="pda1" min="18" max="45" value="${esc(ui.pdAgeLo || '')}" placeholder="min" style="width:58px"> – <input type="number" id="pda2" min="18" max="45" value="${esc(ui.pdAgeHi || '')}" placeholder="max" style="width:58px"></label><label>Min Ovr <input type="number" id="pdm" min="0" max="99" value="${esc(ui.pdMin || '')}" style="width:58px"></label>${ui.pdq || f !== 'all' || (ui.pdPos != null && ui.pdPos !== 'all') || ui.pdAgeLo || ui.pdAgeHi || ui.pdMin || (ui.pdNat && ui.pdNat !== 'all') ? '<button class="sm" data-pdclear="1">Clear filters</button>' : ''}${tab === 'stats' ? `<span class="seg"><button class="sm ${skey() === 'po' ? '' : 'primary'}" data-skey="rs">Regular season</button><button class="sm ${skey() === 'po' ? 'primary' : ''}" data-skey="po">Playoffs</button></span>` : ''}</div>
-  <div class="tblwrap"><table class="sortable" data-sid="pdir-${tab}"><thead><tr>${head.map(([n, c, t]) => `<th class="${c || ''}"${t ? ` title="${esc(t)}"` : ''}>${n}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div><p class="muted" style="font-size:12px;margin:8px 0 0">${ps.length} players${ps.length > 600 ? ' (top 600 by overall shown; use the filters)' : ''}. ${notes} Click a column to sort.</p></section>`;
+  <div class="tblwrap"><table class="sortable" data-sid="pdir-${tab}" data-ph="${{ info: '2,4,6,7,8,9,10,11,12', bio: '4,5,7,8,9,10,11', attr: '', stats: '3,4,8,9,10' }[tab]}"><thead><tr>${head.map(([n, c, t]) => `<th class="${c || ''}"${t ? ` title="${esc(t)}"` : ''}>${n}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div><p class="muted" style="font-size:12px;margin:8px 0 0">${ps.length} players${ps.length > 600 ? ' (top 600 by overall shown; use the filters)' : ''}. ${notes} Click a column to sort.</p></section>`;
 }
 
 // Position averages for color-coding attributes (computed from rostered players at each primary position)
@@ -4767,6 +4772,7 @@ function todoChip() {
   c.innerHTML = `<strong>To-do ${n ? n : '✓'}</strong>${star ? '<span class="todo-star">★</span>' : ''}`;
 }
 function todoToast(msg) {
+  if (popupBusy() || document.getElementById('p3-story')) { clearTimeout(todoToast.w); todoToast.w = setTimeout(() => { if (L) todoToast(msg); }, 700); return; }   // F1: wait for popups / story cards / a live game
   let b = document.getElementById('todotoast'); if (!b) { b = document.createElement('div'); b.id = 'todotoast'; b.setAttribute('role', 'status'); document.body.appendChild(b); }
   b.innerHTML = `<span>${esc(msg)}</span> <button class="sm primary" data-todo-open="1">Open to-do</button> <button class="sm" data-todo-x="1" aria-label="Dismiss">✕</button>`; b.hidden = false;
   clearTimeout(todoToast.t); todoToast.t = setTimeout(() => { b.hidden = true; }, 9000);
@@ -4860,7 +4866,7 @@ function tickerItems() {
 }
 function renderTicker() {
   let el = document.getElementById('ticker');
-  if (!L || ui.setupOpen) { if (el) el.hidden = true; return; }
+  if (!L || ui.setupOpen || liveGame()) { if (el) el.hidden = true; return; }   // no news ticker while a live game is playing (spoilers)
   if (!el) { el = document.createElement('div'); el.id = 'ticker'; el.className = 'ticker'; $('#main').parentNode.insertBefore(el, $('#main')); }
   el.hidden = false;
   const f = ui.tkF || '', key = [L.season, L.phase, L.day, L.po ? L.po.day : 0, L.log.length, L.games.length, f, tkOff, L.user].join('|');
@@ -5316,12 +5322,12 @@ function interruptKind() {
   if (L.mode === 'commish' && (L.pending || []).some(t => t.isNew)) return 'pending';
   if (L.phase === 'regular' && L.pauseDrama !== false && dramaOpen(L) && ui.dramaSeen !== dramaOpen(L).id) return 'drama';   // v28.7
   if (L.user != null && L.pauseIv !== false && ivOpen(L) && ui.ivSeen !== ivOpen(L).id) return 'iv';   // v28.8
-  if (L.user != null && L.phase === 'regular' && mtgOpen(L) && mtgOpen(L).by === 'player' && ui.mtgSeen !== mtgOpen(L).id) return 'mtg';
+  if (L.pauseMtg !== false && L.user != null && L.phase === 'regular' && mtgOpen(L) && mtgOpen(L).by === 'player' && ui.mtgSeen !== mtgOpen(L).id) return 'mtg';
   if (L.pauseOffers !== false && (L.offers || []).some(o => o.isNew)) return 'offer';
-  if (L.phase === 'regular' && L.user != null && L.ddWarned !== L.season && L.day === deadlineDay(L) - 1 && (rosterOf(L, L.teams[L.user]).some(p => p.block) || (L.offers || []).length)) return 'dday';   // v18: stop on deadline day only if you're shopping someone or have offers
-  if (L.phase === 'regular' && L.user != null && L.extWarned !== L.season && L.day === deadlineDay(L) - 1 && teamPlayers(L.user).some(p => canExtend(L, p))) return 'ext';
-  if (L.phase === 'regular' && L.user != null && L.buyWarned !== L.season && L.day === buyoutDeadlineDay(L) - 1 && teamPlayers(L.user).some(p => buyoutTerms(L, p))) return 'buyout';
-  if (L.phase === 'regular' && L.user != null && L.twWarned !== L.season && L.day === twPoDay(L) && twOf(L, L.teams[L.user]).length) return 'twpo';   // v23
+  if (L.pauseWarn !== false && L.phase === 'regular' && L.user != null && L.ddWarned !== L.season && L.day === deadlineDay(L) - 1 && (rosterOf(L, L.teams[L.user]).some(p => p.block) || (L.offers || []).length)) return 'dday';   // v18: stop on deadline day only if you're shopping someone or have offers
+  if (L.pauseWarn !== false && L.phase === 'regular' && L.user != null && L.extWarned !== L.season && L.day === deadlineDay(L) - 1 && teamPlayers(L.user).some(p => canExtend(L, p))) return 'ext';
+  if (L.pauseWarn !== false && L.phase === 'regular' && L.user != null && L.buyWarned !== L.season && L.day === buyoutDeadlineDay(L) - 1 && teamPlayers(L.user).some(p => buyoutTerms(L, p))) return 'buyout';
+  if (L.pauseWarn !== false && L.phase === 'regular' && L.user != null && L.twWarned !== L.season && L.day === twPoDay(L) && twOf(L, L.teams[L.user]).length) return 'twpo';   // v23
   return null;
 }
 const dlgQueue = [];
@@ -5347,7 +5353,12 @@ function cutDialog() {
 function cutCheck() { if (L.user != null && L.phase === 'regular' && L.teams[L.user].roster.length > 15) queueDialog(cutDialog); }
 // Popups shown after sims are remembered so you can reopen them (Recent button, or Back to popup after clicking a name)
 function runDialog(fn) { fn(); try { if (window.P3) P3.dialogArt(); } catch (e) { } const h = $('#modal h2'); if (h) { ui.curDlg = fn; ui.recent = [{ t: h.textContent.trim(), fn, s: L.season, ph: L.phase }].concat((ui.recent || []).filter(r => r.fn !== fn && r.t !== h.textContent.trim())).slice(0, 8); } }
-function queueDialog(fn) { if ($('#ov')) dlgQueue.push(fn); else runDialog(fn); }
+// F1/F2: one popup at a time. Popups wait (in dlgQueue) while another popup / ceremony is open, or while you watch your game live (no spoilers).
+function liveGame() { if (!L || ui.liveMode == null || !ui.lv || ui.lv.gid !== ui.liveMode) return null; const g = L.games.find(x => x.id === ui.liveMode); return g && g.pbp && ui.lv.i < g.pbp.length ? g : null; }
+function popupBusy() { return !!($('#ov') || document.getElementById('p3-cer') || liveGame()); }
+function flushDialogs() { if (L && dlgQueue.length && !popupBusy()) runDialog(dlgQueue.shift()); }
+setInterval(flushDialogs, 500);
+function queueDialog(fn) { if (popupBusy()) dlgQueue.push(fn); else runDialog(fn); }
 function recentDialog() {
   const r = ui.recent || [];
   dialog(`<h2>Recent popups</h2>${r.length ? r.map((x, i) => `<div class="leader" style="grid-template-columns:minmax(0,1fr) auto;align-items:center"><span>${esc(x.t)}</span><button class="sm" data-reopen="${i}">Open</button></div>`).join('') : '<p class="muted">Nothing yet. Popups from this session show up here.</p>'}<div class="row"><button id="x-close">Close</button></div>`);
@@ -5360,7 +5371,7 @@ function afterRun(ph0) {
     const g = L.games.slice(ui.liveFrom).find(x => x.pbp && (isUser(x.home) || isUser(x.away))); ui.liveFrom = null;
     if (g) { backStack.push(snapNow()); ui.game = g.id; ui.player = null; ui.coach = null; ui.liveMode = g.id; ui.lv = null; lvState(g); render(); window.scrollTo(0, 0); lvTick(); }
   }
-  { const P = pressActive(); if (P && ui.pressSeen !== P.id) { ui.pressSeen = P.id; queueDialog(pressDialog); } }
+  { const P = pressActive(); if (P && L.pausePress !== false && ui.pressSeen !== P.id) { ui.pressSeen = P.id; queueDialog(pressDialog); } }
   const k = interruptKind();
   if (k === 'drama') { ui.dramaSeen = dramaOpen(L).id; queueDialog(dramaDialog); }
   if (k === 'iv') { ui.ivSeen = ivOpen(L).id; queueDialog(ivDialog); }
@@ -5453,6 +5464,8 @@ function simSummaryDialog(sn, gms) {
 }
 function snapStart() { if (L.user == null) { ui.snap = null; return; } const t = L.teams[L.user]; ui.snap = { day: L.day, ph: L.phase, w: t.w, l: t.l, rank: seedOrder(L, t.conf).indexOf(t.id) + 1, n: L.logN || 0, g: L.games.length, s: L.season }; }
 $('#simctl').addEventListener('click', e => {
+  const m = e.target.closest('[data-simmore]'); if (m) { const o = $('#simctl').classList.toggle('open'); m.setAttribute('aria-expanded', o ? 'true' : 'false'); return; }
+  if (e.target.closest('[data-sim]')) $('#simctl').classList.remove('open');
   const b = e.target.closest('[data-sim]'); if (!b || b.disabled) return;
   ui.undo = []; ui.simClick = true; setTimeout(() => { ui.simClick = false; }, 0);   // v24.7: a sim ends the undo window
   let k = b.dataset.sim;
@@ -5585,7 +5598,7 @@ function markMine(root) {
   if (L == null || L.user == null || !root) return;
   root.querySelectorAll('[data-player]').forEach(el => { const p = L.players[+el.dataset.player]; if (p && p.team === L.user) el.classList.add('mineHL'); });
 }
-function closeDialog() { $('#modal').innerHTML = ''; const next = dlgQueue.shift(); if (next) setTimeout(() => runDialog(next), 0); }
+function closeDialog() { $('#modal').innerHTML = ''; if (dlgQueue.length) setTimeout(flushDialogs, 0); }
 $('#b-menu').textContent = 'Saves';
 $('#b-recent').onclick = () => { if (L) recentDialog(); };
 $('#b-menu').onclick = () => {
@@ -5723,7 +5736,7 @@ function doUndo() {
 // test hook (read-only access for automated tests)
 window.__pblCourt = { get L() { return L; }, scSpot, scRng };   // Phase 2: court.js reads the league and the shot-zone helpers
 // Phase 3: app helpers for src/p3.js (it reads them through `with (PBL)`)
-window.PBL = { get L() { return L; }, ui, $, esc, f1, render, dialog, closeDialog, queueDialog, ovrTxt, lgTag, portrait, logo, isUser, awardTid, trophySvg, plink, tname, save };
+window.PBL = { get L() { return L; }, popupBusy, liveGame, ui, $, esc, f1, render, dialog, closeDialog, queueDialog, ovrTxt, lgTag, portrait, logo, isUser, awardTid, trophySvg, plink, tname, save };
 window.__pbl = { get L() { return L; }, lvTicker: (g, n) => lvTicker(g, n), lvTickerLines: g => lvTickerLines(g), save: () => save(), render: () => render(), awardsDialog: t => awardsDialog(t), championDialog: () => championDialog(), trainCheckDialog: () => queueDialog(trainCheckDialog), openPlayer: id => { ui.player = id; render(); }, review: S => seasonReviewDialog(S), get ui() { return ui; }, interruptKind: () => interruptKind(), dlg: n => runDialog({ iv: ivDialog, mtg: mtgDialog, drama: dramaDialog }[n]), v30: { logo, logoBody, hexContrast, pipeLogo, todo: { on: () => todoOn(), state: () => todoState(), group: () => todoGroup(), list: g => todoList(g), open: g => todoOpenCount(g), stopEnd: e => todoStopEnd(e) } }, pipeUi: { pipeSchool: p => pipeSchool(p), pipeLatest: () => pipeLatest(), stockChip: p => stockChip(p) } };   // v29: test hooks
 (async () => {
   $('#main').innerHTML = '<p class="muted">Loading your league…</p>';

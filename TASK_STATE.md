@@ -1,3 +1,13 @@
+# TASK_STATE — Phase 2 (Opus) — Nov 18 2026: animated court view, play-by-play ticker, top plays highlights
+- [x] 0. Phase 1 merged on main (9f07c1b); branch `phase2-live-court-ticker-highlights`; read vLive/lvTick/fxLive, engine logE + shot code, scSpot zones, portrait()
+- [ ] 1. engine.js: shot code on play-by-play shot entries (e[10] = zone*10 + type) + per-game top plays `game.hl` for every game (no extra random numbers, results unchanged)
+- [ ] 2. src/court.js (new): animated top-down court in the live game (dots move, pass, shoot), hooked into lvTick + settings speed/skip; build.py single + index.html + template
+- [ ] 3. Play-by-play ticker: commentary feed beside the court (runs, lead changes, milestones), slide-in on new lines
+- [ ] 4. Top plays: News & history → Top plays (reel with faces + mini replay, pick a night), My team card, box score section
+- [ ] 5. Tests: node --check, lint, t36, t34, browser-p1, new tools/browser-p2.js
+- [ ] 6. PROGRESS + README + TESTING, push, PR, merge
+
+---
 # TASK_STATE — Phase 1 (Opus) — Nov 18 2026: sound effects + mute, screen animations, settings page, shot charts
 - [x] 0. Clone, branch `phase1-sound-anim-settings-shotcharts`, read app.js render/router, engine shot zones (existing zone heat chart on player + team pages)
 - [x] 1. src/fx.js: settings store (localStorage `pbl-fx`) + Web Audio sounds (bounce, swish, rim, dunk, block, whistle, buzzer, cheer, groan), no audio files; index.html + index.template.html (🔊 + ⚙ Settings buttons) + build.py single; CSS at end of styles.css

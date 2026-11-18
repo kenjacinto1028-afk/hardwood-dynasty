@@ -204,6 +204,7 @@
     ${ck('draftShow', 'Draft night show', 'Animated pick reveals and crowd reactions')}
     ${ck('draftTimer', 'Auto-pick when your draft clock runs out', 'Off: the clock is just for fun')}
     ${ck('stories', 'Story popups', 'Illustrated story cards for big moments: rivalries, injuries, streaks, press conferences')}
+    ${gameHtml()}
     ${stopHtml()}
     ${installHtml()}
     <div class="row" style="margin-top:14px;gap:8px"><button class="primary" id="fx-done">Done</button><button id="fx-reset">Reset to default</button><button id="fx-demo">Preview a win</button></div>`;
@@ -230,6 +231,14 @@
     const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     return `<h3 style="margin-top:14px">Install as an app</h3><p class="muted" style="font-size:13px;margin:0 0 6px">Puts the game on your home screen, opens full screen and works with no internet. Your leagues stay saved on this device.</p>${installEv ? '<button class="primary" id="fx-install">Install app</button>' : ios ? '<p style="font-size:13px;margin:0">On iPhone / iPad: tap the Share button in Safari, then <strong>Add to Home Screen</strong>.</p>' : '<p class="muted" style="font-size:13px;margin:0">In Chrome or Edge, open the browser menu and choose <strong>Install app</strong> (or <strong>Add to Home screen</strong>).</p>'}`;
   }
+  // Phase B: difficulty (saved with the league) + the guided tour
+  function gameHtml() {
+    const L = window.PBL && window.PBL.L; if (!L) return '';
+    const d = L.diff || 'normal', b = k => `<button class="sm ${d === k ? 'primary' : ''}" data-fxdiff="${k}">${{ easy: 'Easy', normal: 'Normal', hard: 'Hard' }[k]}</button>`;
+    return `<h3 style="margin-top:14px">Game</h3><div class="fx-row"><span>Difficulty</span><span class="seg">${b('easy')}${b('normal')}${b('hard')}</span></div>
+    <p class="muted" style="font-size:12px;margin:0 0 6px">${{ easy: 'Easy: AI teams take fair trades and your owner is patient.', normal: 'Normal: the game as designed.', hard: 'Hard: AI teams want a clear win in trades and your owner loses patience fast.' }[d]} Saved with this league; change it any time.</p>
+    <div class="row" style="gap:8px"><button class="sm" id="fx-tour">Take the tour</button><span class="muted" style="font-size:12px">A quick guide to the main buttons.</span></div>`;
+  }
   function stopHtml() {
     const L = window.PBL && window.PBL.L; if (!L || L.user == null) return '';
     return `<h3 style="margin-top:14px">Stop the sim for…</h3><p class="muted" style="font-size:12px;margin:0 0 6px">Checked = the sim stops and asks you. Unchecked = it keeps going (things wait for you on their page). Your roster being over 15 players always stops it.</p>${STOPS.map(([k, t, d, get]) => { let on = true; try { on = get(L); } catch (e) { } return `<label class="fx-ck"><input type="checkbox" data-stop="${k}" ${on ? 'checked' : ''}><span><strong>${t}</strong><br><span class="muted" style="font-size:12px">${d}</span></span></label>`; }).join('')}`;
@@ -254,6 +263,8 @@
       m.querySelectorAll('[data-fxc]').forEach(c => c.onchange = () => { S[c.dataset.fxc] = c.checked; saveS(); });
       m.querySelectorAll('[data-fxs]').forEach(b => b.onclick = () => { S.speed = b.dataset.fxs; saveS(); draw(); });
       m.querySelectorAll('[data-fxt]').forEach(b => b.onclick = () => sfx(b.dataset.fxt));
+      m.querySelectorAll('[data-fxdiff]').forEach(b => b.onclick = () => { const L = window.PBL.L; if (!L) return; L.diff = b.dataset.fxdiff; try { window.PBL.save(); } catch (e) { } draw(); });
+      const tb = m.querySelector('#fx-tour'); if (tb) tb.onclick = () => { close(); if (window.PB) PB.tour(true); };
     };
     draw();
   }

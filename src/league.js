@@ -2321,8 +2321,9 @@ function evaluateUserTrade(L, aiTid, give, get) {
   const fc = fitCheck(L, AI, get.players, give.players);
   if (fc.worse) return { ok: false, msg: `${AI.abbr} say no: it would leave their rotation lopsided at one position.` };
   const why = view.notes.length ? ` (${[...new Set(view.notes)].slice(0, 3).join('; ')})` : '';
-  if (gain >= loss * 1.05) return { ok: true, msg: `${AI.abbr} accept${why}.` };
-  const deficit = loss * 1.05 - gain;
+  const DK = diffK(L).trade;   // Phase B: difficulty (Normal 1.05 as before)
+  if (gain >= loss * DK) return { ok: true, msg: `${AI.abbr} accept${why}.` };
+  const deficit = loss * DK - gain;
   { const per = cashTV(L, AI, 1), room = Math.min(cashRoom(L, L.teams[me]).send - (give.cash || 0), cashRoom(L, AI).get - (give.cash || 0)), c = per > 0 ? Math.ceil(deficit / per * 2) / 2 : 99;   // v25.7c: a small gap can be closed with cash
     if (c <= room && !(get.cash > 0)) return { ok: false, msg: `${AI.abbr} (${MODE_LABEL[AI.mode].toLowerCase()}) want a little more. They would accept if you add ${money(c)} cash.`, suggest: { t: 'c', amt: c, name: money(c) + ' cash' } }; }
   const mine = [...rosterOf(L, L.teams[me]).filter(p => !give.players.includes(p.id)).map(p => ({ t: 'p', id: p.id, v: playerTV(L, AI, p, false), name: p.name })),
@@ -3849,6 +3850,7 @@ function ownerReview(L) {
     if ((t.drought || 0) >= 4) d -= Math.min(6, (t.drought - 3) * 2);     // fans and owner tire of losing
     // owners' patience drifts back toward neutral, so a great run doesn't buy unlimited credit
     if (d > 0 && o.trust > 80) d *= 0.5;      // harder to climb once trust is already high
+    if (t.id === L.user && d < 0) d *= diffK(L).owner;   // Phase B: difficulty (owner patience with you)
     o.trust = Math.round(clamp(o.trust + d + (60 - o.trust) * 0.2, 0, 100));
     const prevHot = o.hot;
     o.hot = o.trust < 35 ? o.hot + 1 : 0;
@@ -8915,7 +8917,7 @@ function lr2Auto(L) { if (L.iv && !L.iv.done) { L.iv.done = true; L.iv.expired =
 // season discipline table (league leaders in techs / fines / games suspended)
 function discLeaders(L, k, n) { return Object.values(L.players).filter(p => p.disc && p.disc.s === L.season && p.disc[k] > 0).sort((a, b) => b.disc[k] - a.disc[k]).slice(0, n || 10).map(p => ({ pid: p.id, name: p.name, tid: p.team, v: p.disc[k], tech: p.disc.tech, flag: p.disc.flag, fines: p.disc.fines, suspG: p.disc.suspG, ej: p.disc.ej })); }
 
-// v28.8 text (one wording each; Haiku adds variants: HAIKU-TASKS.md)
+// v28.8 text (one wording each; Haiku adds variants: archive/notes/HAIKU-TASKS.md)
 Object.assign(FLAVOR, {
   'sus.team': ['The {abbr} suspended {name} {g} game{s} without pay ({why}). He gives up {lost} in salary.', '{name} will miss {g} game{s} without pay. The reason: {why}. He loses {lost} in salary.', 'The {abbr} benched {name} for {g} game{s}, unpaid, because of {why}. That costs him {lost}.', 'Team discipline: {name} ({abbr}) sits {g} game{s} unpaid for {why}, costing him {lost}.'],
   'sus.league': ['The league suspended {name} ({abbr}) {g} game{s} without pay for {why}. He loses {lost} in salary.', 'League office suspends {name} ({abbr}) for {g} game{s}. Reason: {why}. Lost pay: {lost}.', '{name} ({abbr}) is out {g} game{s} by league order over {why}. He forfeits {lost}.', 'The league handed {name} ({abbr}) {g} game{s} unpaid for {why}. That is {lost} gone from his check.'],
@@ -9001,7 +9003,7 @@ Object.assign(FLAVOR, {
 });
 
 // ===== v29 Draft pipeline lite: college (NCHF) + two international leagues (EABL upper, APBA lower) =====
-// Names, codes, conferences, colors, award names, playoff formats and role targets: PIPELINE-SPEC.md (user's data, exact).
+// Names, codes, conferences, colors, award names, playoff formats and role targets: archive/notes/PIPELINE-SPEC.md (user's data, exact).
 // Seasons are simmed in one step right after the Finals (startOffseason -> pipeSeason). Stats only, no games. Results-only playoffs.
 const PIPE_LGS = ['NCHF', 'EABL', 'APBA'];
 const PIPE_LG = {
@@ -9343,7 +9345,7 @@ function pipeMigrate(L) {
 }
 // v29 save size check: bytes used by the pipeline (rosters, history, player lines and honors)
 function pipeBytes(L) { let n = JSON.stringify(L.pipe || {}).length + JSON.stringify(L.pipeHist || {}).length; for (const p of Object.values(L.players)) { if (p.pre) n += JSON.stringify(p.pre).length + 7; if (p.preAw) n += JSON.stringify(p.preAw).length + 9; if (p.club) n += JSON.stringify(p.club).length + 8; } return n; }
-// v29 text (one wording each; Haiku adds variants: HAIKU-TASKS.md)
+// v29 text (one wording each; Haiku adds variants: archive/notes/HAIKU-TASKS.md)
 Object.assign(FLAVOR, {
   'pp.sign': ['{name} ({ovr}) signs with the {club} of the {lg}.', '{name} ({ovr}) has signed with the {club} in the {lg}.', 'Free agent {name} ({ovr}) joins the {club} of the {lg}.', '{name} ({ovr}) takes his talents to the {club} ({lg}).'],
   'pp.champ.NCHF': ['The {team} win {cup}, beating the {ru} in the final.', '{cup} goes to the {team}, winners over the {ru} in the final.', 'College champions: the {team} beat the {ru} to win {cup}.', 'The {team} lift {cup} after beating the {ru} in the final.'],
@@ -9677,3 +9679,8 @@ function xpnRun(L) {
   if (L._rc) L._rc = null;
   return entry;
 }
+
+// ===== Phase B (Nov 18 2026): difficulty. Easy / Normal / Hard (L.diff, Settings > Game). Normal = the game as before.
+// trade: how much more value an AI team wants back from you; owner: how hard your owner's trust drops after a bad season.
+const DIFF = { easy: { trade: 0.97, owner: 0.6, n: 'Easy' }, normal: { trade: 1.05, owner: 1, n: 'Normal' }, hard: { trade: 1.15, owner: 1.35, n: 'Hard' } };
+function diffK(L) { return DIFF[L && L.diff] || DIFF.normal; }

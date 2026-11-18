@@ -178,13 +178,32 @@ async function saveNow() {
   let stored = false;
   if (window.CompressionStream && window.indexedDB) { try { const blob = await gz(json); const db = await idb(); await new Promise((res, rej) => { const tx = db.transaction('s', 'readwrite'); tx.objectStore('s').put(blob, 'league:' + SLOT); tx.oncomplete = res; tx.onerror = () => rej(tx.error); }); stored = true; } catch (e) { stored = false; } }
   if (!stored) await dbPut('league:' + SLOT, json);
+  try { await backupMaybe(json); } catch (e) { }   // Phase B: rolling backups (last 3)
   const slots = (await getSlots()).filter(x => x.id !== SLOT); slots.unshift(slotInfo());
   await dbPut('slots', JSON.stringify(slots)); await dbPut('current', SLOT);
 }
 async function loadSlot(id) { const v = await dbGet('league:' + id); if (!v) return null; try { return JSON.parse(typeof v === 'string' ? v : await gunz(v)); } catch (e) { return null; } }
+// Phase B: rolling backups. Each league keeps its last 3 backups ('bak:<slot>:<n>', list in 'baks:<slot>'): one when the phase changes
+// (new season, playoffs, draft, free agency...) and otherwise at most one every 10 minutes of play. A save that can't be read falls back to the newest backup.
+const BAK_N = 3, BAK_MIN = 10 * 60 * 1000;
+async function getBaks(slot) { const v = await dbGet('baks:' + slot); try { return v ? (typeof v === 'string' ? JSON.parse(v) : v) : []; } catch (e) { return []; } }
+async function backupMaybe(json) {
+  const baks = await getBaks(SLOT), last = baks[0], now = Date.now(), tag = L.season + '|' + L.phase;
+  if (last && last.tag === tag && now - last.at < BAK_MIN) return;
+  const n = last ? (last.n + 1) % BAK_N : 0;
+  let v = json; if (window.CompressionStream) { try { v = await gz(json); } catch (e) { v = json; } }
+  await dbPut('bak:' + SLOT + ':' + n, v);
+  const list = [{ n, at: now, tag, season: L.season, phase: L.phase, day: L.day || 0, label: typeof seasonLabel === 'function' ? seasonLabel(L) : '' }].concat(baks.filter(b => b.n !== n)).slice(0, BAK_N);
+  await dbPut('baks:' + SLOT, JSON.stringify(list));
+}
+async function loadBak(slot, n) { const v = await dbGet('bak:' + slot + ':' + n); if (!v) return null; try { return JSON.parse(typeof v === 'string' ? v : await gunz(v)); } catch (e) { return null; } }
+async function delBaks(slot) { for (const b of await getBaks(slot)) await dbDel('bak:' + slot + ':' + b.n); await dbDel('baks:' + slot); }
+let RECOVERED = null;   // set when the save couldn't be read and a backup was loaded instead
 async function load() {
   let cur = await dbGet('current');
-  if (cur) { const x = await loadSlot(cur); if (x) { SLOT = cur; return x; } }
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => { }); } catch (e) { }   // ask the browser not to clear saves when space runs low
+  if (cur) { const x = await loadSlot(cur); if (x) { SLOT = cur; return x; }
+    for (const b of await getBaks(cur)) { const y = await loadBak(cur, b.n); if (y) { SLOT = cur; RECOVERED = b; return y; } } }
   // older single-save layout: move it into a slot
   const old = await dbGet(KEY);
   if (old) { SLOT = 'slot-' + Date.now(); const x = JSON.parse(old); L = x; await save(); await dbDel(KEY); L = null; return x; }
@@ -4917,6 +4936,7 @@ function render() {
   try { negoAfterRender(); } catch (e) { console.error(e); }   // v30c #2
   try { if (window.P3) P3.afterRender(); } catch (e) { console.error(e); }   // Phase 3
   try { if (window.XP) XP.afterRender(); } catch (e) { console.error(e); }   // Phase A: expansion results popup (src/xp.js)
+  try { if (window.PB) PB.afterRender(); } catch (e) { console.error(e); }   // Phase B: first-time tour (src/pb.js)
 }
 // v25.1: pinned notes. One plain-text note per save (L.note), in a box in a screen corner on every screen;
 // minimize to a tab, expand again (remembered in the save). Saved as you type. Sits under popups (z-index below .overlay).
@@ -5608,9 +5628,21 @@ $('#b-menu').onclick = () => {
   <div class="row" style="margin:10px 0 14px"><button class="primary" id="x-new">New league</button><button id="x-exp" ${L ? '' : 'disabled'}>Export this league</button><label class="btn" for="x-file">Import league file</label><input type="file" id="x-file" accept=".json,.gz,.pbl,application/json,application/gzip" hidden></div>
   ${L ? '<div id="x-p3" style="margin:-4px 0 12px"></div>' : ''}
   <div id="x-msg" class="muted"></div>
+  ${L ? '<div id="x-baks" style="margin:0 0 12px"></div>' : ''}
   <p class="muted" style="font-size:12px">Saves live in this browser on this device. Clearing browser data erases them, so export a backup now and then.</p>
   <div class="row"><button id="x-close">Close</button></div>`);
   $('#x-close').onclick = closeDialog;
+  if (L && SLOT) (async () => {   // Phase B: automatic backups of the open league
+    const baks = await getBaks(SLOT), box = $('#x-baks'); if (!box) return;
+    const ago = t => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : Math.round(m / 1440) + ' days ago'; };
+    box.innerHTML = `<h3 style="margin:0 0 4px">Automatic backups</h3><p class="muted" style="margin:0 0 6px;font-size:12px">The game keeps the last ${BAK_N} copies of this league (at each new phase, and every 10 minutes of play). If a save ever breaks, the newest backup opens instead.</p>` +
+      (baks.length ? baks.map(b => `<div class="check"><span class="grow">${esc(b.label || seasonName(b.season))} <span class="muted">· ${ago(b.at)}</span></span><button class="sm" data-bak="${b.n}">Go back to this</button></div>`).join('') : '<p class="muted" style="margin:0">No backups yet. One is made the next time the game saves.</p>');
+    box.querySelectorAll('[data-bak]').forEach(btn => btn.onclick = () => {
+      btn.outerHTML = `<span class="row"><span class="muted">Replace the current league with this backup?</span><button class="sm danger" data-baky="${btn.dataset.bak}">Yes, go back</button></span>`;
+      const y = box.querySelector(`[data-baky="${btn.dataset.bak}"]`);
+      y.onclick = async () => { const x = await loadBak(SLOT, +y.dataset.baky); if (!x) { $('#x-msg').textContent = 'That backup could not be read.'; return; } setLeague(x); ui.setupOpen = false; backStack.length = 0; ui.cur = null; await saveNow(); closeDialog(); location.hash = x.user != null ? '#myteam' : '#standings'; route(); };
+    });
+  })();
   try { if (window.P3) P3.savesExtra(); } catch (e) { console.error(e); }   // Phase 3: small file, share, team link
   const drawSlots = async () => {
     const slots = await getSlots();
@@ -5618,7 +5650,7 @@ $('#b-menu').onclick = () => {
     document.querySelectorAll('[data-sl]').forEach(b => b.onclick = async () => { const x = await loadSlot(b.dataset.sl); if (!x) { $('#x-msg').textContent = 'That save could not be read.'; return; } SLOT = b.dataset.sl; await dbPut('current', SLOT); setLeague(x); ui.setupOpen = false; backStack.length = 0; ui.cur = null; closeDialog(); location.hash = x.user != null ? '#myteam' : '#standings'; route(); });
     document.querySelectorAll('[data-sd]').forEach(b => b.onclick = () => {
       b.outerHTML = `<span class="row"><span class="muted">Delete for good?</span><button class="sm danger" data-sdy="${b.dataset.sd}">Delete</button></span>`;
-      document.querySelector(`[data-sdy="${b.dataset.sd}"]`).onclick = async () => { const id = b.dataset.sd; await dbDel('league:' + id); await dbPut('slots', JSON.stringify((await getSlots()).filter(x => x.id !== id))); if (id === SLOT) { SLOT = null; L = null; await dbDel('current'); closeDialog(); ui.setupOpen = true; render(); return; } drawSlots(); };
+      document.querySelector(`[data-sdy="${b.dataset.sd}"]`).onclick = async () => { const id = b.dataset.sd; await dbDel('league:' + id); try { await delBaks(id); } catch (e) { } await dbPut('slots', JSON.stringify((await getSlots()).filter(x => x.id !== id))); if (id === SLOT) { SLOT = null; L = null; await dbDel('current'); closeDialog(); ui.setupOpen = true; render(); return; } drawSlots(); };
     });
   };
   drawSlots();
@@ -5742,7 +5774,8 @@ window.__pbl = { get L() { return L; }, lvTicker: (g, n) => lvTicker(g, n), lvTi
 (async () => {
   $('#main').innerHTML = '<p class="muted">Loading your league…</p>';
   const saved = await load();
-  if (saved && saved.version === 4 && saved.teams && saved.players) { setLeague(saved); route(); }
+  if (saved && saved.version === 4 && saved.teams && saved.players) { setLeague(saved); route();
+    if (RECOVERED) { const b = RECOVERED; RECOVERED = null; queueDialog(() => dialog(`<h2>Backup opened</h2><p>Your last save couldn't be read, so the game opened your newest automatic backup (${esc(b.label || seasonName(b.season))}). You may have lost a few minutes of play.</p><div class="row" style="margin-top:12px"><button class="primary" id="rb-ok">OK</button></div>`)); setTimeout(() => { const k = document.getElementById('rb-ok'); if (k) k.onclick = closeDialog; }, 0); save(); } }
   else {
     let old = null; try { old = localStorage.getItem('league-v3') || localStorage.getItem('mbl-league-v1'); } catch (e) {}
     try { if (!old) { const db = await new Promise((res, rej) => { const r = indexedDB.open('mbl-league', 1); r.onupgradeneeded = () => r.result.createObjectStore('s'); r.onsuccess = () => res(r.result); r.onerror = rej; }); old = await new Promise(res => { const q = db.transaction('s', 'readonly').objectStore('s').get('league-v3'); q.onsuccess = () => res(q.result); q.onerror = () => res(null); }); } } catch (e) {}

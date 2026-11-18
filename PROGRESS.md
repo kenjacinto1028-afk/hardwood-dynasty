@@ -1,5 +1,14 @@
 # PBL progress
 
+## Phase B: save safety, error screen, tour, difficulty, cleanup (Opus, Nov 18 2026)
+- [x] **Automatic backups**: each league keeps its last 3 copies (at every new phase, and every 10 minutes of play). Saves popup lists them with "Go back to this". If the save can't be read, the newest backup opens with a short note. The game also asks the browser to keep saves when space runs low (`navigator.storage.persist`).
+- [x] **Error card**: any crash shows "Something went wrong on this screen. Your league is safe..." with Reload / Copy details / Dismiss instead of a silently broken page (src/pb.js).
+- [x] **Guided tour**: 9 short steps (sim buttons, pages, sub pages, roster moves, search, saves, settings). Starts by itself on a brand-new league; Settings > Game > Take the tour any time.
+- [x] **Difficulty** (Settings > Game, saved with the league): Easy = AI accepts fair trades (0.97 x value), owner 40% more patient; Normal = as before (1.05); Hard = AI wants 1.15 x value, owner 35% less patient. league.js `DIFF` / `diffK`.
+- [x] **Cleanup**: old runs, patches, review notes and duplicate saves moved to `archive/` (nothing loads them).
+- Speed: checked a 10-season NBA save, 15 MB of data (about 1.5 MB stored, compressed). The v32h pruning already trims it each season, so nothing new was needed.
+- Tests: tools/browser-pb.js (1300 + 390 px).
+
 ## Phase A: expansion teams (Opus, Nov 18 2026)
 - [x] **League > Expansion page**: pick 2 or 4 new cities (12 ready-made PBL cities, 12 NBA-mode cities) or make your own: city, nickname, short name, two colors, logo, market size. Half go to each conference. Call it off any time before it happens.
 - [x] **When**: the new teams join at the start of free agency (after the draft and re-signing). Planned during free agency = next offseason.

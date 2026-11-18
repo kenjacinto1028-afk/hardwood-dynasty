@@ -2494,7 +2494,7 @@ function seedOrder(league, conf) {
       const ids = grp.map(t => t.id);
       const hp = t => { let w = 0, g = 0; for (const o of ids) if (o !== t.id) { const a = h2[t.id + '-' + o] || 0, b = h2[o + '-' + t.id] || 0; w += a; g += a + b; } return g ? w / g : 0.5; };
       const cp = t => (t.cw + t.cl) ? t.cw / (t.cw + t.cl) : 0.5;
-      grp.sort((a, b) => hp(b) - hp(a) || cp(b) - cp(a) || (b.pf - b.pa) - (a.pf - a.pa));
+      grp.sort((a, b) => hp(b) - hp(a) || cp(b) - cp(a) || (b.pf - b.pa) - (a.pf - a.pa) || (b.expW || 0) - (a.expW || 0));
     }
     out.push(...grp); i = j;
   }

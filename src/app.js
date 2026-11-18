@@ -2423,8 +2423,8 @@ function goalTracker(t) {
   const g = t.owner.goal, gp = t.w + t.l, left = SEASON_GAMES - gp;
   let pctv = 0, txt = '';
   if (g.key === 'wins') { const proj = gp ? Math.round(t.w / gp * SEASON_GAMES) : 0; pctv = Math.min(100, t.w / g.n * 100); txt = `${t.w} of ${g.n} wins · pace ${proj}`; }
-  else if (['po', 'poC', 'cf', 'finals'].includes(g.key)) { const conf = seedOrder(L, t.conf), seed = conf.indexOf(t.id) + 1; const D = poDirect(L), P = poPlayinTo(L); pctv = seed <= D ? 100 : seed <= P ? 60 : 25; txt = `Conference seed ${seed} of ${conf.length} · ${seed <= D ? 'in a playoff spot' : seed <= P ? 'play-in range' : 'outside'}`; }
-  else { const pr = seasonProjection(L, t), pf = pr.profit != null ? pr.profit : pr.revenue - pr.expenses, need = t.market === 1 ? -10 : 0; pctv = pf >= need ? 100 : Math.max(0, 100 + (pf - need) * 5); txt = `Projected ${pf >= 0 ? 'profit' : 'loss'} ${money(Math.abs(pf))}`; }
+  else if (['po', 'poC', 'cf', 'finals', 'r2', 'title'].includes(g.key)) { const conf = seedOrder(L, t.conf), seed = conf.indexOf(t.id) + 1; const D = poDirect(L), P = poPlayinTo(L), rnd = g.key === 'r2' || g.key === 'title'; pctv = !gp ? 0 : rnd ? (seed <= D ? 50 : seed <= P ? 25 : 10) : seed <= D ? 100 : seed <= P ? 60 : 25; txt = `Conference seed ${seed} of ${conf.length} · ${seed <= D ? 'in a playoff spot' : seed <= P ? 'play-in range' : 'outside'}`; }
+  else { const pr = seasonProjection(L, t), pf = pr.profit != null ? pr.profit : pr.revenue - pr.expenses, need = t.market === 1 ? -10 : 0; pctv = !gp ? 0 : pf >= need ? 100 : Math.max(0, 100 + (pf - need) * 5); txt = `Projected ${pf >= 0 ? 'profit' : 'loss'} ${money(Math.abs(pf))}`; }
   const cls = pctv >= 80 ? '' : pctv >= 50 ? 'warn' : 'bad';
   return `<div class="goalbar"><div class="k">Owner goal: ${esc(g.txt)}</div>${meter(pctv, cls)}<div class="muted" style="font-size:12px">${txt}${left > 0 ? ` · ${left} games left` : ''}</div></div>`;
 }

@@ -8,6 +8,15 @@ Branch `sonnet-popups-phone-pwa`. Items: F1 F2 U1 U2 I2 I1.
 - [x] I1 installable offline app: manifest.webmanifest, sw.js, icons/, fx.js Install section, index.html (offline load checked)
 - [ ] tests, PR, merge
 
+# TASK_STATE — Haiku quick fixes: goals box, Notes/to-do covering text, phone search + day-1 standings, root cleanup (Nov 18 2026)
+- [x] 1. Repo cloned to /home/user/pacific-basketball-league (HEAD d3e32e6)
+- [x] 2. F3 owner goals box: playoff text uses poDirect (6 in 30-team league) in src/league.js ownerGoalFor; goalTracker in src/app.js: 0-0 shows 0%, r2/title goals use seed bar (never full), no money bar on those
+- [x] 3. U3 floating Notes + to-do toast: src/styles.css end (phone: Notes shows only icon+label, toast sits above bottom nav)
+- [x] 4. U4 phone search row gets 200px basis (src/styles.css); day-1 standings tie-break by preseason expW (src/engine.js seedOrder)
+- [x] 5. I3 root cleanup: 41 root copies identical to tools/ deleted; v30a.patch moved to patches/
+- [ ] 6. Tests: lint-v30-text PASS, t30c running; phone screenshot check
+- [ ] 7. Commit, push branch, PR, merge if tests pass
+
 ---
 # TASK_STATE — Draft stats, trade pictures, commentary colors (Opus) — Nov 18 2026
 - [x] 1. Draft night cards: college/international stats from prospect pipeline (zeros if none) -> p3.js seasonLine falls back to p.pre (also rookie cards), footer shows NCHF/EABL/APBA + season

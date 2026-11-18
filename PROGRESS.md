@@ -754,3 +754,9 @@ Suggested order: T (quick win) → R → G (PBL + pipeline emblems) → F, then 
 - Contracts: `yrsLeft` / `contractEnd` include `p.ext` everywhere; `negotiate` no longer shortens years (2-yr minimum, rookie 4-yr extension).
 - Draft offers: Negotiate opens trade center; accepting an offer removes other offers for the same slot or assets.
 - Tests: `tools/t32a.js` (38/38), `tools/browser-v32a.py.txt` (8/8), t30a 21/21, t30c 30/30, lint, node --check.
+
+## Nov 18 2026 — Haiku quick fixes (F3, U3, U4, I3)
+- F3: owner goal text shows real playoff line (top 6 in 30-team league); goal bar 0% at 0-0; round/title goals show seed bar, not money.
+- U3: phone Notes button shows icon+label only; to-do toast moved above bottom nav.
+- U4: phone search box wider; day-1 ties sorted by preseason strength, not A-Z.
+- I3: 41 duplicate old test files removed from the top level (copies live in tools/); v30a.patch moved to patches/.

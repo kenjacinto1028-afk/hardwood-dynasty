@@ -1,3 +1,14 @@
+# TASK_STATE — Sonnet batch: popups, spoilers, phone layout, app install (Nov 18 2026)
+Branch `sonnet-popups-phone-pwa`. Items: F1 F2 U1 U2 I2 I1.
+- [x] F1 popup queue: app.js popupBusy/flushDialogs (one popup at a time; ceremonies/story/to-do toasts wait)
+- [x] F2 no spoilers: top bar record before live game, ticker hidden, dialogs + story toasts held until the live game ends
+- [ ] U1 phone top bar
+- [ ] U2 phone tables
+- [ ] I2 Settings stop-the-sim section
+- [ ] I1 installable offline app
+- [ ] tests, PR, merge
+
+---
 # TASK_STATE — Draft stats, trade pictures, commentary colors (Opus) — Nov 18 2026
 - [x] 1. Draft night cards: college/international stats from prospect pipeline (zeros if none) -> p3.js seasonLine falls back to p.pre (also rookie cards), footer shows NCHF/EABL/APBA + season
 - [x] 2. News page trades: small player faces + team logos -> app.js newsPics (grouped by team), styles.css .np

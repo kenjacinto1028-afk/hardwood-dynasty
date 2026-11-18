@@ -402,6 +402,7 @@ ${sparkle}</svg>`;
   }
   function toastNext() {
     const old = document.getElementById('p3-story'); if (old) old.remove();
+    if (toastQ.length && (window.PBL.popupBusy() || (document.getElementById('todotoast') && !document.getElementById('todotoast').hidden))) { toastOn = true; clearTimeout(toastNext.w); toastNext.w = setTimeout(toastNext, 700); return; }   // F1/F2: wait for popups, the to-do toast and live games
     const s = toastQ.shift(); if (!s) { toastOn = false; return; } toastOn = true;
     const el = document.createElement('div'); el.id = 'p3-story'; el.className = 'p3-story'; el.setAttribute('role', 'status');
     el.innerHTML = `${art(s.k, s.c1, s.c2, s.extra)}<div class="p3-stbody"><div class="p3-stk">${esc(s.title)}${toastQ.length ? ` <span class="muted">· ${toastQ.length} more</span>` : ''}</div><div class="p3-stx">${esc(s.text)}</div><div class="row" style="gap:6px;margin-top:6px"><button class="sm" id="p3-stall">All stories</button><button class="sm" id="p3-stx" aria-label="Close story">${toastQ.length ? 'Next' : 'Close'}</button></div></div>`;

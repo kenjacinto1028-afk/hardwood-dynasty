@@ -859,7 +859,10 @@ function renderHeader() {
   const ph = L.phase === 'regular' ? `${dd(Math.min(L.day, total - 1)) ? dd(Math.min(L.day, total - 1)) + ' · ' : ''}Day ${Math.min(L.day + 1, total)} of ${total}` : L.phase === 'playoffs' ? poStages(L)[L.po.stage] : L.phase === 'off-fa' ? `Free agency · day ${L.faDay} of 10` : PHASE_TXT[L.phase];
   $('#b-back').disabled = !backStack.length;
   const ut = L.user != null ? L.teams[L.user] : null;
-  $('#when').textContent = `${seasonName(L.season)} · ${ph}${ut ? ' · ' + ut.w + '-' + ut.l + (L.phase === 'playoffs' && L.po ? ' · playoffs ' + poWL(ut.id) : '') : ' · Commissioner'}`;
+  // F2: while you watch your game live, the top bar shows the record from before that game (no spoiler)
+  const lg = liveGame(), lgMine = lg && ut && (isUser(lg.home) || isUser(lg.away)), lgWon = lgMine && (isUser(lg.home) ? lg.hs > lg.as : lg.as > lg.hs);
+  const recTxt = !ut ? ' · Commissioner' : lgMine ? ` · ${ut.w - (lgWon ? 1 : 0)}-${ut.l - (lgWon ? 0 : 1)}` : ' · ' + ut.w + '-' + ut.l + (L.phase === 'playoffs' && L.po ? ' · playoffs ' + poWL(ut.id) : '');
+  $('#when').textContent = `${seasonName(L.season)} · ${ph}${recTxt}`;
   const fc = $('#fchip'); { const bn = $('#brandname'); if (bn && bn.textContent !== leagueName()) bn.textContent = leagueName(); }
   if (L.user != null) { const k = 'f' + L.user + L.teams[L.user].name; if (fc.dataset.k !== k) { fc.dataset.k = k; fc.innerHTML = `<a class="fchip lk tl" href="#myteam" title="Your team · ${leagueName()}">${logo(L.user, 36)}<strong>${esc(tname(L.user))}</strong><span>Franchise Mode</span></a>`; } fc.hidden = false; $('#brand').classList.add('fm'); document.title = tname(L.user) + ' · ' + leagueName(); }
   else if (L.mode === 'team' && L.jobless) { const k = 'jobless'; if (fc.dataset.k !== k) { fc.dataset.k = k; fc.innerHTML = `<span class="fchip"><strong>Between jobs</strong><span>Watching the league</span></span>`; } fc.hidden = false; $('#brand').classList.add('fm'); document.title = leagueName(); }
@@ -4767,6 +4770,7 @@ function todoChip() {
   c.innerHTML = `<strong>To-do ${n ? n : '✓'}</strong>${star ? '<span class="todo-star">★</span>' : ''}`;
 }
 function todoToast(msg) {
+  if (popupBusy() || document.getElementById('p3-story')) { clearTimeout(todoToast.w); todoToast.w = setTimeout(() => { if (L) todoToast(msg); }, 700); return; }   // F1: wait for popups / story cards / a live game
   let b = document.getElementById('todotoast'); if (!b) { b = document.createElement('div'); b.id = 'todotoast'; b.setAttribute('role', 'status'); document.body.appendChild(b); }
   b.innerHTML = `<span>${esc(msg)}</span> <button class="sm primary" data-todo-open="1">Open to-do</button> <button class="sm" data-todo-x="1" aria-label="Dismiss">✕</button>`; b.hidden = false;
   clearTimeout(todoToast.t); todoToast.t = setTimeout(() => { b.hidden = true; }, 9000);
@@ -4860,7 +4864,7 @@ function tickerItems() {
 }
 function renderTicker() {
   let el = document.getElementById('ticker');
-  if (!L || ui.setupOpen) { if (el) el.hidden = true; return; }
+  if (!L || ui.setupOpen || liveGame()) { if (el) el.hidden = true; return; }   // no news ticker while a live game is playing (spoilers)
   if (!el) { el = document.createElement('div'); el.id = 'ticker'; el.className = 'ticker'; $('#main').parentNode.insertBefore(el, $('#main')); }
   el.hidden = false;
   const f = ui.tkF || '', key = [L.season, L.phase, L.day, L.po ? L.po.day : 0, L.log.length, L.games.length, f, tkOff, L.user].join('|');
@@ -5347,7 +5351,12 @@ function cutDialog() {
 function cutCheck() { if (L.user != null && L.phase === 'regular' && L.teams[L.user].roster.length > 15) queueDialog(cutDialog); }
 // Popups shown after sims are remembered so you can reopen them (Recent button, or Back to popup after clicking a name)
 function runDialog(fn) { fn(); try { if (window.P3) P3.dialogArt(); } catch (e) { } const h = $('#modal h2'); if (h) { ui.curDlg = fn; ui.recent = [{ t: h.textContent.trim(), fn, s: L.season, ph: L.phase }].concat((ui.recent || []).filter(r => r.fn !== fn && r.t !== h.textContent.trim())).slice(0, 8); } }
-function queueDialog(fn) { if ($('#ov')) dlgQueue.push(fn); else runDialog(fn); }
+// F1/F2: one popup at a time. Popups wait (in dlgQueue) while another popup / ceremony is open, or while you watch your game live (no spoilers).
+function liveGame() { if (!L || ui.liveMode == null || !ui.lv || ui.lv.gid !== ui.liveMode) return null; const g = L.games.find(x => x.id === ui.liveMode); return g && g.pbp && ui.lv.i < g.pbp.length ? g : null; }
+function popupBusy() { return !!($('#ov') || document.getElementById('p3-cer') || liveGame()); }
+function flushDialogs() { if (L && dlgQueue.length && !popupBusy()) runDialog(dlgQueue.shift()); }
+setInterval(flushDialogs, 500);
+function queueDialog(fn) { if (popupBusy()) dlgQueue.push(fn); else runDialog(fn); }
 function recentDialog() {
   const r = ui.recent || [];
   dialog(`<h2>Recent popups</h2>${r.length ? r.map((x, i) => `<div class="leader" style="grid-template-columns:minmax(0,1fr) auto;align-items:center"><span>${esc(x.t)}</span><button class="sm" data-reopen="${i}">Open</button></div>`).join('') : '<p class="muted">Nothing yet. Popups from this session show up here.</p>'}<div class="row"><button id="x-close">Close</button></div>`);
@@ -5585,7 +5594,7 @@ function markMine(root) {
   if (L == null || L.user == null || !root) return;
   root.querySelectorAll('[data-player]').forEach(el => { const p = L.players[+el.dataset.player]; if (p && p.team === L.user) el.classList.add('mineHL'); });
 }
-function closeDialog() { $('#modal').innerHTML = ''; const next = dlgQueue.shift(); if (next) setTimeout(() => runDialog(next), 0); }
+function closeDialog() { $('#modal').innerHTML = ''; if (dlgQueue.length) setTimeout(flushDialogs, 0); }
 $('#b-menu').textContent = 'Saves';
 $('#b-recent').onclick = () => { if (L) recentDialog(); };
 $('#b-menu').onclick = () => {
@@ -5723,7 +5732,7 @@ function doUndo() {
 // test hook (read-only access for automated tests)
 window.__pblCourt = { get L() { return L; }, scSpot, scRng };   // Phase 2: court.js reads the league and the shot-zone helpers
 // Phase 3: app helpers for src/p3.js (it reads them through `with (PBL)`)
-window.PBL = { get L() { return L; }, ui, $, esc, f1, render, dialog, closeDialog, queueDialog, ovrTxt, lgTag, portrait, logo, isUser, awardTid, trophySvg, plink, tname, save };
+window.PBL = { get L() { return L; }, popupBusy, liveGame, ui, $, esc, f1, render, dialog, closeDialog, queueDialog, ovrTxt, lgTag, portrait, logo, isUser, awardTid, trophySvg, plink, tname, save };
 window.__pbl = { get L() { return L; }, lvTicker: (g, n) => lvTicker(g, n), lvTickerLines: g => lvTickerLines(g), save: () => save(), render: () => render(), awardsDialog: t => awardsDialog(t), championDialog: () => championDialog(), trainCheckDialog: () => queueDialog(trainCheckDialog), openPlayer: id => { ui.player = id; render(); }, review: S => seasonReviewDialog(S), get ui() { return ui; }, interruptKind: () => interruptKind(), dlg: n => runDialog({ iv: ivDialog, mtg: mtgDialog, drama: dramaDialog }[n]), v30: { logo, logoBody, hexContrast, pipeLogo, todo: { on: () => todoOn(), state: () => todoState(), group: () => todoGroup(), list: g => todoList(g), open: g => todoOpenCount(g), stopEnd: e => todoStopEnd(e) } }, pipeUi: { pipeSchool: p => pipeSchool(p), pipeLatest: () => pipeLatest(), stockChip: p => stockChip(p) } };   // v29: test hooks
 (async () => {
   $('#main').innerHTML = '<p class="muted">Loading your league…</p>';

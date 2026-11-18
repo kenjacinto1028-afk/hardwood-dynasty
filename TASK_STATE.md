@@ -1,3 +1,21 @@
+# TASK_STATE — Rebound fix + Phase 3 + mobile (Opus) — Nov 18 2026
+PR A: offensive-rebound fix. PR B/C/D: Phase 3 (#4 cards, #13 music, #12 trophies / #7 save-share, #11 draft night / #8 story events, #6 phone layout). PR E: mobile pass.
+- [x] A1. engine.js: un-comment the offensive-rebound code (keep ball, putback) -> src/engine.js line ~2234
+- [x] A2. Test season before/after (tools/oreb-check.js): pts +1.4, FG% +0.9, ast -0.5; t36 27/27, t34 19/19, lint, browser-p2 67/67
+- [ ] A3. PROGRESS + PR + merge
+- [ ] B1. #4 player cards (rarity borders, save as image)
+- [ ] B2. #13 background music (Web Audio loops, volume in Settings)
+- [ ] B3. #12 trophies + awards ceremonies + trophy case
+- [ ] B4. tests, PR, merge
+- [ ] C1. #7 save / share / import (file + link)
+- [ ] C2. #11 draft night show
+- [ ] C3. #8 story events
+- [ ] C4. tests, PR, merge
+- [ ] D1. #6 phone layout (bigger buttons, swipe tabs)
+- [ ] E1. Mobile pass: every screen at 390 / 360 px, fix overflow
+- [ ] E2. tests, PR, merge
+
+---
 # TASK_STATE — Phase 2 (Opus) — Nov 18 2026: animated court view, play-by-play ticker, top plays highlights
 - [x] 0. Phase 1 merged on main (9f07c1b); branch `phase2-live-court-ticker-highlights`; read vLive/lvTick/fxLive, engine logE + shot code, scSpot zones, portrait()
 - [x] 1. engine.js: logE entry[10] shot code (zone*10+type), HL/hlAdd top-4 candidates + game-winner (hlGo) -> `game.hl` top 3 for every game; same scores as before (5-day check)

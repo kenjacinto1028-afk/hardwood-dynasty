@@ -1,5 +1,10 @@
 # PBL progress
 
+## Rebound fix (Opus, Nov 18 2026)
+- [x] **Fix**: after an offensive rebound on a missed shot, the offense now keeps the ball (and the rebounder can go straight back up for a putback). Before, the code for this sat inside a comment in engine.js, so the ball went to the other team.
+- [x] **Test season** (`tools/oreb-check.js`, NBA save at season 11, 2 seeds, per team per game, before -> after): points 107.4 -> 108.8, FG% 46.1 -> 47.0 (putbacks), assists 25.4 -> 24.9 (putbacks are unassisted), off. rebounds 10.6 -> 10.4, turnovers 14.6 (same), win% spread about the same. Small, realistic change; no retune needed.
+- Tests: t36 27/27, t34 19/19, lint PASS, browser-p2 67/67.
+
 ## Phase 2 (Opus, Nov 18 2026): animated court view, play-by-play ticker, top plays
 Plan: Phase 2 of Kenneth's plan (features #1, #10, #5). Branch `phase2-live-court-ticker-highlights`, PR #2 merged to main.
 - [x] **Engine** (no change to results: same scores on a 5-day check): shot entries in the play-by-play keep a shot code (`entry[10]` = zone x 10 + type: 0 dunk, 1 layup, 2 paint, 3 mid, 4 three). Every game (not only yours) keeps its top 3 plays in `game.hl` = [score, kind, player, side, q, clock, home pts, away pts, zone, type, assist, other]; kinds D dunk, 3 three, A and-one, P putback dunk, B block, G game-winner (go-ahead shot by the winner in the last 24 s).

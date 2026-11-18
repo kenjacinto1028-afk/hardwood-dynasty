@@ -872,7 +872,9 @@ function renderHeader() {
   if (ui.auto) { const a = L.auto; if (a) $('#when').textContent = autoWhen(a); }
   if ($('#simctl').dataset.k !== key) {
     $('#simctl').dataset.k = key;
-    $('#simctl').innerHTML = btns.map(([k, t], i) => `<button data-sim="${k}" title="${esc(SIM_TIP[k] || '')}" class="${i === 0 ? 'primary' : ''}${k === 'multi' ? ' multi' : ''}" ${ui.busy && k !== 'autostop' ? 'disabled' : ''}>${t}</button>`).join('');
+    const PROMPTK = ['press', 'drama', 'iv', 'mtg', 'autostop'], nx = btns.filter(([k], i) => i > 0 && !PROMPTK.includes(k)).length;   // U1: on phones the extra sim buttons live under one "Sim ▾" button
+    $('#simctl').innerHTML = btns.map(([k, t], i) => `<button data-sim="${k}" title="${esc(SIM_TIP[k] || '')}" class="${i === 0 ? 'primary' : ''}${k === 'multi' ? ' multi' : ''}${i > 0 && !PROMPTK.includes(k) ? ' sim-x' : ''}" ${ui.busy && k !== 'autostop' ? 'disabled' : ''}>${t}</button>`).join('') + (nx ? '<button class="sim-more" data-simmore="1" aria-expanded="false" aria-haspopup="true">Sim ▾</button>' : '');
+    $('#simctl').classList.remove('open');
   }
   // v24: tabs are grouped. The top row has five groups; the row under it lists the views in the group you are in.
   const NAME = { cards: 'Player cards', trophies: 'Trophy room', stories: 'Stories', rmoves: 'Overview', hofc: 'Hall of Fame', feed: 'Feed', topplays: 'Top plays', myteam: 'My team', coaches: 'Staff & GMs', preview: 'Season preview', weekly: 'Weekly report', standings: 'Standings', review: 'Progression', schedule: 'Schedule', stats: 'Stats', players: 'Players', awards: 'Awards', teams: 'Teams', trades: 'Trades', fa: 'Free agency', draft: 'Draft', news: 'News & events', injuries: 'Injuries', discipline: 'Discipline', pipeline: 'Pipeline', history: 'History', rules: 'How it works' };
@@ -5462,6 +5464,8 @@ function simSummaryDialog(sn, gms) {
 }
 function snapStart() { if (L.user == null) { ui.snap = null; return; } const t = L.teams[L.user]; ui.snap = { day: L.day, ph: L.phase, w: t.w, l: t.l, rank: seedOrder(L, t.conf).indexOf(t.id) + 1, n: L.logN || 0, g: L.games.length, s: L.season }; }
 $('#simctl').addEventListener('click', e => {
+  const m = e.target.closest('[data-simmore]'); if (m) { const o = $('#simctl').classList.toggle('open'); m.setAttribute('aria-expanded', o ? 'true' : 'false'); return; }
+  if (e.target.closest('[data-sim]')) $('#simctl').classList.remove('open');
   const b = e.target.closest('[data-sim]'); if (!b || b.disabled) return;
   ui.undo = []; ui.simClick = true; setTimeout(() => { ui.simClick = false; }, 0);   // v24.7: a sim ends the undo window
   let k = b.dataset.sim;

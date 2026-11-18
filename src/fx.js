@@ -59,6 +59,7 @@
   let lastAt = 0;
   function sfx(name, opt) {
     if (opt && opt.ui && !S.ui) return;
+    if (window.__fxLog) window.__fxLog.push(name);   // tests: which sounds were asked for
     const c = ac(); if (!c || !SOUNDS[name]) return;
     const now = c.currentTime; if (opt && opt.throttle && now - lastAt < opt.throttle) return; lastAt = now;
     try { SOUNDS[name](c, now + 0.01, opt && opt.big); } catch (e) { }

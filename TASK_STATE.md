@@ -4,7 +4,7 @@
 - [x] 2. app.js hooks: `fxSimResult` (runSteps: your last game's win/loss sound + banner, title = big confetti), `fxLive` (lvTick: sound per play, buzzer + crowd at final), render -> FX.afterRender(view key)
 - [x] 3. Animations: #main fade on view change only (not live ticks), `data-cu` count-ups (team record, PF/PA, box score finals), confetti + result banner; speed via --fx-mult, .fx-off skips
 - [x] 4. Settings popup (⚙ Settings in header, fx.js openSettings): mute, volume, live sounds, sim click sound, try buttons, skip animations, speed slow/normal/fast, confetti, reset, preview a win
-- [ ] 5. Shot charts: engine keeps each game's shots (`g.sh`), box score make/miss dot chart per team/player; player page heat / dots toggle + season picker
+- [x] 5. Shot charts: engine.js keeps each game's shots (`g.sh`, SH_ABC letters); app.js gameShotPanel (box score, team/player buttons), playerShotChart (heat / makes-and-misses toggle, season picker incl. playoffs + career, 350-shot sample), scCourt/scZoneOf/scSpot/shotDots
 - [ ] 6. Tests: node --check, lint, t36/t34, browser test tools/browser-p1.py.txt
 - [ ] 7. PROGRESS + README, push, PR
 

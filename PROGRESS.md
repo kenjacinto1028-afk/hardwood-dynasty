@@ -1,5 +1,9 @@
 # PBL progress
 
+## Phase 3 part 3 (Opus, Nov 18 2026): #6 phone-friendly layout
+- [x] Bottom tab bar, sub tabs beside Back, 44px buttons, swipe between sub tabs (not on tables / tab strips / canvas / popups), tip once.
+- Tests: browser-p3 114/114 (index + single), p1 70/70, p2 67/67.
+
 ## Phase 3 part 2 (Opus, Nov 18 2026): #7 save/share/import, #11 draft night show, #8 story events
 - [x] **#7**: packed league file (.pbl.gz, ~8x smaller), share sheet, team link (`#team=`), import reads both kinds.
 - [x] **#11**: pick reveals with crowd reactions (value vs consensus), game-day music during the show, 2:00 pick clock (auto-pick only with the setting on).

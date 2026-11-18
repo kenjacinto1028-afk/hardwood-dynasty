@@ -424,15 +424,68 @@ ${sparkle}</svg>`;
     const t = L.user != null ? L.teams[L.user] : null; const w = document.createElement('div'); w.className = 'p3-dlgart'; w.innerHTML = art(m[1], t && t.c1, t && t.c2, ''); h.parentElement.insertBefore(w, h);
   }
 
+  // ---------- #6 phone layout: bottom tab bar, sub tabs beside Back, swipe between tabs ----------
+  const phoneQ = window.matchMedia ? window.matchMedia('(max-width: 700px)') : { matches: false, addEventListener() { } };
+  const NAV_ICON = [
+    '<path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 9a7 7 0 0 1 14 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+    '<path d="M7 4h10v4a5 5 0 0 1-10 0V4Zm5 9v4m-4 3h8M7 6H4a3 3 0 0 0 3 4m10-4h3a3 3 0 0 1-3 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
+    '<path d="M4 8h13l-3-3m6 11H7l3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
+    '<path d="M5 4h11v16H6a2 2 0 0 1-2-2V5a1 1 0 0 1 1-1Zm11 4h3v10a2 2 0 0 1-2 2M8 8h5M8 12h5M8 16h3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+    '<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14m0 3v.1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'
+  ];
+  function phoneLayout() {
+    const on = phoneQ.matches && !!L && !ui.setupOpen;
+    document.body.classList.toggle('p3-phone', on);
+    const st = document.getElementById('subtabs'), nr = document.querySelector('header .navrow'), sr = document.getElementById('subrow');
+    if (st && nr && sr) { if (on && st.parentElement !== nr) nr.appendChild(st); else if (!on && st.parentElement !== sr) sr.appendChild(st); }
+    let bn = document.getElementById('p3-bnav');
+    if (!on) { if (bn) bn.hidden = true; return; }
+    if (!bn) { bn = document.createElement('nav'); bn.id = 'p3-bnav'; bn.setAttribute('aria-label', 'Sections'); document.body.appendChild(bn); }
+    bn.hidden = false;
+    const tabs = [...document.querySelectorAll('#tabs a[data-v]')];
+    const key = tabs.map(a => a.dataset.v + (a.classList.contains('on') ? '*' : '') + a.textContent).join('|');
+    if (bn.dataset.k === key) return; bn.dataset.k = key;
+    const short = t => t.replace(/\s*\(\d+\)$/, '').replace('News & history', 'News').replace('Roster moves', 'Moves').replace('How it works', 'Help').replace('Staff & GMs', 'Staff');
+    bn.innerHTML = tabs.map((a, i) => { const n = (a.textContent.match(/\((\d+)\)/) || [])[1]; return `<a href="#${a.dataset.v}" data-v="${a.dataset.v}" class="${a.classList.contains('on') ? 'on' : ''}" ${a.classList.contains('on') ? 'aria-current="page"' : ''}><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">${NAV_ICON[i] || NAV_ICON[4]}</svg><span>${esc(short(a.textContent.trim()))}</span>${n ? `<b class="p3-badge">${n}</b>` : ''}</a>`; }).join('');
+    const cur = document.querySelector('#subtabs a.on'); if (cur && cur.scrollIntoView) try { cur.scrollIntoView({ block: 'nearest', inline: 'center' }); } catch (e) { }
+  }
+  phoneQ.addEventListener && phoneQ.addEventListener('change', () => { try { phoneLayout(); } catch (e) { } });
+  // tapping the current section again goes to its first page
+  document.addEventListener('click', e => { const a = e.target.closest('#p3-bnav a[data-v]'); if (a && location.hash === '#' + a.dataset.v) { e.preventDefault(); window.scrollTo(0, 0); } });
+  // swipe left / right on the page: next / previous sub tab (not while scrolling a table, a strip of tabs, a court or a slider)
+  let sw = null;
+  const NOSWIPE = '.tblwrap, table, .subtabs, nav.tabs, canvas, input, select, textarea, .ticker, .livebox, .p3-binder, #pnote, .dialog, .overlay, [data-noswipe]';
+  document.addEventListener('touchstart', e => { if (!document.body.classList.contains('p3-phone') || e.touches.length !== 1) { sw = null; return; } const t = e.touches[0], el = e.target; if (!el.closest || !el.closest('#main') || el.closest(NOSWIPE)) { sw = null; return; } sw = { x: t.clientX, y: t.clientY, t: Date.now() }; }, { passive: true });
+  document.addEventListener('touchend', e => {
+    if (!sw) return; const t = e.changedTouches[0], dx = t.clientX - sw.x, dy = t.clientY - sw.y, dt = Date.now() - sw.t; sw = null;
+    if (Math.abs(dx) < 70 || Math.abs(dy) > 45 || dt > 700 || ui.player != null || ui.game != null || ui.coach != null || ui.gm != null) return;
+    swipeTab(dx < 0 ? 1 : -1);
+  }, { passive: true });
+  function swipeTab(dir) {
+    const subs = [...document.querySelectorAll('#subtabs a[data-v]')], i = subs.findIndex(a => a.classList.contains('on'));
+    const nxt = i >= 0 ? subs[i + dir] : null; if (!nxt) { const m = document.getElementById('main'); if (m && !noAnim()) { m.classList.remove('p3-bump'); void m.offsetWidth; m.classList.add('p3-bump'); } return false; }
+    const m = document.getElementById('main'); if (m && !noAnim()) { m.dataset.sw = dir > 0 ? 'l' : 'r'; }
+    location.hash = '#' + nxt.dataset.v; sfx('page');
+    try { if (!localStorage.getItem('p3-swiped')) localStorage.setItem('p3-swiped', '1'); } catch (e) { }
+    return true;
+  }
+  function swipeHint() {
+    if (!document.body.classList.contains('p3-phone') || document.querySelectorAll('#subtabs a').length < 2) return;
+    let seen = '1'; try { seen = localStorage.getItem('p3-swiped') || localStorage.getItem('p3-swhint'); } catch (e) { }
+    if (seen) return; try { localStorage.setItem('p3-swhint', '1'); } catch (e) { }
+    try { if (window.FX) FX.banner('Tip: swipe left or right to switch tabs', true); } catch (e) { }
+  }
+
   // ---------- render hook: music mood, draft show, stories ----------
   function musicMood() { try { if (window.FX) FX.music(ui.liveMode != null && ui.game === ui.liveMode ? 'game' : document.getElementById('p3-draft') ? 'game' : 'menu'); } catch (e) { } }
   function afterRender() {
     try { draftWatch(); draftClock(); } catch (e) { console.error(e); }
     musicMood();
     try { storyWatch(); } catch (e) { console.error(e); }
+    try { phoneLayout(); swipeHint(); const m = document.getElementById('main'); if (m && m.dataset.sw) { const k = 'p3-sw' + m.dataset.sw; delete m.dataset.sw; m.classList.remove('p3-swl', 'p3-swr'); void m.offsetWidth; m.classList.add(k); } } catch (e) { console.error(e); }
   }
   setTimeout(hashCheck, 400);
 
-  return { get _clock() { return dclock; }, afterRender, savesExtra, dialogArt, readLeagueFile, leagueBlob, teamLink, teamLinkData, openSharedTeam, storyOf, art, draftWatch, cardData, cardSvg, cardDialog, cardLink, openSharedCard, ceremony: (k, once) => once ? ceremonyOnce(k) : ceremony(k), closeCer, teamTrophies, saveBlob, shareFile, copyText, b64e, b64d, svgToPng, rarOf };
+  return { get _clock() { return dclock; }, swipeTab, phoneLayout, afterRender, savesExtra, dialogArt, readLeagueFile, leagueBlob, teamLink, teamLinkData, openSharedTeam, storyOf, art, draftWatch, cardData, cardSvg, cardDialog, cardLink, openSharedCard, ceremony: (k, once) => once ? ceremonyOnce(k) : ceremony(k), closeCer, teamTrophies, saveBlob, shareFile, copyText, b64e, b64d, svgToPng, rarOf };
 } })();
 window.P3 = P3;

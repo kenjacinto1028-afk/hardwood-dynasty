@@ -11,7 +11,7 @@ PR A: offensive-rebound fix. PR B/C/D: Phase 3 (#4 cards, #13 music, #12 trophie
 - [x] C2. #11 draft show + pick clock (p3.js draftWatch/draftNext/draftClock)
 - [x] C3. #8 story popups + Stories view + popup art (p3.js storyOf/art/dialogArt; app.js runDialog)
 - [x] C4. browser-p3 98/98 (tools/browser-p3x.js, tools/_mkdraft.js), p1, p2, lint
-- [ ] D1. #6 phone layout (bigger buttons, swipe tabs)
+- [x] D1. #6 phone layout -> p3.js phoneLayout/swipeTab, styles.css body.p3-phone; browser-p3 114/114
 - [ ] E1. Mobile pass: every screen at 390 / 360 px, fix overflow
 - [ ] E2. tests, PR, merge
 

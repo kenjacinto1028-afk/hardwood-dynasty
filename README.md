@@ -16,6 +16,11 @@ The game is split into small files so a change rewrites one file, not 1.3 MB.
 | `src/court.js` | Phase 2: animated court on a canvas: live game scenes per play (`COURT.live`) and the top-plays half-court replay (`COURT.reel`); reads the league through `window.__pblCourt` |
 | `src/index.template.html` | Page shell with markers `/*CSS*/ /*VENDOR*/ /*ENGINE*/ /*LEAGUE*/ /*NBA*/ /*APP*/` for the single-file build (`python3 -I build.py --single . [out.html]`, v33e) |
 
+## Phase 3 part 3 (Opus, Nov 18 2026): phone-friendly layout
+- Under 700px wide (`body.p3-phone`, set by src/p3.js): bottom tab bar (My team / League / Moves / News / Help, 52px tall, badges), the sub tabs move up beside Back / Forward / Home (one header row less), buttons 44px tall (small ones 36px), bigger close X and checkboxes. Notes, to-do toast and story popups sit above the bar.
+- Swipe left / right on a page to go to the next / previous sub tab (slide animation; a bump at the ends). Not on tables, tab strips, courts, sliders or popups. One-time tip banner.
+- Test: browser-p3 114 checks.
+
 ## Phase 3 part 2 (Opus, Nov 18 2026): save / share / import, draft night show, story events
 - Saves popup: **Save league file (small)** packs the league (gzip, about 8x smaller, `.pbl.gz`); **Share league file** uses the phone share sheet (falls back to saving); **Copy my team link** (`#team=` opens a read-only sheet of your roster anywhere). Import league file takes plain `.json` or the packed file.
 - Draft night: each pick is revealed (drumroll, card flips from a shadow, name, consensus rank, crowd reaction: Steal / Reach + boos / Solid pick / Your pick + confetti). Sim to my pick / Sim draft show the top 5, the lottery and your picks (max 8; Skip show). Pick clock (2:00) on the Draft page while you're on the clock; auto-pick at 0:00 only if you turn it on in Settings.

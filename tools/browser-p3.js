@@ -15,7 +15,7 @@ async function load(W, touch, SAVE2) {
   const b = await chromium.launch({ args: ['--no-sandbox', '--autoplay-policy=no-user-gesture-required'] });
   const ctx = await b.newContext({ viewport: { width: W, height: 900 }, hasTouch: touch, isMobile: touch });
   await ctx.route(BASE + '**', r => { const f = path.join(ROOT, decodeURIComponent(new URL(r.request().url()).pathname)); if (!f.startsWith(ROOT) || !fs.existsSync(f)) return r.fulfill({ status: 404, body: '' }); r.fulfill({ status: 200, body: fs.readFileSync(f), contentType: MIME[path.extname(f)] || 'application/octet-stream' }); });
-  const pg = await ctx.newPage(), errs = []; pg.on('pageerror', e => errs.push(String(e)));
+  const pg = await ctx.newPage(), errs = []; pg.on('pageerror', e => errs.push(String(e) + ' @ ' + String(e.stack || '').split('\n').slice(1, 3).join(' | ')));
   await pg.goto(BASE + PAGE); await wait(pg, 1500);
   await pg.evaluate(async f => {
     const txt = await (await fetch(f)).text();
@@ -66,7 +66,7 @@ async function run(W, touch) {
   ok(T + 'no side-scroll on trophy room', await ev(pg, 'document.documentElement.scrollWidth<=innerWidth+1'), await ev(pg, 'document.documentElement.scrollWidth'));
   await shot(pg, 'trophies-' + W);
   // --- ceremonies (season 10 awards on the snap)
-  await ev(pg, "(()=>{window.__s=L.season;L.season=10;L.po=L.po||{};window.__c=L.po.champion;L.po.champion=L.awards[10].champion;FX.set('skip',false);FX.set('cer',true);return P3.ceremony('mvp')})()"); await wait(pg, 300);
+  await ev(pg, "(()=>{window.__s=L.season;L.season=10;window.__po=L.po;L.po=Object.assign({},L.po||{},{champion:L.awards[10].champion});FX.set('skip',false);FX.set('cer',true);return P3.ceremony('mvp')})()"); await wait(pg, 300);
   ok(T + 'MVP ceremony overlay', await ev(pg, "!!document.querySelector('#p3-cer.k-mvp .p3-certroph svg')"));
   await wait(pg, 2200);
   ok(T + 'MVP name revealed after the drumroll', await ev(pg, "document.querySelector('#p3-cer').classList.contains('rev')&&getComputedStyle(document.querySelector('.p3-cerwho')).opacity>0.9"));
@@ -78,7 +78,7 @@ async function run(W, touch) {
   await shot(pg, 'cer-title-' + W);
   await pg.keyboard.press('Escape'); await wait(pg, 200);
   ok(T + 'Esc closes ceremony', await ev(pg, "!document.getElementById('p3-cer')"));
-  await ev(pg, "FX.set('skip',true)"); ok(T + 'no ceremony with Skip animations', await ev(pg, "P3.ceremony('mvp')===false")); await ev(pg, "FX.set('skip',false);L.season=window.__s;L.po.champion=window.__c");
+  await ev(pg, "FX.set('skip',true)"); ok(T + 'no ceremony with Skip animations', await ev(pg, "P3.ceremony('mvp')===false")); await ev(pg, "FX.set('skip',false);L.season=window.__s;L.po=window.__po");
   // --- music
   await pg.evaluate(() => { window.__fxLog = []; }); await click('#b-home'); await wait(pg, 600);
   ok(T + 'menu music starts after a tap', await ev(pg, "FX.musicMood==='menu'"), await ev(pg, 'FX.musicMood'));

@@ -2,7 +2,7 @@
 - [x] 0. Phase 1 merged on main (9f07c1b); branch `phase2-live-court-ticker-highlights`; read vLive/lvTick/fxLive, engine logE + shot code, scSpot zones, portrait()
 - [x] 1. engine.js: logE entry[10] shot code (zone*10+type), HL/hlAdd top-4 candidates + game-winner (hlGo) -> `game.hl` top 3 for every game; same scores as before (5-day check)
 - [x] 2. src/court.js (new, canvas): live court scenes per entry (shots, passes, blocks, rebounds, steals, FTs, timeouts), reel(); app.js vLive .lv-stage + lvTick COURT.live + window.__pblCourt; build.py single, index.html, styles.css, .gitignore (tools/_*)
-- [ ] 3. Play-by-play ticker: commentary feed beside the court (runs, lead changes, milestones), slide-in on new lines
+- [x] 3. app.js lvTickerLines/lvTicker (TK_SAY phrases, runs 8+, ties, lead changes, 20/30/40 pts, double/triple-doubles; cached per game), .lv-tick CSS + tk-in slide (off with Skip animations)
 - [ ] 4. Top plays: News & history → Top plays (reel with faces + mini replay, pick a night), My team card, box score section
 - [ ] 5. Tests: node --check, lint, t36, t34, browser-p1, new tools/browser-p2.js
 - [ ] 6. PROGRESS + README + TESTING, push, PR, merge

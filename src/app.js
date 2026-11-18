@@ -2787,8 +2787,69 @@ function vLive(g) {
   <div class="lv-board" id="lv-board">${team(1, g.away, as)}<div class="lv-clock">${done ? '<strong>Final</strong>' + (g.ot ? '/' + (g.ot > 1 ? g.ot : '') + 'OT' : '') : `<strong>${qTxt(q)}</strong><br>${clockTxt(c)}`}</div>${team(0, g.home, hs)}</div><div class="lv-stage"><div class="lv-anim"><canvas id="lv-canvas" role="img" aria-label="Animated court: dots are players, orange is the ball"></canvas><div class="lv-key muted"><span class="lv-sw" style="background:${esc(L.teams[g.away].c1 || '#888')}"></span>${esc(L.teams[g.away].abbr)} <span class="lv-sw" style="background:${esc(L.teams[g.home].c1 || '#888')}"></span>${esc(L.teams[g.home].abbr)} · numbers are jerseys</div></div>${lvTicker(g, n)}</div><div class="lv-court" id="lv-court">${courtWin(1, g.away)}${courtWin(0, g.home)}</div>${ctl}</section>
   <div class="grid2"><section class="panel"><h3>Play-by-play</h3><div class="lv-feed" id="lv-feed">${shown.slice(0, 400).map(e => lvEntryHtml(g, e)).join('') || '<p class="muted">Tip-off…</p>'}</div></section><section class="stack"><div class="panel"><h3>Box score</h3>${boxT(1, g.away)}${boxT(0, g.home)}</div></section></div>`;
 }
-// Phase 2: commentary ticker beside the court (filled in step 3)
-function lvTicker(g, n) { return ''; }
+// Phase 2: commentary ticker beside the court. Built once per game from the play-by-play (calls, runs, lead changes, ties,
+// scoring milestones, double-doubles), shown up to the current play, newest on top.
+const TK_CACHE = new Map();
+const TK_SAY = {
+  dunk: ['{n} throws it down!', '{n} with the slam!', 'Rim-rattler from {n}!', '{n} hammers it home!'],
+  three: ['{n} from downtown… bang!', '{n} buries the three!', 'Splash! {n} from deep.', '{n} lets it fly… got it!'],
+  lay: ['{n} lays it in.', '{n} finishes at the rim.', '{n} gets to the basket.'],
+  paint: ['{n} scores inside.', '{n} with the floater.', '{n} works it in close.'],
+  mid: ['{n} hits the jumper.', '{n} pulls up… good.', '{n} knocks down the mid-range.'],
+  miss3: ['{n} misses from three.', '{n} can\'t connect from deep.'],
+  miss: ['{n} misses.', '{n} no good.', '{n} can\'t get it to fall.'],
+  block: ['Stuffed! {b} blocks {n}.', '{b} sends it back!', 'Get that outta here! {b} rejects {n}.'],
+  steal: ['{s} picks off {n}!', '{s} with the steal!', '{s} jumps the lane!'],
+  tov: ['{n} turns it over.', 'Sloppy pass from {n}.', '{n} loses the handle.']
+};
+function lvTickerLines(g) {
+  if (TK_CACHE.has(g.id)) return TK_CACHE.get(g.id);
+  const out = [], log = g.pbp || [], T = s => L.teams[s === 0 ? g.home : g.away], nm = id => { const p = L.players[id]; return p ? shortName(p) : 'Player'; };
+  const pick = (k, i, v) => { const a = TK_SAY[k]; return a[(i * 7 + 3) % a.length].replace('{n}', v.n || '').replace('{b}', v.b || '').replace('{s}', v.s || ''); };
+  const box = {}, bx = id => box[id] || (box[id] = { pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, dd: false, td: false });
+  let run = [0, 0], prevLead = 0;
+  for (let i = 0; i < log.length; i++) {
+    const e = log[i], prev = i ? log[i - 1] : null, fl = e[6] || '', ev = e[7] || [], add = (txt, cls, ic, side) => out.push({ i, q: e[0], c: e[1], txt, cls: cls || '', ic: ic || '', side });
+    const by = st => { for (let j = 0; j < ev.length; j += 3) if (ev[j + 1] === st && ev[j + 2] > 0) return ev[j]; return null; };
+    const dh = e[4] - (prev ? prev[4] : 0), da = e[5] - (prev ? prev[5] : 0);
+    for (let j = 0; j < ev.length; j += 3) { const x = bx(ev[j]), k = ev[j + 1], d = ev[j + 2]; if (k === 1) x.pts += d; else if (k === 8 || k === 9) x.reb += d; else if (k === 10) x.ast += d; else if (k === 11) x.stl += d; else if (k === 12) x.blk += d; }
+    const side = e[2], tx = String(e[3] || '');
+    if (fl.includes('q')) { add(tx, 'tk-q', '⏱', -1); }
+    else if (fl.includes('t')) add(tx, 'tk-to', '✋', side);
+    else if (!fl.includes('u') && !fl.includes('a')) {
+      const sh = by(3), fta = by(7), ast = by(10), blk = by(12), stl = by(11), tov = by(13), code = e[10], pts = dh + da;
+      const ty = code != null ? code % 10 : /\bdunk\b/i.test(tx) ? 0 : /layup/i.test(tx) ? 1 : /3PT/.test(tx) ? 4 : /mid-range/i.test(tx) ? 3 : 2;
+      const a1 = /and-one/.test(tx), aTxt = ast != null && ast !== sh ? ` (${nm(ast)} with the assist)` : '';
+      if (sh != null) {
+        if (pts > 0) add(pick(ty === 0 ? 'dunk' : ty === 4 ? 'three' : ty === 1 ? 'lay' : ty === 3 ? 'mid' : 'paint', i, { n: nm(sh) }) + (a1 ? ' And one!' : '') + aTxt, ty === 4 ? 'tk-3' : ty === 0 ? 'tk-dk' : 'tk-mk', ty === 4 ? '🔥' : ty === 0 ? '💥' : '🏀', side);
+        else if (blk != null) add(pick('block', i, { n: nm(sh), b: nm(blk) }), 'tk-blk', '🚫', 1 - side);
+        else add(pick(ty === 4 ? 'miss3' : 'miss', i, { n: nm(sh) }), 'tk-miss', '', side);
+      } else if (fta != null) { const m = /(\d)\/(\d) FT|(\d) of (\d)/.exec(tx); add(`${nm(fta)} at the line${pts >= 0 ? `: ${pts} point${pts === 1 ? '' : 's'}` : ''}.`, pts > 0 ? 'tk-mk' : 'tk-miss', '🎯', side); void m; }
+      else if (tov != null) { if (stl != null) add(pick('steal', i, { n: nm(tov), s: nm(stl) }), 'tk-stl', '🧤', 1 - side); else add(pick('tov', i, { n: nm(tov) }), 'tk-miss', '', side); }
+    }
+    // runs, ties and lead changes
+    if (dh > 0) { run[0] += dh; if (run[1]) run[1] = 0; } if (da > 0) { run[1] += da; if (run[0] && dh <= 0) run[0] = 0; }
+    for (const s of [0, 1]) { const r = run[s], got = s === 0 ? dh : da; if (got > 0 && r >= 8 && (r - got < 8 || Math.floor(r / 4) > Math.floor((r - got) / 4))) add(`${T(s).abbr} on a ${r}-0 run!`, 'tk-run', '📣', s); }
+    if (dh + da > 0) { const lead = e[4] - e[5];
+      if (lead === 0 && prevLead !== 0) add(`All tied up at ${e[4]}.`, 'tk-tie', '⚖️', -1);
+      else if (lead !== 0 && prevLead !== 0 && Math.sign(lead) !== Math.sign(prevLead) || lead !== 0 && prevLead === 0 && i > 3 && e[4] + e[5] > 6) { const s = lead > 0 ? 0 : 1; add(`${T(s).abbr} ${prevLead === 0 ? 'go back in front' : 'take the lead'}, ${Math.max(e[4], e[5])}-${Math.min(e[4], e[5])}.`, 'tk-lead', '🔄', s); }
+      prevLead = lead; }
+    // player milestones
+    for (let j = 0; j < ev.length; j += 3) { const id = ev[j], k = ev[j + 1], d = ev[j + 2], x = box[id]; if (!x || d <= 0) continue;
+      if (k === 1) for (const m of [20, 30, 40, 50]) if (x.pts >= m && x.pts - d < m) add(`${nm(id)} has ${x.pts} points.`, 'tk-star', '⭐', null);
+      const tens = [x.pts, x.reb, x.ast, x.stl, x.blk].filter(v => v >= 10).length;
+      if (tens >= 2 && !x.dd) { x.dd = true; add(`Double-double for ${nm(id)}.`, 'tk-star', '⭐', null); }
+      if (tens >= 3 && !x.td) { x.td = true; add(`Triple-double for ${nm(id)}!`, 'tk-star', '🌟', null); } }
+  }
+  TK_CACHE.set(g.id, out); if (TK_CACHE.size > 6) TK_CACHE.delete(TK_CACHE.keys().next().value);
+  return out;
+}
+function lvTicker(g, n) {
+  const all = lvTickerLines(g), list = [];
+  for (let k = all.length - 1; k >= 0 && list.length < 80; k--) if (all[k].i < n) list.push(all[k]);
+  const col = s => s === 0 ? L.teams[g.home].c1 : s === 1 ? L.teams[g.away].c1 : 'transparent';
+  return `<aside class="lv-tick panel" aria-live="polite"><h3>Commentary</h3><div class="lv-tk-list">${list.length ? list.map(x => `<div class="tk-row ${x.cls}${x.i === n - 1 ? ' tk-new' : ''}" style="border-left-color:${esc(col(x.side) || 'transparent')}"><span class="tk-t">${qTxt(x.q)} ${clockTxt(x.c)}</span><span class="tk-x">${x.ic ? `<span class="tk-ic" aria-hidden="true">${x.ic}</span> ` : ''}${esc(x.txt)}</span></div>`).join('') : '<p class="muted">Tip-off coming up…</p>'}</div></aside>`;
+}
 // Phase 1: live-game sounds for the entry just shown; buzzer + crowd at the final
 function fxLive(g, i) {
   if (!window.FX || !i) return;

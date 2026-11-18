@@ -2,7 +2,7 @@
 Branch `back-keeps-scroll`.
 - [x] 1. app.js: save scroll on every back/forward snapshot, restore it on Back/Forward (backStack.push/snapNow/applyNav; route() opens new pages at top)
 - [x] 2. Browser test (desktop + phone): tools/browser-backscroll.js ALL PASS
-- [ ] 3. PROGRESS.md, commit, push, PR (ask before merge)
+- [x] 3. PROGRESS.md, commit, push, PR (ask before merge)
 
 ---
 # TASK_STATE — Phases A/B/C: expansion teams, save safety + tutorial, desktop app (Opus) — Nov 18 2026

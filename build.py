@@ -77,7 +77,7 @@ def build(nba, game):
 
 
 SINGLE_JS = {'/*VENDOR*/': ['vendor-faces.js'], '/*ENGINE*/': ['engine.js'], '/*LEAGUE*/': ['league.js'],
-             '/*NBA*/': ['nba-2026.js', 'nba-text.js', 'nba-setup.js', 'nba-history.js'], '/*APP*/': ['app.js', 'fx.js']}
+             '/*NBA*/': ['nba-2026.js', 'nba-text.js', 'nba-setup.js', 'nba-history.js'], '/*APP*/': ['app.js', 'fx.js', 'court.js']}
 
 
 def single(game, out):

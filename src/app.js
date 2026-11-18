@@ -872,13 +872,13 @@ function renderHeader() {
     $('#simctl').innerHTML = btns.map(([k, t], i) => `<button data-sim="${k}" title="${esc(SIM_TIP[k] || '')}" class="${i === 0 ? 'primary' : ''}${k === 'multi' ? ' multi' : ''}" ${ui.busy && k !== 'autostop' ? 'disabled' : ''}>${t}</button>`).join('');
   }
   // v24: tabs are grouped. The top row has five groups; the row under it lists the views in the group you are in.
-  const NAME = { rmoves: 'Overview', hofc: 'Hall of Fame', feed: 'Feed', myteam: 'My team', coaches: 'Staff & GMs', preview: 'Season preview', weekly: 'Weekly report', standings: 'Standings', review: 'Progression', schedule: 'Schedule', stats: 'Stats', players: 'Players', awards: 'Awards', teams: 'Teams', trades: 'Trades', fa: 'Free agency', draft: 'Draft', news: 'News & events', injuries: 'Injuries', discipline: 'Discipline', pipeline: 'Pipeline', history: 'History', rules: 'How it works' };
+  const NAME = { rmoves: 'Overview', hofc: 'Hall of Fame', feed: 'Feed', topplays: 'Top plays', myteam: 'My team', coaches: 'Staff & GMs', preview: 'Season preview', weekly: 'Weekly report', standings: 'Standings', review: 'Progression', schedule: 'Schedule', stats: 'Stats', players: 'Players', awards: 'Awards', teams: 'Teams', trades: 'Trades', fa: 'Free agency', draft: 'Draft', news: 'News & events', injuries: 'Injuries', discipline: 'Discipline', pipeline: 'Pipeline', history: 'History', rules: 'How it works' };
   const showPre = L.phase === 'regular' && L.day <= 7 || ui.view === 'preview';
   const groups = [
     L.user != null ? { k: 'team', t: 'My team', v: ['myteam', 'coaches'] } : { k: 'team', t: 'Staff & GMs', v: ['coaches'] },
     { k: 'league', t: 'League', v: ['standings', ...(L.offSummary ? ['review'] : []), 'schedule', 'teams', 'stats', 'players', 'injuries', 'discipline', 'awards', 'pipeline'] },
     { k: 'moves', t: 'Roster moves', v: ['rmoves', 'trades', 'fa', 'draft'] },
-    { k: 'story', t: 'News & history', v: [...(showPre ? ['preview'] : []), 'weekly', 'news', 'feed', 'history', 'hofc'] },
+    { k: 'story', t: 'News & history', v: [...(showPre ? ['preview'] : []), 'weekly', 'news', 'feed', 'topplays', 'history', 'hofc'] },
     { k: 'help', t: 'How it works', v: ['rules'] }
   ];
   const badge = v => v === 'trades' ? ((L.pending || []).length + (L.offers || []).length) : 0;
@@ -913,6 +913,104 @@ function feedBox(n) {
   const l = feedList(L, 'all', n);
   return `<div class="panel"><h3>Latest <a class="lk" href="#feed" style="font-weight:400;font-size:13px">Feed →</a></h3>${l.length ? l.map(postCard).join('') : '<p class="muted">No posts yet.</p>'}</div>`;
 }
+// ---------- Phase 2: top plays of the night ----------
+// Every game keeps its 3 best plays (engine game.hl). A night = all games of one day; the reel shows its top 10
+// (at most 2 per player), each with the player's face, what happened and a small court replay (court.js COURT.reel).
+const TP_KIND = { D: 'Dunk', 3: 'Three', A: 'And-one', P: 'Putback slam', B: 'Block', G: 'Game-winner' };
+const TP_ICON = { D: '💥', 3: '🔥', A: '💪', P: '💥', B: '🚫', G: '🏆' };
+function tpOf(g) {
+  return (g.hl || []).map((h, k) => { const [sc, kind, pid, side, q, c, hs, as, zone, type, ast, other] = h; const tid = side === 0 ? g.home : g.away; return { sc, kind, pid, side, q, c, hs, as, zone, type, ast, other, gid: g.id, k, tid, oppTid: side === 0 ? g.away : g.home }; }).filter(x => L.players[x.pid]);
+}
+function tpNights() {
+  const m = new Map();
+  for (const g of L.games) { if (!g.hl || g.season !== L.season) continue; const key = g.day + (g.playoff ? 'p' : ''); if (!m.has(key)) m.set(key, { key, day: g.day, playoff: !!g.playoff, games: [] }); m.get(key).games.push(g); }
+  return [...m.values()].sort((a, b) => b.games[0].id - a.games[0].id);
+}
+function tpNightList(n) {
+  const all = n.games.flatMap(tpOf).sort((a, b) => b.sc - a.sc), per = {}, out = [];
+  for (const x of all) { if ((per[x.pid] = (per[x.pid] || 0) + 1) > 2) continue; out.push(x); if (out.length >= 10) break; }
+  return out;
+}
+function tpList() {
+  if (ui.tpGame != null) { const g = L.games.find(x => x.id === ui.tpGame); if (g) return { list: tpOf(g).sort((a, b) => b.sc - a.sc), title: `${L.teams[g.away].abbr} at ${L.teams[g.home].abbr}`, game: g }; }
+  const ns = tpNights(), n = ns.find(x => x.key === ui.tpNight) || ns[0];
+  return n ? { list: tpNightList(n), title: n.games[0] ? dayTxt(n.day, L.season) + (n.playoff ? ' · playoffs' : '') : '', night: n, nights: ns } : { list: [], nights: ns };
+}
+function tpWhat(x) {
+  const p = L.players[x.pid], nm = p ? shortName(p) : 'Player', o = x.other && L.players[x.other] ? shortName(L.players[x.other]) : null, a = x.ast && L.players[x.ast] ? shortName(L.players[x.ast]) : null;
+  const shot = ['dunk', 'layup', 'shot in the paint', 'mid-range jumper', 'three'][x.type] || 'shot';
+  const t = { D: `${nm} throws down a monster dunk`, 3: `${nm} drills a ${x.zone === 9 || x.zone === 13 ? 'corner ' : 'deep '}three`, A: `${nm} scores through contact on a ${shot}, and one`, P: `${nm} flies in for the putback slam`, B: `${nm} rejects ${o || 'the shot'} at the ${x.type <= 1 ? 'rim' : 'shot'}`, G: `${nm} hits the game-winning ${shot}${x.other ? ', and one' : ''}` }[x.kind] || nm;
+  return t + (a && x.kind !== 'B' ? ` (assist ${a})` : '') + '.';
+}
+function tpWhen(x) {
+  const own = x.side === 0 ? x.hs : x.as, opp = x.side === 0 ? x.as : x.hs, me = L.teams[x.tid].abbr, them = L.teams[x.oppTid].abbr;
+  return `${qTxt(x.q)} ${clockTxt(x.c)} · ${me} ${own}-${opp} ${them}`;
+}
+function tpRow(x, i, on) {
+  const p = L.players[x.pid];
+  return `<button class="tp-row ${on ? 'on' : ''}" data-tp="i:${i}" aria-label="Play ${i + 1}: ${esc(tpWhat(x))}"><span class="tp-rk">${i + 1}</span>${portrait('p', x.pid, p.nat, x.tid, 'xs')}<span class="tp-rx"><strong>${esc(shortName(p))}</strong> <span class="pill tp-k tp-k${x.kind}">${TP_ICON[x.kind] || ''} ${TP_KIND[x.kind] || ''}</span><br><span class="muted">${esc(L.teams[x.tid].abbr)} vs ${esc(L.teams[x.oppTid].abbr)} · ${qTxt(x.q)} ${clockTxt(x.c)}</span></span></button>`;
+}
+function tpCard(x, i, n) {
+  const p = L.players[x.pid];
+  return `<div class="tp-face">${portrait('p', x.pid, p.nat, x.tid)}<span class="tp-num">#${i + 1}</span></div><div class="tp-info"><div class="k">${TP_ICON[x.kind] || ''} ${TP_KIND[x.kind] || ''} · play ${i + 1} of ${n}</div><h3 class="tp-name">${plink(p)} <span class="muted" style="font-weight:400">${logo(x.tid, 22)} ${esc(L.teams[x.tid].abbr)}</span></h3><p class="tp-what">${esc(tpWhat(x))}</p><p class="muted tp-when">${esc(tpWhen(x))} · <a class="lk" data-game="${x.gid}">Box score</a></p></div>`;
+}
+function vTopPlays() {
+  const r = tpList(), list = r.list, i = Math.min(ui.tpI || 0, Math.max(0, list.length - 1)), x = list[i];
+  const pick = r.nights && r.nights.length > 1 && ui.tpGame == null ? `<label class="muted" style="font-size:13px">Night <select id="tp-night">${r.nights.slice(0, 30).map(n => `<option value="${n.key}" ${n === r.night ? 'selected' : ''}>${esc(dayTxt(n.day, L.season))}${n.playoff ? ' · playoffs' : ''} (${n.games.length} game${n.games.length === 1 ? '' : 's'})</option>`).join('')}</select></label>` : '';
+  const back = ui.tpGame != null ? `<button class="sm" data-tp="all">All games that night</button>` : '';
+  if (!x) return `<h2>Top plays</h2><p class="muted">No top plays yet. Every game played from now on keeps its best plays: dunks, deep threes, and-ones, big blocks and game-winners. Sim a day and come back.</p>`;
+  return `<h2>${ui.tpGame != null ? 'Top plays · ' + esc(r.title) : 'Top plays of the night'}</h2><div class="row" style="gap:10px;flex-wrap:wrap;align-items:center;margin:-4px 0 10px">${pick || (ui.tpGame != null ? '' : `<span class="muted">${esc(r.title)}</span>`)}${back}</div>
+  <section class="panel tp-reel"><div class="tp-main"><div class="tp-stage"><canvas id="tp-canvas" role="img" aria-label="Replay of the play"></canvas></div><div class="tp-card" id="tp-card">${tpCard(x, i, list.length)}</div></div>
+  <div class="row tp-ctl"><button class="sm" data-tp="prev" aria-label="Previous play">◀ Prev</button><button class="sm primary" data-tp="pause" id="tp-pause">${ui.tpPaused ? '▶ Play' : '❚❚ Pause'}</button><button class="sm" data-tp="next" aria-label="Next play">Next ▶</button><span class="muted" id="tp-pos">${i + 1} / ${list.length}</span></div></section>
+  <section class="panel"><h3>${list.length} play${list.length === 1 ? '' : 's'}</h3><div class="tp-list" id="tp-list">${list.map((y, k) => tpRow(y, k, k === i)).join('')}</div></section>`;
+}
+// small strip for My team and the box score
+function tpStrip() {
+  const ns = tpNights(); if (!ns.length) return '';
+  const list = tpNightList(ns[0]).slice(0, 3); if (!list.length) return '';
+  return `<div class="panel tp-strip"><div class="row" style="justify-content:space-between;align-items:center;gap:8px"><h3 style="margin:0">Top plays of the night <span class="muted" style="font-weight:400;font-size:13px">${esc(dayTxt(ns[0].day, L.season))}</span></h3><a class="lk" href="#topplays" data-tpgo="night">▶ Watch the reel</a></div><div class="tp-mini">${list.map((x, k) => { const p = L.players[x.pid]; return `<a class="tp-mrow" href="#topplays" data-tpgo="n:${k}">${portrait('p', x.pid, p.nat, x.tid, 'xs')}<span><strong>${k + 1}. ${esc(shortName(p))}</strong> <span class="muted">${esc(L.teams[x.tid].abbr)}</span><br><span class="muted" style="font-size:12px">${TP_ICON[x.kind] || ''} ${TP_KIND[x.kind] || ''}</span></span></a>`; }).join('')}</div></div>`;
+}
+function tpGamePanel(g) {
+  const list = g.hl ? tpOf(g) : null;
+  if (!list || !list.length) return '';
+  return `<section class="panel"><div class="row" style="justify-content:space-between;align-items:center"><h3 style="margin:0">Top plays</h3><button class="sm" data-tpgo="g:${g.id}">▶ Watch</button></div>${list.sort((a, b) => b.sc - a.sc).map(x => `<div class="leader" style="grid-template-columns:22px minmax(0,1fr) auto"><span>${TP_ICON[x.kind] || ''}</span><span>${esc(tpWhat(x))}</span><span class="muted">${qTxt(x.q)} ${clockTxt(x.c)}</span></div>`).join('')}</section>`;
+}
+let tpTimer = null;
+function tpAfter() {
+  clearTimeout(tpTimer); tpTimer = null;
+  if (ui.view !== 'topplays' || ui.game != null || ui.player != null || ui.coach != null || ui.gm != null) { if (window.COURT) COURT.stop('tp-canvas'); return; }
+  const r = tpList(), list = r.list; if (!list.length || !window.COURT) return;
+  const i = Math.min(ui.tpI || 0, list.length - 1); ui.tpI = i;
+  const m = (window.FX && FX.settings && { slow: 1.6, fast: 0.5 }[FX.settings.speed]) || 1, play = 2600 * m;
+  COURT.reel('tp-canvas', list[i], play);
+  if (!ui.tpPaused) tpTimer = setTimeout(() => { if (ui.view !== 'topplays' || !document.getElementById('tp-canvas')) return; tpGo((ui.tpI || 0) + 1, list.length); }, play + 1400 * m);
+}
+// move the reel without re-rendering the page (keeps the scroll position and the canvas)
+function tpGo(i, n) {
+  const r = tpList(), list = r.list; if (!list.length) return;
+  ui.tpI = ((i % list.length) + list.length) % list.length; const x = list[ui.tpI];
+  const card = document.getElementById('tp-card'); if (!card) { render(); return; }
+  card.innerHTML = tpCard(x, ui.tpI, list.length);
+  document.querySelectorAll('#tp-list .tp-row').forEach((b, k) => b.classList.toggle('on', k === ui.tpI));
+  const pos = document.getElementById('tp-pos'); if (pos) pos.textContent = `${ui.tpI + 1} / ${list.length}`;
+  tpAfter(); void n;
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-tp],[data-tpgo]'); if (!b || !L) return;
+  if (b.dataset.tpgo) { e.preventDefault(); e.stopImmediatePropagation(); const v = b.dataset.tpgo; backStack.push(snapNow());
+    ui.player = null; ui.coach = null; ui.gm = null; ui.tpPaused = false;
+    if (v.startsWith('g:')) { ui.tpGame = +v.slice(2); ui.tpI = 0; ui.game = null; ui.liveMode = null; }
+    else { ui.tpGame = null; ui.tpNight = null; ui.tpI = v.startsWith('n:') ? +v.slice(2) : 0; ui.game = null; }
+    ui.view = 'topplays'; if (location.hash !== '#topplays') history.replaceState(null, '', '#topplays'); render(); window.scrollTo(0, 0); return; }
+  e.stopImmediatePropagation();
+  const v = b.dataset.tp;
+  if (v === 'pause') { ui.tpPaused = !ui.tpPaused; b.textContent = ui.tpPaused ? '▶ Play' : '❚❚ Pause'; if (ui.tpPaused) { clearTimeout(tpTimer); tpTimer = null; } else tpGo((ui.tpI || 0) + 1); return; }
+  if (v === 'all') { ui.tpGame = null; ui.tpI = 0; render(); return; }
+  if (v === 'prev') return tpGo((ui.tpI || 0) - 1);
+  if (v === 'next') return tpGo((ui.tpI || 0) + 1);
+  if (v.startsWith('i:')) return tpGo(+v.slice(2));
+}, true);
+document.addEventListener('change', e => { const s = e.target.closest('#tp-night'); if (!s || !L) return; ui.tpNight = s.value; ui.tpI = 0; ui.tpGame = null; render(); });
 function vFeed() {
   const f = ui.feedF || 'all', n = ui.feedN || 25, all = feedList(L, f, 100), list = all.slice(0, n);
   return `<h2>Feed</h2><section class="panel"><div class="row" style="margin-bottom:10px">${FEED_F.map(([k, nm]) => `<button class="sm chipbtn ${f === k ? 'primary' : ''}" data-feedf="${k}">${nm}</button>`).join('')}</div>${list.length ? list.map(postCard).join('') : '<p class="muted">No posts here yet. Play some games.</p>'}${all.length > n ? '<div class="row" style="margin-top:10px"><button id="feed-more">More</button></div>' : ''}</section>`;
@@ -1363,7 +1461,7 @@ function vTeam(t) {
   const head = teamHeader(t);
   const todoAtt = isUser(t.id) && tab === 'overview' ? (() => { const td = todoPanel(), at = attentionPanel(t); return td ? `<div class="grid2e todo-att">${td}${at}</div>` : at; })() : '';   // v28.7 U1: to-do beside Needs attention
   const sub = `<div class="subtabs"><button class="sm" data-cmpt="${t.id}">Compare</button><button class="sm ${tab === 'overview' ? 'primary' : ''}" data-teamtab="overview">Overview</button><button class="sm ${tab === 'fin' ? 'primary' : ''}" data-teamtab="fin">Finances</button><button class="sm ${tab === 'history' ? 'primary' : ''}" data-teamtab="history">Team history</button></div>`;
-  return `${ui.view === 'teams' ? '<div class="row" style="margin-bottom:10px"><button data-back="teams">All teams</button></div>' : ''}${isUser(t.id) ? phaseNote() : ''}${head}${tab === 'overview' ? recentStrip(t) : ''}${todoAtt}${sub}${tab === 'history' ? teamHistory(t) + (typeof hxTeamPanels === 'function' ? hxTeamPanels(L, t) : '') : tab === 'fin' ? teamFinance(t) : teamOverview(t)}`;
+  return `${ui.view === 'teams' ? '<div class="row" style="margin-bottom:10px"><button data-back="teams">All teams</button></div>' : ''}${isUser(t.id) ? phaseNote() : ''}${head}${tab === 'overview' ? recentStrip(t) + (isUser(t.id) ? tpStrip() : '') : ''}${todoAtt}${sub}${tab === 'history' ? teamHistory(t) + (typeof hxTeamPanels === 'function' ? hxTeamPanels(L, t) : '') : tab === 'fin' ? teamFinance(t) : teamOverview(t)}`;
 }
 // ---------- finances ----------
 const meter = (v, cls) => `<div class="meter"><i class="${cls || ''}" style="width:${Math.max(0, Math.min(100, v))}%"></i></div>`;
@@ -2784,8 +2882,71 @@ function vLive(g) {
     return `<div class="tblwrap"><table class="lv-box"><thead><tr><th class="l">${esc(L.teams[tid].abbr)}</th><th>Min</th><th>Pts</th><th>Reb</th><th>Ast</th><th>Stl</th><th>Blk</th><th>TO</th><th>PF</th><th>FG</th><th>3P</th><th>FT</th><th title="Plus-minus">+/-</th></tr></thead><tbody>${ps.map(id => { const x = st[id], p = L.players[id], pmv = rp.pm[id] || 0; return `<tr class="${onSet.has(id) ? 'oncourt' : ''}"><td class="l">${onSet.has(id) ? '<span class="lv-dot" title="On the floor"></span>' : ''}${p ? esc(shortName(p)) : 'Player'}</td><td>${minTxt(rp.min[id] || 0)}</td><td><strong>${v(x, 1)}</strong></td><td>${v(x, 8) + v(x, 9)}</td><td>${v(x, 10)}</td><td>${v(x, 11)}</td><td>${v(x, 12)}</td><td>${v(x, 13)}</td><td class="${v(x, 14) >= 5 ? 'lo' : ''}">${v(x, 14)}</td><td>${v(x, 2)}-${v(x, 3)}</td><td>${v(x, 4)}-${v(x, 5)}</td><td>${v(x, 6)}-${v(x, 7)}</td><td class="${pmv > 0 ? 'w' : pmv < 0 ? 'lo' : ''}">${pmTxt(pmv)}</td></tr>`; }).join('')}</tbody></table></div>`; };
   const ctl = `<div class="row" style="gap:6px;flex-wrap:wrap;align-items:center"><button class="sm ${lv.paused ? 'primary' : ''}" data-lv="pause" ${done ? 'disabled' : ''}>${lv.paused ? '▶ Play' : '❚❚ Pause'}</button><span class="seg">${LV_SPEED.map(([k, t]) => `<button class="sm ${lv.speed === k ? 'primary' : ''}" data-lv="sp:${k}" ${done ? 'disabled' : ''}>${t}</button>`).join('')}</span><span class="seg">${[['all', 'All'], ['score', 'Scoring plays'], ['close', 'Close & late']].map(([k, t]) => `<button class="sm ${lv.f === k ? 'primary' : ''}" data-lv="f:${k}">${t}</button>`).join('')}</span><button class="sm" data-lv="box">Final box score</button></div>`;
   return `<div class="row" style="margin-bottom:10px"><button data-back="1">Back</button></div><section class="panel" style="margin-bottom:12px"><div class="k">${seasonName(g.season)} · ${g.playoff ? esc(g.stage) + ' · Game ' + g.gnum : dayTxt(g.day, g.season)} · Live</div>
-  <div class="lv-board" id="lv-board">${team(1, g.away, as)}<div class="lv-clock">${done ? '<strong>Final</strong>' + (g.ot ? '/' + (g.ot > 1 ? g.ot : '') + 'OT' : '') : `<strong>${qTxt(q)}</strong><br>${clockTxt(c)}`}</div>${team(0, g.home, hs)}</div><div class="lv-court" id="lv-court">${courtWin(1, g.away)}${courtWin(0, g.home)}</div>${ctl}</section>
+  <div class="lv-board" id="lv-board">${team(1, g.away, as)}<div class="lv-clock">${done ? '<strong>Final</strong>' + (g.ot ? '/' + (g.ot > 1 ? g.ot : '') + 'OT' : '') : `<strong>${qTxt(q)}</strong><br>${clockTxt(c)}`}</div>${team(0, g.home, hs)}</div><div class="lv-stage"><div class="lv-anim"><canvas id="lv-canvas" role="img" aria-label="Animated court: dots are players, orange is the ball"></canvas><div class="lv-key muted"><span class="lv-sw" style="background:${esc(L.teams[g.away].c1 || '#888')}"></span>${esc(L.teams[g.away].abbr)} <span class="lv-sw" style="background:${esc(L.teams[g.home].c1 || '#888')}"></span>${esc(L.teams[g.home].abbr)} · numbers are jerseys</div></div>${lvTicker(g, n)}</div><div class="lv-court" id="lv-court">${courtWin(1, g.away)}${courtWin(0, g.home)}</div>${ctl}</section>
   <div class="grid2"><section class="panel"><h3>Play-by-play</h3><div class="lv-feed" id="lv-feed">${shown.slice(0, 400).map(e => lvEntryHtml(g, e)).join('') || '<p class="muted">Tip-off…</p>'}</div></section><section class="stack"><div class="panel"><h3>Box score</h3>${boxT(1, g.away)}${boxT(0, g.home)}</div></section></div>`;
+}
+// Phase 2: commentary ticker beside the court. Built once per game from the play-by-play (calls, runs, lead changes, ties,
+// scoring milestones, double-doubles), shown up to the current play, newest on top.
+const TK_CACHE = new Map();
+const TK_SAY = {
+  dunk: ['{n} throws it down!', '{n} with the slam!', 'Rim-rattler from {n}!', '{n} hammers it home!'],
+  three: ['{n} from downtown… bang!', '{n} buries the three!', 'Splash! {n} from deep.', '{n} lets it fly… got it!'],
+  lay: ['{n} lays it in.', '{n} finishes at the rim.', '{n} gets to the basket.'],
+  paint: ['{n} scores inside.', '{n} with the floater.', '{n} works it in close.'],
+  mid: ['{n} hits the jumper.', '{n} pulls up… good.', '{n} knocks down the mid-range.'],
+  miss3: ['{n} misses from three.', '{n} can\'t connect from deep.'],
+  miss: ['{n} misses.', '{n} no good.', '{n} can\'t get it to fall.'],
+  block: ['Stuffed! {b} blocks {n}.', '{b} sends it back!', 'Get that outta here! {b} rejects {n}.'],
+  steal: ['{s} picks off {n}!', '{s} with the steal!', '{s} jumps the lane!'],
+  tov: ['{n} turns it over.', 'Sloppy pass from {n}.', '{n} loses the handle.']
+};
+function lvTickerLines(g) {
+  if (TK_CACHE.has(g.id)) return TK_CACHE.get(g.id);
+  const out = [], log = g.pbp || [], T = s => L.teams[s === 0 ? g.home : g.away], nm = id => { const p = L.players[id]; return p ? shortName(p) : 'Player'; };
+  const pick = (k, i, v) => { const a = TK_SAY[k]; return a[(i * 7 + 3) % a.length].replace('{n}', v.n || '').replace('{b}', v.b || '').replace('{s}', v.s || ''); };
+  const box = {}, bx = id => box[id] || (box[id] = { pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, dd: false, td: false });
+  let run = [0, 0], prevLead = 0;
+  for (let i = 0; i < log.length; i++) {
+    const e = log[i], prev = i ? log[i - 1] : null, fl = e[6] || '', ev = e[7] || [], add = (txt, cls, ic, side) => out.push({ i, q: e[0], c: e[1], txt, cls: cls || '', ic: ic || '', side });
+    const by = st => { for (let j = 0; j < ev.length; j += 3) if (ev[j + 1] === st && ev[j + 2] > 0) return ev[j]; return null; };
+    const dh = e[4] - (prev ? prev[4] : 0), da = e[5] - (prev ? prev[5] : 0);
+    for (let j = 0; j < ev.length; j += 3) { const x = bx(ev[j]), k = ev[j + 1], d = ev[j + 2]; if (k === 1) x.pts += d; else if (k === 8 || k === 9) x.reb += d; else if (k === 10) x.ast += d; else if (k === 11) x.stl += d; else if (k === 12) x.blk += d; }
+    const side = e[2], tx = String(e[3] || '');
+    if (fl.includes('q')) { add(tx, 'tk-q', '⏱', -1); }
+    else if (fl.includes('t')) add(tx, 'tk-to', '✋', side);
+    else if (!fl.includes('u') && !fl.includes('a')) {
+      const sh = by(3), fta = by(7), ast = by(10), blk = by(12), stl = by(11), tov = by(13), code = e[10], pts = dh + da;
+      const ty = code != null ? code % 10 : /\bdunk\b/i.test(tx) ? 0 : /layup/i.test(tx) ? 1 : /3PT/.test(tx) ? 4 : /mid-range/i.test(tx) ? 3 : 2;
+      const a1 = /and-one/.test(tx), aTxt = ast != null && ast !== sh ? ` (${nm(ast)} with the assist)` : '';
+      if (sh != null) {
+        if (pts > 0) add(pick(ty === 0 ? 'dunk' : ty === 4 ? 'three' : ty === 1 ? 'lay' : ty === 3 ? 'mid' : 'paint', i, { n: nm(sh) }) + (a1 ? ' And one!' : '') + aTxt, ty === 4 ? 'tk-3' : ty === 0 ? 'tk-dk' : 'tk-mk', ty === 4 ? '🔥' : ty === 0 ? '💥' : '🏀', side);
+        else if (blk != null) add(pick('block', i, { n: nm(sh), b: nm(blk) }), 'tk-blk', '🚫', 1 - side);
+        else add(pick(ty === 4 ? 'miss3' : 'miss', i, { n: nm(sh) }), 'tk-miss', '', side);
+      } else if (fta != null) { const m = /(\d)\/(\d) FT|(\d) of (\d)/.exec(tx); add(`${nm(fta)} at the line${pts >= 0 ? `: ${pts} point${pts === 1 ? '' : 's'}` : ''}.`, pts > 0 ? 'tk-mk' : 'tk-miss', '🎯', side); void m; }
+      else if (tov != null) { if (stl != null) add(pick('steal', i, { n: nm(tov), s: nm(stl) }), 'tk-stl', '🧤', 1 - side); else add(pick('tov', i, { n: nm(tov) }), 'tk-miss', '', side); }
+    }
+    // runs, ties and lead changes
+    if (dh > 0) { run[0] += dh; if (run[1]) run[1] = 0; } if (da > 0) { run[1] += da; if (run[0] && dh <= 0) run[0] = 0; }
+    for (const s of [0, 1]) { const r = run[s], got = s === 0 ? dh : da; if (got > 0 && r >= 8 && (r - got < 8 || Math.floor(r / 4) > Math.floor((r - got) / 4))) add(`${T(s).abbr} on a ${r}-0 run!`, 'tk-run', '📣', s); }
+    if (dh + da > 0) { const lead = e[4] - e[5];
+      if (lead === 0 && prevLead !== 0) add(`All tied up at ${e[4]}.`, 'tk-tie', '⚖️', -1);
+      else if (lead !== 0 && prevLead !== 0 && Math.sign(lead) !== Math.sign(prevLead) || lead !== 0 && prevLead === 0 && i > 3 && e[4] + e[5] > 6) { const s = lead > 0 ? 0 : 1; add(`${T(s).abbr} ${prevLead === 0 ? 'go back in front' : 'take the lead'}, ${Math.max(e[4], e[5])}-${Math.min(e[4], e[5])}.`, 'tk-lead', '🔄', s); }
+      prevLead = lead; }
+    // player milestones
+    for (let j = 0; j < ev.length; j += 3) { const id = ev[j], k = ev[j + 1], d = ev[j + 2], x = box[id]; if (!x || d <= 0) continue;
+      if (k === 1) for (const m of [20, 30, 40, 50]) if (x.pts >= m && x.pts - d < m) add(`${nm(id)} has ${x.pts} points.`, 'tk-star', '⭐', null);
+      const tens = [x.pts, x.reb, x.ast, x.stl, x.blk].filter(v => v >= 10).length;
+      if (tens >= 2 && !x.dd) { x.dd = true; add(`Double-double for ${nm(id)}.`, 'tk-star', '⭐', null); }
+      if (tens >= 3 && !x.td) { x.td = true; add(`Triple-double for ${nm(id)}!`, 'tk-star', '🌟', null); } }
+  }
+  TK_CACHE.set(g.id, out); if (TK_CACHE.size > 6) TK_CACHE.delete(TK_CACHE.keys().next().value);
+  return out;
+}
+function lvTicker(g, n) {
+  const all = lvTickerLines(g), list = [];
+  for (let k = all.length - 1; k >= 0 && list.length < 80; k--) if (all[k].i < n) list.push(all[k]);
+  const col = s => s === 0 ? L.teams[g.home].c1 : s === 1 ? L.teams[g.away].c1 : 'transparent';
+  return `<aside class="lv-tick panel" aria-live="polite"><h3>Commentary</h3><div class="lv-tk-list">${list.length ? list.map(x => `<div class="tk-row ${x.cls}${x.i === n - 1 ? ' tk-new' : ''}" style="border-left-color:${esc(col(x.side) || 'transparent')}"><span class="tk-t">${qTxt(x.q)} ${clockTxt(x.c)}</span><span class="tk-x">${x.ic ? `<span class="tk-ic" aria-hidden="true">${x.ic}</span> ` : ''}${esc(x.txt)}</span></div>`).join('') : '<p class="muted">Tip-off coming up…</p>'}</div></aside>`;
 }
 // Phase 1: live-game sounds for the entry just shown; buzzer + crowd at the final
 function fxLive(g, i) {
@@ -2797,9 +2958,10 @@ function lvTick() {
   const lv = ui.lv; if (!lv) return; clearTimeout(lv.timer); lv.timer = null;
   const g = L && L.games.find(x => x.id === lv.gid);
   if (!g || ui.game !== lv.gid || ui.liveMode !== lv.gid || !g.pbp) return;
+  if (window.COURT) { const sp0 = LV_SPEED.find(x => x[0] === lv.speed) || LV_SPEED[1]; COURT.live(g, Math.min(lv.i, g.pbp.length), lv.paused ? 0 : sp0[2]); }   // Phase 2: animated court
   if (lv.paused || lv.i >= g.pbp.length) return;
   const sp = LV_SPEED.find(x => x[0] === lv.speed) || LV_SPEED[1];
-  if (!sp[2]) { lv.i = g.pbp.length; render(); fxLive(g, lv.i); return; }
+  if (!sp[2]) { lv.i = g.pbp.length; render(); fxLive(g, lv.i); if (window.COURT) COURT.live(g, lv.i, 0); return; }
   lv.timer = setTimeout(() => { if (ui.lv !== lv || ui.liveMode !== lv.gid) return; lv.i++; const y = window.scrollY; render(); window.scrollTo(0, y); fxLive(g, lv.i); lvTick(); }, sp[2]);
 }
 // Phase 1: shot chart pickers (box score team / player; player page view + season)
@@ -2876,7 +3038,7 @@ function vGame(g) {
   <div class="tblwrap"><table class="linescore" style="max-width:520px;margin-top:8px"><thead><tr><th class="l">Team</th>${qh}<th>Final</th></tr></thead><tbody>
   <tr><td class="l">${tlabel(g.away)}<div class="muted lv-rec" style="font-size:11px">${esc(recLine(g, g.away, false))}</div></td>${g.q.map(x => `<td>${x[1]}</td>`).join('')}<td><strong data-cu>${g.as}</strong></td></tr>
   <tr><td class="l">${tlabel(g.home)}<div class="muted lv-rec" style="font-size:11px">${esc(recLine(g, g.home, true))}</div></td>${g.q.map(x => `<td>${x[0]}</td>`).join('')}<td><strong data-cu>${g.hs}</strong></td></tr></tbody></table></div>${g.lg ? `<p class="muted" style="font-size:12px;margin:6px 0 0">Timeouts used: ${L.teams[g.away].abbr} ${g.lg.to[1]}, ${L.teams[g.home].abbr} ${g.lg.to[0]}${g.lg.ifl[0] + g.lg.ifl[1] ? ` · Intentional fouls late: ${L.teams[g.away].abbr} ${g.lg.ifl[1]}, ${L.teams[g.home].abbr} ${g.lg.ifl[0]}` : ''}${g.lg.hack[0] + g.lg.hack[1] ? ` · Hack-a-player: ${L.teams[g.away].abbr} ${g.lg.hack[1]}, ${L.teams[g.home].abbr} ${g.lg.hack[0]}` : ''}</p>` : ''}${injuries}</section>
-  ${rxPanel(g)}${side(1)}${side(0)}${gameShotPanel(g)}${rotChartPanel(g, 1)}${rotChartPanel(g, 0)}${g.pbp ? `<details class="panel"><summary><strong>Play-by-play</strong> <span class="muted">· ${g.pbp.length} entries · defensive adjustments: ${g.pbp.filter(e => e[6].includes('a')).length}</span></summary><div class="lv-feed" style="max-height:none">${g.pbp.map(e => lvEntryHtml(g, e)).join('')}</div></details>` : ''}`;
+  ${rxPanel(g)}${side(1)}${side(0)}${tpGamePanel(g)}${gameShotPanel(g)}${rotChartPanel(g, 1)}${rotChartPanel(g, 0)}${g.pbp ? `<details class="panel"><summary><strong>Play-by-play</strong> <span class="muted">· ${g.pbp.length} entries · defensive adjustments: ${g.pbp.filter(e => e[6].includes('a')).length}</span></summary><div class="lv-feed" style="max-height:none">${g.pbp.map(e => lvEntryHtml(g, e)).join('')}</div></details>` : ''}`;
 }
 
 // ---------- trades ----------
@@ -4707,7 +4869,7 @@ function render() {
   else {
     const v = ui.view;
     if (v === 'myteam' && L.user != null) html = vTeam(L.teams[L.user]);
-    else html = ({ preview: vPreview, weekly: vWeekly, standings: vStandings, review: vReviewPage, schedule: vSchedule, stats: vStats, players: vPlayerDir, awards: vAwards, teams: vTeams, rmoves: vRMoves, hofc: vHofCeremony, trades: vTrades, fa: vFA, draft: vDraft, coaches: vCoaches, history: vHistory, news: vNews, feed: vFeed, injuries: vInjuries, discipline: vDiscipline, pipeline: vPipeline, rules: vRules }[v] || vStandings)();
+    else html = ({ preview: vPreview, weekly: vWeekly, standings: vStandings, review: vReviewPage, schedule: vSchedule, stats: vStats, players: vPlayerDir, awards: vAwards, teams: vTeams, rmoves: vRMoves, hofc: vHofCeremony, trades: vTrades, fa: vFA, draft: vDraft, coaches: vCoaches, history: vHistory, news: vNews, feed: vFeed, topplays: vTopPlays, injuries: vInjuries, discipline: vDiscipline, pipeline: vPipeline, rules: vRules }[v] || vStandings)();
     if (L.phase === 'off-review' && L.offSummary && (v === 'standings' || v === 'myteam')) html = reviewBanner() + html;   // v30a #20: the report has its own page
   }
   html = undoBar() + html;
@@ -4718,6 +4880,7 @@ function render() {
   { const b = $('#b-backdlg'); if (b) b.onclick = () => { const f = ui.backDlg; ui.backDlg = null; render(); if (f) runDialog(f); }; }
   ui.cur = snapNow();
   bindView();
+  try { tpAfter(); } catch (e) { console.error(e); }   // Phase 2: top-plays reel
   try { if (window.FX) FX.afterRender(JSON.stringify([ui.cur, ui.mtab, ui.teamTab, ui.liveMode, ui.setupOpen ? 1 : 0])); } catch (e) { }   // Phase 1: page fade + count-ups (src/fx.js)
   renderNote();
   try { renderTicker(); } catch (e) { console.error(e); }
@@ -5086,7 +5249,7 @@ document.addEventListener('click', e => {
   render(); window.scrollTo(0, 0);
 });
 
-const VIEWS = ['rmoves', 'hofc', 'preview', 'weekly', 'myteam', 'standings', 'review', 'schedule', 'stats', 'players', 'injuries', 'discipline', 'awards', 'pipeline', 'teams', 'trades', 'fa', 'draft', 'coaches', 'history', 'news', 'feed', 'rules'];
+const VIEWS = ['rmoves', 'hofc', 'topplays', 'preview', 'weekly', 'myteam', 'standings', 'review', 'schedule', 'stats', 'players', 'injuries', 'discipline', 'awards', 'pipeline', 'teams', 'trades', 'fa', 'draft', 'coaches', 'history', 'news', 'feed', 'rules'];
 // old tab names still work as links
 const VIEW_ALIAS = { leaders: ['stats', 'leaders'], tstats: ['stats', 'teams'], playoffs: ['standings', null] };
 function route() {
@@ -5097,6 +5260,7 @@ function route() {
   if (ui.cur && !ui.restoring) { backStack.push(ui.cur); if (backStack.length > 60) backStack.shift(); }
   ui.player = null; ui.game = null; ui.team = null; ui.hs = null; ui.coach = null; ui.gm = null;
   if (ui.view === 'schedule') ui.day = null;
+  if (ui.view === 'topplays') { ui.tpGame = null; ui.tpI = 0; }
   render();
 }
 window.addEventListener('hashchange', route);
@@ -5529,6 +5693,7 @@ function doUndo() {
 }
 // ---------- boot ----------
 // test hook (read-only access for automated tests)
+window.__pblCourt = { get L() { return L; }, scSpot, scRng };   // Phase 2: court.js reads the league and the shot-zone helpers
 window.__pbl = { get L() { return L; }, save: () => save(), render: () => render(), awardsDialog: t => awardsDialog(t), championDialog: () => championDialog(), trainCheckDialog: () => queueDialog(trainCheckDialog), openPlayer: id => { ui.player = id; render(); }, review: S => seasonReviewDialog(S), get ui() { return ui; }, interruptKind: () => interruptKind(), dlg: n => runDialog({ iv: ivDialog, mtg: mtgDialog, drama: dramaDialog }[n]), v30: { logo, logoBody, hexContrast, pipeLogo, todo: { on: () => todoOn(), state: () => todoState(), group: () => todoGroup(), list: g => todoList(g), open: g => todoOpenCount(g), stopEnd: e => todoStopEnd(e) } }, pipeUi: { pipeSchool: p => pipeSchool(p), pipeLatest: () => pipeLatest(), stockChip: p => stockChip(p) } };   // v29: test hooks
 (async () => {
   $('#main').innerHTML = '<p class="muted">Loading your league…</p>';

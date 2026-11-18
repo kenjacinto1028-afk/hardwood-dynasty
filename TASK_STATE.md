@@ -1,3 +1,13 @@
+# TASK_STATE — Phase 2 (Opus) — Nov 18 2026: animated court view, play-by-play ticker, top plays highlights
+- [x] 0. Phase 1 merged on main (9f07c1b); branch `phase2-live-court-ticker-highlights`; read vLive/lvTick/fxLive, engine logE + shot code, scSpot zones, portrait()
+- [x] 1. engine.js: logE entry[10] shot code (zone*10+type), HL/hlAdd top-4 candidates + game-winner (hlGo) -> `game.hl` top 3 for every game; same scores as before (5-day check)
+- [x] 2. src/court.js (new, canvas): live court scenes per entry (shots, passes, blocks, rebounds, steals, FTs, timeouts), reel(); app.js vLive .lv-stage + lvTick COURT.live + window.__pblCourt; build.py single, index.html, styles.css, .gitignore (tools/_*)
+- [x] 3. app.js lvTickerLines/lvTicker (TK_SAY phrases, runs 8+, ties, lead changes, 20/30/40 pts, double/triple-doubles; cached per game), .lv-tick CSS + tk-in slide (off with Skip animations)
+- [x] 4. app.js vTopPlays (view `topplays`), tpNights/tpNightList (top 10, max 2 per player), reel tpAfter/tpGo (autoplay, prev/next/pause), tpStrip on My team, tpGamePanel in box score; court.js projection refactor (v.P) + half-court reel view; CSS .tp-*
+- [x] 5. Tests: node --check ok, lint PASS, t36 27/27, t34 19/19, browser-p1 70/70 (index + single, PORT=route), new tools/browser-p2.js 67/67 (index + single)
+- [ ] 6. PROGRESS + README + TESTING, push, PR, merge
+
+---
 # TASK_STATE — Phase 1 (Opus) — Nov 18 2026: sound effects + mute, screen animations, settings page, shot charts
 - [x] 0. Clone, branch `phase1-sound-anim-settings-shotcharts`, read app.js render/router, engine shot zones (existing zone heat chart on player + team pages)
 - [x] 1. src/fx.js: settings store (localStorage `pbl-fx`) + Web Audio sounds (bounce, swish, rim, dunk, block, whistle, buzzer, cheer, groan), no audio files; index.html + index.template.html (🔊 + ⚙ Settings buttons) + build.py single; CSS at end of styles.css

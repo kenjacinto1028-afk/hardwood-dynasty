@@ -1891,7 +1891,10 @@ function playGame0(league, homeId, awayId, playoff) {
   const LOG = league.user != null && (league.user === homeId || league.user === awayId) && !league.noLog ? [] : null;
   const nm = p => p ? (p.last || splitName(p.name)[1]) : '';
   let lastCourt = '';   // v30b: entry[8] = the ten on-court ids (home 5, then away 5) when the lineup changed since the last logged play, else 0; entry[9] = seconds the play used (minutes + plus-minus replay)
-  const logE = (q, clock, side, text, flags, ev, ct, secs) => { if (LOG) { const e = [q, Math.max(0, Math.round(clock)), side, text, H.pts, A.pts, flags || '', ev || 0]; if (ct) { const k = ct.join(); e.push(k === lastCourt ? 0 : ct, secs || 0); lastCourt = k; } LOG.push(e); } };
+  const logE = (q, clock, side, text, flags, ev, ct, secs, sx) => { if (LOG) { const e = [q, Math.max(0, Math.round(clock)), side, text, H.pts, A.pts, flags || '', ev || 0]; if (ct) { const k = ct.join(); e.push(k === lastCourt ? 0 : ct, secs || 0); lastCourt = k; if (sx != null) e.push(sx); } LOG.push(e); } };   // Phase 2: entry[10] = shot code zone * 10 + type (0 dunk, 1 layup, 2 paint, 3 mid, 4 three) for the live court
+  // Phase 2: top plays of every game (not only yours): [score, kind, player, side 0 home / 1 away, q, clock, home pts, away pts, zone, type, assist, other]; no random numbers used, so results don't change
+  const HL = []; let hlGo = null;
+  const hlAdd = x => { HL.push(x); HL.sort((a, b) => b[0] - a[0]); if (HL.length > 4) HL.length = 4; };
   // v32c: record substitutions in the timeline and as play-by-play lines (flag 'u')
   const subLog = (q, clock) => { for (const g of [H, A]) { const d = tlNote(g, elapsed); if (d && LOG) { const nmL = ids => ids.map(id => nm(league.players[id])).join(', '); logE(q, clock, g === H ? 0 : 1, `${g.t.abbr} sub: ${nmL(d.ins)} in${d.outs.length ? ' for ' + nmL(d.outs) : ''}`, 'u', 0, [...onCourt(H).map(p => p.id), ...onCourt(A).map(p => p.id)], 0); } } };
   const PLUR = { pnr: 'pick-and-rolls', roll: 'rolls to the rim', pop: 'pick-and-pops', iso: 'isolations', post: 'post-ups', spot: 'spot-ups', screen: 'off-screen looks', dho: 'handoffs', cut: 'cuts', horns: 'horns sets', kick: 'kick-outs', trans: 'transition' };
@@ -2052,7 +2055,7 @@ function playGame0(league, homeId, awayId, playoff) {
       { const bd = slD(off.coach).ball; if (bd) { const avg = dom.reduce((a, b) => a + b, 0) / dom.length, k = clamp(SL_FX.ball.dom * bd, -0.6, 0.6); for (let i = 0; i < dom.length; i++) dom[i] = Math.max(0.01, dom[i] + (avg - dom[i]) * k); } }   // v27 K2: motion spreads it, iso concentrates
       let handler = wpick(offC, dom);
       // v25.2: the play, and late-game sets (need a 3, after-timeout plays, closer isolation, last shot)
-      let play = null, setN = null, forceShooter = null, forceType = null, usedBy = null, desc = '';
+      let play = null, setN = null, forceShooter = null, forceType = null, usedBy = null, desc = '', shotX = null;
       const snapE = LOG ? [...onH.map(p => [p.id, H]), ...onA.map(p => [p.id, A])].map(([id, g]) => [id, g, g.st[id].slice(1, 15)]) : null;
       if (!special && !shotClockViolation) {
         if (transition) play = 'trans';
@@ -2234,6 +2237,15 @@ function playGame0(league, homeId, awayId, playoff) {
                 if (R() >= ENG.teamReb) def.st[r.id][IX.drb]++; rebBy = r; if (r.xo === 'rebG' || r.xo === 'pointW') pushTeam = def;
               }
             }
+            { // Phase 2: highlight candidates (dunks, threes, and-ones, blocks, clutch go-ahead shots)
+              const ti = { dunk: 0, lay: 1, paint: 2, mid: 3, tp: 4 }[type], sg = off === H ? 1 : -1, before = sg * (pmH - pmA), after = sg * (H.pts - A.pts);
+              const late = quarter >= 4 && clock <= 120 && Math.abs(H.pts - A.pts) <= 6, flair = ((shooter.id * 7 + Math.round(clock) * 13 + quarter) % 10) / 20;
+              const side = off === H ? 0 : 1, hl = (sc, k, pid, other) => hlAdd([Math.round((sc + flair) * (late ? 1.6 : 1) * 10) / 10, k, pid, k === 'B' ? 1 - side : side, quarter, Math.max(0, Math.round(clock)), H.pts, A.pts, zone, ti, astBy ? astBy.id : 0, other || 0]);
+              if (made) { const k = putback && type === 'dunk' ? 'P' : fouled ? 'A' : type === 'dunk' ? 'D' : is3 ? '3' : null;
+                if (k) hl({ P: 6.5, A: 4.5, D: 5, 3: 4.2 }[k] + (transition ? 1 : 0) + (k === 'A' && type === 'dunk' ? 2 : 0) + (is3 && zone >= 10 && zone <= 12 ? 0.3 : 0) + (before <= 0 && after > 0 ? 1.5 : 0), k, shooter.id, 0);
+                if (before <= 0 && after > 0) hlGo = [quarter, clock, shooter.id, side, H.pts, A.pts, zone, ti, astBy ? astBy.id : 0, fouled ? 1 : 0]; }
+              else if (blocked) hl(3.5 + (type === 'dunk' || type === 'lay' ? 1 : 0), 'B', blocker.id, shooter.id);
+              if (LOG) shotX = zone * 10 + ti; }
             usedBy = shooter;
             if (LOG) { const SN = { dunk: 'dunk', lay: 'layup', paint: shooter.tps * sw.postSk >= floatW * 4 * sw.floatSk ? 'post hook' : 'floater', mid: 'mid-range jumper', tp: (zone === 9 || zone === 13) ? 'corner 3PT' : '3PT' }[type];
               desc = `${setN ? setN + ' · ' : ''}${play && play !== 'trans' ? PLAYS[play].n + ': ' : play === 'trans' ? 'Transition: ' : fromOreb ? (putback ? 'Putback: ' : 'Second chance: ') : ''}${fl(made ? 'pbp.make' : blocked ? 'pbp.blocked' : 'pbp.miss', { name: nm(shooter), shot: SN, blocker: blocked ? nm(blocker) : '' }, quarter * 100000 + Math.round(clock) * 100 + H.pts + A.pts * 3)}${made && fouled ? ', and-one ' + (st[IX.ftm] - ft0) + '/1' : !made && fouled ? ` (fouled by ${nm(fouler)}, ${st[IX.ftm] - ft0}/${ftN} FT)` : ''}${astBy ? ` (ast. ${nm(astBy)})` : ''}${rebBy ? ` · ${rebO ? 'offensive rebound' : 'rebound'} ${nm(rebBy)}` : ''}`; }
@@ -2249,7 +2261,7 @@ function playGame0(league, homeId, awayId, playoff) {
         const z = def.seen[play] || (def.seen[play] = [0, 0, null]); z[0]++; z[1] += gained; z[2] = usedBy.id; }
       if (LOG && desc) { const ev = []; for (const [id, g, a0] of snapE) { const a1 = g.st[id]; for (let i = 0; i < 14; i++) { const d = a1[i + 1] - a0[i]; if (d) ev.push(id, i + 1, d); } }
         const sc = (off.pts - (off === H ? pmH : pmA)) > 0, cl = quarter >= 4 && clock <= 300 && Math.abs(H.pts - A.pts) <= 5;
-        logE(quarter, clock, off === H ? 0 : 1, desc, (sc ? 's' : '') + (cl ? 'c' : ''), ev.length ? ev : 0, LOG ? [...onH.map(p => p.id), ...onA.map(p => p.id)] : null, secs); }
+        logE(quarter, clock, off === H ? 0 : 1, desc, (sc ? 's' : '') + (cl ? 'c' : ''), ev.length ? ev : 0, LOG ? [...onH.map(p => p.id), ...onA.map(p => p.id)] : null, secs, shotX); }
       injuryCheck(off, involved); injuryCheck(def, involved);
       if (switchPoss) poss = 1 - poss;
     }
@@ -2283,6 +2295,10 @@ function playGame0(league, homeId, awayId, playoff) {
   game.cov = [H.cov0 + (H.cov !== H.cov0 ? '>' + H.cov : ''), A.cov0 + (A.cov !== A.cov0 ? '>' + A.cov : '')];
   game.tl = [H.tl || null, A.tl || null];   // v32c: rotation timeline (kept for your games and recent league games)
   if (LOG) game.pbp = LOG;
+  { // Phase 2: a go-ahead shot by the winner in the last 24 seconds (or of OT) is the game-winner, the night's top play
+    const hg = hlGo, win = H.pts > A.pts ? 0 : 1;
+    if (hg && hg[3] === win && hg[0] >= 4 && hg[1] <= 24) { for (let i = HL.length - 1; i >= 0; i--) if (HL[i][2] === hg[2] && HL[i][4] === hg[0] && HL[i][5] === Math.max(0, Math.round(hg[1]))) HL.splice(i, 1); hlAdd([20 + (hg[1] <= 3 ? 4 : 0), 'G', hg[2], hg[3], hg[0], Math.max(0, Math.round(hg[1])), hg[4], hg[5], hg[6], hg[7], hg[8], hg[9]]); }
+    if (HL.length) game.hl = HL.slice(0, 3); }
   if (series) { series.adj = series.adj || {}; for (const g of [H, A]) series.adj[g.t.id] = { cov: g.cov, dbl: g.dbl, lock: g.lock }; }   // adjustments carry over to the next game of the series
   return game;
 }

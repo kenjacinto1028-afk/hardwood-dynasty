@@ -877,11 +877,11 @@ function renderHeader() {
     $('#simctl').classList.remove('open');
   }
   // v24: tabs are grouped. The top row has five groups; the row under it lists the views in the group you are in.
-  const NAME = { cards: 'Player cards', trophies: 'Trophy room', stories: 'Stories', rmoves: 'Overview', hofc: 'Hall of Fame', feed: 'Feed', topplays: 'Top plays', myteam: 'My team', coaches: 'Staff & GMs', preview: 'Season preview', weekly: 'Weekly report', standings: 'Standings', review: 'Progression', schedule: 'Schedule', stats: 'Stats', players: 'Players', awards: 'Awards', teams: 'Teams', trades: 'Trades', fa: 'Free agency', draft: 'Draft', news: 'News & events', injuries: 'Injuries', discipline: 'Discipline', pipeline: 'Pipeline', history: 'History', rules: 'How it works' };
+  const NAME = { expansion: 'Expansion', cards: 'Player cards', trophies: 'Trophy room', stories: 'Stories', rmoves: 'Overview', hofc: 'Hall of Fame', feed: 'Feed', topplays: 'Top plays', myteam: 'My team', coaches: 'Staff & GMs', preview: 'Season preview', weekly: 'Weekly report', standings: 'Standings', review: 'Progression', schedule: 'Schedule', stats: 'Stats', players: 'Players', awards: 'Awards', teams: 'Teams', trades: 'Trades', fa: 'Free agency', draft: 'Draft', news: 'News & events', injuries: 'Injuries', discipline: 'Discipline', pipeline: 'Pipeline', history: 'History', rules: 'How it works' };
   const showPre = L.phase === 'regular' && L.day <= 7 || ui.view === 'preview';
   const groups = [
     L.user != null ? { k: 'team', t: 'My team', v: ['myteam', 'cards', 'coaches'] } : { k: 'team', t: 'Staff & GMs', v: ['coaches', 'cards'] },
-    { k: 'league', t: 'League', v: ['standings', ...(L.offSummary ? ['review'] : []), 'schedule', 'teams', 'stats', 'players', 'injuries', 'discipline', 'awards', 'pipeline'] },
+    { k: 'league', t: 'League', v: ['standings', ...(L.offSummary ? ['review'] : []), 'schedule', 'teams', 'stats', 'players', 'injuries', 'discipline', 'awards', 'pipeline', 'expansion'] },
     { k: 'moves', t: 'Roster moves', v: ['rmoves', 'trades', 'fa', 'draft'] },
     { k: 'story', t: 'News & history', v: [...(showPre ? ['preview'] : []), 'weekly', 'news', 'stories', 'feed', 'topplays', 'history', 'trophies', 'hofc'] },
     { k: 'help', t: 'How it works', v: ['rules'] }
@@ -4916,6 +4916,7 @@ function render() {
   try { renderTicker(); } catch (e) { console.error(e); }
   try { negoAfterRender(); } catch (e) { console.error(e); }   // v30c #2
   try { if (window.P3) P3.afterRender(); } catch (e) { console.error(e); }   // Phase 3
+  try { if (window.XP) XP.afterRender(); } catch (e) { console.error(e); }   // Phase A: expansion results popup (src/xp.js)
 }
 // v25.1: pinned notes. One plain-text note per save (L.note), in a box in a screen corner on every screen;
 // minimize to a tab, expand again (remembered in the save). Saved as you type. Sits under popups (z-index below .overlay).
@@ -5280,7 +5281,7 @@ document.addEventListener('click', e => {
   render(); window.scrollTo(0, 0);
 });
 
-const VIEWS = ['cards', 'trophies', 'stories', 'rmoves', 'hofc', 'topplays', 'preview', 'weekly', 'myteam', 'standings', 'review', 'schedule', 'stats', 'players', 'injuries', 'discipline', 'awards', 'pipeline', 'teams', 'trades', 'fa', 'draft', 'coaches', 'history', 'news', 'feed', 'rules'];
+const VIEWS = ['expansion', 'cards', 'trophies', 'stories', 'rmoves', 'hofc', 'topplays', 'preview', 'weekly', 'myteam', 'standings', 'review', 'schedule', 'stats', 'players', 'injuries', 'discipline', 'awards', 'pipeline', 'teams', 'trades', 'fa', 'draft', 'coaches', 'history', 'news', 'feed', 'rules'];
 // old tab names still work as links
 const VIEW_ALIAS = { leaders: ['stats', 'leaders'], tstats: ['stats', 'teams'], playoffs: ['standings', null] };
 function route() {
@@ -5736,7 +5737,7 @@ function doUndo() {
 // test hook (read-only access for automated tests)
 window.__pblCourt = { get L() { return L; }, scSpot, scRng };   // Phase 2: court.js reads the league and the shot-zone helpers
 // Phase 3: app helpers for src/p3.js (it reads them through `with (PBL)`)
-window.PBL = { get L() { return L; }, popupBusy, liveGame, ui, $, esc, f1, render, dialog, closeDialog, queueDialog, ovrTxt, lgTag, portrait, logo, isUser, awardTid, trophySvg, plink, tname, save };
+window.PBL = { get L() { return L; }, popupBusy, liveGame, ui, $, esc, f1, render, dialog, closeDialog, queueDialog, ovrTxt, lgTag, portrait, logo, isUser, awardTid, trophySvg, plink, tname, save, saveNow, logoBody, tlabel };
 window.__pbl = { get L() { return L; }, lvTicker: (g, n) => lvTicker(g, n), lvTickerLines: g => lvTickerLines(g), save: () => save(), render: () => render(), awardsDialog: t => awardsDialog(t), championDialog: () => championDialog(), trainCheckDialog: () => queueDialog(trainCheckDialog), openPlayer: id => { ui.player = id; render(); }, review: S => seasonReviewDialog(S), get ui() { return ui; }, interruptKind: () => interruptKind(), dlg: n => runDialog({ iv: ivDialog, mtg: mtgDialog, drama: dramaDialog }[n]), v30: { logo, logoBody, hexContrast, pipeLogo, todo: { on: () => todoOn(), state: () => todoState(), group: () => todoGroup(), list: g => todoList(g), open: g => todoOpenCount(g), stopEnd: e => todoStopEnd(e) } }, pipeUi: { pipeSchool: p => pipeSchool(p), pipeLatest: () => pipeLatest(), stockChip: p => stockChip(p) } };   // v29: test hooks
 (async () => {
   $('#main').innerHTML = '<p class="muted">Loading your league…</p>';

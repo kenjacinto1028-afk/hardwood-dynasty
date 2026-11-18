@@ -968,3 +968,10 @@ body.p3-phone.p3-hdr-hide header.top { transform: translateY(-100%); }
 body.p3-phone #pnote.min button { font-size: 13px; padding: 6px 10px; }
 body.p3-phone #todotoast { left: 8px; right: 8px; transform: none; max-width: none; bottom: calc(70px + env(safe-area-inset-bottom, 0px)); font-size: 12px; padding: 6px 10px; }
 body.p3-phone .controls > .search { flex: 1 1 200px; }
+
+/* Phase A: League expansion page */
+.xp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.xp-f { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted, #666); margin: 0 0 8px; }
+.xp-f input:not([type=color]), .xp-f select { font-size: 14px; }
+.xp-f input[type=color] { width: 56px; height: 32px; padding: 0; border: 1px solid var(--line, #ccc); border-radius: 6px; background: none; }
+.xp-prot { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 2px 12px; margin: 8px 0; }

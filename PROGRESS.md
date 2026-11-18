@@ -3,6 +3,10 @@
 ## Back arrow keeps your spot (Opus, Nov 18 2026)
 - [x] Back (and Forward) now return you to the same place on the page you left, e.g. My Team > Lineup & rotation > News > Back. Also keeps the My Team sub-tab. New pages still open at the top. Works in browser, phone layout and desktop app (same code). Test: tools/browser-backscroll.js (desktop + phone) ALL PASS.
 
+## Playtime counter (Nov 18 2026)
+- [x] **Per league + overall playtime**: Saves popup shows "Total playtime, all leagues" and "played X h Y min" on each save; Settings > Game shows both. Counts only while the game is on screen and you used it in the last 5 minutes. Stored as `L.playMs` (travels with exports), plus small `pt:<slot>` / `playtotal` keys written every 15 s. The total keeps time from deleted leagues. Old saves start at 0.
+- Tests: tools/browser-play.js (11 checks), browser-pb, browser-desk ALL PASS.
+
 ## Phase C: desktop app (Opus, Nov 18 2026)
 - [x] **Desktop app (Tauri 2)** in `desktop/`: same game in its own window, offline, about 4 MB. Installers for Windows (.exe/.msi), Mac (.dmg, Intel + Apple chips) and Linux (.AppImage/.deb) come from GitHub Actions > "Build desktop app" > Run workflow, as a draft Release. Steps in DESKTOP.md.
 - [x] **Saves as real files**: Documents/Pacific Basketball League/saves (`.pbl` + slots.json), written safely (temp file, then rename). Newer files win at start, so leagues survive cleared app data and can be copied between computers. Exports go to its exports/ folder. Saves popup shows the folder + "Open the folder".

@@ -158,7 +158,7 @@ async function gunz(blob) { const s = blob.stream().pipeThrough(new Decompressio
 async function dbPut(k, v) { try { const db = await idb(); await new Promise((res, rej) => { const tx = db.transaction('s', 'readwrite'); tx.objectStore('s').put(v, k); tx.oncomplete = res; tx.onerror = () => rej(tx.error); }); } catch (e) { try { localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v)); } catch (e2) {} } }
 async function dbDel(k) { try { const db = await idb(); await new Promise((res, rej) => { const tx = db.transaction('s', 'readwrite'); tx.objectStore('s').delete(k); tx.oncomplete = res; tx.onerror = () => rej(tx.error); }); } catch (e) { try { localStorage.removeItem(k); } catch (e2) {} } }
 async function getSlots() { const v = await dbGet('slots'); try { return v ? (typeof v === 'string' ? JSON.parse(v) : v) : []; } catch (e) { return []; } }
-function slotInfo() { return { id: SLOT, name: L.saveName || defaultSaveName(), mode: L.mode, team: L.user, season: L.season, phase: L.phase, updated: Date.now() }; }
+function slotInfo() { return { id: SLOT, name: L.saveName || defaultSaveName(), mode: L.mode, team: L.user, season: L.season, phase: L.phase, playMs: L.playMs || 0, updated: Date.now() }; }
 function defaultSaveName() { return L.user != null ? tname(L.user) : 'Commissioner league'; }
 // v24.5.1: saves run one at a time, in order, so an older save can't finish last and overwrite a newer one.
 // Calls made while a save is running collapse into one follow-up save of the latest state.
@@ -199,6 +199,25 @@ async function backupMaybe(json) {
 }
 async function loadBak(slot, n) { const v = await dbGet('bak:' + slot + ':' + n); if (!v) return null; try { return JSON.parse(typeof v === 'string' ? v : await gunz(v)); } catch (e) { return null; } }
 async function delBaks(slot) { for (const b of await getBaks(slot)) await dbDel('bak:' + slot + ':' + b.n); await dbDel('baks:' + slot); }
+// Playtime: each league keeps its own time played (L.playMs); 'playtotal' adds up every league, deleted ones too.
+// Time counts while the game tab is on screen and you clicked, typed or scrolled in the last 5 minutes.
+// 'pt:<slot>' is a tiny copy written every 15 s, so time spent reading pages isn't lost if the tab closes before the next full save.
+const PT_TICK = 15000, PT_IDLE = 5 * 60 * 1000;
+let ptLastAct = Date.now(), ptLast = Date.now(), ptSlot = null, ptL = null, ptTotal = null;
+['pointerdown', 'keydown', 'wheel', 'touchstart', 'mousemove', 'scroll'].forEach(ev => window.addEventListener(ev, () => { ptLastAct = Date.now(); }, { passive: true, capture: true }));
+function fmtPlay(ms) { const m = Math.floor((ms || 0) / 60000), h = Math.floor(m / 60); return h ? h + ' h ' + (m % 60) + ' min' : m ? m + ' min' : 'under 1 min'; }
+async function ptGet(k) { const v = await dbGet(k); return +v || 0; }
+async function playTotal() { if (ptTotal == null) ptTotal = await ptGet('playtotal'); return ptTotal; }
+async function ptTick() {
+  const now = Date.now(), dt = Math.min(now - ptLast, PT_TICK * 2); ptLast = now;
+  if (!L || !SLOT) return;
+  if (ptSlot !== SLOT || ptL !== L) { ptSlot = SLOT; ptL = L; L.playMs = Math.max(L.playMs || 0, await ptGet('pt:' + SLOT)); return; }   // just opened a league: take the newer of the two copies
+  if (document.visibilityState !== 'visible' || now - ptLastAct > PT_IDLE) return;
+  L.playMs = (L.playMs || 0) + dt; ptTotal = (await playTotal()) + dt;
+  await dbPut('pt:' + SLOT, String(L.playMs)); await dbPut('playtotal', String(ptTotal));
+}
+setInterval(() => { ptTick().catch(() => { }); }, PT_TICK);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { ptLast = Date.now(); ptLastAct = Date.now(); } });
 let RECOVERED = null;   // set when the save couldn't be read and a backup was loaded instead
 async function load() {
   if (window.DESK) { try { const slots = await getSlots(), nw = await DESK.newer(slots);   // Phase C: save files newer than the app's storage win
@@ -5634,7 +5653,7 @@ function closeDialog() { $('#modal').innerHTML = ''; if (dlgQueue.length) setTim
 $('#b-menu').textContent = 'Saves';
 $('#b-recent').onclick = () => { if (L) recentDialog(); };
 $('#b-menu').onclick = () => {
-  dialog(`<h2>Saves</h2><div id="x-slots" class="muted">Loading saves…</div>
+  dialog(`<h2>Saves</h2><p class="muted" id="x-ptotal" style="margin:-4px 0 10px"></p><div id="x-slots" class="muted">Loading saves…</div>
   ${L ? `<div class="row" style="margin:10px 0"><label>Save name <input type="search" id="x-name" value="${esc(L.saveName || defaultSaveName())}" style="width:220px"></label><button class="sm" id="x-rename">Rename</button><button class="sm" id="x-dup">Save a copy</button></div>` : ''}
   <div class="row" style="margin:10px 0 14px"><button class="primary" id="x-new">New league</button><button id="x-exp" ${L ? '' : 'disabled'}>Export this league</button><label class="btn" for="x-file">Import league file</label><input type="file" id="x-file" accept=".json,.gz,.pbl,application/json,application/gzip" hidden></div>
   ${L ? '<div id="x-p3" style="margin:-4px 0 12px"></div>' : ''}
@@ -5658,11 +5677,13 @@ $('#b-menu').onclick = () => {
   try { if (window.DESK) DESK.savesExtra(); } catch (e) { console.error(e); }   // Phase C: desktop save folder
   const drawSlots = async () => {
     const slots = await getSlots();
-    $('#x-slots').innerHTML = slots.length ? slots.map(x => `<div class="check"><span class="grow"><strong>${esc(x.name)}</strong>${x.id === SLOT ? ' <span class="pill pos">Open</span>' : ''}<br><span class="muted">${x.mode === 'team' ? 'Franchise Mode' : 'Commissioner'} · ${seasonName(x.season)} · ${esc(PHASE_TXT[x.phase] || (x.phase === 'regular' ? 'Regular season' : x.phase === 'playoffs' ? 'Playoffs' : x.phase))} · saved ${new Date(x.updated).toLocaleString()}</span></span>${x.id === SLOT ? '' : `<button class="sm primary" data-sl="${x.id}">Load</button>`}<button class="sm danger" data-sd="${x.id}">Delete</button></div>`).join('') : '<p class="muted">No saves yet.</p>';
+    for (const x of slots) x.playMs = x.id === SLOT && L ? (L.playMs || 0) : Math.max(x.playMs || 0, await ptGet('pt:' + x.id));
+    const tot = $('#x-ptotal'); if (tot) tot.innerHTML = `Total playtime, all leagues: <strong>${fmtPlay(await playTotal())}</strong>`;
+    $('#x-slots').innerHTML = slots.length ? slots.map(x => `<div class="check"><span class="grow"><strong>${esc(x.name)}</strong>${x.id === SLOT ? ' <span class="pill pos">Open</span>' : ''}<br><span class="muted">${x.mode === 'team' ? 'Franchise Mode' : 'Commissioner'} · ${seasonName(x.season)} · ${esc(PHASE_TXT[x.phase] || (x.phase === 'regular' ? 'Regular season' : x.phase === 'playoffs' ? 'Playoffs' : x.phase))} · played ${fmtPlay(x.playMs)} · saved ${new Date(x.updated).toLocaleString()}</span></span>${x.id === SLOT ? '' : `<button class="sm primary" data-sl="${x.id}">Load</button>`}<button class="sm danger" data-sd="${x.id}">Delete</button></div>`).join('') : '<p class="muted">No saves yet.</p>';
     document.querySelectorAll('[data-sl]').forEach(b => b.onclick = async () => { const x = await loadSlot(b.dataset.sl); if (!x) { $('#x-msg').textContent = 'That save could not be read.'; return; } SLOT = b.dataset.sl; await dbPut('current', SLOT); setLeague(x); ui.setupOpen = false; backStack.length = 0; ui.cur = null; closeDialog(); location.hash = x.user != null ? '#myteam' : '#standings'; route(); });
     document.querySelectorAll('[data-sd]').forEach(b => b.onclick = () => {
       b.outerHTML = `<span class="row"><span class="muted">Delete for good?</span><button class="sm danger" data-sdy="${b.dataset.sd}">Delete</button></span>`;
-      document.querySelector(`[data-sdy="${b.dataset.sd}"]`).onclick = async () => { const id = b.dataset.sd; await dbDel('league:' + id); try { await delBaks(id); } catch (e) { } try { if (window.DESK) DESK.remove(id, (await getSlots()).filter(x => x.id !== id)); } catch (e) { } await dbPut('slots', JSON.stringify((await getSlots()).filter(x => x.id !== id))); if (id === SLOT) { SLOT = null; L = null; await dbDel('current'); closeDialog(); ui.setupOpen = true; render(); return; } drawSlots(); };
+      document.querySelector(`[data-sdy="${b.dataset.sd}"]`).onclick = async () => { const id = b.dataset.sd; await dbDel('league:' + id); try { await delBaks(id); await dbDel('pt:' + id); } catch (e) { } try { if (window.DESK) DESK.remove(id, (await getSlots()).filter(x => x.id !== id)); } catch (e) { } await dbPut('slots', JSON.stringify((await getSlots()).filter(x => x.id !== id))); if (id === SLOT) { SLOT = null; L = null; await dbDel('current'); closeDialog(); ui.setupOpen = true; render(); return; } drawSlots(); };
     });
   };
   drawSlots();
@@ -5781,7 +5802,7 @@ function doUndo() {
 // test hook (read-only access for automated tests)
 window.__pblCourt = { get L() { return L; }, scSpot, scRng };   // Phase 2: court.js reads the league and the shot-zone helpers
 // Phase 3: app helpers for src/p3.js (it reads them through `with (PBL)`)
-window.PBL = { get L() { return L; }, popupBusy, liveGame, ui, $, esc, f1, render, dialog, closeDialog, queueDialog, ovrTxt, lgTag, portrait, logo, isUser, awardTid, trophySvg, plink, tname, save, saveNow, logoBody, tlabel };
+window.PBL = { get L() { return L; }, popupBusy, liveGame, ui, $, esc, f1, render, dialog, closeDialog, queueDialog, ovrTxt, lgTag, portrait, logo, isUser, awardTid, trophySvg, plink, tname, save, saveNow, logoBody, tlabel, fmtPlay, playTotal };
 window.__pbl = { get L() { return L; }, lvTicker: (g, n) => lvTicker(g, n), lvTickerLines: g => lvTickerLines(g), save: () => save(), render: () => render(), awardsDialog: t => awardsDialog(t), championDialog: () => championDialog(), trainCheckDialog: () => queueDialog(trainCheckDialog), openPlayer: id => { ui.player = id; render(); }, review: S => seasonReviewDialog(S), get ui() { return ui; }, interruptKind: () => interruptKind(), dlg: n => runDialog({ iv: ivDialog, mtg: mtgDialog, drama: dramaDialog }[n]), v30: { logo, logoBody, hexContrast, pipeLogo, todo: { on: () => todoOn(), state: () => todoState(), group: () => todoGroup(), list: g => todoList(g), open: g => todoOpenCount(g), stopEnd: e => todoStopEnd(e) } }, pipeUi: { pipeSchool: p => pipeSchool(p), pipeLatest: () => pipeLatest(), stockChip: p => stockChip(p) } };   // v29: test hooks
 (async () => {
   $('#main').innerHTML = '<p class="muted">Loading your league…</p>';

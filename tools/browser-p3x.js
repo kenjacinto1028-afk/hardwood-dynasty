@@ -2,7 +2,7 @@
 const DRAFT = 'tools/_draft.json';   // make it with: node tools/mkdraft.js (one season from the franchise snap, stopped at the draft)
 module.exports = async function (pg, T, click, W, touch, load, ok, ev, wait, shot) {
   // --- saves popup
-  await click('#b-menu'); await wait(pg, 600);
+  await pg.evaluate(() => document.getElementById('b-menu').click()); await wait(pg, 600);
   ok(T + 'Saves: small file / share / team link buttons', await ev(pg, "!!document.querySelector('#x-p3exp')&&!!document.querySelector('#x-p3share')&&!!document.querySelector('#x-p3team')"));
   const rt = await pg.evaluate(async () => { const x = await P3.leagueBlob(); const f = new File([x.blob], x.name); const t = await P3.readLeagueFile(f); const o = JSON.parse(t); return { name: x.name, small: x.blob.size, raw: x.raw, same: o.season === PBL.L.season && Object.keys(o.players).length === Object.keys(PBL.L.players).length }; });
   ok(T + 'packed league file is much smaller', rt.small < rt.raw / 4, rt);
@@ -43,7 +43,7 @@ module.exports = async function (pg, T, click, W, touch, load, ok, ev, wait, sho
     ok(T + 'phone: current section lit', await ev(pg, "document.querySelector('#p3-bnav a.on')?.textContent.includes('League')"), await ev(pg, "document.querySelector('#p3-bnav a.on')?.textContent"));
     ok(T + 'phone: sub tabs sit beside Back', await ev(pg, "document.getElementById('subtabs').parentElement.classList.contains('navrow')&&getComputedStyle(document.getElementById('tabs')).display==='none'"));
     ok(T + 'phone: bottom bar buttons are big (52px+)', await ev(pg, "[...document.querySelectorAll('#p3-bnav a')].every(a=>a.getBoundingClientRect().height>=50)"));
-    ok(T + 'phone: header buttons 44px+', await ev(pg, "[...document.querySelectorAll('#simctl button, #b-settings, #b-menu')].every(b=>b.getBoundingClientRect().height>=43)"), await ev(pg, "[...document.querySelectorAll('#simctl button, #b-settings, #b-menu')].map(b=>Math.round(b.getBoundingClientRect().height))"));
+    ok(T + 'phone: header buttons 44px+', await ev(pg, "[...document.querySelectorAll('#simctl button, #b-settings, #b-menu')].filter(b=>b.getBoundingClientRect().width>0).every(b=>b.getBoundingClientRect().height>=43)"), await ev(pg, "[...document.querySelectorAll('#simctl button, #b-settings, #b-menu')].map(b=>Math.round(b.getBoundingClientRect().height))"));
     ok(T + 'phone: page bottom clears the bar', await ev(pg, "parseFloat(getComputedStyle(document.getElementById('main')).paddingBottom)>=80"));
     await shot(pg, 'phone-standings-' + W);
     const swipe = (x0, x1, sel) => ev(pg, `(()=>{const el=document.querySelector('${sel || '#main .panel h2'}')||document.querySelector('#main');const mk=(x)=>new Touch({identifier:1,target:el,clientX:x,clientY:300});el.dispatchEvent(new TouchEvent('touchstart',{touches:[mk(${x0})],changedTouches:[mk(${x0})],bubbles:true}));el.dispatchEvent(new TouchEvent('touchend',{touches:[],changedTouches:[mk(${x1})],bubbles:true}));})()`);

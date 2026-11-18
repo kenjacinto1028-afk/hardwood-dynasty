@@ -35,6 +35,32 @@ module.exports = async function (pg, T, click, W, touch, load, ok, ev, wait, sho
   await ev(pg, "(()=>{PBL.dialog('<h2>Press conference</h2><p>Q</p>');P3.dialogArt();})()"); await wait(pg, 200);
   ok(T + 'press conference popup gets art', await ev(pg, "!!document.querySelector('#modal .p3-dlgart svg')"));
   await ev(pg, "document.querySelector('#modal').innerHTML=''");
+  // --- #6 phone layout
+  await ev(pg, "document.querySelector('#modal').innerHTML='';location.hash='#standings'"); await wait(pg, 1200);
+  if (!touch) ok(T + 'desktop: no bottom tab bar', await ev(pg, "!document.body.classList.contains('p3-phone')&&(!document.getElementById('p3-bnav')||getComputedStyle(document.getElementById('p3-bnav')).display==='none')"));
+  else {
+    ok(T + 'phone: bottom tab bar with 5 sections', await ev(pg, "document.body.classList.contains('p3-phone')&&document.querySelectorAll('#p3-bnav a').length===5&&getComputedStyle(document.getElementById('p3-bnav')).position==='fixed'"));
+    ok(T + 'phone: current section lit', await ev(pg, "document.querySelector('#p3-bnav a.on')?.textContent.includes('League')"), await ev(pg, "document.querySelector('#p3-bnav a.on')?.textContent"));
+    ok(T + 'phone: sub tabs sit beside Back', await ev(pg, "document.getElementById('subtabs').parentElement.classList.contains('navrow')&&getComputedStyle(document.getElementById('tabs')).display==='none'"));
+    ok(T + 'phone: bottom bar buttons are big (52px+)', await ev(pg, "[...document.querySelectorAll('#p3-bnav a')].every(a=>a.getBoundingClientRect().height>=50)"));
+    ok(T + 'phone: header buttons 44px+', await ev(pg, "[...document.querySelectorAll('#simctl button, #b-settings, #b-menu')].every(b=>b.getBoundingClientRect().height>=43)"), await ev(pg, "[...document.querySelectorAll('#simctl button, #b-settings, #b-menu')].map(b=>Math.round(b.getBoundingClientRect().height))"));
+    ok(T + 'phone: page bottom clears the bar', await ev(pg, "parseFloat(getComputedStyle(document.getElementById('main')).paddingBottom)>=80"));
+    await shot(pg, 'phone-standings-' + W);
+    const swipe = (x0, x1, sel) => ev(pg, `(()=>{const el=document.querySelector('${sel || '#main .panel h2'}')||document.querySelector('#main');const mk=(x)=>new Touch({identifier:1,target:el,clientX:x,clientY:300});el.dispatchEvent(new TouchEvent('touchstart',{touches:[mk(${x0})],changedTouches:[mk(${x0})],bubbles:true}));el.dispatchEvent(new TouchEvent('touchend',{touches:[],changedTouches:[mk(${x1})],bubbles:true}));})()`);
+    await swipe(300, 120); await wait(pg, 900);
+    ok(T + 'swipe left: next sub tab', await ev(pg, "location.hash!=='#standings'&&document.querySelector('#subtabs a.on')?.dataset.v===location.hash.slice(1)"), await ev(pg, 'location.hash'));
+    const h1 = await ev(pg, 'location.hash');
+    await swipe(80, 300); await wait(pg, 900);
+    ok(T + 'swipe right: back to the previous tab', await ev(pg, "location.hash==='#standings'"), await ev(pg, 'location.hash'));
+    await ev(pg, "location.hash='#players'"); await wait(pg, 1500);
+    ok(T + 'players page has a table', await ev(pg, "!!document.querySelector('#main table td')"));
+    await swipe(300, 100, '#main table td'); await wait(pg, 700);
+    ok(T + 'no tab swipe while scrolling a table', await ev(pg, "location.hash==='#players'"));
+    await pg.tap('#p3-bnav a:nth-child(4)'); await wait(pg, 1000);
+    ok(T + 'bottom bar opens News & history', await ev(pg, "document.querySelector('#p3-bnav a.on')?.textContent.includes('News')"));
+    for (const v of ['cards', 'stories', 'trophies', 'myteam']) { await ev(pg, `location.hash='#${v}'`); await wait(pg, 1200); ok(T + `phone: no side-scroll on #${v}`, await ev(pg, 'document.documentElement.scrollWidth<=innerWidth+1'), await ev(pg, 'document.documentElement.scrollWidth')); }
+    await shot(pg, 'phone-myteam-' + W);
+  }
   // --- draft night (separate save at the start of the draft)
   if (!require('fs').existsSync(DRAFT)) { ok(T + 'draft save present (node tools/_mkdraft.js)', false); return; }
   const D = await load(W, touch, DRAFT); const dp = D.pg, dclick = s => touch ? dp.tap(s) : dp.click(s);

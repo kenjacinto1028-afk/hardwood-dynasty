@@ -866,3 +866,35 @@ table.hwrap td.l .muted { white-space: nowrap; }
 .fx-off .p3-story, .fx-off .p3-flash, .fx-off .p3-clock.low .p3-clk { animation: none; }
 .p3-tshead { display: flex; gap: 12px; align-items: center; padding: 12px; border-radius: 10px; background: var(--c1); color: #fff; margin: 4px 0 10px; }
 .p3-tsab { font-weight: 900; font-size: 20px; background: var(--c2); color: var(--c1); border-radius: 10px; padding: 10px 8px; min-width: 52px; text-align: center; }
+/* Phase 3 #6: phone layout (body.p3-phone, set by src/p3.js under 700px): bottom tab bar, sub tabs beside Back, bigger tap targets, swipe slide */
+#p3-bnav { display: none; }
+body.p3-phone #p3-bnav { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 14; background: var(--hdr); border-top: 1px solid var(--hdr-line); padding: 4px max(4px, env(safe-area-inset-left,0px)) calc(4px + env(safe-area-inset-bottom, 0px)) max(4px, env(safe-area-inset-right,0px)); box-shadow: 0 -4px 14px rgba(0,0,0,.18); }
+#p3-bnav a { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 52px; color: var(--hdr-muted); text-decoration: none; font: 700 11px var(--body); letter-spacing: .02em; border-radius: 10px; position: relative; -webkit-tap-highlight-color: transparent; }
+#p3-bnav a span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+#p3-bnav a.on { color: var(--hdr-ink); background: color-mix(in srgb, var(--accent) 28%, transparent); }
+#p3-bnav a.on svg { color: var(--accent); }
+#p3-bnav .p3-badge { position: absolute; top: 3px; left: calc(50% + 6px); background: var(--accent); color: var(--accent-ink); font-size: 10px; min-width: 16px; height: 16px; line-height: 16px; border-radius: 8px; padding: 0 4px; }
+body.p3-phone header.top nav#tabs { display: none; }
+body.p3-phone #subrow { display: none !important; }
+body.p3-phone header .navrow { display: flex; align-items: center; gap: 4px; padding-bottom: 4px; }
+body.p3-phone header .navrow > button { flex: none; }
+body.p3-phone header .navrow #subtabs { flex: 1 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+body.p3-phone header .navrow #subtabs::-webkit-scrollbar { display: none; }
+body.p3-phone header .navrow #subtabs a { padding: 10px 10px 9px; font-size: 13px; }
+body.p3-phone main { padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+body.p3-phone #pnote { bottom: calc(70px + env(safe-area-inset-bottom, 0px)); }
+body.p3-phone #todotoast { bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
+body.p3-phone .p3-story { bottom: calc(72px + env(safe-area-inset-bottom, 0px)); right: 10px; width: calc(100vw - 20px); }
+body.p3-phone button, body.p3-phone .btn { min-height: 44px; }
+body.p3-phone button.sm { min-height: 36px; padding: 6px 11px; font-size: 13px; }
+body.p3-phone td button.sm { min-height: 32px; }
+body.p3-phone header .navrow > button.sm { min-width: 40px; min-height: 40px; font-size: 16px; }
+body.p3-phone a.lk { padding-block: 2px; }
+body.p3-phone .fx-ck input { width: 22px; height: 22px; }
+body.p3-phone input[type=range] { height: 32px; }
+body.p3-phone .dialog .dx { font-size: 26px; padding: 8px 12px; top: 4px; right: 4px; }
+@keyframes p3-swl { from { transform: translateX(40px); opacity: .3; } to { transform: none; opacity: 1; } }
+@keyframes p3-swr { from { transform: translateX(-40px); opacity: .3; } to { transform: none; opacity: 1; } }
+@keyframes p3-bump { 30% { transform: translateX(-10px); } 60% { transform: translateX(6px); } }
+#main.p3-swl { animation: p3-swl calc(.25s * var(--fx-mult,1)) ease-out; } #main.p3-swr { animation: p3-swr calc(.25s * var(--fx-mult,1)) ease-out; } #main.p3-bump { animation: p3-bump .3s ease-out; }
+.fx-off #main.p3-swl, .fx-off #main.p3-swr, .fx-off #main.p3-bump { animation: none; }

@@ -1,5 +1,5 @@
 // Phase 3 part 2 checks (called by browser-p3.js): save / share / import, team link, stories + popup art, draft night show + pick clock.
-const DRAFT = 'tools/_draft.json';   // make it with: node tools/_mkdraft.js (one season from the franchise snap, stopped at the draft)
+const DRAFT = 'tools/_draft.json';   // make it with: node tools/mkdraft.js (one season from the franchise snap, stopped at the draft)
 module.exports = async function (pg, T, click, W, touch, load, ok, ev, wait, shot) {
   // --- saves popup
   await click('#b-menu'); await wait(pg, 600);
@@ -62,13 +62,15 @@ module.exports = async function (pg, T, click, W, touch, load, ok, ev, wait, sho
     await shot(pg, 'phone-myteam-' + W);
   }
   // --- draft night (separate save at the start of the draft)
-  if (!require('fs').existsSync(DRAFT)) { ok(T + 'draft save present (node tools/_mkdraft.js)', false); return; }
+  if (!require('fs').existsSync(DRAFT)) { ok(T + 'draft save present (node tools/mkdraft.js)', false); return; }
   const D = await load(W, touch, DRAFT); const dp = D.pg, dclick = s => touch ? dp.tap(s) : dp.click(s);
   await ev(dp, "FX.set('draftShow',true);FX.set('skip',false);location.hash='#draft'"); await wait(dp, 1500);
   const mine = await ev(dp, "(()=>{const s=L.draftOrder[L.draftIdx];return L.user!=null&&s.owner===L.user})()");
   if (mine) { await ev(dp, "document.querySelector('#simctl [data-sim=\"autopick\"]').click()"); await wait(dp, 400); }
   else { await dclick('#simctl [data-sim="pick1"]'); await wait(dp, 400); }
   ok(T + 'draft pick reveal opens', await ev(dp, "!!document.querySelector('#p3-draft .p3-dcard svg')"));
+  const dst = await ev(dp, "(()=>{const t=document.querySelector('#p3-draft .p3-dname').textContent,p=Object.values(L.players).find(x=>x.name===t&&x.draft&&x.draft.s===L.season),h=(p.pre||[]).filter(x=>x.gp).sort((a,b)=>a.s-b.s).slice(-1)[0],svg=document.querySelector('#p3-draft .p3-dcard svg').textContent;return {n:t,h:h?[h.lg,h.pts,h.reb,h.ast]:null,ok:h?svg.includes(h.lg)&&svg.includes((Math.round(h.pts*10)/10).toFixed(1)):svg.includes('0.0')}})()");
+  ok(T + 'draft card shows college / international stats', dst.ok, dst);
   await wait(dp, 1900);
   ok(T + 'pick revealed with a crowd reaction', await ev(dp, "(()=>{const e=document.querySelector('#p3-draft');return !!e&&e.classList.contains('rev')&&/r-(steal|reach|ok|mine)/.test(e.className)})()"));
   ok(T + 'reveal fits the screen', await ev(dp, "(()=>{const r=document.querySelector('#p3-draft .p3-dpod').getBoundingClientRect();return r.left>=0&&r.right<=innerWidth+1})()"));

@@ -2906,6 +2906,8 @@ function lvTickerLines(g) {
   const pick = (k, i, v) => { const a = TK_SAY[k]; return a[(i * 7 + 3) % a.length].replace('{n}', v.n || '').replace('{b}', v.b || '').replace('{s}', v.s || ''); };
   const box = {}, bx = id => box[id] || (box[id] = { pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, dd: false, td: false });
   let run = [0, 0], prevLead = 0;
+  const sideOf = {}, pSide = id => sideOf[id] != null ? sideOf[id] : (L.players[id] || {}).team === g.home ? 0 : (L.players[id] || {}).team === g.away ? 1 : null;
+  for (const e of log) { const ev = e[7] || []; for (let j = 0; j < ev.length; j += 3) if ((ev[j + 1] === 1 || ev[j + 1] === 3) && sideOf[ev[j]] == null && (e[2] === 0 || e[2] === 1)) sideOf[ev[j]] = e[2]; }
   for (let i = 0; i < log.length; i++) {
     const e = log[i], prev = i ? log[i - 1] : null, fl = e[6] || '', ev = e[7] || [], add = (txt, cls, ic, side) => out.push({ i, q: e[0], c: e[1], txt, cls: cls || '', ic: ic || '', side });
     const by = st => { for (let j = 0; j < ev.length; j += 3) if (ev[j + 1] === st && ev[j + 2] > 0) return ev[j]; return null; };
@@ -2934,10 +2936,11 @@ function lvTickerLines(g) {
       prevLead = lead; }
     // player milestones
     for (let j = 0; j < ev.length; j += 3) { const id = ev[j], k = ev[j + 1], d = ev[j + 2], x = box[id]; if (!x || d <= 0) continue;
-      if (k === 1) for (const m of [20, 30, 40, 50]) if (x.pts >= m && x.pts - d < m) add(`${nm(id)} has ${x.pts} points.`, 'tk-star', '⭐', null);
+      const ps = k === 1 ? side : pSide(id);
+      if (k === 1) for (const m of [20, 30, 40, 50]) if (x.pts >= m && x.pts - d < m) add(`${nm(id)} has ${x.pts} points.`, 'tk-star', '⭐', ps);
       const tens = [x.pts, x.reb, x.ast, x.stl, x.blk].filter(v => v >= 10).length;
-      if (tens >= 2 && !x.dd) { x.dd = true; add(`Double-double for ${nm(id)}.`, 'tk-star', '⭐', null); }
-      if (tens >= 3 && !x.td) { x.td = true; add(`Triple-double for ${nm(id)}!`, 'tk-star', '🌟', null); } }
+      if (tens >= 2 && !x.dd) { x.dd = true; add(`Double-double for ${nm(id)}.`, 'tk-star', '⭐', pSide(id)); }
+      if (tens >= 3 && !x.td) { x.td = true; add(`Triple-double for ${nm(id)}!`, 'tk-star', '🌟', pSide(id)); } }
   }
   TK_CACHE.set(g.id, out); if (TK_CACHE.size > 6) TK_CACHE.delete(TK_CACHE.keys().next().value);
   return out;
@@ -2946,7 +2949,10 @@ function lvTicker(g, n) {
   const all = lvTickerLines(g), list = [];
   for (let k = all.length - 1; k >= 0 && list.length < 80; k--) if (all[k].i < n) list.push(all[k]);
   const col = s => s === 0 ? L.teams[g.home].c1 : s === 1 ? L.teams[g.away].c1 : 'transparent';
-  return `<aside class="lv-tick panel" aria-live="polite"><h3>Commentary</h3><div class="lv-tk-list">${list.length ? list.map(x => `<div class="tk-row ${x.cls}${x.i === n - 1 ? ' tk-new' : ''}" style="border-left-color:${esc(col(x.side) || 'transparent')}"><span class="tk-t">${qTxt(x.q)} ${clockTxt(x.c)}</span><span class="tk-x">${x.ic ? `<span class="tk-ic" aria-hidden="true">${x.ic}</span> ` : ''}${esc(x.txt)}</span></div>`).join('') : '<p class="muted">Tip-off coming up…</p>'}</div></aside>`;
+  // my team's plays: good ones light green, bad ones light red; the other team's plays stay plain
+  const me = isUser(g.home) ? 0 : isUser(g.away) ? 1 : null, GOOD = /tk-(3|dk|mk|blk|stl|run|lead|star)\b/;
+  const mood = x => me == null || x.side !== me ? '' : x.cls === 'tk-miss' ? ' tk-me-bad' : GOOD.test(x.cls) ? ' tk-me-good' : '';
+  return `<aside class="lv-tick panel" aria-live="polite"><h3>Commentary</h3><div class="lv-tk-list">${list.length ? list.map(x => `<div class="tk-row ${x.cls}${mood(x)}${x.i === n - 1 ? ' tk-new' : ''}" style="border-left-color:${esc(col(x.side) || 'transparent')}"><span class="tk-t">${qTxt(x.q)} ${clockTxt(x.c)}</span><span class="tk-x">${x.ic ? `<span class="tk-ic" aria-hidden="true">${x.ic}</span> ` : ''}${esc(x.txt)}</span></div>`).join('') : '<p class="muted">Tip-off coming up…</p>'}</div></aside>`;
 }
 // Phase 1: live-game sounds for the entry just shown; buzzer + crowd at the final
 function fxLive(g, i) {
@@ -4479,13 +4485,30 @@ document.addEventListener('click', e => {
 document.addEventListener('change', e => { const pf = e.target.closest && e.target.closest('[data-pipef]'); if (pf && L) { (ui.pipeF = ui.pipeF || {})[pf.dataset.pipef] = pf.value; render(); return; }
   const s = e.target.closest && e.target.closest('select[data-pipesel]'); if (!s || !L) return; (ui.pipeT = ui.pipeT || {})[s.dataset.pipesel] = +s.value; render(); });
 const hofPre = pid => { const p = L.players[pid], n = p && p.preAw ? p.preAw.length : 0; return n ? ` <span class="muted" title="College / international honors">· ${n} before the pros</span>` : ''; };
+// trade news: small team logos + player faces, each player beside the team named just before him ("POR acquire X; DET acquire Y").
+// Names come from the text, so old saves work too.
+function newsPics(text) {
+  linkify('');
+  const gs = [], seen = new Set(); let cur = null;
+  const grp = t => { let x = gs.find(y => y.t === t); if (!x) { x = { t, p: [] }; gs.push(x); } return x; };
+  for (const m of String(text).match(ui.nameRx) || []) {
+    const ab = L.teams.find(t => t.abbr === m), v = ui.nameMap[m];
+    const tid = ab ? ab.id : v && v[0] === 't' ? +v.slice(1) : null;
+    if (tid != null) { cur = grp(tid); continue; }
+    const pid = v && v[0] === 'p' ? +v.slice(1) : null;
+    if (pid != null && L.players[pid] && !seen.has(pid)) { seen.add(pid); (cur || grp(null)).p.push(pid); }
+  }
+  if (!gs.length) return '';
+  const face = id => { const p = L.players[id]; return `<a class="np-p" data-player="${id}" title="${esc(p.name)}">${portrait('p', id, p.nat, p.team, 'np')}</a>`; };
+  return `<span class="np">${gs.slice(0, 4).map(x => `<span class="np-g">${x.t != null ? `<a class="np-t" data-team="${x.t}" title="${esc(tname(x.t))}">${logo(x.t, 24)}</a>` : ''}${x.p.slice(0, 4).map(face).join('')}</span>`).join('')}</span>`;
+}
 function vNews() {
   const cats = [['', 'All'], ['trade', 'Trades'], ['tx', 'Transactions'], ['inj', 'Injuries'], ['feat', 'Feats'], ['award', 'Awards & honors'], ['draft', 'Draft'], ['coach', 'Coaches'], ['watch', 'Watch list'], ['rumor', 'Rumors'], ['beat', 'Beat reports'], ['feature', 'Features'], ['pipe', 'Pipeline'], ['league', 'League']];
   const c = ui.ncat || '';
   const items = L.log.filter(x => !c || (c === 'pipe' ? x.k === 'pipe' : x.cat === c)).slice(0, 250);
   const inj = Object.values(L.players).filter(p => p.team != null && p.injury > 0).sort((a, b) => b.injury - a.injury);
   const when = x => x.phase && (x.phase.startsWith('off') || x.phase === 'season-done') ? 'Offseason' : x.phase === 'playoffs' ? 'Playoffs' : 'Day ' + (x.day + 1);
-  return `<div class="grid2"><section class="panel"><h2>News & events</h2><div class="row" style="margin-bottom:10px">${cats.map(([k, n]) => `<button class="sm chipbtn ${c === k ? 'primary' : ''}" data-ncat="${k}">${n}</button>`).join('')}</div>${items.length ? items.map(x => `<div class="leader" style="grid-template-columns:110px minmax(0,1fr)"><span class="muted">${seasonName(x.season)} · ${when(x)}</span><span>${linkify(x.text)}</span></div>`).join('') : '<p class="muted">Nothing here yet.</p>'}</section>
+  return `<div class="grid2"><section class="panel"><h2>News & events</h2><div class="row" style="margin-bottom:10px">${cats.map(([k, n]) => `<button class="sm chipbtn ${c === k ? 'primary' : ''}" data-ncat="${k}">${n}</button>`).join('')}</div>${items.length ? items.map(x => `<div class="leader" style="grid-template-columns:110px minmax(0,1fr)"><span class="muted">${seasonName(x.season)} · ${when(x)}</span><span>${linkify(x.text)}${x.cat === 'trade' ? newsPics(x.text) : ''}</span></div>`).join('') : '<p class="muted">Nothing here yet.</p>'}</section>
   <section class="panel"><h2>Injury report</h2><p class="muted" style="margin-top:-4px"><a class="lk" href="#injuries">Full report with return dates →</a></p>${inj.length ? `<div class="tblwrap"><table><thead><tr><th class="l">Player</th><th class="l">Team</th><th class="l">Injury</th><th>Out</th></tr></thead><tbody>${inj.slice(0, 15).map(p => `<tr class="click" data-player="${p.id}"><td class="l">${esc(p.name)}</td><td class="l">${tlabel(p.team)}</td><td class="l muted">${esc(p.injName || '')}</td><td>${injGames(p)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">Everyone is healthy.</p>'}</section></div>`;
 }
 // v24.6: league-wide injury report: who's out, how long, when he's back, and who returns soon
@@ -5701,7 +5724,7 @@ function doUndo() {
 window.__pblCourt = { get L() { return L; }, scSpot, scRng };   // Phase 2: court.js reads the league and the shot-zone helpers
 // Phase 3: app helpers for src/p3.js (it reads them through `with (PBL)`)
 window.PBL = { get L() { return L; }, ui, $, esc, f1, render, dialog, closeDialog, queueDialog, ovrTxt, lgTag, portrait, logo, isUser, awardTid, trophySvg, plink, tname, save };
-window.__pbl = { get L() { return L; }, save: () => save(), render: () => render(), awardsDialog: t => awardsDialog(t), championDialog: () => championDialog(), trainCheckDialog: () => queueDialog(trainCheckDialog), openPlayer: id => { ui.player = id; render(); }, review: S => seasonReviewDialog(S), get ui() { return ui; }, interruptKind: () => interruptKind(), dlg: n => runDialog({ iv: ivDialog, mtg: mtgDialog, drama: dramaDialog }[n]), v30: { logo, logoBody, hexContrast, pipeLogo, todo: { on: () => todoOn(), state: () => todoState(), group: () => todoGroup(), list: g => todoList(g), open: g => todoOpenCount(g), stopEnd: e => todoStopEnd(e) } }, pipeUi: { pipeSchool: p => pipeSchool(p), pipeLatest: () => pipeLatest(), stockChip: p => stockChip(p) } };   // v29: test hooks
+window.__pbl = { get L() { return L; }, lvTicker: (g, n) => lvTicker(g, n), lvTickerLines: g => lvTickerLines(g), save: () => save(), render: () => render(), awardsDialog: t => awardsDialog(t), championDialog: () => championDialog(), trainCheckDialog: () => queueDialog(trainCheckDialog), openPlayer: id => { ui.player = id; render(); }, review: S => seasonReviewDialog(S), get ui() { return ui; }, interruptKind: () => interruptKind(), dlg: n => runDialog({ iv: ivDialog, mtg: mtgDialog, drama: dramaDialog }[n]), v30: { logo, logoBody, hexContrast, pipeLogo, todo: { on: () => todoOn(), state: () => todoState(), group: () => todoGroup(), list: g => todoList(g), open: g => todoOpenCount(g), stopEnd: e => todoStopEnd(e) } }, pipeUi: { pipeSchool: p => pipeSchool(p), pipeLatest: () => pipeLatest(), stockChip: p => stockChip(p) } };   // v29: test hooks
 (async () => {
   $('#main').innerHTML = '<p class="muted">Loading your league…</p>';
   const saved = await load();

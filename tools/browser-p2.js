@@ -51,6 +51,11 @@ async function run(W, touch) {
     ok(T + 'scene timing follows the live speed', await ev(pg, "COURT.scenes.live.dur>200&&COURT.scenes.live.dur<300"), await ev(pg, 'COURT.scenes.live.dur'));
     const n1 = await ev(pg, "document.querySelectorAll('.lv-tick .tk-row').length");
     ok(T + 'commentary ticker beside the court has lines', n1 > 3, n1);
+    const cm = await ev(pg, "(()=>{const g=L.games.find(x=>x.id===ui.lv.gid),me=L.user===g.home?0:L.user===g.away?1:null;const rows=[...document.querySelectorAll('.lv-tick .tk-row')];return {me,good:rows.filter(r=>r.classList.contains('tk-me-good')).length,bad:rows.filter(r=>r.classList.contains('tk-me-bad')).length,plain:rows.filter(r=>!/tk-me-/.test(r.className)).length,bg:(rows.find(r=>r.classList.contains('tk-me-good'))||{}).nodeType?getComputedStyle(rows.find(r=>r.classList.contains('tk-me-good'))).backgroundColor:''}})()");
+    ok(T + 'my team commentary: good plays green, bad plays red, others plain', cm.me != null && cm.good > 0 && cm.plain > 0 && !!cm.bg && !/rgba\(0, 0, 0, 0\)|transparent/.test(cm.bg), cm);
+    const full = await ev(pg, "(()=>{const g=L.games.find(x=>x.id===ui.lv.gid),d=document.createElement('div');d.innerHTML=window.__pbl.lvTicker(g,g.pbp.length);return {good:d.querySelectorAll('.tk-me-good').length,bad:d.querySelectorAll('.tk-me-bad').length}})()");
+    ok(T + 'whole game: my team has green and red lines', full.good > 3 && full.bad > 3, full);
+    ok(T + 'opponent commentary has no color', await ev(pg, "(()=>{const g=L.games.find(x=>x.id===ui.lv.gid),me=L.user===g.home?0:1,d=document.createElement('div');d.innerHTML=window.__pbl.lvTicker(g,g.pbp.length);const rows=[...d.querySelectorAll('.tk-row')],all=window.__pbl.lvTickerLines(g),list=[];for(let k=all.length-1;k>=0&&list.length<80;k--)list.push(all[k]);return rows.length===list.length&&list.some(x=>x.side===1-me)&&list.every((x,k)=>x.side===me||!/tk-me-/.test(rows[k].className))})()"));
     ok(T + 'newest commentary slides in', await ev(pg, "!!document.querySelector('.lv-tick .tk-row.tk-new')||document.querySelectorAll('.lv-tick .tk-row').length>0"));
     if (W > 900) ok(T + 'ticker sits beside the court', await ev(pg, "(()=>{const a=document.querySelector('.lv-anim').getBoundingClientRect(),t=document.querySelector('.lv-tick').getBoundingClientRect();return t.left>=a.right-1&&Math.abs(t.top-a.top)<30})()"));
     else ok(T + 'ticker under the court on a phone', await ev(pg, "(()=>{const a=document.querySelector('.lv-anim').getBoundingClientRect(),t=document.querySelector('.lv-tick').getBoundingClientRect();return t.top>=a.bottom-1})()"));
@@ -101,6 +106,16 @@ async function run(W, touch) {
   ok(T + 'back to the whole night', await ev(pg, "ui.tpGame==null&&document.querySelector('h2').textContent.includes('of the night')"));
   await ev(pg, "location.hash='#standings'"); await wait(pg, 3000);
   ok(T + 'reel stops when you leave', await ev(pg, "!COURT.scenes['tp-canvas']"));
+  // draft night cards: prospects show their last college / international line (zeros if none)
+  const dc = await ev(pg, "(()=>{const ps=Object.values(L.players).filter(p=>p.prospect&&!(p.hist||[]).length);const a=ps.find(p=>(p.pre||[]).some(h=>h.gp)),z=ps.find(p=>!(p.pre||[]).some(h=>h.gp));const d=a&&P3.cardData(a),h=a&&a.pre.filter(x=>x.gp).sort((x,y)=>x.s-y.s).slice(-1)[0];const dz=z&&P3.cardData(z);return {n:ps.length,ok:!!d&&Math.abs(d.st[0]-h.pts)<0.06&&Math.abs(d.st[1]-h.reb)<0.06&&d.lg===h.lg,st:d&&d.st,lg:d&&d.lg,z:dz?dz.st:null}})()");
+  ok(T + 'prospect card shows pre-draft stats', dc.ok, dc);
+  ok(T + 'prospect without stats shows zeros', !dc.z || dc.z.every(v => v === 0), dc.z);
+  // news: trades show team logos + player faces
+  await ev(pg, "location.hash='#news'"); await wait(pg, 1500); await click('[data-ncat="trade"]'); await wait(pg, 1200);
+  const np = await ev(pg, "(()=>{const n=document.querySelectorAll('.np').length,l=document.querySelectorAll('.np .np-t svg.logo').length,f=document.querySelectorAll('.np .face.np svg').length,r=document.querySelector('.np .face.np');return {n,l,f,w:r?Math.round(r.getBoundingClientRect().width):0}})()");
+  ok(T + 'trade news shows small logos and faces', np.n > 0 && np.l > 0 && np.f > 0 && np.w > 0 && np.w <= 30, np);
+  ok(T + 'no page side-scroll on News', await ev(pg, 'document.documentElement.scrollWidth<=innerWidth+1'));
+  await pg.screenshot({ path: `tools/_p2-news-${W}.png` });
   ok(T + 'no page errors', !errs.length, errs.slice(0, 3));
   await b.close();
 }

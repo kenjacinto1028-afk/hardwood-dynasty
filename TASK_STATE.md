@@ -1,3 +1,10 @@
+# TASK_STATE — Draft stats, trade pictures, commentary colors (Opus) — Nov 18 2026
+- [x] 1. Draft night cards: college/international stats from prospect pipeline (zeros if none) -> p3.js seasonLine falls back to p.pre (also rookie cards), footer shows NCHF/EABL/APBA + season
+- [x] 2. News page trades: small player faces + team logos -> app.js newsPics (grouped by team), styles.css .np
+- [x] 3. Live commentary colors -> app.js lvTicker mood (tk-me-good/bad), star lines get a side; styles.css uses --win/--loss (both themes)
+- [x] 4. Tests: p2 81/81 (index+single), p3 116/116, p1 70/70, lint; PROGRESS.md; tools/mkdraft.js; PR
+
+---
 # TASK_STATE — Rebound fix + Phase 3 + mobile (Opus) — Nov 18 2026
 PR A: offensive-rebound fix. PR B/C/D: Phase 3 (#4 cards, #13 music, #12 trophies / #7 save-share, #11 draft night / #8 story events, #6 phone layout). PR E: mobile pass.
 - [x] A1. engine.js: un-comment the offensive-rebound code (keep ball, putback) -> src/engine.js line ~2234

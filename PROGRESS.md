@@ -1,5 +1,11 @@
 # PBL progress
 
+## Draft card stats, trade pictures, commentary colors (Opus, Nov 18 2026)
+- [x] **Draft night cards**: prospects (and rookies before their first game) show their last college / international season from the pipeline (PTS / REB / AST, footer NCHF / EABL / APBA + season). No pipeline line: zeros.
+- [x] **Trade news** (News & events): small team logos + player faces under each trade, each player beside the team that got him. Read from the news text, so old saves work too.
+- [x] **Commentary colors** (live game): your team's good plays light green (makes, blocks, steals, runs, leads, milestones), bad plays light red (misses, turnovers, missed free throws); the other team's plays stay plain. Uses the theme's win / loss colors (light + dark).
+- Tests: browser-p2 81/81 (new: commentary colors, trade pictures, prospect card stats; index + single), browser-p3 116/116 (new: draft card stats; draft save from new `tools/mkdraft.js`), p1 70/70, lint PASS. No save-format changes.
+
 ## Mobile pass (Opus, Nov 18 2026)
 - [x] New checker `tools/browser-mobile.js`: 178 screens (25 pages + sub tabs + player/team/coach/box score/live + popups + draft) at 390 and 360 px: all fit, no tiny buttons, no errors.
 - [x] Fixed by eye from screenshots: taller-than-needed header (Saves wrapped alone; Recent now an icon), player page action buttons (5 rows -> 2 swipeable rows), moves table date wrap, Compare teams popup cut-off text.

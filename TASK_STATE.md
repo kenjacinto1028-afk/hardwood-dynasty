@@ -5,7 +5,7 @@
 - [x] 3. app.js lvTickerLines/lvTicker (TK_SAY phrases, runs 8+, ties, lead changes, 20/30/40 pts, double/triple-doubles; cached per game), .lv-tick CSS + tk-in slide (off with Skip animations)
 - [x] 4. app.js vTopPlays (view `topplays`), tpNights/tpNightList (top 10, max 2 per player), reel tpAfter/tpGo (autoplay, prev/next/pause), tpStrip on My team, tpGamePanel in box score; court.js projection refactor (v.P) + half-court reel view; CSS .tp-*
 - [x] 5. Tests: node --check ok, lint PASS, t36 27/27, t34 19/19, browser-p1 70/70 (index + single, PORT=route), new tools/browser-p2.js 67/67 (index + single)
-- [ ] 6. PROGRESS + README + TESTING, push, PR, merge
+- [x] 6. PROGRESS + README + TESTING, pushed, PR #2 https://github.com/kenjacinto1028-afk/pacific-basketball-league/pull/2 merged (4a81a68)
 
 ---
 # TASK_STATE — Phase 1 (Opus) — Nov 18 2026: sound effects + mute, screen animations, settings page, shot charts

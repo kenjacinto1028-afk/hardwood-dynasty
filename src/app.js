@@ -5110,12 +5110,19 @@ function moveBench(pid, dir) {
 
 const backStack = [], fwdStack = [];
 let navLock = false;
-{ const bp = backStack.push; backStack.push = function (...a) { if (!navLock) fwdStack.length = 0; return bp.apply(this, a); }; }   // any new navigation clears Forward
-const snapNow = () => ({ player: ui.player, game: ui.game, team: ui.team, view: ui.view, hs: ui.hs, coach: ui.coach, gm: ui.gm });
+{ const bp = backStack.push; backStack.push = function (...a) { if (!navLock) fwdStack.length = 0; return bp.apply(this, a.map(x => x ? Object.assign({}, x, { y: window.scrollY }) : x)); }; }   // any new navigation clears Forward; each entry remembers where the page was scrolled
+const snapNow = () => ({ player: ui.player, game: ui.game, team: ui.team, view: ui.view, hs: ui.hs, coach: ui.coach, gm: ui.gm, mtab: ui.mtab, twin: ui.twin && Object.assign({}, ui.twin), y: window.scrollY });
+let navScrollT = 0;
 function applyNav(prev) {
-  Object.assign(ui, { player: null, game: null, team: null, hs: null, coach: null, gm: null }, prev);
-  if (location.hash !== '#' + prev.view) history.replaceState(null, '', '#' + prev.view);
-  render(); window.scrollTo(0, 0);
+  const { y, mtab, twin, ...nav } = prev;
+  Object.assign(ui, { player: null, game: null, team: null, hs: null, coach: null, gm: null }, nav);
+  if (mtab !== undefined) ui.mtab = mtab; if (twin) ui.twin = Object.assign({}, twin);   // same My Team sub-tab and open panel as before
+  if (location.hash !== '#' + prev.view) { ui.restoring = true; history.replaceState(null, '', '#' + prev.view); ui.restoring = false; }
+  render();
+  // back to the same spot on the page; retry briefly while late content (pictures, count-ups) grows the page
+  const to = y || 0; window.scrollTo(0, to); clearTimeout(navScrollT);
+  let n = 0; const again = () => { if (Math.abs(window.scrollY - to) < 2 || ++n > 8) return; window.scrollTo(0, to); navScrollT = setTimeout(again, 60); };
+  navScrollT = setTimeout(again, 30);
 }
 function goBack() {
   const prev = backStack.pop(); if (!prev) return;
@@ -5317,7 +5324,7 @@ function route() {
   ui.player = null; ui.game = null; ui.team = null; ui.hs = null; ui.coach = null; ui.gm = null;
   if (ui.view === 'schedule') ui.day = null;
   if (ui.view === 'topplays') { ui.tpGame = null; ui.tpI = 0; }
-  render();
+  render(); clearTimeout(navScrollT); window.scrollTo(0, 0);   // a new page opens at the top (Back/Forward put you back where you were)
 }
 window.addEventListener('hashchange', route);
 for (const id of ['#tabs', '#subtabs']) $(id).addEventListener('click', e => { const a = e.target.closest('a[data-v]'); if (a && location.hash === '#' + a.dataset.v) { e.preventDefault(); route(); window.scrollTo(0, 0); } });

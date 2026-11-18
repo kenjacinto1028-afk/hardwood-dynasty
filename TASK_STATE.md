@@ -1,3 +1,10 @@
+# TASK_STATE — Back arrow keeps scroll position (Opus) — Nov 18 2026
+Branch `back-keeps-scroll`.
+- [x] 1. app.js: save scroll on every back/forward snapshot, restore it on Back/Forward (backStack.push/snapNow/applyNav; route() opens new pages at top)
+- [x] 2. Browser test (desktop + phone): tools/browser-backscroll.js ALL PASS
+- [ ] 3. PROGRESS.md, commit, push, PR (ask before merge)
+
+---
 # TASK_STATE — Phases A/B/C: expansion teams, save safety + tutorial, desktop app (Opus) — Nov 18 2026
 Plan: /mnt/project-files/plans/desktop-release-plan.md. One PR per phase, merge when tests pass.
 - [x] A1. league.js: expansion logic (xpnPlan/xpnRun at end of league.js, startFA hook; engine.js pairMatrix any-size schedule, isBig = 24+ teams); tools/t-exp.js PASS 16->18

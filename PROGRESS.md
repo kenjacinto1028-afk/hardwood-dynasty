@@ -1,5 +1,12 @@
 # PBL progress
 
+## Phase C: desktop app (Opus, Nov 18 2026)
+- [x] **Desktop app (Tauri 2)** in `desktop/`: same game in its own window, offline, about 4 MB. Installers for Windows (.exe/.msi), Mac (.dmg, Intel + Apple chips) and Linux (.AppImage/.deb) come from GitHub Actions > "Build desktop app" > Run workflow, as a draft Release. Steps in DESKTOP.md.
+- [x] **Saves as real files**: Documents/Pacific Basketball League/saves (`.pbl` + slots.json), written safely (temp file, then rename). Newer files win at start, so leagues survive cleared app data and can be copied between computers. Exports go to its exports/ folder. Saves popup shows the folder + "Open the folder".
+- [x] Desktop extras: no service worker or "Install as an app" inside the app; 1024px icon + all icon sizes.
+- Checked: real Linux build launched under Xvfb and opened a league from a save file; `.deb` bundle built. tools/browser-desk.js (fake backend) ALL PASS.
+- Not done (needs accounts / money): phone apps, code signing, auto-update, itch.io page. See DESKTOP.md "Later".
+
 ## Phase B: save safety, error screen, tour, difficulty, cleanup (Opus, Nov 18 2026)
 - [x] **Automatic backups**: each league keeps its last 3 copies (at every new phase, and every 10 minutes of play). Saves popup lists them with "Go back to this". If the save can't be read, the newest backup opens with a short note. The game also asks the browser to keep saves when space runs low (`navigator.storage.persist`).
 - [x] **Error card**: any crash shows "Something went wrong on this screen. Your league is safe..." with Reload / Copy details / Dismiss instead of a silently broken page (src/pb.js).

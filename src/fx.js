@@ -225,7 +225,7 @@
   window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEv = e; });
   window.addEventListener('appinstalled', () => { installEv = null; });
   function installHtml() {
-    if (!/^https?:$/.test(location.protocol)) return '';
+    if (!/^https?:$/.test(location.protocol) || window.__TAURI__) return '';   // Phase C: the desktop app is already an app
     const standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone;
     if (standalone) return `<h3 style="margin-top:14px">App</h3><p class="muted" style="font-size:13px;margin:0">You're using the installed app. It works offline; your leagues are saved on this device.</p>`;
     const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);

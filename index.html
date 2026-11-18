@@ -20,6 +20,7 @@
 <main class="wrap" id="main"></main>
 <div id="modal"></div>
 
+<script src="src/desk.js"></script>
 <script src="src/vendor-faces.js"></script>
 <script src="src/engine.js"></script>
 <script src="src/league.js"></script>
@@ -33,7 +34,7 @@
 <script src="src/p3.js"></script>
 <script src="src/xp.js"></script>
 <script src="src/pb.js"></script>
-<script>if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => { }));</script>
+<script>if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol) && !window.__TAURI__) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => { }));</script>
 
 </body></html>
 

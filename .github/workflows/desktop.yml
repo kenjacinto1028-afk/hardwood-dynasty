@@ -1,0 +1,48 @@
+# Builds the desktop app (Windows, Mac, Linux) and attaches the installers to a draft GitHub Release.
+# Run it: GitHub > Actions > "Build desktop app" > Run workflow. Or push a tag like v1.0.1.
+name: Build desktop app
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            args: ''
+          - os: macos-latest
+            args: '--target universal-apple-darwin'
+          - os: ubuntu-22.04
+            args: ''
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.os == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+      - name: Linux libraries
+        if: matrix.os == 'ubuntu-22.04'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libayatana-appindicator3-dev patchelf
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri -> target
+      - name: Install Tauri CLI and copy the game files
+        working-directory: desktop
+        run: npm ci || npm install && node copy-web.js
+      - uses: tauri-apps/tauri-action@v0
+        with:
+          projectPath: desktop
+          tagName: ${{ github.ref_type == 'tag' && github.ref_name || 'desktop-v__VERSION__' }}
+          releaseName: 'Pacific Basketball League v__VERSION__'
+          releaseBody: 'Download the installer for your computer below: Windows = .exe (or .msi), Mac = .dmg, Linux = .AppImage or .deb. Mac and Windows may warn that the app is from an unknown developer (it is not signed yet): on Windows click "More info" > "Run anyway"; on Mac right-click the app > Open.'
+          releaseDraft: true
+          args: ${{ matrix.args }}
+          tauriScript: npx tauri

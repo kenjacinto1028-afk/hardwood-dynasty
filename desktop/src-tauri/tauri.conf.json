@@ -1,0 +1,36 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Pacific Basketball League",
+  "version": "1.0.0",
+  "identifier": "com.pbl.basketballgm",
+  "build": {
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "Pacific Basketball League",
+        "width": 1360,
+        "height": 860,
+        "minWidth": 380,
+        "minHeight": 560,
+        "resizable": true,
+        "center": true,
+        "backgroundColor": "#142019"
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "category": "SportsGame",
+    "shortDescription": "A basketball management game",
+    "longDescription": "Run a basketball team or a whole league: trades, free agency, the draft, live games, expansion teams. Works offline; saves are real files in Documents.",
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
+    "windows": { "nsis": { "installMode": "currentUser" } }
+  }
+}

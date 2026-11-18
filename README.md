@@ -17,6 +17,14 @@ The game is split into small files so a change rewrites one file, not 1.3 MB.
 | `manifest.webmanifest`, `sw.js`, `icons/` | Install as an app + offline (I1): the service worker saves the game files; saves stay in IndexedDB. Needs https or localhost |
 | `src/index.template.html` | Page shell with markers `/*CSS*/ /*VENDOR*/ /*ENGINE*/ /*LEAGUE*/ /*NBA*/ /*APP*/` for the single-file build (`python3 -I build.py --single . [out.html]`, v33e) |
 
+## Phase C (Opus, Nov 18 2026): desktop app
+- `desktop/`: Tauri 2 app (`src-tauri/src/lib.rs` save-file commands, `tauri.conf.json`, `copy-web.js` puts the game in `desktop/dist`). Installers: GitHub Actions `.github/workflows/desktop.yml`. Guide: DESKTOP.md.
+- `src/desk.js` (loaded first; null in a browser): mirrors each save to a file, restores newer files on start, routes exports to files. Hooks in app.js `saveNow`, `load`, slot delete, Saves popup.
+- Test: `node tools/browser-desk.js` (fake Tauri backend).
+
+## Phase B (Opus, Nov 18 2026): save safety, tour, difficulty
+- app.js: `backupMaybe` / `getBaks` / `loadBak` (3 rolling backups per league), recovery in `load()`, backups in the Saves popup. `src/pb.js`: error card + guided tour (`PB.tour`). league.js `DIFF` / `diffK` (trade margin, owner patience); fx.js Settings > Game. Test: `node tools/browser-pb.js`.
+
 ## Phase A (Opus, Nov 18 2026): expansion teams
 - Logic at the end of `src/league.js`: `XPN_PBL` / `XPN_NBA` cities, `xpnPlan` (L.xpnPlan), `xpnRun` (called in `startFA`: new teams via `xpnMakeTeam`, protected lists, expansion draft, `L.xpnLog`, `L.xpnShow` for the popup), `xpnSetMine` (your protected list).
 - `src/xp.js`: League > Expansion page (`P3V.expansion`), team creator, protect list, results popup (`XP.afterRender`). Loaded after p3.js (index.html, build.py, sw.js).

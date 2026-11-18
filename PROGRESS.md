@@ -1,5 +1,11 @@
 # PBL progress
 
+## Phase 3 part 2 (Opus, Nov 18 2026): #7 save/share/import, #11 draft night show, #8 story events
+- [x] **#7**: packed league file (.pbl.gz, ~8x smaller), share sheet, team link (`#team=`), import reads both kinds.
+- [x] **#11**: pick reveals with crowd reactions (value vs consensus), game-day music during the show, 2:00 pick clock (auto-pick only with the setting on).
+- [x] **#8**: story popups + Stories page (illustrated SVG scenes in team colors), art on press / locker room / interview popups.
+- Tests: browser-p3 98/98 (index + single), p1 70/70, p2 67/67, lint PASS. No save-format changes.
+
 ## Phase 3 part 1 (Opus, Nov 18 2026): #4 player cards, #12 trophies + ceremonies, #13 music
 - [x] **#4 Player cards** (`src/p3.js`): card per player (face, team colors, rating as you see it, position, season line, rarity border + shine). My team → Player cards (any team), Player card button on player pages. Save image / Share / Copy link (`#card=`).
 - [x] **#12 Trophies**: Trophy room view (banners, trophies, awards won there, retired numbers, Hall of Famers); MVP and title ceremonies (once per season, on top of the awards / champion popups).

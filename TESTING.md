@@ -57,4 +57,4 @@ Phase 1 (Nov 18 2026): sound / animations / settings / shot charts: `node tools/
 
 Phase 2 (Nov 18 2026): live court / commentary / top plays: `node tools/browser-p2.js [index.html|pbl-single.html]` (serves the folder through Playwright, no web server). `tools/browser-p1.js` also takes `route` as PORT for the same no-server mode.
 
-Phase 3: `node tools/browser-p3.js [index.html|pbl-single.html]` (cards, trophy room, ceremonies, music; later parts add draft show, stories, save/share, phone layout). `SHOTS=1` writes screenshots to tools/_p3-*.png.
+Phase 3: `node tools/_mkdraft.js` once (draft save), then `node tools/browser-p3.js [index.html|pbl-single.html]` (cards, trophy room, ceremonies, music; later parts add draft show, stories, save/share, phone layout). `SHOTS=1` writes screenshots to tools/_p3-*.png.

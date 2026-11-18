@@ -13,7 +13,15 @@ The game is split into small files so a change rewrites one file, not 1.3 MB.
 | `src/nba-2026.js` | v27 NBA mode: real 2026-27 rosters (`NBA26`) + real history (`NBA_HIST`) + converter. Built from project docs `claude/nba/nba-compact.json`, `claude/nba/hist.txt` + `claude/nba/conv.js`; edit those, then rebuild |
 | `src/nba-setup.js` | v30a NBA setup extras: real rookies (`nbaRookies`) + real jersey numbers (`NBA_JERSEY_CSV`, `nbaJerseys`) |
 | `src/fx.js` | Phase 1: sound effects (Web Audio, no files), screen animations, settings popup (`window.FX`, settings in localStorage `pbl-fx`) |
+| `src/court.js` | Phase 2: animated court on a canvas: live game scenes per play (`COURT.live`) and the top-plays half-court replay (`COURT.reel`); reads the league through `window.__pblCourt` |
 | `src/index.template.html` | Page shell with markers `/*CSS*/ /*VENDOR*/ /*ENGINE*/ /*LEAGUE*/ /*NBA*/ /*APP*/` for the single-file build (`python3 -I build.py --single . [out.html]`, v33e) |
+
+## Phase 2 (Opus, Nov 18 2026): live court, commentary ticker, top plays
+- Live game: animated top-down court above the floor lists (dots in team colors with jersey numbers move, pass, shoot; ball flight, makes, rebounds, blocks, steals, free throws, timeouts). Follows the live speed; Pause freezes it; Skip animations / Instant jump to the end of each play.
+- Commentary ticker beside the court (under it on phones): a commentator line per play plus runs, ties, lead changes, 20/30/40-point games, double- and triple-doubles.
+- Top plays (News & history → Top plays): the night's top 10 from every game with faces, a looping half-court replay and sound; Prev / Pause / Next, any night of the season. Top 3 on My team; each box score lists its game's top plays.
+- Engine: `game.hl` (top 3 plays of every game) and `entry[10]` shot code in the play-by-play; no change to game results.
+- Test: `node tools/browser-p2.js [index.html|pbl-single.html]` (67 checks, 1300 + 390, no web server needed).
 
 ## Phase 1 (Opus, Nov 18 2026): sound, animations, settings, shot charts
 - Sound (`src/fx.js`, made in the browser, no audio files): ball bounce on sim buttons; crowd cheer or groan + a result banner after your game; live games: swish, dunk, rim, block, whistle, quarter buzzer, final buzzer + crowd. 🔊 button in the header mutes.

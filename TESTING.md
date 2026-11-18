@@ -54,3 +54,5 @@ v37a: UI tier checks for wide pages, the ⋯ menu, records tabs and the pipeline
 v37b: `node tools/t37b.js` (legacy mapping: day-1 top 3, legends' estimates, award -> season team, no double induction, real vs sim calibration on the commish save; ~1 min). HoF counts: `node tools/t37b-hof5.js` (5 seasons from `tools/snap/nba-commish-s10.json.gz`, ~10 min; `SRC=<old src>` for a baseline). Browser: `tools/browser-v37b.py.txt` (History book, All-time greats Top 100, Hall of Fame tab; day-1 NBA league + franchise save `tools/_t1.json`, same loader as browser-v37a).
 
 Phase 1 (Nov 18 2026): sound / animations / settings / shot charts: `node tools/browser-p1.js 8801 [index.html|pbl-single.html]` (Node Playwright; needs tools/_t1.json from the franchise snap).
+
+Phase 2 (Nov 18 2026): live court / commentary / top plays: `node tools/browser-p2.js [index.html|pbl-single.html]` (serves the folder through Playwright, no web server). `tools/browser-p1.js` also takes `route` as PORT for the same no-server mode.

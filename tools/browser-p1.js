@@ -1,6 +1,6 @@
 // Phase 1 UI checks: sound + mute, settings popup, page fade / count-ups, win banner + sound, live-game sounds, shot charts.
 // gunzip -c tools/snap/nba-team-s10.json.gz > tools/_t1.json; serve the game folder (python3 -m http.server 8801), then:
-//   node tools/browser-p1.js [PORT] [PAGE] [SAVE]      (PAGE = index.html or pbl-single.html)
+//   node tools/browser-p1.js [PORT] [PAGE] [SAVE]      (PAGE = index.html or pbl-single.html; PORT = route: no server needed)
 // Sound can't be heard in a test: fx.js logs each sound name to window.__fxLog (the Web Audio graph is still built, so errors would show).
 const { chromium } = require('playwright');
 const PORT = process.argv[2] || '8801', PAGE = process.argv[3] || 'index.html', SAVE = process.argv[4] || 'tools/_t1.json';
@@ -12,8 +12,12 @@ const wait = (pg, ms) => pg.waitForTimeout(ms);
 async function load(W, touch) {
   const b = await chromium.launch({ args: ['--no-sandbox', '--autoplay-policy=no-user-gesture-required'] });
   const ctx = await b.newContext({ viewport: { width: W, height: 900 }, hasTouch: touch, isMobile: touch });
+  if (PORT === 'route') {   // Phase 2: no web server needed, serve this folder through Playwright
+    const fs = require('fs'), path = require('path'), ROOT = path.join(__dirname, '..'), MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json' };
+    await ctx.route('http://pbl.test/**', r => { const f = path.join(ROOT, decodeURIComponent(new URL(r.request().url()).pathname)); if (!f.startsWith(ROOT) || !fs.existsSync(f)) return r.fulfill({ status: 404, body: '' }); r.fulfill({ status: 200, body: fs.readFileSync(f), contentType: MIME[path.extname(f)] || 'application/octet-stream' }); });
+  }
   const pg = await ctx.newPage(), errs = []; pg.on('pageerror', e => errs.push(String(e)));
-  await pg.goto(`http://localhost:${PORT}/${PAGE}`); await wait(pg, 2000);
+  await pg.goto(PORT === 'route' ? `http://pbl.test/${PAGE}` : `http://localhost:${PORT}/${PAGE}`); await wait(pg, 2000);
   await pg.evaluate(async f => {
     const txt = await (await fetch(f)).text();
     const db = await new Promise((res, rej) => { const r = indexedDB.open('pbl-league', 1); r.onupgradeneeded = () => r.result.createObjectStore('s'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });

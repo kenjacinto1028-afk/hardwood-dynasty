@@ -12,7 +12,15 @@ The game is split into small files so a change rewrites one file, not 1.3 MB.
 | `src/app.js` | UI: views, dialogs, click handlers, saves |
 | `src/nba-2026.js` | v27 NBA mode: real 2026-27 rosters (`NBA26`) + real history (`NBA_HIST`) + converter. Built from project docs `claude/nba/nba-compact.json`, `claude/nba/hist.txt` + `claude/nba/conv.js`; edit those, then rebuild |
 | `src/nba-setup.js` | v30a NBA setup extras: real rookies (`nbaRookies`) + real jersey numbers (`NBA_JERSEY_CSV`, `nbaJerseys`) |
+| `src/fx.js` | Phase 1: sound effects (Web Audio, no files), screen animations, settings popup (`window.FX`, settings in localStorage `pbl-fx`) |
 | `src/index.template.html` | Page shell with markers `/*CSS*/ /*VENDOR*/ /*ENGINE*/ /*LEAGUE*/ /*NBA*/ /*APP*/` for the single-file build (`python3 -I build.py --single . [out.html]`, v33e) |
+
+## Phase 1 (Opus, Nov 18 2026): sound, animations, settings, shot charts
+- Sound (`src/fx.js`, made in the browser, no audio files): ball bounce on sim buttons; crowd cheer or groan + a result banner after your game; live games: swish, dunk, rim, block, whistle, quarter buzzer, final buzzer + crowd. 🔊 button in the header mutes.
+- Animations: page fade on screen change, count-up numbers (`data-cu`: team record, points for / against, box score finals), confetti on wins, bigger confetti for a title.
+- ⚙ Settings popup: mute, volume, live-game sounds, sim button sound, try each sound, skip animations, speed (slow / normal / fast), confetti on / off. Saved per browser, not in the league.
+- Shot charts: each game keeps its shots (`g.sh`, engine.js); box score → Shot chart (each team, each player, made dots / missed x). Player page → Shooting: Hot and cold zones or Makes and misses, any season, playoffs or career. Shots are stored by zone, so a mark sits at a random spot inside its zone.
+- Test: `node tools/browser-p1.js 8801 [index.html|pbl-single.html]` (70 checks, 1300 + 390).
 
 ## v37b (Opus, Nov 17 2026): History book from 1946-47, All-time greats, full Hall of Fame
 - History → History book: league and franchise lists hold every season from 1946-47 on, then this league's seasons on top, same columns ("—" where the history data has nothing).

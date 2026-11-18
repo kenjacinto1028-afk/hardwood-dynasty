@@ -455,6 +455,7 @@ const SYS_FX = {
 // Shot zones for charts: 0 restricted area; 1-3 paint (left, middle, right); 4-8 mid-range (left baseline, left elbow, top, right elbow, right baseline);
 // 9-13 threes (left corner, left wing, top, right wing, right corner)
 const ZONES = 14;
+const SH_ABC = 'ABCDEFGHIJKLMNOPQRSTUVWXYZab';   // Phase 1: shot letters for game.sh (index = zone * 2 + made)
 function pickZone(type, corner) {
   if (type === 'dunk' || type === 'lay') return 0;
   if (type === 'paint') return wpick([1, 2, 3], [1, 2, 1]);
@@ -2343,6 +2344,8 @@ function applyGame(league, game) {
       for (const id in game.zs) { const p = league.players[id]; if (p && (p.team === t.id || (p.tw && p.tw.tid === t.id))) add(t.zr, game.zs[id]); }
       add(t.zrOpp, game.zsOpp[i]);
     }
+    // Phase 1: keep each game's shots for the box-score shot chart: one letter per shot, SH_ABC[zone * 2 + made] (this season's games only; old games have none)
+    game.sh = {}; for (const id in game.zs) { const z = game.zs[id]; let t = ''; for (let i = 0; i < ZONES; i++) { const at = z[i * 2], mk = z[i * 2 + 1]; if (at) t += SH_ABC[i * 2 + 1].repeat(mk) + SH_ABC[i * 2].repeat(at - mk); } if (t) game.sh[id] = t; }
     delete game.zs; delete game.zsOpp;
   }
   // v25.2: points per possession by play type (regular season): team totals and the player who used the possession

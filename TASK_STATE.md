@@ -1,3 +1,14 @@
+# TASK_STATE — Phase 1 (Opus) — Nov 18 2026: sound effects + mute, screen animations, settings page, shot charts
+- [x] 0. Clone, branch `phase1-sound-anim-settings-shotcharts`, read app.js render/router, engine shot zones (existing zone heat chart on player + team pages)
+- [x] 1. src/fx.js: settings store (localStorage `pbl-fx`) + Web Audio sounds (bounce, swish, rim, dunk, block, whistle, buzzer, cheer, groan), no audio files; index.html + index.template.html (🔊 + ⚙ Settings buttons) + build.py single; CSS at end of styles.css
+- [x] 2. app.js hooks: `fxSimResult` (runSteps: your last game's win/loss sound + banner, title = big confetti), `fxLive` (lvTick: sound per play, buzzer + crowd at final), render -> FX.afterRender(view key)
+- [x] 3. Animations: #main fade on view change only (not live ticks), `data-cu` count-ups (team record, PF/PA, box score finals), confetti + result banner; speed via --fx-mult, .fx-off skips
+- [x] 4. Settings popup (⚙ Settings in header, fx.js openSettings): mute, volume, live sounds, sim click sound, try buttons, skip animations, speed slow/normal/fast, confetti, reset, preview a win
+- [x] 5. Shot charts: engine.js keeps each game's shots (`g.sh`, SH_ABC letters); app.js gameShotPanel (box score, team/player buttons), playerShotChart (heat / makes-and-misses toggle, season picker incl. playoffs + career, 350-shot sample), scCourt/scZoneOf/scSpot/shotDots
+- [x] 6. Tests: node --check, lint PASS, t36 27/27, t34 19/19, tools/browser-p1.js 70/70 (index.html + pbl-single.html)
+- [x] 7. PROGRESS + README + TESTING, pushed, PR #1 https://github.com/kenjacinto1028-afk/pacific-basketball-league/pull/1
+
+---
 # TASK_STATE — v37b (Opus) — Nov 17 2026: history book, all-time greats, HoF effect, HoF tab, v37a review
 - [x] 0a. Clone + merge v37a zips (9 files: PROGRESS.md README.md TASK_STATE.md TESTING.md browser-v29.py.txt tools/browser-v29.py.txt tools/browser-v37a.py.txt src/app.js src/styles.css)
 - [x] 0b. Read PROGRESS v37a, TESTING, v37-plan; merged code: node --check ok, t36 27/27, lint PASS

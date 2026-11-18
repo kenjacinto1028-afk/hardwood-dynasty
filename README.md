@@ -17,6 +17,12 @@ The game is split into small files so a change rewrites one file, not 1.3 MB.
 | `manifest.webmanifest`, `sw.js`, `icons/` | Install as an app + offline (I1): the service worker saves the game files; saves stay in IndexedDB. Needs https or localhost |
 | `src/index.template.html` | Page shell with markers `/*CSS*/ /*VENDOR*/ /*ENGINE*/ /*LEAGUE*/ /*NBA*/ /*APP*/` for the single-file build (`python3 -I build.py --single . [out.html]`, v33e) |
 
+## Phase A (Opus, Nov 18 2026): expansion teams
+- Logic at the end of `src/league.js`: `XPN_PBL` / `XPN_NBA` cities, `xpnPlan` (L.xpnPlan), `xpnRun` (called in `startFA`: new teams via `xpnMakeTeam`, protected lists, expansion draft, `L.xpnLog`, `L.xpnShow` for the popup), `xpnSetMine` (your protected list).
+- `src/xp.js`: League > Expansion page (`P3V.expansion`), team creator, protect list, results popup (`XP.afterRender`). Loaded after p3.js (index.html, build.py, sw.js).
+- `src/engine.js`: `pairMatrix` (schedule for sizes other than 16 / 30), `isBig` = 24+ teams.
+- Tests: `node tools/t-exp.js [snap] [seasons] [2|4]`, `node tools/browser-xp.js [index.html|pbl-single.html]` (needs tools/_t1.json + tools/_c16.json from the snaps).
+
 ## Mobile pass (Opus, Nov 18 2026)
 - `tools/browser-mobile.js [PAGE]`: opens every page, every in-page sub tab, a player / team / coach page, a box score, the live game and the main popups at 390 and 360 px (touch), plus the draft save; checks side-scroll, anything sticking out of the screen (outside a sideways-scrolling box) and buttons under 28px. 178 screens. `SHOTS=1` saves full-page screenshots (tools/_mob-*.png), `ONLY=view1,view2`, `WIDTHS=360`.
 - Fixes: header one row shorter on phones (Recent becomes an icon, mute / settings square, Saves no longer wraps), player page action buttons in one swipeable row each, moves table date cells 2 lines not 3, popup tables wrap long text (Compare teams).

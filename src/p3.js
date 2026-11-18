@@ -437,8 +437,16 @@ ${sparkle}</svg>`;
     '<path d="M5 4h11v16H6a2 2 0 0 1-2-2V5a1 1 0 0 1 1-1Zm11 4h3v10a2 2 0 0 1-2 2M8 8h5M8 12h5M8 16h3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
     '<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14m0 3v.1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'
   ];
+  // U2: tables can list columns to drop on phones: <table data-ph="2,3"> (0-based). The cells get class ph-x; styles.css hides them under 700px.
+  function phoneCols() {
+    document.querySelectorAll('table[data-ph]:not([data-phd])').forEach(t => {
+      t.dataset.phd = '1'; const ix = new Set(t.dataset.ph.split(',').map(Number));
+      t.querySelectorAll('tr').forEach(r => { let c = 0; for (const cell of r.children) { if (ix.has(c)) cell.classList.add('ph-x'); c += cell.colSpan || 1; } });
+    });
+  }
   function phoneLayout() {
     const on = phoneQ.matches && !!L && !ui.setupOpen;
+    try { phoneCols(); } catch (e) { }
     document.body.classList.toggle('p3-phone', on);
     { const rb = document.getElementById('b-recent'); if (rb && !rb.getAttribute('aria-label')) rb.setAttribute('aria-label', 'Recent popups'); }
     const st = document.getElementById('subtabs'), nr = document.querySelector('header .navrow'), sr = document.getElementById('subrow');

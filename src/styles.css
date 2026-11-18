@@ -949,3 +949,16 @@ body.p3-phone header .navrow { padding-bottom: 2px; }
 body.p3-phone header.top { position: sticky; top: env(safe-area-inset-top, 0px); transition: transform .2s ease; }
 body.p3-phone.p3-hdr-hide header.top { transform: translateY(-100%); }
 .fx-off body.p3-phone header.top, body.fx-off.p3-phone header.top { transition: none; }
+
+/* U2 (Nov 18 2026): phone tables. Columns tagged data-ph drop out (Standings: division / outlook; Players: age, pot, salary, GP, minutes...), team column stays next to the seed. */
+@media (max-width: 700px) {
+  table .ph-x { display: none; }
+  .tblwrap table.st-tbl th:first-child, .tblwrap table.st-tbl td:first-child { min-width: 34px; width: 34px; padding-inline: 4px; }
+  .tblwrap table.st-tbl th:nth-child(2), .tblwrap table.st-tbl td:nth-child(2) { position: sticky; left: 34px; z-index: 1; background: var(--surface); box-shadow: 1px 0 0 var(--line); max-width: 150px; }
+  .tblwrap table.st-tbl thead th:nth-child(2) { background: var(--th); z-index: 2; }
+  .tblwrap table.st-tbl tbody tr:nth-child(even) td:nth-child(2) { background: var(--zebra); }
+  .tblwrap table.st-tbl tr.mine td:nth-child(2) { background: var(--accent-soft); }
+  table[data-ph] td.l, table[data-ph] th.l { white-space: normal; }
+  .tblwrap table[data-ph] td:first-child { max-width: 150px; }
+  .tblwrap table[data-ph] td:nth-child(2) { max-width: 110px; }
+}

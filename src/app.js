@@ -1441,7 +1441,7 @@ function fanMeter(tid) {
 }
 function teamHeader(t) {
   const gp = t.w + t.l, mine = isUser(t.id);
-  return `<section class="panel" style="margin-bottom:12px"><div class="bio"><div style="display:flex;align-items:center;gap:12px;min-width:0">${logo(t.id, 64)}<div style="min-width:0"><div class="k">${confName(t.conf)} Conference · ${L.nba ? esc(t.div) + ' Division' : t.region}${mktTxt(t)}${mine ? ' · Your team' : ''}</div><div class="big">${esc(tname(t.id))}</div>${titleRibbon(t)}${iconLine(t)}</div></div><div><div class="k">Record</div><div class="v">${t.w}-${t.l}</div>${t.w + t.l ? `<div class="muted" style="font-size:12px">Home ${t.hw || 0}-${t.hl || 0} · Away ${t.aw || 0}-${t.al || 0}</div>` : ''}</div><div><div class="k">Outlook</div><div class="v" style="font-size:16px">${modePill(t)}</div><div style="margin-top:2px">${foChip(t)}</div></div><div><div class="k">Points for / against</div><div class="v">${gp ? f1(t.pf / gp) + ' / ' + f1(t.pa / gp) : '—'}</div></div><div><div class="k">Coach</div><div class="v" style="font-size:18px">${clink(t.coach)}${hotBadge(t)}</div></div><div><div class="k">General manager</div><div class="v" style="font-size:18px">${mine ? esc(meName()) : t.gm ? glink(t.gm) : '—'}</div></div><div><div class="k">Titles</div><div class="v">${nbaHistOn(L) ? nbaTitlesAll(L, t) : (t.titles || 0)}</div></div></div>${rafters(t)}${mine ? goalTracker(t) : ''}</section>`;
+  return `<section class="panel" style="margin-bottom:12px"><div class="bio"><div style="display:flex;align-items:center;gap:12px;min-width:0">${logo(t.id, 64)}<div style="min-width:0"><div class="k">${confName(t.conf)} Conference · ${L.nba ? esc(t.div) + ' Division' : t.region}${mktTxt(t)}${mine ? ' · Your team' : ''}</div><div class="big">${esc(tname(t.id))}</div>${titleRibbon(t)}${iconLine(t)}</div></div><div><div class="k">Record</div><div class="v" data-cu>${t.w}-${t.l}</div>${t.w + t.l ? `<div class="muted" style="font-size:12px">Home ${t.hw || 0}-${t.hl || 0} · Away ${t.aw || 0}-${t.al || 0}</div>` : ''}</div><div><div class="k">Outlook</div><div class="v" style="font-size:16px">${modePill(t)}</div><div style="margin-top:2px">${foChip(t)}</div></div><div><div class="k">Points for / against</div><div class="v" data-cu>${gp ? f1(t.pf / gp) + ' / ' + f1(t.pa / gp) : '—'}</div></div><div><div class="k">Coach</div><div class="v" style="font-size:18px">${clink(t.coach)}${hotBadge(t)}</div></div><div><div class="k">General manager</div><div class="v" style="font-size:18px">${mine ? esc(meName()) : t.gm ? glink(t.gm) : '—'}</div></div><div><div class="k">Titles</div><div class="v">${nbaHistOn(L) ? nbaTitlesAll(L, t) : (t.titles || 0)}</div></div></div>${rafters(t)}${mine ? goalTracker(t) : ''}</section>`;
 }
 // v24.1: how the starting five fits together and with the coach's systems (same numbers the game engine uses)
 function chemStrip(t) {
@@ -2715,14 +2715,20 @@ function vLive(g) {
   <div class="lv-board" id="lv-board">${team(1, g.away, as)}<div class="lv-clock">${done ? '<strong>Final</strong>' + (g.ot ? '/' + (g.ot > 1 ? g.ot : '') + 'OT' : '') : `<strong>${qTxt(q)}</strong><br>${clockTxt(c)}`}</div>${team(0, g.home, hs)}</div><div class="lv-court" id="lv-court">${courtWin(1, g.away)}${courtWin(0, g.home)}</div>${ctl}</section>
   <div class="grid2"><section class="panel"><h3>Play-by-play</h3><div class="lv-feed" id="lv-feed">${shown.slice(0, 400).map(e => lvEntryHtml(g, e)).join('') || '<p class="muted">Tip-off…</p>'}</div></section><section class="stack"><div class="panel"><h3>Box score</h3>${boxT(1, g.away)}${boxT(0, g.home)}</div></section></div>`;
 }
+// Phase 1: live-game sounds for the entry just shown; buzzer + crowd at the final
+function fxLive(g, i) {
+  if (!window.FX || !i) return;
+  const fin = i >= g.pbp.length, mineH = isUser(g.home), mineA = isUser(g.away);
+  FX.pbp(g.pbp[i - 1], i > 1 ? g.pbp[i - 2] : null, fin, fin && (mineH || mineA) ? (mineH ? g.hs > g.as : g.as > g.hs) : null);
+}
 function lvTick() {
   const lv = ui.lv; if (!lv) return; clearTimeout(lv.timer); lv.timer = null;
   const g = L && L.games.find(x => x.id === lv.gid);
   if (!g || ui.game !== lv.gid || ui.liveMode !== lv.gid || !g.pbp) return;
   if (lv.paused || lv.i >= g.pbp.length) return;
   const sp = LV_SPEED.find(x => x[0] === lv.speed) || LV_SPEED[1];
-  if (!sp[2]) { lv.i = g.pbp.length; render(); return; }
-  lv.timer = setTimeout(() => { if (ui.lv !== lv || ui.liveMode !== lv.gid) return; lv.i++; const y = window.scrollY; render(); window.scrollTo(0, y); lvTick(); }, sp[2]);
+  if (!sp[2]) { lv.i = g.pbp.length; render(); fxLive(g, lv.i); return; }
+  lv.timer = setTimeout(() => { if (ui.lv !== lv || ui.liveMode !== lv.gid) return; lv.i++; const y = window.scrollY; render(); window.scrollTo(0, y); fxLive(g, lv.i); lvTick(); }, sp[2]);
 }
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-brcols]'); if (!b || !L) return;
@@ -2783,8 +2789,8 @@ function vGame(g) {
   return `<div class="row" style="margin-bottom:10px"><button data-back="1">Back</button>${g.pbp ? `<button class="primary" id="b-live" data-gid="${g.id}">▶ Watch live</button>` : ''}</div>
   <section class="panel" style="margin-bottom:16px"><div class="k">${seasonName(g.season)} · ${g.playoff ? g.stage + ' · Game ' + g.gnum : dayTxt(g.day, g.season)}${g.ot ? ' · ' + g.ot + ' overtime' + (g.ot > 1 ? 's' : '') : ''}${g.cov ? ` · <span class="tipword" title="Pick-and-roll coverage (start > end)">Coverage: ${esc(L.teams[g.away].abbr)} ${esc(String(g.cov[1]).split('>').map(c => COV_LBL[c] || c).join(' → '))}, ${esc(L.teams[g.home].abbr)} ${esc(String(g.cov[0]).split('>').map(c => COV_LBL[c] || c).join(' → '))}</span>` : ''}</div>
   <div class="tblwrap"><table class="linescore" style="max-width:520px;margin-top:8px"><thead><tr><th class="l">Team</th>${qh}<th>Final</th></tr></thead><tbody>
-  <tr><td class="l">${tlabel(g.away)}<div class="muted lv-rec" style="font-size:11px">${esc(recLine(g, g.away, false))}</div></td>${g.q.map(x => `<td>${x[1]}</td>`).join('')}<td><strong>${g.as}</strong></td></tr>
-  <tr><td class="l">${tlabel(g.home)}<div class="muted lv-rec" style="font-size:11px">${esc(recLine(g, g.home, true))}</div></td>${g.q.map(x => `<td>${x[0]}</td>`).join('')}<td><strong>${g.hs}</strong></td></tr></tbody></table></div>${g.lg ? `<p class="muted" style="font-size:12px;margin:6px 0 0">Timeouts used: ${L.teams[g.away].abbr} ${g.lg.to[1]}, ${L.teams[g.home].abbr} ${g.lg.to[0]}${g.lg.ifl[0] + g.lg.ifl[1] ? ` · Intentional fouls late: ${L.teams[g.away].abbr} ${g.lg.ifl[1]}, ${L.teams[g.home].abbr} ${g.lg.ifl[0]}` : ''}${g.lg.hack[0] + g.lg.hack[1] ? ` · Hack-a-player: ${L.teams[g.away].abbr} ${g.lg.hack[1]}, ${L.teams[g.home].abbr} ${g.lg.hack[0]}` : ''}</p>` : ''}${injuries}</section>
+  <tr><td class="l">${tlabel(g.away)}<div class="muted lv-rec" style="font-size:11px">${esc(recLine(g, g.away, false))}</div></td>${g.q.map(x => `<td>${x[1]}</td>`).join('')}<td><strong data-cu>${g.as}</strong></td></tr>
+  <tr><td class="l">${tlabel(g.home)}<div class="muted lv-rec" style="font-size:11px">${esc(recLine(g, g.home, true))}</div></td>${g.q.map(x => `<td>${x[0]}</td>`).join('')}<td><strong data-cu>${g.hs}</strong></td></tr></tbody></table></div>${g.lg ? `<p class="muted" style="font-size:12px;margin:6px 0 0">Timeouts used: ${L.teams[g.away].abbr} ${g.lg.to[1]}, ${L.teams[g.home].abbr} ${g.lg.to[0]}${g.lg.ifl[0] + g.lg.ifl[1] ? ` · Intentional fouls late: ${L.teams[g.away].abbr} ${g.lg.ifl[1]}, ${L.teams[g.home].abbr} ${g.lg.ifl[0]}` : ''}${g.lg.hack[0] + g.lg.hack[1] ? ` · Hack-a-player: ${L.teams[g.away].abbr} ${g.lg.hack[1]}, ${L.teams[g.home].abbr} ${g.lg.hack[0]}` : ''}</p>` : ''}${injuries}</section>
   ${rxPanel(g)}${side(1)}${side(0)}${rotChartPanel(g, 1)}${rotChartPanel(g, 0)}${g.pbp ? `<details class="panel"><summary><strong>Play-by-play</strong> <span class="muted">· ${g.pbp.length} entries · defensive adjustments: ${g.pbp.filter(e => e[6].includes('a')).length}</span></summary><div class="lv-feed" style="max-height:none">${g.pbp.map(e => lvEntryHtml(g, e)).join('')}</div></details>` : ''}`;
 }
 
@@ -4627,6 +4633,7 @@ function render() {
   { const b = $('#b-backdlg'); if (b) b.onclick = () => { const f = ui.backDlg; ui.backDlg = null; render(); if (f) runDialog(f); }; }
   ui.cur = snapNow();
   bindView();
+  try { if (window.FX) FX.afterRender(JSON.stringify([ui.cur, ui.mtab, ui.teamTab, ui.liveMode, ui.setupOpen ? 1 : 0])); } catch (e) { }   // Phase 1: page fade + count-ups (src/fx.js)
   renderNote();
   try { renderTicker(); } catch (e) { console.error(e); }
   try { negoAfterRender(); } catch (e) { console.error(e); }   // v30c #2
@@ -5100,9 +5107,20 @@ function afterRun(ph0) {
   if (L.user != null && (L.faInbox || []).length && !ui.faQ) { ui.faQ = true; queueDialog(faInboxDialog); }
   if (L.draftGrades && L.draftGrades[L.season] && !L.draftGrades[L.season].shown && L.phase !== 'off-draft' && L.phase.startsWith('off')) { L.draftGrades[L.season].shown = true; queueDialog(draftGradesDialog); if (L.intl && L.intl.s === L.season) queueDialog(intlDialog); }
 }
+// Phase 1: sound, banner and confetti for your team's last game after a sim (the live screen does its own)
+function fxSimResult(ph0, g0) {
+  if (!window.FX || L.user == null) return;
+  if (ph0 === 'playoffs' && L.phase === 'season-done' && L.po && isUser(L.po.champion)) { FX.gameResult({ title: true }); return; }
+  const mine = L.games.slice(g0).filter(g => isUser(g.home) || isUser(g.away)); if (!mine.length) return;
+  if (ui.liveMode != null && mine.some(g => g.id === ui.liveMode)) return;
+  const g = mine[mine.length - 1], won = isUser(g.home) ? g.hs > g.as : g.as > g.hs, my = isUser(g.home) ? g.hs : g.as, op = isUser(g.home) ? g.as : g.hs;
+  let w = 0; for (const x of mine) if (isUser(x.home) ? x.hs > x.as : x.as > x.hs) w++;
+  const text = mine.length > 1 ? `${won ? 'Won' : 'Lost'} last game ${my}-${op} · ${w}-${mine.length - w} this sim` : `${won ? 'Win' : 'Loss'} ${my}-${op}`;
+  FX.gameResult({ win: won, text });
+}
 function runSteps(stepFn, doneFn, label) {
   if (ui.busy) return; ui.busy = true; ui.undo = []; renderHeader();
-  const prog = $('#prog'); const ph0 = L.phase;
+  const prog = $('#prog'); const ph0 = L.phase, g0 = L.games.length;
   function tick() {
     const t0 = performance.now(); let more = true;
     while (more && performance.now() - t0 < 50) { more = stepFn(); if (more && interruptKind()) more = false; }
@@ -5111,6 +5129,7 @@ function runSteps(stepFn, doneFn, label) {
     if (doneFn) doneFn();
     ui.busy = false; setTimeout(() => prog.style.width = '0', 300);
     save(); render(); afterRun(ph0);
+    try { fxSimResult(ph0, g0); } catch (e) { console.error(e); }
   }
   setTimeout(tick, 0);
 }

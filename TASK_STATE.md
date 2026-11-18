@@ -2,12 +2,12 @@
 Plan: /mnt/project-files/plans/desktop-release-plan.md. One PR per phase, merge when tests pass.
 - [x] A1. league.js: expansion logic (xpnPlan/xpnRun at end of league.js, startFA hook; engine.js pairMatrix any-size schedule, isBig = 24+ teams); tools/t-exp.js PASS 16->18
 - [x] A2. src/xp.js: Expansion page (pick cities, team creator, protect list, results popup) + wiring (index.html, template, build.py, sw.js)
-- [x] A3. Tests: t-exp 16->18 / 16->20 / NBA 30->32, browser-xp 30/30, p1 70/70, p2 81/81, p3 116/116, t36 27/27, lint; PR #11 merged
+- [x] A3. Tests all pass; PR #11 merged
 - [x] B1. Auto-backups (app.js backupMaybe/getBaks/loadBak, recovery in load(), Saves popup list) + difficulty (league.js DIFF, fx.js Game section)
 - [x] B2. Error card + tour (src/pb.js), cleanup to archive/; browser-pb ALL PASS
-- [x] B3. Tests: browser-pb (index + single), p1 70/70, browser-xp; PR
-- [ ] C1. Desktop app (Tauri config + build workflow) + saves as real files
-- [ ] C2. Tests, PR, merge
+- [x] B3. Tests all pass; PR #12 merged
+- [x] C1. desktop/ (Tauri 2: lib.rs save-file commands, copy-web.js, icons), src/desk.js bridge, .github/workflows/desktop.yml, DESKTOP.md; real Linux build opened a league from a save file; .deb bundle built
+- [x] C2. Tests: browser-desk (fake backend) ALL PASS; PR
 
 ---
 # TASK_STATE — Sonnet batch: popups, spoilers, phone layout, app install (Nov 18 2026)

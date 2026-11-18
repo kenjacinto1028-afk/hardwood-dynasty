@@ -175,12 +175,13 @@ async function saveNow() {
   L.nextId = NEXT_ID;
   const json = JSON.stringify(L, (k, v) => k === '_used' ? undefined : v);
   // saves are stored compressed (about a tenth of the size) where the browser supports it
-  let stored = false;
-  if (window.CompressionStream && window.indexedDB) { try { const blob = await gz(json); const db = await idb(); await new Promise((res, rej) => { const tx = db.transaction('s', 'readwrite'); tx.objectStore('s').put(blob, 'league:' + SLOT); tx.oncomplete = res; tx.onerror = () => rej(tx.error); }); stored = true; } catch (e) { stored = false; } }
+  let stored = false, gzBlob = null;
+  if (window.CompressionStream && window.indexedDB) { try { const blob = await gz(json); gzBlob = blob; const db = await idb(); await new Promise((res, rej) => { const tx = db.transaction('s', 'readwrite'); tx.objectStore('s').put(blob, 'league:' + SLOT); tx.oncomplete = res; tx.onerror = () => rej(tx.error); }); stored = true; } catch (e) { stored = false; } }
   if (!stored) await dbPut('league:' + SLOT, json);
   try { await backupMaybe(json); } catch (e) { }   // Phase B: rolling backups (last 3)
   const slots = (await getSlots()).filter(x => x.id !== SLOT); slots.unshift(slotInfo());
   await dbPut('slots', JSON.stringify(slots)); await dbPut('current', SLOT);
+  if (window.DESK) { try { await DESK.mirror(SLOT, gzBlob || json, slots); } catch (e) { console.error('desktop save', e); } }   // Phase C: real save files in the desktop app
 }
 async function loadSlot(id) { const v = await dbGet('league:' + id); if (!v) return null; try { return JSON.parse(typeof v === 'string' ? v : await gunz(v)); } catch (e) { return null; } }
 // Phase B: rolling backups. Each league keeps its last 3 backups ('bak:<slot>:<n>', list in 'baks:<slot>'): one when the phase changes
@@ -200,6 +201,9 @@ async function loadBak(slot, n) { const v = await dbGet('bak:' + slot + ':' + n)
 async function delBaks(slot) { for (const b of await getBaks(slot)) await dbDel('bak:' + slot + ':' + b.n); await dbDel('baks:' + slot); }
 let RECOVERED = null;   // set when the save couldn't be read and a backup was loaded instead
 async function load() {
+  if (window.DESK) { try { const slots = await getSlots(), nw = await DESK.newer(slots);   // Phase C: save files newer than the app's storage win
+    for (const x of nw) { await dbPut('league:' + x.info.id, x.text); const i = slots.findIndex(s => s.id === x.info.id); if (i >= 0) slots[i] = x.info; else slots.push(x.info); }
+    if (nw.length) { slots.sort((a, b) => (b.updated || 0) - (a.updated || 0)); await dbPut('slots', JSON.stringify(slots)); if (!(await dbGet('current'))) await dbPut('current', slots[0].id); } } catch (e) { console.error('desktop load', e); } }
   let cur = await dbGet('current');
   try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => { }); } catch (e) { }   // ask the browser not to clear saves when space runs low
   if (cur) { const x = await loadSlot(cur); if (x) { SLOT = cur; return x; }
@@ -5644,13 +5648,14 @@ $('#b-menu').onclick = () => {
     });
   })();
   try { if (window.P3) P3.savesExtra(); } catch (e) { console.error(e); }   // Phase 3: small file, share, team link
+  try { if (window.DESK) DESK.savesExtra(); } catch (e) { console.error(e); }   // Phase C: desktop save folder
   const drawSlots = async () => {
     const slots = await getSlots();
     $('#x-slots').innerHTML = slots.length ? slots.map(x => `<div class="check"><span class="grow"><strong>${esc(x.name)}</strong>${x.id === SLOT ? ' <span class="pill pos">Open</span>' : ''}<br><span class="muted">${x.mode === 'team' ? 'Franchise Mode' : 'Commissioner'} · ${seasonName(x.season)} · ${esc(PHASE_TXT[x.phase] || (x.phase === 'regular' ? 'Regular season' : x.phase === 'playoffs' ? 'Playoffs' : x.phase))} · saved ${new Date(x.updated).toLocaleString()}</span></span>${x.id === SLOT ? '' : `<button class="sm primary" data-sl="${x.id}">Load</button>`}<button class="sm danger" data-sd="${x.id}">Delete</button></div>`).join('') : '<p class="muted">No saves yet.</p>';
     document.querySelectorAll('[data-sl]').forEach(b => b.onclick = async () => { const x = await loadSlot(b.dataset.sl); if (!x) { $('#x-msg').textContent = 'That save could not be read.'; return; } SLOT = b.dataset.sl; await dbPut('current', SLOT); setLeague(x); ui.setupOpen = false; backStack.length = 0; ui.cur = null; closeDialog(); location.hash = x.user != null ? '#myteam' : '#standings'; route(); });
     document.querySelectorAll('[data-sd]').forEach(b => b.onclick = () => {
       b.outerHTML = `<span class="row"><span class="muted">Delete for good?</span><button class="sm danger" data-sdy="${b.dataset.sd}">Delete</button></span>`;
-      document.querySelector(`[data-sdy="${b.dataset.sd}"]`).onclick = async () => { const id = b.dataset.sd; await dbDel('league:' + id); try { await delBaks(id); } catch (e) { } await dbPut('slots', JSON.stringify((await getSlots()).filter(x => x.id !== id))); if (id === SLOT) { SLOT = null; L = null; await dbDel('current'); closeDialog(); ui.setupOpen = true; render(); return; } drawSlots(); };
+      document.querySelector(`[data-sdy="${b.dataset.sd}"]`).onclick = async () => { const id = b.dataset.sd; await dbDel('league:' + id); try { await delBaks(id); } catch (e) { } try { if (window.DESK) DESK.remove(id, (await getSlots()).filter(x => x.id !== id)); } catch (e) { } await dbPut('slots', JSON.stringify((await getSlots()).filter(x => x.id !== id))); if (id === SLOT) { SLOT = null; L = null; await dbDel('current'); closeDialog(); ui.setupOpen = true; render(); return; } drawSlots(); };
     });
   };
   drawSlots();

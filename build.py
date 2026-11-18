@@ -76,7 +76,7 @@ def build(nba, game):
     return '\n'.join(out) + '\n'
 
 
-SINGLE_JS = {'/*VENDOR*/': ['vendor-faces.js'], '/*ENGINE*/': ['engine.js'], '/*LEAGUE*/': ['league.js'],
+SINGLE_JS = {'/*VENDOR*/': ['desk.js', 'vendor-faces.js'], '/*ENGINE*/': ['engine.js'], '/*LEAGUE*/': ['league.js'],
              '/*NBA*/': ['nba-2026.js', 'nba-text.js', 'nba-setup.js', 'nba-history.js'], '/*APP*/': ['app.js', 'fx.js', 'court.js', 'p3.js', 'xp.js', 'pb.js']}
 
 

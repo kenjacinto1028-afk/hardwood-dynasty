@@ -37,7 +37,10 @@ const P3 = (function () { with (window.PBL) {   // eslint-disable-line no-with
   function seasonLine(p) {
     const cur = p.stats && p.stats.rs && p.stats.rs.gp ? { s: L.season, rs: p.stats.rs, tid: p.team } : null;
     const h = cur || (p.hist || []).filter(x => x.rs && x.rs.gp).slice(-1)[0];
-    if (!h) return { s: null, v: [0, 0, 0], gp: 0 };
+    if (!h) {   // no pro games yet (draft night, rookies): last college / international season from the pipeline, else zeros
+      const pre = (p.pre || []).filter(x => x.gp).sort((a, b) => a.s - b.s).slice(-1)[0];
+      return pre ? { s: pre.s, v: [pre.pts || 0, pre.reb || 0, pre.ast || 0], gp: pre.gp, lg: pre.lg } : { s: null, v: [0, 0, 0], gp: 0, lg: p.draft && p.draft.s === L.season ? 'Pre-draft' : null };
+    }
     const r = h.rs, g = r.gp; return { s: h.s, v: [r.pts / g, (r.orb + r.drb) / g, r.ast / g], gp: g };
   }
   // the card's data: what this viewer can see (scouted ratings stay scouted)
@@ -47,7 +50,7 @@ const P3 = (function () { with (window.PBL) {   // eslint-disable-line no-with
     const sl = seasonLine(p), acc = {}; for (const a of p.awards || []) if (/MVP|Champion|Player of the Year|Rookie of the Year|Sixth Man|Most Improved/.test(a.a)) acc[a.a] = (acc[a.a] || 0) + 1;
     const aw = Object.entries(acc).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([a, n]) => (n > 1 ? n + '× ' : '') + a.replace('Most Valuable Player', 'MVP').replace('Champion', 'Champ')).join(' · ');
     return { id: p.id, nat: p.nat, tid: t ? t.id : null, n: p.name, tc: t ? t.city + ' ' + t.name : p.retired ? 'Retired' : 'Free agent', ab: t ? t.abbr : 'FA', c1: t ? t.c1 : '#3a4740', c2: t ? t.c2 : '#9aa0a7',
-      o: shown.replace(/[^0-9~?]/g, '') || String(o), ps: posLabel(p), a: p.age, num: p.num != null ? p.num : '', s: sl.s != null ? seasonName(sl.s) : '', st: sl.v.map(x => Math.round(x * 10) / 10), r: rarOf(o, hof), aw, lg: lgTag(), ret: p.retired ? 1 : 0 };
+      o: shown.replace(/[^0-9~?]/g, '') || String(o), ps: posLabel(p), a: p.age, num: p.num != null ? p.num : '', s: sl.s != null ? seasonName(sl.s) : '', st: sl.v.map(x => Math.round(x * 10) / 10), r: rarOf(o, hof), aw, lg: sl.lg || lgTag(), ret: p.retired ? 1 : 0 };
   }
   // root <svg> of a portrait / logo, placed at x, y, w, h inside the card
   function placeSvg(html, x, y, w, h) {

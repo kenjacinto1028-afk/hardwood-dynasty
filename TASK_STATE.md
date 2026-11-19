@@ -1,3 +1,11 @@
+# TASK_STATE — Top 100 single-game records from real NBA data (Opus) — Nov 19 2026
+Branch `claude/project-thread-dhek1n`. Only history single-game lists (NBA_HX.rec.game.RS) grow from ~25 to 100 per stat.
+- [ ] 1. Research real lists online (PTS, REB, AST, STL, BLK, 3PM, FGM, FTM, OREB)
+- [ ] 2. Write data file + merge into NBA_HX.rec.game.RS (tools script)
+- [ ] 3. Test in browser (Records > Single game > Top 100)
+- [ ] 4. PROGRESS.md, PR, merge, Pages check
+
+---
 # TASK_STATE — Every page fills the window (Opus) — Nov 19 2026
 Branch `claude/project-thread-05cgrl`.
 - [x] 1. Measure all pages (tools/browser-fill.js): 19 of 37 capped at 1760px; Rules 840px

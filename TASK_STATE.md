@@ -35,7 +35,7 @@ Branch `claude/project-thread-iocwy2`. One PR per phase. New file src/career.js 
   - [x] P3.2 Achievements: CAR_ACH (25), carCheck after each game + on render, XP + carLog + one batched popup, hub grid
   - [x] P3.3 Legend meter (carLegend, bar on hub header, Hall of Fame tracker)
   - [x] P3.4 Awards & career stats panel (sortable season table)
-  - [ ] P3.5 Tests ALL PASS 1300 + 390, PROGRESS.md
+  - [x] P3.5 Tests ALL PASS 1300 + 390, PROGRESS.md
 - [ ] P4. Career life: interviews, player relations, news, trade requests, contract talks (reuse existing systems), phone polish, tests, Pages
 
 ---

@@ -107,7 +107,7 @@ const SHOTS = process.env.SHOTS;
   await ev(pg, "(() => { const L = PBL.L, p = L.players[L.career.pid]; for (const k of ['tp']) p[k] = 90; L.career.xp = 1000; delete L.career.badges.deadeye; L.career.tot.tpm = 0; PBL.render(); })()"); await wait(pg, 400);
   const bb0 = await ev(pg, "(() => { const C = PBL.L.career; return { t: (C.badges || {}).deadeye, xp: C.xp }; })()");
   ok('Buy button shows cost', await ev(pg, "(document.querySelector('[data-carbuy=deadeye]') || {}).textContent") === 'Buy Bronze · 60 XP', bb0);
-  await pg.click('[data-carbuy="deadeye"]'); await wait(pg, 400);
+  await ev(pg, "PBL.closeDialog(); document.querySelector('#modal').innerHTML = ''; document.querySelector('[data-carbuy=deadeye]').click()"); await wait(pg, 400);
   const bb1 = await ev(pg, "(() => { const C = PBL.L.career; return { t: (C.badges || {}).deadeye, xp: C.xp, own: !!document.querySelector('#car-badges .car-badge.own') }; })()");
   ok('XP buys a badge tier', bb1.t === 0 && bb1.xp === bb0.xp - 60 && bb1.own, [bb0, bb1]);
   const ch = await ev(pg, "(() => { const L = PBL.L, p = L.players[L.career.pid], o = { k: ['tp'], d: 0 }; const a = carChance(L, p, o); L.career.badges.deadeye = 3; const b = carChance(L, p, o); L.career.badges.deadeye = 0; return [a, b]; })()");

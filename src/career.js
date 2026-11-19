@@ -523,7 +523,7 @@ function carTradeErr(L) {
 }
 function carReqTrade(L) {
   const err = carTradeErr(L); if (err) return { err }; const C = carInit(L), p = carP(L), t = L.teams[p.team], co = t.coach;
-  p.tradeReq = L.season; C.trust = clamp(C.trust - 12, 0, 100); C.chem = clamp(C.chem - 8, 0, 100); carRelAdd(L, 'c', -15);
+  C.treqTry = 0; p.tradeReq = L.season; C.trust = clamp(C.trust - 12, 0, 100); C.chem = clamp(C.chem - 8, 0, 100); carRelAdd(L, 'c', -15);
   if (co && !(p.friction || []).includes(co.id)) p.friction = (p.friction || []).concat(co.id);
   p.tx.push({ s: L.season, t: `Requested a trade from ${t.abbr}` });
   carNews(L, 'tradeRequest', { cat: 'tx' }); carLog(L, `You asked ${t.abbr} for a trade. Coach trust and team chemistry took a hit.`);
@@ -531,14 +531,28 @@ function carReqTrade(L) {
   return { ok: true };
 }
 // the AI trades him more readily: while he has asked out, the front office works the phones (only deals that send him away count)
+// fallback after a few quiet days: a plain one-for-one swap with a team that has a similar player
+function carTradeSwap(L, p) {
+  const B = L.teams[p.team];
+  for (const A of L.teams.filter(t => t.id !== B.id && t.id !== L.user).sort(() => R() - 0.5).slice(0, 14)) {
+    const cs = rosterOf(L, A).filter(q => !q.hardship && !q.career && !tradeRestricted(L, q) && q.ovr <= p.ovr + 4 && q.ovr >= p.ovr - 12 && Math.abs((q.contract ? q.contract.amt : 1) - (p.contract ? p.contract.amt : 1)) <= 8).sort((x, y) => y.ovr - x.ovr);
+    for (const q of cs.slice(0, 3)) {
+      const tr = { a: A.id, b: B.id, aGive: { players: [q.id], picks: [] }, bGive: { players: [p.id], picks: [] }, id: 'swap-career' };
+      try { if (tradeCheck(L, tr.a, tr.b, tr.aGive, tr.bGive) || !afterTradeOK(L, tr)) continue; addWhy(L, tr); executeTrade(L, tr); countDeal(L, tr); return true; } catch (e) { continue; }
+    }
+  }
+  return false;
+}
 function carTradeTry(L, tries) {
   const p = carP(L); if (!p || p.team == null || p.tradeReq !== L.season || !inTradeWindow(L) || L.mode === 'commish' || tradeRestricted(L, p)) return false;
+  const C = carInit(L); C.treqTry = (C.treqTry || 0) + 1;
   for (let i = 0; i < (tries || 24); i++) {
     let tr = null; try { tr = aiTradeAttempt(L, p.team, undefined); } catch (e) { tr = null; }
     if (!tr || !tr.bGive.players.includes(p.id) || tr.bGive.players.length > 1 + 1) continue;
     try { if (!afterTradeOK(L, tr)) continue; addWhy(L, tr); executeTrade(L, tr); countDeal(L, tr); } catch (e) { console.error(e); return false; }
     carTeamCheck(L); return true;
   }
+  if (C.treqTry >= 5 && carTradeSwap(L, p)) { C.treqTry = 0; carTeamCheck(L); return true; }
   return false;
 }
 // a new team: popup, and chemistry / relationships start over
@@ -626,7 +640,7 @@ function carFaPick(L, i, auto) {
 // engine hook (faDay, start and end of the day)
 function careerFaDay(L, end) {
   if (!carOn(L)) return; const C = carInit(L), p = carP(L);
-  if (end) { if (C.hold && L.phase !== 'off-fa') carFaPick(L, 0, true); return; }
+  if (end) { if (C.hold && (L.phase !== 'off-fa' || end === 2)) carFaPick(L, 0, true); return; }
   if (C.hold) { if (C.hold.days >= 5) carFaPick(L, 0, true); else C.hold.days++; }
   if (p.team != null && p.tradeReq === L.season && R() < 0.5) carTradeTry(L, 30);
 }
@@ -704,7 +718,8 @@ if (typeof window !== 'undefined') window.CAR = (function () {
       const ups = upPanel(p);
       const sched = pre ? `<section class="panel"><h3>${esc(pipeTeamName(C.lg, C.team))} schedule</h3><div class="tblwrap"><table class="car-sched"><thead><tr><th>#</th><th class="l">Date</th><th class="l">Opponent</th><th>Result</th><th class="l">Your line</th><th>Grade</th><th>XP</th></tr></thead><tbody>${C.games.map(g => `<tr class="${g.play ? 'car-big' : ''}"><td>${g.i + 1}</td><td class="l">${esc(dayLbl(g.day))}</td><td class="l">${g.home ? 'vs' : 'at'} ${esc(pipeTeam(C.lg, g.opp).abbr)}${g.play ? ' ★' : ''}</td><td>${g.done ? `<span class="${g.win ? 'w' : 'lo'}">${g.win ? 'W' : 'L'}</span> ${g.us}-${g.them}` : ''}</td><td class="l">${g.done ? gline(g.line) : ''}</td><td>${g.done ? CAR_GRADES[g.gr] : ''}</td><td>${g.done ? '+' + g.xp : ''}</td></tr>`).join('')}</tbody></table></div>${sl ? `<p class="muted">Averages: ${sl.pts} pts, ${sl.reb} reb, ${sl.ast} ast, ${sl.stl} stl, ${sl.blk} blk in ${sl.min} min over ${sl.gp} games. ★ = big game you play.</p>` : '<p class="muted">★ = big game you play.</p>'}</section>` : '';
       const log = `<section class="panel"><h3>Career story</h3>${C.log.slice().reverse().slice(0, 30).map(x => `<div class="leader" style="grid-template-columns:auto minmax(0,1fr)"><span class="muted">${esc(seasonName(x.s))}</span><span>${esc(x.t)}</span></div>`).join('')}</section>`;
-      return `<div class="car">${head}<div class="grid2"><div class="stack">${next}${sched}${statsPanel(p)}</div><div class="stack">${ups}${badgePanel(p)}${achPanel()}${log}</div></div></div>`;
+      const life = contractPanel(p) + relPanel(p) + ivPanel(p) + newsPanel(p);
+      return `<div class="car">${head}<div class="grid2"><div class="stack">${next}${sched}${life}${statsPanel(p)}</div><div class="stack">${ups}${badgePanel(p)}${achPanel()}${log}</div></div></div>`;
     }
 
     // ----- Legend meter, badges, achievements, awards + stats -----
@@ -747,9 +762,107 @@ if (typeof window !== 'undefined') window.CAR = (function () {
       dialog(`<h2>Achievement unlocked${list.length > 1 ? 's' : ''}</h2><div class="car-pop">${list.map(x => `<div class="car-popi"><strong>${x.t === 'badge' ? '🏅 ' : '🏆 '}${esc(x.n)}</strong><div class="muted">${esc(x.d || '')}${x.xp ? ' · +' + x.xp + ' XP' : ''}</div></div>`).join('')}</div><div class="row" style="margin-top:12px"><button class="primary" id="car-ok">Nice</button></div>`);
       $('#car-ok').onclick = closeDialog;
     }
+
+    // ----- Phase 4 panels: contract & agent, locker room, interviews, your news -----
+    const NCAT = { tx: 'Contracts & moves', trade: 'Trades', award: 'Awards', inj: 'Injuries', feat: 'Milestones', draft: 'Draft', league: 'League', coach: 'Coaches' };
+    const sgn = n => (n > 0 ? '+' : '') + n;
+    const fxTxt = f => [f.fame ? `Fame ${sgn(f.fame)}` : '', f.trust ? `Trust ${sgn(f.trust)}` : '', f.chem ? `Chemistry ${sgn(f.chem)}` : ''].filter(Boolean).join(' · ') || 'No change';
+    const relBar = v => `<span class="car-rel" title="${v}"><i class="${v < 0 ? 'neg' : 'pos'}" style="width:${Math.abs(v) / 2}%;${v < 0 ? 'right' : 'left'}:50%"></i></span>`;
+    function offerCards(h) {
+      return `<div class="car-offers">${h.offers.map((o, i) => { const t = L.teams[o.tid]; return `<div class="car-offer"><div class="car-oh"><strong>${esc(t.city + ' ' + t.name)}</strong><span class="pill">${esc(CAR_MODE[t.mode] || 'Team')}</span></div>
+        <div class="car-os"><span><span class="k">Per year</span><b>${money(o.amt)}</b></span><span><span class="k">Years</span><b>${o.yrs}</b></span><span><span class="k">Role</span><b>${esc(roleName(o.role))}</b></span></div>
+        <button class="primary sm" data-carfa="${i}">Sign with ${esc(t.abbr)}</button></div>`; }).join('')}</div>`;
+    }
+    function extBlock() {
+      const C = L.career, p = carP(L), x = C.ext, ag = carAgent(L, p);
+      const agt = ag ? `<p class="muted car-bs">Your agent: ${esc(ag.name)} (${esc(ag.txt)})</p>` : '';
+      if (carExtLive(L)) return `<div class="car-ext"><strong>${esc(L.teams[x.tid].abbr)} offer an extension</strong><div class="car-os"><span><span class="k">Per year</span><b>${money(x.amt)}</b></span><span><span class="k">Years</span><b>${x.yrs}</b></span><span><span class="k">Starts</span><b>${esc(seasonName(L.season + 1))}</b></span></div>${agt}
+        ${x.msg ? `<div class="msg ${/pulled|not budge/.test(x.msg) ? 'no' : 'ok'}">${esc(x.msg)}</div>` : ''}
+        <div class="row" style="gap:8px;flex-wrap:wrap"><button class="primary sm" data-carext="ok">Accept</button>${x.ask ? '' : `<button class="sm" data-carext="ask" title="Agent counter">Ask for more (~${Math.round(carExtChance(L) * 100)}%)</button>`}<button class="sm" data-carext="fa">Test free agency</button></div>${x.ask ? '' : '<p class="muted car-bs">Asking can win a better deal, but the team may walk away.</p>'}</div>`;
+      if (p.ext) return `<div class="msg ok">Extension agreed: ${money(p.ext.amt)} a year for ${p.ext.yrs} years from next season.</div>`;
+      if (x && x.s === L.season && x.st === 'walked') return `<div class="msg no">${esc(x.msg)} No more extension talks this season.</div>`;
+      if (x && x.s === L.season && x.st === 'test') return `<div class="msg ok">${esc(x.msg)}</div>`;
+      if (x && x.s === L.season && x.st === 'none') return `<p class="muted">${esc(L.teams[x.tid].abbr)} are not ready to talk about an extension.</p>`;
+      return '';
+    }
+    function contractPanel(p) {
+      const C = L.career; if (p.prospect) return '';
+      if (p.team == null) return `<section class="panel" id="car-contract"><h3>Free agency</h3>${C.hold ? `<p class="muted" style="margin-top:-4px">${C.hold.offers.length} offer${C.hold.offers.length === 1 ? '' : 's'}. Choose a team. If you wait ${Math.max(0, 5 - C.hold.days)} more day${5 - C.hold.days === 1 ? '' : 's'}, your agent takes the best one.</p>${offerCards(C.hold)}` : '<p class="muted">No offers yet. Teams call when free agency opens.</p>'}</section>`;
+      const c = p.contract, ag = carAgent(L, p), err = carTradeErr(L);
+      return `<section class="panel" id="car-contract"><h3>Contract &amp; agent</h3>
+        <div class="car-stats" style="margin-bottom:8px"><div><div class="k">Salary</div><div class="v">${c ? money(c.amt) : '—'}</div></div><div><div class="k">Through</div><div class="v" style="font-size:16px">${c ? esc(seasonName(contractEnd(p))) : '—'}</div></div><div><div class="k">Agent</div><div class="v" style="font-size:16px">${ag ? esc(ag.name) : '—'}</div></div></div>
+        ${extBlock()}
+        ${p.tradeReq === L.season ? '<div class="msg no">You asked for a trade. The front office is listening, and your coach and teammates noticed.</div>' : err ? `<p class="muted car-bs">${esc(err)}</p>` : '<button class="sm" id="car-treq">Request a trade</button>'}
+        <div id="car-conmsg" class="muted"></div></section>`;
+    }
+    function relPanel(p) {
+      const C = L.career; if (p.prospect || p.team == null) return '';
+      const mates = carMates(L), co = carCoach(L), ch = C.chem, err = carTalkOK(L), tr = C.talkRes;
+      return `<section class="panel" id="car-rel"><h3>Locker room <span class="muted" style="font-weight:normal">· chemistry ${Math.round(ch)} (${carChemWord(ch)})</span></h3>
+        <span class="car-bar"><i style="width:${ch}%"></i></span><p class="muted car-bs" style="margin:4px 0 8px">Good chemistry gives your teammates a little form and lifts your mood. Events happen about weekly.</p>
+        ${co ? `<div class="car-relrow"><span class="nm">Coach ${esc(co.name)}</span><span class="muted">Trust ${C.trust}</span>${relBar(carRelOf(L, 'c'))}</div>` : ''}
+        ${mates.map(q => `<div class="car-relrow" data-player="${q.id}"><span class="nm">${esc(q.name)}</span><span class="muted">${esc(posLabel(q))} · ${q.ovr}</span>${relBar(carRelOf(L, q.id))}</div>`).join('')}
+        <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap"><button class="sm primary" id="car-talk" ${err ? 'disabled' : ''}>Talk to coach</button><span class="muted car-bs">${err ? esc(err) : `Ask for more minutes or a bigger role (about ${Math.round(carTalkChance(L) * 100)}%)`}</span></div>
+        ${tr && tr.s === L.season ? `<div class="msg ${tr.ok ? 'ok' : 'no'}" style="margin-top:8px">${esc(tr.msg)}</div>` : ''}</section>`;
+    }
+    function ivPanel(p) {
+      const C = L.career; if (p.prospect) return '';
+      const q = C.ivQ && carIvFind(C.ivQ.k), last = C.iv.slice(0, 5);
+      return `<section class="panel" id="car-iv"><h3>Interviews</h3>
+        ${q ? `<div class="msg" style="margin:0 0 8px">Reporters are waiting: “${esc(carIvFmt(L, q.q, C.ivQ.ctx))}” <button class="sm primary" id="car-ivopen">Answer</button></div>` : ''}
+        ${last.length ? last.map(r => `<div class="car-ivrow"><div class="car-ivq muted">${esc(seasonName(r.s))} · ${esc(r.q)}</div><div>“${esc(r.t)}” <span class="pill">${esc(r.tone || '')}</span></div><div class="muted car-bs">${esc(fxTxt(r.fx))}</div></div>`).join('') : '<p class="muted">No interviews yet. Reporters ask after some games, big nights, losing streaks and playoff openers.</p>'}</section>`;
+    }
+    function newsPanel(p) {
+      if (p.prospect) return '';
+      const all = (L.log || []).filter(x => x.text && x.text.includes(p.name)), f = ui.carNews || '', cats = [...new Set(all.map(x => x.cat))];
+      const list = all.filter(x => !f || x.cat === f).slice(0, 30), when = x => x.phase && (x.phase.startsWith('off') || x.phase === 'season-done') ? 'Offseason' : x.phase === 'playoffs' ? 'Playoffs' : 'Day ' + (x.day + 1);
+      return `<section class="panel" id="car-news"><h3>Your news</h3>
+        <div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:8px"><button class="sm chipbtn ${f ? '' : 'primary'}" data-carnews="">All</button>${cats.map(k => `<button class="sm chipbtn ${f === k ? 'primary' : ''}" data-carnews="${k}">${esc(NCAT[k] || k)}</button>`).join('')}</div>
+        ${list.length ? list.map(x => `<div class="car-nrow"><span class="muted">${esc(seasonName(x.season))} · ${when(x)}</span><span>${esc(x.text)}</span></div>`).join('') : '<p class="muted">Nothing yet. Debuts, big games, awards, contracts and trades that name you show up here.</p>'}</section>`;
+    }
+    // ----- Phase 4 popups -----
+    function ivDlg() {
+      const C = L.career, Q = C.ivQ, q = Q && carIvFind(Q.k); if (!q) return; const x = Q.ctx || {};
+      dialog(`<h2>Post-game interview</h2>${x.opp != null ? `<div class="k">${x.win ? 'After the win' : 'After the loss'} ${x.home ? 'vs' : 'at'} ${esc((L.teams[x.opp] || {}).abbr || '')} · ${x.pts} pts</div>` : ''}
+        <div class="msg" style="margin:8px 0"><strong>“${esc(carIvFmt(L, q.q, x))}”</strong></div><div class="car-opts">${q.a.map((a, i) => `<button class="car-opt" data-civ="${i}"><strong>${esc(carIvFmt(L, a.t, x))}</strong><span class="pill">${esc(a.tone || '')}</span></button>`).join('')}</div>`);
+    }
+    function ivResult(r) {
+      dialog(`<h2>On the record</h2><div class="car-quote">“${esc(r.t)}”<div class="muted">${esc(carP(L).name)} · ${esc(r.tone || '')}</div></div><div class="car-fxl ${r.fx.trust < 0 || r.fx.chem < 0 ? 'lo' : 'w'}">${esc(fxTxt(r.fx))}</div><div class="row" style="margin-top:12px"><button class="primary" id="car-ok">Continue</button></div>`);
+      $('#car-ok').onclick = closeDialog;
+    }
+    function moveDlg(m) {
+      const t = L.teams[m.to], f = L.teams[m.from], co = t.coach, rk = rotationOf(L, t), idx = rk.findIndex(x => x.id === carP(L).id);
+      dialog(`<div style="text-align:center"><div class="k">${m.how === 'trade' ? 'Traded' : 'New team'}</div>${logo(t.id, 72)}<h2 style="margin-top:6px">${m.how === 'trade' ? `${esc(f.abbr)} trades you to the ${esc(tname(t.id))}` : `You signed with the ${esc(tname(t.id))}`}</h2></div>
+        <p class="muted" style="text-align:center">${esc(CAR_MODE[t.mode] || '')} · Coach ${esc(co ? co.name : '—')}${idx >= 0 ? ` · you are #${idx + 1} in the rotation` : ''}</p><p>Chemistry and relationships start over with your new teammates, and your coach trust resets.</p><div class="row" style="justify-content:center;margin-top:12px"><button class="primary" id="car-ok">Let's go</button></div>`);
+      $('#car-ok').onclick = closeDialog;
+    }
+    function extDlg() {
+      if (!carExtLive(L)) return; const C = L.career;
+      dialog(`<h2>Contract talks</h2>${extBlock()}<div class="row" style="margin-top:12px"><button id="car-ok">Later</button></div>`); $('#car-ok').onclick = closeDialog;
+    }
+    function faDlg() {
+      const h = L.career.hold; if (!h) return;
+      dialog(`<h2>Free agency offers</h2><p class="muted">Teams want to sign you. Pick one now, or your agent takes the best offer in ${Math.max(0, 5 - h.days)} day${5 - h.days === 1 ? '' : 's'}.</p>${offerCards(h)}<div class="row" style="margin-top:12px"><button id="car-ok">Decide later</button></div>`); $('#car-ok').onclick = closeDialog;
+    }
+    function treqDlg() {
+      dialog(`<h2>Request a trade?</h2><p>Your team will know. Coach trust and chemistry drop, and the front office starts looking for a deal. You may not like where you land.</p><div class="row" style="gap:8px;margin-top:12px"><button class="primary" id="car-treq-go">Request trade</button><button id="car-ok">Cancel</button></div>`);
+      $('#car-ok').onclick = closeDialog;
+    }
+    document.addEventListener('click', e => {
+      if (!L || !L.career || !e.target.closest) return; const C = carInit(L), T = e.target.closest('[data-civ],[data-carfa],[data-carext],[data-carnews],#car-treq,#car-treq-go,#car-talk,#car-ivopen'); if (!T) return;
+      const inDlg = !!T.closest('#modal');
+      if (T.dataset.civ != null) { const r = carIvAnswer(L, +T.dataset.civ); save(); render(); if (r) ivResult(r); return; }
+      if (T.dataset.carfa != null) { const r = carFaPick(L, +T.dataset.carfa); save(); closeDialog(); render(); if (r.ok) { const m = C.moveQ; if (m) { C.moveQ = null; queueDialog(() => moveDlg(m)); } } return; }
+      if (T.dataset.carext) { const r = carExtAct(L, T.dataset.carext); save(); if (r.err) { const m = document.getElementById('car-conmsg'); if (m) m.textContent = r.err; return; } closeDialog(); render(); if (inDlg && carExtLive(L)) queueDialog(extDlg); return; }
+      if (T.dataset.carnews != null) { ui.carNews = T.dataset.carnews; render(); return; }
+      if (T.id === 'car-treq') { treqDlg(); return; }
+      if (T.id === 'car-treq-go') { const r = carReqTrade(L); save(); closeDialog(); render(); if (r.err) { const m = document.getElementById('car-conmsg'); if (m) m.textContent = r.err; } return; }
+      if (T.id === 'car-talk') { carTalk(L); save(); render(); return; }
+      if (T.id === 'car-ivopen') { ivDlg(); return; }
+    });
     const dayLbl = d => { try { const t = dayDate(L, d); if (t) return t.label.replace(/, \d{4}$/, ''); } catch (e) { } return 'Day ' + (d + 1); };
     function proNote(p) {
-      if (p.team == null) return `<section class="panel"><h3>Free agent</h3><p>No team has signed you yet. Keep improving and wait for a call.</p></section>`;
+      if (p.team == null) return `<section class="panel"><h3>Free agent</h3><p>${L.career.hold ? 'Teams want you. Pick an offer below.' : 'No team has signed you yet. Keep improving and wait for a call.'}</p></section>`;
       const C = L.career, t = carProToday(L), rec = C.pro.slice().reverse().slice(0, 12);
       const tr = C.trust, trW = tr >= 75 ? 'Go-to guy' : tr >= 60 ? 'Trusted' : tr >= 40 ? 'Earning it' : 'On a short leash';
       return `<section class="panel"><h3>You're a pro: ${esc(tname(p.team))}</h3>
@@ -842,6 +955,12 @@ if (typeof window !== 'undefined') window.CAR = (function () {
       if (L.career.lastRes) { const e = L.career.lastRes; L.career.lastRes = null; queueDialog(() => proResultDialog(e)); }
       if (L.phase !== 'off-draft' && L.career.draftShown !== L.season && !p.prospect && ['off-resign', 'off-fa', 'off-ready', 'off-draft'].includes(L.phase) && (p.draft ? p.draft.s === L.season : p.draftYear === L.season)) queueDialog(draftDialog);
       else if (L.phase === 'off-draft' && L.career.draftShown !== L.season && !p.prospect) queueDialog(draftDialog);
+      try { carLifeCheck(L); } catch (e) { console.error(e); }
+      { const C = L.career, busy = !!C.cur;
+        if (C.moveQ && !busy) { const m = C.moveQ; C.moveQ = null; queueDialog(() => moveDlg(m)); save(); }
+        if (C.ivQ && !C.ivQ.shown && !busy) { C.ivQ.shown = true; queueDialog(ivDlg); save(); }
+        if (!p.prospect && carExtLive(L) && C.ext && !C.ext.shown && !busy) { C.ext.shown = true; queueDialog(extDlg); save(); }
+        if (C.hold && !C.hold.shown) { C.hold.shown = true; queueDialog(faDlg); save(); } }
       // achievements / badges earned since last time: one popup (waits while a game is waiting to be played)
       try { carCheck(L); } catch (e) { console.error(e); }
       const C = L.career; if (C.pop && C.pop.length && !C.cur && !careerPending(L)) { const list = C.pop.splice(0, C.pop.length); queueDialog(() => achDialog(list)); save(); }

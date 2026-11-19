@@ -1,5 +1,13 @@
 # PBL progress
 
+## My Career, Phase 4: career life (Opus, Nov 19 2026)
+- [x] Interviews: after about 1 in 6 pro games, and always after 30+ points, a 3+ game losing streak, the first playoff game and an expiring contract at the trade deadline. 30 questions picked by situation, 3 answers each; answers move fame, coach trust and team chemistry. Popup, quote result, history (last 5 on the hub).
+- [x] Locker room: chemistry (0-100) and a relationship score (-100 to 100) with the coach and every teammate. Weekly events shift them. Good chemistry gives teammates up to +0.6 form and lifts his mood. Talk to coach once a week for a bigger role (odds from trust, his overall vs his position rivals, recent grades).
+- [x] Your news: debut, first 20/30/40, triple-double, awards, signing, extension, trade, injury, 1,000 / 10,000 points go to the league news log; a hub panel lists every story that names him, with filters.
+- [x] Request a trade (regular season before the deadline, or the offseason): sets his trade request, drops trust and chemistry. While it stands the AI works on moving him (rookies included); a popup shows the move and chemistry / relationships restart.
+- [x] Contracts: an extension offer from market value with agent negotiation (Accept, Ask for more with a chance to win more or lose the offer, Test free agency). A career free agent gets up to 6 team offers (years, $/yr, role, contender status), is held out of AI signings until he picks or 5 FA days pass, then the best offer is taken. Rookie deals stay automatic.
+- Old saves work: every new field defaults. Hooks: league.js moraleParts / updateMorale / startFA / faDay / startResign / startNewSeason / extensionDeadline. Test: tools/browser-career.js ALL PASS at 1300 + 390. Offline cache `pbl-app-v12`.
+
 ## My Career, Phase 3: badges, achievements, Legend meter (Opus, Nov 19 2026)
 - [x] 16 badges (Deadeye, Mid-range Maestro, Posterizer, Ankle Breaker, Dimer, Lockdown, Pick Pocket, Rim Protector, Glass Cleaner, Clutch Gene, Microwave, Iron Man, Floor General, Post Wizard, Free Throw Ace, Hustle), each Bronze / Silver / Gold / Hall of Fame. Earn a tier from stat milestones, or buy the next tier with XP (60 / 120 / 220 / 400) once the related ratings are high enough.
 - [x] Badge effects are small: +3 / 5 / 7 / 9% on decision options that use the badge's skills, and +0.3 to +1.2 form per badge in every real game (capped at +3 per side).

@@ -1746,7 +1746,7 @@ function aiTradeAttempt0(L, forceB, want) {
   for (const B of others) { if (R() > pairKeep(L, A, B)) continue; for (const p of rosterOf(L, B)) {   // v24: rivals, top teams and bubble teams avoid each other
     const ts = tradeStatus(L, p);
     if ((ts && ts.k === 'protect') || (B.id === L.user && onlyBlock && !p.block)) continue;   // protected players are off limits
-    if (p.hardship || p.injury > 20 || (p.contract && p.contract.type === 'rookie' && p.age <= 20 && B.mode === 'rebuild')) continue;
+    if (p.hardship || p.injury > 20 || (p.contract && p.contract.type === 'rookie' && p.age <= 20 && B.mode === 'rebuild' && p.tradeReq !== L.season)) continue;   // a rookie who asked out is movable (My Career)
     const shopped = !!(ts && ts.k === 'block');    // a shopped player is cheaper to get and only needs to be a rotation piece
     // v19: stars rarely move. Mostly from sellers, players who asked out, or the block
     if (B.id !== L.user && (p.ovr >= 78 || (p.fame || 0) >= 70) && !shopped && p.tradeReq !== L.season && !(B.mode === 'tank' || B.mode === 'rebuild') && R() < (B.id !== L.user && sellLeverage(L, B, p).m <= 0.85 ? 0.4 : 0.7)   /* v25.8 tune: star skip 0.6/0.85 -> 0.4/0.7 */) continue;
@@ -6120,6 +6120,7 @@ function startNewSeason(L) {
   for (const t of L.teams) for (const id of [...t.roster, ...(t.twoWay || [])]) if (L.players[id]) assignNumber(L, L.players[id], t);   // v30 review: clears number clashes in older saves (first listed keeps his)
   autoFillScouts(L);
   if (active(L).some(p => p.unrev)) revealRookies(L);
+  if (L.career && typeof careerFaDay === 'function') { try { careerFaDay(L, true); } catch (e) { console.error(e); } }   // My Career: a held free agent signs before rosters are filled
   finalizeRosters(L);
   if (L.user != null) meetPayrollFloor(L, L.teams[L.user]);
   L.season++;

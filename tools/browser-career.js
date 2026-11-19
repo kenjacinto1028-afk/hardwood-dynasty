@@ -77,7 +77,7 @@ const SHOTS = process.env.SHOTS;
     await ev(pg, "(() => { const b = document.getElementById('autofill'); if (b) b.click(); })()");
   }
   const pro = await ev(pg, "(() => { const L = PBL.L, p = L.players[L.career.pid]; return { ph: L.phase, s: L.season, team: p.team }; })()");
-  ok('new season, he is on a team', pro.ph === 'regular' && pro.s === 2 && pro.team != null, pro);
+  ok('new season, he is on a team', pro.ph === 'regular' && pro.s === 2 && pro.team != null, pro.team != null ? pro : [pro, await ev(pg, "(() => { const L = PBL.L, p = L.players[L.career.pid]; return { hold: L.career.hold, fa: L.fa.includes(p.id), pros: p.prospect, club: !!p.club, ret: p.retired, ab: p.abroad, pl: p.pl, dr: p.draft }; })()")]);
   await ev(pg, "(() => { const c = document.getElementById('p3-cer'); if (c) c.remove(); document.querySelector('#modal').innerHTML = ''; location.hash = '#career'; })()"); await wait(pg, 500);
   await ev(pg, "document.querySelector('#simctl [data-sim=end]').click()"); await wait(pg, 1500);
   for (let j = 0; j < 60 && await ev(pg, 'PBL.ui.busy'); j++) await wait(pg, 500);
@@ -94,10 +94,13 @@ const SHOTS = process.env.SHOTS;
   const last = await ev(pg, "(() => { const C = PBL.L.career; const e = C.pro[C.pro.length - 1]; return { n: C.pro.length, played: e && e.played, gid: e && e.gid, trust: C.trust, fx: C.proFx }; })()");
   ok('game stored as played, decisions cleared', last.n === g0n + 1 && last.played && last.fx === null, last);
   await shot('car-07-pro-result');
+  const popFind = async (rx, n) => { let m = ''; for (let i = 0; i < (n || 12); i++) { m = await ev(pg, "document.querySelector('#modal').textContent"); if (rx.test(m)) return m;
+    if (/Game day/.test(m) && !rx.test('Game day')) { await ev(pg, "document.getElementById('car-sim').click()"); await wait(pg, 900); for (let j = 0; j < 60 && await ev(pg, 'PBL.ui.busy'); j++) await wait(pg, 300); continue; }
+    await ev(pg, "(() => { const c = document.getElementById('p3-cer'); if (c) c.remove(); PBL.closeDialog(); })()"); await wait(pg, 600); } return m; };
   // Phase 3: achievements, Legend meter, badges
   const a3 = await ev(pg, "(() => { const C = PBL.L.career; return { first: C.ach && C.ach.progame, xp: C.xpTot, pend: (C.pop || []).length, log: C.log.some(x => /Welcome to the pros/.test(x.t)) }; })()");
   ok('achievement unlocked: first pro game (XP + story line)', a3.first != null && a3.log, a3);
-  let ap = ''; for (let i = 0; i < 6; i++) { ap = await ev(pg, "document.querySelector('#modal').textContent"); if (/Achievement unlock/.test(ap)) break; await ev(pg, "PBL.closeDialog()"); await wait(pg, 500); }
+  const ap = await popFind(/Achievement unlock/);
   ok('Achievement unlocked popup', /Achievement unlock/.test(ap) && /Welcome to the pros/.test(ap), ap.slice(0, 120));
   await ev(pg, "PBL.closeDialog(); document.querySelector('#modal').innerHTML=''; location.hash = '#career'; PBL.render()"); await wait(pg, 600);
   const lg = await ev(pg, "(() => { const e = document.getElementById('car-legend'); return e ? { t: e.textContent, w: e.querySelector('.car-lgbar i').style.width } : null; })()");
@@ -113,6 +116,63 @@ const SHOTS = process.env.SHOTS;
   const ch = await ev(pg, "(() => { const L = PBL.L, p = L.players[L.career.pid], o = { k: ['tp'], d: 0 }; const a = carChance(L, p, o); L.career.badges.deadeye = 3; const b = carChance(L, p, o); L.career.badges.deadeye = 0; return [a, b]; })()");
   ok('badge raises decision chance', ch[1] >= ch[0] && (ch[1] > ch[0] || ch[0] >= 0.92), ch);
   await shot('car-09-badges');
+  // Phase 4: interviews, locker room, extension, trade request, news, free agency offers
+  const clear = async () => { await ev(pg, "(() => { const c = document.getElementById('p3-cer'); if (c) c.remove(); PBL.closeDialog(); document.querySelector('#modal').innerHTML = ''; })()"); await wait(pg, 200); };
+  const modal = () => ev(pg, "document.querySelector('#modal').textContent");
+  const noOv = async n => { const o = await ev(pg, "document.documentElement.scrollWidth > window.innerWidth + 1 || (document.querySelector('#modal') && document.querySelector('#modal').scrollWidth > document.querySelector('#modal').clientWidth + 1)"); ok('no horizontal scroll: ' + n, !o); };
+  await clear(); await ev(pg, "(() => { const L = PBL.L; L.career.pop = []; L.career.cur = null; L.career.ivQ = null; carIvAsk(L, 'win', { opp: (L.teams[L.career.lastTeam === 0 ? 1 : 0]).id, pts: 31, win: true, home: true }); PBL.render(); })()"); await wait(pg, 800);
+  const iv = await popFind(/Post-game interview/);
+  ok('interview popup with 3 answers', /Post-game interview/.test(iv) && await ev(pg, "document.querySelectorAll('[data-civ]').length") === 3, iv.slice(0, 100) + (/Post-game/.test(iv) ? '' : await ev(pg, "JSON.stringify({ pend: CAR.pending(), cur: !!PBL.L.career.cur, q: PBL.L.career.ivQ, busy: PBL.popupBusy(), ov: !!document.getElementById('ov'), ph: PBL.L.phase })")));
+  await shot('car-10-interview'); await noOv('interview popup');
+  const b4 = await ev(pg, "(() => { const C = PBL.L.career, p = PBL.L.players[C.pid]; return { tr: C.trust, ch: C.chem, fb: p.fameBase || 0 }; })()");
+  await pg.click('[data-civ="0"]'); await wait(pg, 500);
+  const ar = await modal(); const af = await ev(pg, "(() => { const C = PBL.L.career, p = PBL.L.players[C.pid]; return { n: C.iv.length, q: !!C.ivQ, tr: C.trust, ch: C.chem, fb: p.fameBase || 0, fx: C.iv[0] && C.iv[0].fx }; })()");
+  ok('answer applied (trust / chem / fame) and stored', /On the record/.test(ar) && af.n === 1 && !af.q && af.tr === b4.tr + af.fx.trust && af.ch === b4.ch + af.fx.chem && af.fb === b4.fb + af.fx.fame, [b4, af]);
+  await clear(); await ev(pg, "location.hash = '#career'; PBL.render()"); await wait(pg, 600); await clear();
+  ok('Interviews hub panel lists it', await ev(pg, "/Told|“/.test(document.querySelector('#car-iv').textContent) && document.querySelectorAll('#car-iv .car-ivrow').length === 1"));
+  ok('Locker room panel lists coach + teammates', await ev(pg, "document.querySelectorAll('#car-rel .car-relrow').length >= 10"));
+  // Talk to coach
+  await ev(pg, "document.getElementById('car-talk').scrollIntoView()"); const tr0 = await ev(pg, "PBL.L.career.trust"); await pg.click('#car-talk'); await wait(pg, 400);
+  const tk = await ev(pg, "(() => { const C = PBL.L.career; return { talk: C.talk, res: C.talkRes && C.talkRes.msg, tr: C.trust, dis: document.getElementById('car-talk').disabled, log: C.log.some(x => /Talked to the coach/.test(x.t)) }; })()");
+  ok('Talk to coach: outcome, trust change, story line, once a week', !!tk.talk && !!tk.res && tk.tr !== tr0 && tk.dis && tk.log, [tr0, tk]);
+  // extension: offer popup, ask, accept
+  await ev(pg, "(() => { const L = PBL.L, p = L.players[L.career.pid]; p.contract = { amt: 4, exp: L.season, type: 'rookie', len: 3, opt: null }; p.ext = null; p.mval = Math.max(p.mval || 1, 8); L.career.ext = null; carExtMake(L); PBL.render(); })()"); await wait(pg, 800);
+  let ex = ''; for (let i = 0; i < 8; i++) { ex = await modal(); if (/Contract talks/.test(ex)) break; await ev(pg, "(() => { const c = document.getElementById('p3-cer'); if (c) c.remove(); PBL.closeDialog(); })()"); await wait(pg, 500); }
+  ok('extension offer popup (Accept / Ask for more / Test free agency)', /Contract talks/.test(ex) && /Accept/.test(ex) && /Ask for more/.test(ex) && /Test free agency/.test(ex), ex.slice(0, 120));
+  await noOv('extension popup'); await shot('car-11-extension');
+  const am = await ev(pg, "PBL.L.career.ext.amt"); await pg.click('#modal [data-carext="ask"]'); await wait(pg, 600);
+  const ax = await ev(pg, "(() => { const x = PBL.L.career.ext; return { st: x.st, amt: x.amt, ask: x.ask, msg: x.msg }; })()");
+  ok('agent counter resolved (raised, firm or walked)', ax.ask && ax.msg && (ax.amt > am || ax.st === 'walked' || /budge/.test(ax.msg)), [am, ax]);
+  if (ax.st === 'open') { await clear(); await ev(pg, "location.hash = '#career'; PBL.render()"); await wait(pg, 500); await clear(); await pg.click('#car-contract [data-carext="ok"]'); await wait(pg, 400);
+    ok('Accept sets the extension', await ev(pg, "(() => { const p = PBL.L.players[PBL.L.career.pid]; return !!p.ext && p.ext.amt === PBL.L.career.ext.amt; })()")); } else ok('Accept skipped (team walked)', true);
+  // trade request
+  await clear(); await ev(pg, "location.hash = '#career'; PBL.render()"); await wait(pg, 500); await clear();
+  const t0 = await ev(pg, "(() => { const C = PBL.L.career; return { tr: C.trust, ch: C.chem, team: PBL.L.players[C.pid].team }; })()");
+  await ev(pg, "document.getElementById('car-treq').scrollIntoView()"); await pg.click('#car-treq'); await wait(pg, 300); await noOv('trade request confirm'); await pg.click('#car-treq-go'); await wait(pg, 500);
+  const t1 = await ev(pg, "(() => { const L = PBL.L, C = L.career, p = L.players[C.pid]; return { req: p.tradeReq === L.season, tr: C.trust, ch: C.chem, news: L.log.some(x => x.text.includes(p.name) && /wants out|trade/i.test(x.text)), kk: L.log.slice(0, 3).map(x => x.k + '|' + x.text.slice(0, 50)) }; })()");
+  ok('Request a trade sets tradeReq, drops trust + chem, logs news', t1.req && t1.tr < t0.tr && t1.ch < t0.ch && t1.news, [t0, t1]);
+  ok('Request button replaced by notice', await ev(pg, "!document.getElementById('car-treq') && /asked for a trade/.test(document.querySelector('#car-contract').textContent)"));
+  // Your news
+  const nw = await ev(pg, "(() => { const e = document.getElementById('car-news'); return e ? { rows: e.querySelectorAll('.car-nrow').length, chips: e.querySelectorAll('[data-carnews]').length, txt: e.textContent.includes(PBL.L.players[PBL.L.career.pid].name) } : null; })()");
+  ok('Your news panel lists stories naming him, with filters', nw && nw.rows >= 1 && nw.chips >= 2 && nw.txt, nw);
+  await shot('car-12-life-hub'); await noOv('career hub with life panels');
+  // the AI moves him
+  const mv = await ev(pg, "(() => { const L = PBL.L, p = L.players[L.career.pid]; p.ovr = Math.max(p.ovr, 66); p.mval = Math.max(p.mval || 1, 10); p.age = Math.min(p.age, 24); const d0 = L.day; L.day = Math.max(L.day, tradeOpenDay(L)); try { for (let i = 0; i < 150; i++) if (carTradeTry(L, 30)) return true; return false; } finally { L.day = d0; } })()");
+  ok('AI trades a player who asked out', mv, mv ? undefined : await ev(pg, "(() => { const L = PBL.L, p = L.players[L.career.pid]; const d0 = L.day; L.day = Math.max(L.day, tradeOpenDay(L)); const r = { win: inTradeWindow(L), restr: tradeRestricted(L, p), nt: p.noTrade, req: p.tradeReq, s: L.season, ph: L.phase, ovr: p.ovr, age: p.age, ts: tradeStatus(L, p), tm: p.team, mode: L.mode, ntc: p.contract && p.contract.ntc, inj: p.injury, hard: p.hardship }; L.day = d0; return r; })()"));
+  if (mv) { await ev(pg, "PBL.render()"); await wait(pg, 600); const md = await popFind(/trades you/);
+    ok('traded popup; chem / relationships reset', /trades you/.test(md) && await ev(pg, "(() => { const C = PBL.L.career; return C.chem === 45 && Object.keys(C.rel).length === 0 && !PBL.L.players[C.pid].tradeReq; })()"), md.slice(0, 100)); await noOv('traded popup'); }
+  // free agency offers for a career free agent
+  await clear(); await ev(pg, "(() => { const L = PBL.L, C = L.career, p = L.players[C.pid]; L.phase = 'off-resign'; L.resign = []; toFA(L, p); startFA(L); C.pop = []; PBL.render(); })()"); await wait(pg, 800);
+  let fa = ''; for (let i = 0; i < 8; i++) { fa = await modal(); if (/Free agency offers/.test(fa)) break; await ev(pg, "(() => { const c = document.getElementById('p3-cer'); if (c) c.remove(); PBL.closeDialog(); })()"); await wait(pg, 500); }
+  const fo = await ev(pg, "(() => { const L = PBL.L, C = L.career; return { cards: document.querySelectorAll('#modal .car-offer').length, hold: !!C.hold, inFA: L.fa.includes(C.pid) }; })()");
+  ok('FA offers popup: team / years / $ / role / status, held out of the AI pool', /Free agency offers/.test(fa) && fo.cards >= 3 && fo.hold && !fo.inFA && /Per year/.test(fa) && /Role/.test(fa) && /Contender|Playoff hopeful|Rebuilding|Tanking/.test(fa), [fo, fa.slice(0, 100)]);
+  await noOv('FA offers popup'); await shot('car-13-fa-offers');
+  await ev(pg, "(() => { const L = PBL.L; faDay(L); faDay(L); PBL.render(); })()"); await wait(pg, 400);
+  ok('AI does not sign him while he decides', await ev(pg, "(() => { const p = PBL.L.players[PBL.L.career.pid]; return p.team == null && !!PBL.L.career.hold; })()"));
+  await pg.click('#modal [data-carfa="0"]'); await wait(pg, 600);
+  const fs2 = await ev(pg, "(() => { const L = PBL.L, p = L.players[L.career.pid]; return { team: p.team, c: p.contract && p.contract.amt, hold: !!L.career.hold, news: L.log.some(x => x.k === 'car' && /sign|terms|contract|extends|locks/i.test(x.text) && x.text.includes(p.name)) }; })()");
+  ok('picking an offer signs him via signContract', fs2.team != null && fs2.c > 0 && !fs2.hold, fs2);
+  await clear();
   const ov = await ev(pg, "document.documentElement.scrollWidth > window.innerWidth + 1"); ok('no horizontal page scroll on career hub', !ov);
   await ev(pg, "PBL.closeDialog()"); await wait(pg, 300); await shot('car-08-pro-hub');
   ok('no page errors', !errs.length, errs.slice(0, 5));

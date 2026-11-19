@@ -36,10 +36,10 @@ Branch `claude/project-thread-iocwy2`. One PR per phase. New file src/career.js 
   - [x] P3.3 Legend meter (carLegend, bar on hub header, Hall of Fame tracker)
   - [x] P3.4 Awards & career stats panel (sortable season table)
   - [x] P3.5 Tests ALL PASS 1300 + 390, PROGRESS.md
-- [ ] P4. Career life: interviews, player relations, news, trade requests, contract talks (reuse existing systems), phone polish, tests, Pages
+- [x] P4. Career life: interviews, player relations, news, trade requests, contract talks (reuse existing systems), phone polish, tests, Pages
   - [x] P4.1 Wiring: career-text.js (index/sw/build, cache v12); logic in career.js (interviews, relations, news, trade request + AI try, extension + FA offers, hold-out); league.js hooks (moraleParts chem, tradeReq sticks, startFA/faDay/startResign/extensionDeadline)
-  - [ ] P4.2 Hub UI panels + popups (interview, moved, extension, FA offers)
-  - [ ] P4.3 CSS phone polish, tests in tools/browser-career.js (both widths), PROGRESS.md
+  - [x] P4.2 Hub panels (Contract & agent, Locker room, Interviews, Your news) + popups (interview, traded, extension, FA offers, trade confirm)
+  - [x] P4.3 CSS phone polish, tools/browser-career.js Phase 4 checks ALL PASS at 1300 + 390, PROGRESS.md
 
 ---
 # TASK_STATE — Every page fills the window (Opus) — Nov 19 2026

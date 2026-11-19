@@ -4,8 +4,9 @@ Branch `draft-tag-buttons`.
 - [x] 2. app.js eyeBtn in name cell: vPlayers (basic+adv) + vPlayerDir (4 tabs)
 - [x] 2b. Rename game to "Hardwood Dynasty" (user picked)
 - [x] 3. tools/browser-qtags.js ALL PASS (1280 + 390)
-- [ ] 4. PROGRESS.md, commit, PR, merge (after PR #17), Pages check
-- [ ] 5. Run release workflow for installers
+- [x] 4. PR #18 merged (d716ca8); Pages deploy success. #17 superseded (user to close)
+- [x] 5. Release workflow success (3 OS); draft release "Hardwood Dynasty v1.1.0", 7 installers
+- [x] 6. README + DESKTOP.md say Hardwood Dynasty, repo description/homepage set (branch readme-hardwood)
 
 ---
 # TASK_STATE — Back arrow keeps scroll position (Opus) — Nov 18 2026

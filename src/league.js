@@ -11,9 +11,9 @@ const r1 = x => Math.round(x * 10) / 10;
 // tbd ball dominance, tcs catch-and-shoot, ttr transition, tcr crashing the glass, tgb gambling) with the skills behind them.
 // 'l' + key = the opposite habit (ltbd = plays off the ball, lcs = pull-up, ltps = stays out of the post).
 const ARCH = {
-  PG: { 'Floor general': { tpa: 3, pas: 2, iq: 1.5, ltbd: 0.5 }, 'Scoring guard': { tbd: 3, drw: 1, hnd: 1, lcs: 1, ltpa: 1 }, '3pt sniper': { t3: 3, tp: 2, tcs: 1 }, 'Slasher': { trm: 3, fin: 1.5, spd: 1, drw: 1 },
+  PG: { 'Floor general': { tpa: 3, pas: 2, iq: 1.5, ltbd: 0.5 }, 'Scoring guard': { tbd: 3, drw: 1, hnd: 1, lcs: 1, ltpa: 1 }, '3pt sniper': { t3: 3, tp: 2.5 }, 'Slasher': { trm: 3, fin: 1.5, spd: 1, drw: 1 },
     'Mid-range maestro': { tmd: 3, mid: 1.5, lcs: 1 }, 'Defensive pest': { per: 2.5, stl: 2.5, tgb: 1, ltbd: 0.5 }, 'Jumbo playmaker': { hgtB: 2.5, tpa: 1.5, pas: 1.5 }, 'Rebounding guard': { drb: 2.5, tcr: 1.5, orb: 1 } },
-  SG: { '3pt sniper': { t3: 3, tp: 2, tcs: 1 }, 'Shot creator': { tbd: 2, lcs: 1.5, hnd: 1.5, mid: 1 }, 'Slasher': { trm: 3, fin: 1.5, spd: 1, drw: 1 }, 'Mid-range maestro': { tmd: 3, mid: 1.5, lcs: 1 },
+  SG: { '3pt sniper': { t3: 3, tp: 2.5 }, 'Shot creator': { tbd: 2, lcs: 1.5, hnd: 1.5, mid: 1 }, 'Slasher': { trm: 3, fin: 1.5, spd: 1, drw: 1 }, 'Mid-range maestro': { tmd: 3, mid: 1.5, lcs: 1 },
     '3-and-D': { t3: 1.5, tcs: 1, per: 2.5, ltbd: 1 }, 'Lockdown defender': { per: 3, stl: 1, agi: 1, ltbd: 1 }, 'Combo guard': { tpa: 2.5, pas: 1.5, hnd: 1.5 }, 'Rebounding guard': { drb: 2.5, tcr: 1.5, orb: 1 } },
   SF: { 'Scoring wing': { tbd: 2, lcs: 1, mid: 1, hnd: 1, drw: 1 }, 'Slasher': { trm: 3, fin: 1.5, drw: 1.5, hnd: 0.5 }, 'Spot-up shooter': { t3: 3, tcs: 1.5, tp: 1.5, ltbd: 1 }, '3-and-D wing': { t3: 1.5, tcs: 1, per: 2.5, wingB: 1, ltbd: 0.5 },
     'Wing stopper': { per: 3, pdf: 1, wingB: 1, ltbd: 1 }, 'Point forward': { tpa: 3, pas: 2, hnd: 1 }, 'Athletic finisher': { ttr: 2, vrt: 2, fin: 1, ltbd: 1 }, 'Rebounding wing': { drb: 2.5, tcr: 2, str: 1 } },
@@ -25,8 +25,8 @@ const ARCH = {
 // v35: old type names (saves from before v35) -> new ones, so stored filters and notes still point somewhere
 const ARCH_OLD = { 'Pass-first': 'Floor general', 'Scoring': 'Scoring guard', 'Shooting': '3pt sniper', 'Shooter': '3pt sniper', 'Movement shooter': '3pt sniper', 'Microwave scorer': 'Scoring guard', 'All-around': null,
   'Two-way wing': '3-and-D wing', 'Lockdown defender': 'Lockdown defender', 'Stretch four': 'Stretch 4', 'Stretch five': 'Stretch 5', 'Playmaking four': 'Point 4', 'Rebounder/defender': 'Glass cleaner', 'Rebounder': 'Glass cleaner' };
-// Superstars (88+) also get one signature type of their own, on top of their position types
-const SSTAR = 88;
+// Superstars (85+) also get one signature type of their own, on top of their position types
+const SSTAR = 85;
 const SARCH = {
   'Point god': { pos: [0, 1], w: { pas: 3, hnd: 2, iq: 2, tpa: 1 }, d: 'Runs the whole offense and makes everyone better' },
   'Heliocentric engine': { pos: [0, 1, 2], w: { tbd: 3, hnd: 2, pas: 1.5, drw: 1, mid: 1 }, d: 'The ball is in his hands on almost every play' },
@@ -51,14 +51,15 @@ function archVal(p, w, skillOnly) {
 }
 // Each type is judged by how far a player stands out on it compared with others at his position (calibrated from generated
 // players, tools/arch-cal.js), so types built on naturally high ratings don't crowd out the rest.
-const ARCH_CAL = {"PG":{"Floor general":[62.5,8.7,0.074],"Scoring guard":[56.3,6.8,0.072],"3pt sniper":[54.9,10.1,-0.24],"Slasher":[56.9,10.3,0.058],"Mid-range maestro":[49,9.8,-0.119],"Defensive pest":[51.2,8.3,0.015],"Jumbo playmaker":[58,6.4,0.106],"Rebounding guard":[28.6,9.9,0.091]},"SG":{"3pt sniper":[54.7,10.4,-0.054],"Shot creator":[51.9,8.9,0.095],"Slasher":[52.9,10.9,0.062],"Mid-range maestro":[49.6,10.1,-0.142],"3-and-D":[51.8,6.6,0.023],"Lockdown defender":[51.1,7.7,0.134],"Combo guard":[51.6,11.5,-0.13],"Rebounding guard":[32,10.9,0.056]},"SF":{"Scoring wing":[46.8,8.8,0.087],"Slasher":[50.8,10.3,0.107],"Spot-up shooter":[51.1,8.7,-0.164],"3-and-D wing":[51.8,7.1,0.101],"Wing stopper":[50.2,7.1,0.059],"Point forward":[45.2,11.2,-0.019],"Athletic finisher":[53.3,7.1,-0.069],"Rebounding wing":[42.5,9.9,-0.037]},"PF":{"Stretch 4":[41.7,13,-0.119],"Face-up 4":[44.5,11.5,0.018],"Post scorer":[46.2,11.4,-0.114],"Rim runner":[55.5,7.4,-0.011],"Point 4":[39.6,11.6,0.003],"Small-ball 4":[48.6,8.9,0.175],"Glass cleaner":[51.1,8.5,0.01],"Rim protector":[51.7,9.4,0.153]},"C":{"Stretch 5":[26.9,11.8,-0.207],"Face-up 5":[36.9,11.5,-0.053],"Post scorer":[55.2,10.3,-0.045],"Rim runner":[57.9,7.4,-0.005],"Playmaking hub":[38.4,11.3,0.024],"Rim protector":[60.8,8.7,0.146],"Mobile big":[47.2,9.1,0.281],"Glass cleaner":[58.6,8.2,-0.038]}};   // [mean, spread, offset] per type
-const SARCH_CAL = {"Point god":[73.7,6.8],"Heliocentric engine":[72.6,6.3],"Walking bucket":[68.2,5.3],"Gravity shooter":[70.9,7.9],"Two-way superstar":[66,4.5],"Freight train":[70.1,5.6],"Unicorn":[58.5,5.5],"Point center":[59.2,9.1],"Dominant big":[72.3,4.5]};
+const ARCH_CAL = {"PG":{"Floor general":[62.5,8.6,0.059],"Scoring guard":[56.3,6.9,0.07],"3pt sniper":[55.6,11.4,-0.163],"Slasher":[57,10.3,0.024],"Mid-range maestro":[49.1,9.8,-0.119],"Defensive pest":[51.2,8.4,0.009],"Jumbo playmaker":[58,6.3,0.072],"Rebounding guard":[28.6,9.9,0.071]},"SG":{"3pt sniper":[54.5,11.9,-0.034],"Shot creator":[51.9,9,0.105],"Slasher":[52.9,10.9,0.036],"Mid-range maestro":[49.6,10.1,-0.12],"3-and-D":[51.7,6.7,-0.016],"Lockdown defender":[51.1,7.8,0.125],"Combo guard":[51.6,11.5,-0.08],"Rebounding guard":[32,11,0.027]},"SF":{"Scoring wing":[46.7,8.8,0.108],"Slasher":[50.9,10.3,0.102],"Spot-up shooter":[51,8.7,-0.166],"3-and-D wing":[51.7,7.1,0.122],"Wing stopper":[50.1,7,0.052],"Point forward":[45.1,11.2,-0.045],"Athletic finisher":[53.2,7.1,-0.068],"Rebounding wing":[42.4,9.8,-0.029]},"PF":{"Stretch 4":[41.4,13.1,-0.126],"Face-up 4":[44.4,11.4,0.033],"Post scorer":[46.2,11.4,-0.105],"Rim runner":[55.5,7.4,-0.017],"Point 4":[39.6,11.6,-0.006],"Small-ball 4":[48.5,9,0.169],"Glass cleaner":[51.1,8.6,-0.013],"Rim protector":[51.6,9.5,0.133]},"C":{"Stretch 5":[27,11.8,-0.204],"Face-up 5":[37,11.6,-0.039],"Post scorer":[55.4,10.3,-0.013],"Rim runner":[58,7.4,-0.053],"Playmaking hub":[38.4,11.3,0.024],"Rim protector":[60.9,8.6,0.168],"Mobile big":[47.3,9.1,0.252],"Glass cleaner":[58.7,8.2,-0.031]}};   // [mean, spread, offset] per type
+const ARCH_CAL_NBA = {"PG":{"Floor general":[59.9,8.6,0.381],"Scoring guard":[55.8,7.1,0.468],"3pt sniper":[58.6,13.1,-0.611],"Slasher":[56.9,8.9,0.323],"Mid-range maestro":[43,8.9,0.052],"Defensive pest":[48.9,6.6,-0.249],"Jumbo playmaker":[57.4,7.2,0.41],"Rebounding guard":[25.4,7.5,0.007]},"SG":{"3pt sniper":[61.5,13.4,-0.462],"Shot creator":[51.5,8.2,0.447],"Slasher":[55.7,7.3,-0.031],"Mid-range maestro":[40.2,8.8,0.131],"3-and-D":[54.9,6.5,-0.255],"Lockdown defender":[52,5.6,0.139],"Combo guard":[47.7,8.7,0.371],"Rebounding guard":[32.4,7.8,0.131]},"SF":{"Scoring wing":[50.5,10.2,0.44],"Slasher":[56.5,10.3,0.375],"Spot-up shooter":[59,11.3,-0.319],"3-and-D wing":[56.7,5.6,-0.121],"Wing stopper":[51.9,5.5,0.371],"Point forward":[45.2,8.8,0.539],"Athletic finisher":[54.2,4.7,-0.407],"Rebounding wing":[44.5,6.3,0.193]},"PF":{"Stretch 4":[57.1,15.2,-0.316],"Face-up 4":[40.1,10.5,0.536],"Post scorer":[49.6,9.1,0.502],"Rim runner":[59,4.9,-0.002],"Point 4":[39,8.4,0.176],"Small-ball 4":[52.2,4.1,0.038],"Glass cleaner":[50,6,0.196],"Rim protector":[53,8,-0.288]},"C":{"Stretch 5":[37.2,19.5,-0.696],"Face-up 5":[36.7,6.7,0.409],"Post scorer":[54.3,6.8,0.398],"Rim runner":[63,6.4,-0.263],"Playmaking hub":[35.8,9.6,0.189],"Rim protector":[58.6,8.1,0.089],"Mobile big":[51.5,4.3,0.165],"Glass cleaner":[55.6,7.3,0.369]}}, PS_NORM = { pbl: {"PG":{"t3":[54.2,13.3],"tmd":[44.4,13.1],"trm":[53.3,16.2],"tps":[11.3,9.2],"tpa":[65.9,14.2],"tbd":[63.9,8.2],"tp":[55.7,10.5],"mid":[52.4,9.1],"fin":[56.1,10.7],"pst":[30.2,9.9],"pas":[65.4,10.3],"def":[36.5,8.6]},"SG":{"t3":[53.7,13.1],"tmd":[47.9,11.1],"trm":[49.3,13.7],"tps":[15.3,11.4],"tpa":[47,13.7],"tbd":[51.7,10.8],"tp":[53.5,9.7],"mid":[53,10.7],"fin":[52.3,10.4],"pst":[32.7,11.5],"pas":[50.4,11.5],"def":[40.4,8.7]},"SF":{"t3":[51,14],"tmd":[49.8,11.7],"trm":[52,13.3],"tps":[27,13.7],"tpa":[44.9,13.9],"tbd":[47.5,9.8],"tp":[52.2,10.4],"mid":[52.5,9.4],"fin":[55.9,11.9],"pst":[42.3,11.9],"pas":[47.4,9.4],"def":[46.5,8.9]},"PF":{"t3":[37.9,16.6],"tmd":[46.9,14.6],"trm":[49.7,14.7],"tps":[38.7,14.1],"tpa":[38.6,14.8],"tbd":[36.2,10.5],"tp":[42.7,12.5],"mid":[48.2,11.8],"fin":[56.8,11.4],"pst":[47.9,10.4],"pas":[45.5,14.8],"def":[48.4,9.8]},"C":{"t3":[23.1,16.2],"tmd":[37.5,13.8],"trm":[53.2,14.5],"tps":[53,16.5],"tpa":[34.4,13.4],"tbd":[28.4,10.9],"tp":[32.7,11.9],"mid":[41.9,10.8],"fin":[57.7,11],"pst":[54.3,10.2],"pas":[41.4,12.2],"def":[50.9,8.9]}}, nba: {"PG":{"t3":[63.4,18.8],"tmd":[35.4,9.3],"trm":[58.5,8.5],"tps":[8,0],"tpa":[66.3,8.1],"tbd":[64.3,6.9],"tp":[52.8,10.8],"mid":[51.1,14],"fin":[50,15.3],"pst":[24.9,8.6],"pas":[62.9,14.8],"def":[35.1,7.7]},"SG":{"t3":[67.2,19.3],"tmd":[32.8,9.7],"trm":[56.9,7.7],"tps":[8,0],"tpa":[41,5.4],"tbd":[53.4,6],"tp":[54.6,10.7],"mid":[52.7,12.1],"fin":[51.9,12.6],"pst":[32.5,8.1],"pas":[50.7,12.5],"def":[39.9,7.4]},"SF":{"t3":[64.5,19.6],"tmd":[34.5,10.6],"trm":[60.2,10.8],"tps":[16,0],"tpa":[39.9,4.8],"tbd":[49.9,5.9],"tp":[55.9,9.9],"mid":[55.4,15.2],"fin":[55.2,12.3],"pst":[45.2,9.1],"pas":[49.5,13.6],"def":[48.9,8.9]},"PF":{"t3":[61,22.6],"tmd":[35.5,11.7],"trm":[60.9,9.6],"tps":[45.9,9.6],"tpa":[35.4,4.9],"tbd":[43.6,6],"tp":[51.4,9.8],"mid":[48.1,13.5],"fin":[53.7,13.4],"pst":[49.9,13.6],"pas":[42.9,12.8],"def":[48.9,7.2]},"C":{"t3":[34.2,25.2],"tmd":[35.2,11.2],"trm":[69.3,11.5],"tps":[54.7,7.7],"tpa":[31.6,5.3],"tbd":[40.6,5.4],"tp":[38.1,17.5],"mid":[36.6,13.6],"fin":[50.1,14.6],"pst":[47.7,11.2],"pas":[35.8,14.6],"def":[46.3,7.6]}} };
+const SARCH_CAL = {"Point god":[73.5,6.8],"Heliocentric engine":[72.6,6.3],"Walking bucket":[68.2,5.3],"Gravity shooter":[70.9,8.1],"Two-way superstar":[66.1,4.5],"Freight train":[70,5.7],"Unicorn":[58.5,5.7],"Point center":[59.1,9],"Dominant big":[72.4,4.6]};
 function archetypes(p) {
   const c = [];
   for (const slot of [p.pos, p.pos2]) {
     if (slot == null) continue;
     const pos = POS[slot];
-    for (const n in ARCH[pos]) { const raw = archVal(p, ARCH[pos][n]), cal = (ARCH_CAL[pos] || {})[n] || [50, 9]; c.push({ p: pos, n, raw, sk: archVal(p, ARCH[pos][n], true), sc: (raw - cal[0]) / cal[1] + (cal[2] || 0) - (slot === p.pos ? 0 : 0.25) }); }
+    for (const n in ARCH[pos]) { const raw = archVal(p, ARCH[pos][n]), cal = ((NBA_ON ? ARCH_CAL_NBA : ARCH_CAL)[pos] || {})[n] || [50, 9]; c.push({ p: pos, n, raw, sk: archVal(p, ARCH[pos][n], true), sc: (raw - cal[0]) / cal[1] + (cal[2] || 0) - (slot === p.pos ? 0 : 0.5) }); }
   }
   c.sort((a, b) => b.sc - a.sc);
   const out = [{ p: c[0].p, n: c[0].n, e: p.ovr >= 86 && c[0].sk >= 76 }];
@@ -80,26 +81,30 @@ function superArch(p) {
 function archLabel(p) { return (p.sarch ? '★ ' + p.sarch + ' · ' : '') + (p.arch || []).map(a => (a.e ? 'Elite ' : '') + a.n + ' ' + a.p).join(' + '); }
 // v35 playstyle: the habits and caveats next to the archetype ("3pt sniper · Low-volume shooter"). Up to 2, strongest first.
 function playstyle(p) {
-  if (!p || p.t3 == null || typeof tendBase !== 'function') return [];
-  const pos = POS[p.pos], T = TPL[pos] || TPL.SF, big = p.pos >= 3, eb = tendBase(p), out = [];
-  const add = (txt, m) => out.push({ txt, m });
-  const d3 = p.t3 - eb.t3, dmd = p.tmd - eb.tmd, drm = p.trm - eb.trm, dps = p.tps - eb.tps, dpa = p.tpa - (T.tpa + (p.pas - T.pas) * 0.6);
+  if (!p || p.t3 == null) return [];
+  const pos = POS[p.pos], N = (NBA_ON ? PS_NORM.nba : PS_NORM.pbl)[pos]; if (!N) return [];
+  const z = k => { const n = N[k]; if (!n) return 0; const v = k === 'def' ? (p.per + p.pdf) / 2 : p[k]; return v == null ? 0 : (v - n[0]) / Math.max(1, n[1]); };
+  const big = p.pos >= 3, out = [], add = (txt, m) => out.push({ txt, m });
   const a0 = p.arch && p.arch[0] ? p.arch[0].n : '', shootType = /sniper|Spot-up|Stretch|3-and-D/.test(a0);
-  const good3 = p.tp >= 66, poor3 = p.tp < (big ? 50 : 55);
-  if (good3 && (d3 <= -9 || p.t3 <= T.t3 - 8)) add('Low-volume shooter', 1 + Math.max(-d3, T.t3 - p.t3) / 10 + (shootType ? 0.6 : 0));
-  else if (p.tp >= 62 && d3 >= 10 && p.tbd >= 45) add('High-volume shooter', 0.8 + d3 / 12 + (shootType ? 0.3 : 0));
-  if (poor3 && (p.t3 >= T.t3 + (big ? 12 : 6) || shootType)) add('Below-average 3pt shooter', 1 + (T.t3 - p.tp + 10) / 25 + (shootType ? 0.8 : 0));
-  if (dmd >= 9 && p.tmd >= T.tmd) add(big && p.t3 >= T.t3 ? 'Low-volume 3, more mid-range' : 'Loves the mid-range', 0.9 + dmd / 12);
-  if (p.fin >= 62 && drm <= -10) add(big ? 'Shies away from the rim' : 'Avoids contact', 0.9 + -drm / 12);
-  else if (drm >= 12 && p.trm >= T.trm + 8) add('Attacks the rim', 0.6 + drm / 14);
-  if (big && p.pst >= 60 && dps <= -12) add('Rarely posts up', 0.7 + -dps / 14);
-  if (dpa >= 11) add(big || p.pos === 2 ? 'Looks to pass first' : 'Pass-first', 0.8 + dpa / 12);
-  else if (dpa <= -14 && p.pos <= 1) add('Shoot-first', 0.6 + -dpa / 14);
-  if (p.tbd >= 72) add('Ball-dominant', 0.6 + (p.tbd - 72) / 10);
-  else if (p.tbd <= 30 && p.ovr >= 65) add('Low usage', 0.5 + (30 - p.tbd) / 10);
-  const dz = (p.per + p.pdf) / 2 - (T.per + T.pdf) / 2;
-  if (dz <= -12 && !/Defensive|Lockdown|stopper|3-and-D|Rim protector/.test(a0)) add('Defensive liability', 0.5 + -dz / 15);
-  if (p.ft < 55) add('Poor free-throw shooter', 0.4 + (55 - p.ft) / 15);
+  const zt3 = z('t3'), ztp = z('tp'), vol3 = zt3 + 0.5 * z('tbd');
+  if (ztp >= 0.6 && p.tp >= 62 && vol3 - ztp <= -1.1) add('Low-volume shooter', 1 + (ztp - vol3) / 2 + (shootType ? 0.6 : 0));
+  else if (ztp >= 0.2 && zt3 >= 1 && vol3 - ztp >= 1.1) add('High-volume shooter', 0.8 + (vol3 - ztp) / 2 + (shootType ? 0.3 : 0));
+  if (ztp <= -0.5 && (zt3 >= 0.4 || shootType)) add('Below-average 3pt shooter', 1 + (zt3 - ztp) / 3 + (shootType ? 0.8 : 0));
+  const zmd = z('tmd');
+  if (/Stretch/.test(a0) && zmd >= 0.5 && zmd - zt3 >= 0.6) add('Low-volume 3, more mid-range', 1.4 + (zmd - zt3) / 2);
+  else if (zmd >= 1 && zmd - z('mid') >= 0.9) add('Loves the mid-range', 0.9 + (zmd - z('mid')) / 2);
+  const zrm = z('trm'), zfn = z('fin');
+  if (zfn >= 0.4 && zrm - zfn <= -1.3) add(big ? 'Shies away from the rim' : 'Avoids contact', 0.9 + (zfn - zrm) / 2);
+  else if (zrm >= 1.4 && zrm - zfn >= 1.1) add('Attacks the rim', 0.6 + (zrm - zfn) / 2);
+  if (big && z('pst') >= 0.6 && z('tps') - z('pst') <= -1.4) add('Rarely posts up', 0.7 + (z('pst') - z('tps')) / 2);
+  const zpa = z('tpa') - z('pas');
+  if (z('tpa') >= 0.8 && zpa >= 1) add(big || p.pos === 2 ? 'Looks to pass first' : 'Pass-first', 0.8 + zpa / 2);
+  else if (p.pos <= 1 && z('tpa') <= -1 && zpa <= -1.1) add('Shoot-first', 0.6 + -zpa / 2);
+  const zbd = z('tbd');
+  if (zbd >= 1.6) add('Ball-dominant', 0.5 + (zbd - 1.6));
+  else if (zbd <= -1.4 && p.ovr >= 65) add('Low usage', 0.5 + (-1.4 - zbd));
+  if (z('def') <= -1.4 && !/Defensive|Lockdown|stopper|3-and-D|Rim protector/.test(a0)) add('Defensive liability', 0.5 + (-1.4 - z('def')));
+  if (p.ft < (big ? 45 : 56)) add('Poor free-throw shooter', 0.3 + ((big ? 45 : 56) - p.ft) / 15);
   return out.sort((a, b) => b.m - a.m).slice(0, 2).map(x => x.txt);
 }
 function archFull(p) { const a = p.arch && p.arch[0], ps = playstyle(p); return (p.sarch ? '★ ' + p.sarch + ' · ' : '') + (a ? (a.e ? 'Elite ' : '') + a.n : 'Balanced') + (ps.length ? ' · ' + ps.join(', ') : ''); }

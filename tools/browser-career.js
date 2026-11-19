@@ -69,6 +69,32 @@ const SHOTS = process.env.SHOTS;
   await shot('car-05-draft');
   await ev(pg, "PBL.closeDialog()"); await wait(pg, 300);
   const hub = await ev(pg, "document.querySelector('#main').textContent"); ok('hub shows pro status', /You're a pro|Free agent/.test(hub));
+  // Phase 2: next season as a pro (offseason by the top sim button until the new season starts)
+  for (let i = 0; i < 40 && await ev(pg, "PBL.L.phase !== 'regular'"); i++) {
+    await ev(pg, "(() => { const c = document.getElementById('p3-cer'); if (c) c.remove(); document.querySelector('#modal').innerHTML = ''; })()");
+    const k = await ev(pg, "(() => { const b = document.querySelector('#simctl button[data-sim]'); if (!b) return null; b.click(); return b.dataset.sim; })()");
+    await wait(pg, 1200); for (let j = 0; j < 120 && await ev(pg, 'PBL.ui.busy'); j++) await wait(pg, 500);
+    await ev(pg, "(() => { const b = document.getElementById('autofill'); if (b) b.click(); })()");
+  }
+  const pro = await ev(pg, "(() => { const L = PBL.L, p = L.players[L.career.pid]; return { ph: L.phase, s: L.season, team: p.team }; })()");
+  ok('new season, he is on a team', pro.ph === 'regular' && pro.s === 2 && pro.team != null, pro);
+  await ev(pg, "(() => { const c = document.getElementById('p3-cer'); if (c) c.remove(); document.querySelector('#modal').innerHTML = ''; location.hash = '#career'; })()"); await wait(pg, 500);
+  await ev(pg, "document.querySelector('#simctl [data-sim=end]').click()"); await wait(pg, 1500);
+  for (let j = 0; j < 60 && await ev(pg, 'PBL.ui.busy'); j++) await wait(pg, 500);
+  let gd = '';
+  for (let i = 0; i < 10; i++) { gd = await ev(pg, "document.querySelector('#modal').textContent"); if (/Game day/.test(gd)) break; await ev(pg, "(() => { const c = document.getElementById('p3-cer'); if (c) c.remove(); PBL.closeDialog(); })()"); await wait(pg, 600); }
+  ok('pro game day popup', /Game day/.test(gd) && /Coach trust/.test(gd), gd.slice(0, 100));
+  const g0n = await ev(pg, 'PBL.L.career.pro.length');
+  await ev(pg, "document.getElementById('car-go').click()"); await wait(pg, 300); await shot('car-06-pro-decision');
+  for (let i = 0; i < 4; i++) { await ev(pg, "document.querySelector('[data-carop]').click()"); await wait(pg, 250); }
+  for (let j = 0; j < 40 && await ev(pg, 'PBL.ui.busy'); j++) await wait(pg, 300);
+  let pr = '';
+  for (let i = 0; i < 10; i++) { pr = await ev(pg, "document.querySelector('#modal').textContent"); if (/Your calls/.test(pr)) break; await wait(pg, 600); }
+  ok('pro result popup with real box line', /Your calls/.test(pr) && /FG/.test(pr), pr.slice(0, 140));
+  const last = await ev(pg, "(() => { const C = PBL.L.career; const e = C.pro[C.pro.length - 1]; return { n: C.pro.length, played: e && e.played, gid: e && e.gid, trust: C.trust, fx: C.proFx }; })()");
+  ok('game stored as played, decisions cleared', last.n === g0n + 1 && last.played && last.fx === null, last);
+  await shot('car-07-pro-result');
+  await ev(pg, "PBL.closeDialog()"); await wait(pg, 300); await shot('car-08-pro-hub');
   ok('no page errors', !errs.length, errs.slice(0, 5));
   await b.close(); console.log(fails ? `\n${fails} FAILED` : '\nALL PASS'); process.exit(fails ? 1 : 0);
 })();

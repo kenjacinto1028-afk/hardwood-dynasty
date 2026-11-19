@@ -765,8 +765,32 @@ function vRMoves() {
     const t = L.teams[L.user], pay = payroll(L, t), room = faRoom(L, t), tw = (t.twoWay || []).length;
     head = `<section class="panel" id="rmsum" style="margin-bottom:12px"><h2>${tlabel(t.id, true)} · roster moves</h2><div class="rmstats"><div><div class="k">Roster</div><div class="v">${t.roster.length}/15</div></div><div><div class="k">Payroll</div><div class="v">${money(pay)}</div></div><div><div class="k">Cap room</div><div class="v">${money(Math.max(0, CAP - pay))}</div></div><div><div class="k">Can offer a free agent</div><div class="v">${room > 0 ? money(room) : 'Minimum only'}</div></div><div><div class="k">Mid-level</div><div class="v">${mleOpen(L, t) ? money(MLE) + ' left' : 'Used'}</div></div><div><div class="k">Two-way</div><div class="v">${tw}</div></div></div><p style="margin:8px 0 0"><a class="lk" href="#trades">Trades</a> · <a class="lk" href="#fa">Free agents</a> · <a class="lk" href="#draft">Draft</a></p></section>`;
   }
-  return `<h2>Roster moves</h2>${sub}${head}<section class="panel"><h3>${mine ? 'Your team\'s moves' : 'League moves'}</h3>${bar}${mvTable(list)}<p class="muted" style="font-size:12px;margin:8px 0 0">Coach fit is the average fit of the top 8 players with the head coach's systems. Team overall is roster strength (best 8 by overall). Trades show both; signings and releases show coach fit.</p></section>`;
+  return `<h2>Roster moves</h2>${sub}${head}${rmNeedsWin(mine)}<section class="panel"><h3>${mine ? 'Your team\'s moves' : 'League moves'}</h3>${bar}${mvTable(list)}<p class="muted" style="font-size:12px;margin:8px 0 0">Coach fit is the average fit of the top 8 players with the head coach's systems. Team overall is roster strength (best 8 by overall). Trades show both; signings and releases show coach fit.</p></section>`;
 }
+// v39: Team needs window on Roster moves: what the front office says the team needs, each position's depth and the playstyles the coach wants.
+// My team tab shows your team; League tab lets you pick any team (remembered in ui.rmNeedT).
+function rmNeedsWin(mine) {
+  const tid = mine ? L.user : (ui.rmNeedT != null && L.teams[ui.rmNeedT] ? ui.rmNeedT : L.user != null ? L.user : 0), t = L.teams[tid];
+  let ns = [], pr = [], tn = {};
+  try { ns = rosterNeeds(L, t); } catch (e) { }
+  try { pr = positionRead(L, t); } catch (e) { }
+  try { tn = teamNeeds(L, t); } catch (e) { }
+  const urgN = { now: 0, summer: 1, minor: 2 };
+  ns = ns.slice().sort((a, b) => (urgN[a.urg] - urgN[b.urg]) || (b.sev || 0) - (a.sev || 0));
+  const sel = mine ? '' : `<label class="row" style="gap:6px">Team <select id="rm-needteam" aria-label="Team">${L.teams.map(x => `<option value="${x.id}" ${x.id === tid ? 'selected' : ''}>${esc(x.city + ' ' + x.name)}${isUser(x.id) ? ' (you)' : ''}</option>`).join('')}</select></label>`;
+  const cnt = k => ns.filter(n => n.urg === k).length;
+  const needs = ns.length ? ns.map(n => `<div class="need"><span class="pill urg-${n.urg}" title="${esc(RN_CAT[n.cat] || '')}">${esc(RN_URG[n.urg])}</span><span>${esc(n.text || '')}</span><span class="muted need-cat">${esc(RN_CAT[n.cat] || '')}</span></div>`).join('') : '<p class="muted" style="margin:0">No pressing needs.</p>';
+  const posRows = pr.map(r => { const st = r.starter ? L.players[r.starter] : null;
+    return `<tr><td class="l"><strong>${POS[r.pos]}</strong></td><td class="l"><span class="pill ${PR_CHIP[r.status] || ''}">${r.status[0].toUpperCase() + r.status.slice(1)}</span></td><td class="l">${st ? plink(st) + ' <span class="muted">' + ovrTxt(st) + '</span>' : '—'}</td><td>${r.depth.length}</td><td class="l">${r.archs.map(x => `<span class="pill" title="${esc(x.why || 'needed here')}" style="margin-right:4px">${esc(x.n)}</span>`).join('') || '<span class="muted">—</span>'}</td></tr>`; }).join('');
+  const want = Object.entries(tn).filter(([, v]) => v >= 0.5).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([k, v]) => { const [pos, n] = k.split('|'); return `<span class="pill ${v >= 0.75 ? 'urg-now' : 'urg-summer'}" title="How much the coach's system wants this playstyle: ${Math.round(v * 100)} of 100">${esc(n)} · ${esc(pos)}</span>`; }).join(' ');
+  return `<section class="panel" id="rmneeds" style="margin-bottom:12px"><div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px"><h3 style="margin:0">${logo(tid, 22)} Team needs · ${esc(tname(tid))}</h3>${sel}</div>
+    <p class="muted" style="margin:6px 0 8px">${recTxt(t.w, t.l)} · ${esc(MODE_LABEL[t.mode] || '')} · ${t.roster.length}/15 players · ${cnt('now')} to fix now, ${cnt('summer')} this summer, ${cnt('minor')} minor</p>
+    <div class="grid2e"><div><h4 style="margin:0 0 4px">What the front office says</h4>${needs}</div>
+    <div><h4 style="margin:0 0 4px">Playstyles the coach wants most</h4><p style="margin:0 0 8px;line-height:2">${want || '<span class="muted">None: the rotation covers his systems.</span>'}</p>
+    ${posRows ? `<div class="tblwrap"><table class="posread"><thead><tr><th class="l">Pos</th><th class="l">Status</th><th class="l">Starter</th><th title="Rotation players who can play the spot">Depth</th><th class="l">Playstyles wanted</th></tr></thead><tbody>${posRows}</tbody></table></div>` : ''}</div></div>
+    ${mine ? '<p class="muted" style="font-size:12px;margin:8px 0 0">See who fits: <a class="lk" href="#trades">Trades → Coach targets</a> · <a class="lk" href="#fa">Free agency</a></p>' : ''}</section>`;
+}
+document.addEventListener('change', e => { if (e.target && e.target.id === 'rm-needteam' && L) { ui.rmNeedT = +e.target.value; render(); } });
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-rmtab],[data-rmf]'); if (!b || !L || !$('#main').contains(b)) return;
   if (b.dataset.rmtab) ui.rmTab = b.dataset.rmtab; else ui.rmF = b.dataset.rmf; render();

@@ -58,6 +58,14 @@ async function run(W, touch) {
   }
   await go(() => { const u = window.__pbl.ui; u.histTab = 'seasons'; window.__pbl.render(); });
   await pg.screenshot({ path: 'tools/_hist-' + W + '.png', fullPage: false });
+  // 4. Team needs window on Roster moves
+  await go(() => { const u = window.__pbl.ui; u.rmTab = 'mine'; location.hash = '#rmoves'; window.__pbl.render(); });
+  const rn = await pg.evaluate(() => { const w = document.querySelector('#main #rmneeds'); return w && { txt: w.textContent.slice(0, 80), pos: w.querySelectorAll('tbody tr').length, needs: w.querySelectorAll('.need').length + w.querySelectorAll('p.muted').length }; });
+  ok(tag + ' My team tab shows Team needs window with 5 positions', rn && rn.pos === 5 && /Team needs/.test(rn.txt), rn);
+  await pg.screenshot({ path: 'tools/_needs-' + W + '.png', fullPage: false });
+  await go(() => { const u = window.__pbl.ui; u.rmTab = 'league'; window.__pbl.render(); });
+  await pg.evaluate(() => { const s = document.querySelector('#rm-needteam'); s.value = '5'; s.dispatchEvent(new Event('change', { bubbles: true })); }); await wait(pg, 600);
+  ok(tag + ' League tab team picker switches team', await pg.evaluate(() => window.__pbl.ui.rmNeedT === 5 && document.querySelector('#rmneeds h3').textContent.includes(window.__pbl.L.teams[5].name)));
   ok(tag + ' no page errors', errs.length === 0, errs.slice(0, 3));
   await b.close();
 }

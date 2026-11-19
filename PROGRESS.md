@@ -1,5 +1,12 @@
 # PBL progress
 
+## Trophy room history, News & history filters + sort, Team needs (Opus, Nov 19 2026)
+- [x] Trophy room uses the franchise's real history before 2026 too: banners, championship trophies, MVP / Finals MVP / DPOY / Rookie / Sixth Man / Most Improved, All-League picks, Coach of the Year, retired numbers, Hall of Famers. New filters: All years / Your league / Before 2026, and an award filter. New "All teams" league table (sortable, click a team to open it).
+- [x] News & events is now a table (Season, When, Category, Team, Story) with sort and filters.
+- [x] Every table on the News & history pages (History tabs, Weekly report, Top plays, Hall of Fame...) sorts by column and gets a filter bar: search + dropdowns (team, season, award...).
+- [x] Roster moves > Overview: Team needs window (front office needs, playstyles the coach wants, position depth). League tab has a team picker.
+- Offline cache bumped to `pbl-app-v8`. Test: tools/browser-hist39.js (desktop + phone) ALL PASS.
+
 ## Every page fills the window (Opus, Nov 19 2026)
 - [x] All pages on all tabs now use the full window width like My Team > Roster (before, most pages stopped at 1760px wide; How it works stopped at 840px). How it works text flows into columns on wide screens. Offline cache bumped to `pbl-app-v7`.
 - Test: tools/browser-fill.js checks 37 pages at 2560, 1920, 1280 and 390 (phone) wide.

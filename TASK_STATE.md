@@ -3,7 +3,7 @@ Branch `claude/project-thread-kvxv01`.
 - [x] 1. p3.js trophy room: real NBA history (histTrophies), league table (All teams), era + award filters; tools/browser-hist39.js
 - [x] 2. app.js vNews: news list is a table (Season, When, Category, Team, Story), 400 rows
 - [x] 3. app.js gfPrep/gfApply: every table on News & history pages sortable + filter bar (search + up to 4 dropdowns)
-- [ ] 4. app.js vRMoves: Team needs window (team picker, needs list, archetypes wanted)
+- [x] 4. app.js rmNeedsWin: Team needs window on Roster moves (needs, coach playstyles, position depth; team picker on League tab)
 - [ ] 5. Browser test, PROGRESS.md, commit, PR, merge, check live site
 
 ---

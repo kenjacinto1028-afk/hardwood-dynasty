@@ -1,3 +1,13 @@
+# TASK_STATE — Draft tag buttons + Eye watch button (Sonnet) — Nov 19 2026
+Branch `draft-tag-buttons`.
+- [x] 1. app.js ptagBtns/eyeBtn: Tags column on draft board (boardPanel) + class list (vDraft); styles.css .qtag
+- [x] 2. app.js eyeBtn in name cell: vPlayers (basic+adv) + vPlayerDir (4 tabs)
+- [x] 2b. Rename game to "Hardwood Dynasty" (user picked)
+- [x] 3. tools/browser-qtags.js ALL PASS (1280 + 390)
+- [ ] 4. PROGRESS.md, commit, PR, merge (after PR #17), Pages check
+- [ ] 5. Run release workflow for installers
+
+---
 # TASK_STATE — Back arrow keeps scroll position (Opus) — Nov 18 2026
 Branch `back-keeps-scroll`.
 - [x] 1. app.js: save scroll on every back/forward snapshot, restore it on Back/Forward (backStack.push/snapNow/applyNav; route() opens new pages at top)

@@ -987,3 +987,9 @@ body.p3-phone #pb-err { bottom: 76px; }
 #pb-tour .pb-tip { position: fixed; background: var(--surface, #fff); color: var(--ink, #111); border-radius: 12px; padding: 12px 14px; box-shadow: 0 10px 30px #0006; }
 #pb-tour .pb-tip h3 { margin: 2px 0 4px; }
 #pb-tour .pb-tip p { margin: 0 0 10px; font-size: 14px; line-height: 1.4; }
+/* v38: quick tag buttons (T / S / A) and Eye watch button */
+.qtags { display: inline-flex; gap: 3px; white-space: nowrap; }
+.qtag { min-width: 26px; padding: 2px 6px; font-weight: 700; line-height: 1.1; display: inline-flex; align-items: center; justify-content: center; }
+.qtag.eye { color: var(--muted, #888); }
+.qtag.eye.on { color: #fff; }
+.nmc .qtag.eye { padding: 1px 4px; min-width: 0; vertical-align: middle; margin-right: 2px; }

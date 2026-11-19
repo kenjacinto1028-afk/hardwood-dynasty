@@ -1,8 +1,8 @@
 {
   "name": "pbl-desktop",
   "private": true,
-  "version": "1.0.0",
-  "description": "Pacific Basketball League as a desktop app (Tauri)",
+  "version": "1.1.0",
+  "description": "Hardwood Dynasty as a desktop app (Tauri)",
   "scripts": {
     "web": "node copy-web.js",
     "icons": "tauri icon ../icons/icon-1024.png",

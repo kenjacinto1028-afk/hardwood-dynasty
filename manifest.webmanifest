@@ -1,6 +1,6 @@
 {
-  "name": "Pacific Basketball League",
-  "short_name": "PBL",
+  "name": "Hardwood Dynasty",
+  "short_name": "Hardwood",
   "description": "A basketball management game. Runs on your device and works offline.",
   "start_url": "./index.html",
   "scope": "./",

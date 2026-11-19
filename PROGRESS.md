@@ -1,5 +1,11 @@
 # PBL progress
 
+## Draft tag buttons, Eye watch button, new name (Sonnet, Nov 19 2026)
+- [x] Draft board and draft class lists: T (Target), S (Sleeper), A (Avoid) and Eye (watch list) buttons on every row again (Tags column). Click again to remove. The ⋯ menu still has Move up / down.
+- [x] Eye button next to every name on League > Players and Stats > Players: one click adds to / removes from the watch list.
+- [x] Game renamed to **Hardwood Dynasty** (page title, header, home-screen app, desktop app + installers v1.1.0). The fictional league inside the game is still the Pacific Basketball League; desktop saves stay in Documents/Pacific Basketball League so nothing is lost.
+- [x] Offline cache bumped to `pbl-app-v6` (replaces PR #17's v5). Test: tools/browser-qtags.js (desktop + phone) ALL PASS.
+
 ## Back arrow keeps your spot (Opus, Nov 18 2026)
 - [x] Back (and Forward) now return you to the same place on the page you left, e.g. My Team > Lineup & rotation > News > Back. Also keeps the My Team sub-tab. New pages still open at the top. Works in browser, phone layout and desktop app (same code). Test: tools/browser-backscroll.js (desktop + phone) ALL PASS.
 

@@ -1,5 +1,13 @@
 # PBL progress
 
+## My Career, Phase 3: badges, achievements, Legend meter (Opus, Nov 19 2026)
+- [x] 16 badges (Deadeye, Mid-range Maestro, Posterizer, Ankle Breaker, Dimer, Lockdown, Pick Pocket, Rim Protector, Glass Cleaner, Clutch Gene, Microwave, Iron Man, Floor General, Post Wizard, Free Throw Ace, Hustle), each Bronze / Silver / Gold / Hall of Fame. Earn a tier from stat milestones, or buy the next tier with XP (60 / 120 / 220 / 400) once the related ratings are high enough.
+- [x] Badge effects are small: +3 / 5 / 7 / 9% on decision options that use the badge's skills, and +0.3 to +1.2 form per badge in every real game (capped at +3 per side).
+- [x] 25 achievements (first-round pick, first pro game, 20 / 30 / 40 / 50-point games, triple-double, All-Star, MVP, champion, 10,000 points, ...). Each gives XP and a story line; several unlocks share one "Achievement unlocked" popup.
+- [x] Legend meter (0-100: Prospect to GOAT conversation) from legacy score, awards and achievements, with a Hall of Fame tracker (on pace / not yet) in the hub header.
+- [x] Awards chips and a sortable season-by-season stats table on the hub.
+- Old saves work: all new fields default to empty. Test: tools/browser-career.js (badge buy, achievement, Legend meter) ALL PASS at 1300 + 390.
+
 ## My Career, Phase 2: pro games (Opus, Nov 19 2026)
 - [x] As a pro, the sim stops on your team's games (choose: every game / big games / never; big = playoffs, rivalries, every 5th game). Play or Sim.
 - [x] Played games: 4 key moments with choices and % chances. Your calls change your form, shot volume and teammates' form in the real game engine, so the box score is real. Result popup: real line, FG, grade, XP, coach trust.

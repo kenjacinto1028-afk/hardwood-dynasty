@@ -94,6 +94,26 @@ const SHOTS = process.env.SHOTS;
   const last = await ev(pg, "(() => { const C = PBL.L.career; const e = C.pro[C.pro.length - 1]; return { n: C.pro.length, played: e && e.played, gid: e && e.gid, trust: C.trust, fx: C.proFx }; })()");
   ok('game stored as played, decisions cleared', last.n === g0n + 1 && last.played && last.fx === null, last);
   await shot('car-07-pro-result');
+  // Phase 3: achievements, Legend meter, badges
+  const a3 = await ev(pg, "(() => { const C = PBL.L.career; return { first: C.ach && C.ach.progame, xp: C.xpTot, pend: (C.pop || []).length, log: C.log.some(x => /Welcome to the pros/.test(x.t)) }; })()");
+  ok('achievement unlocked: first pro game (XP + story line)', a3.first != null && a3.log, a3);
+  let ap = ''; for (let i = 0; i < 6; i++) { ap = await ev(pg, "document.querySelector('#modal').textContent"); if (/Achievement unlock/.test(ap)) break; await ev(pg, "PBL.closeDialog()"); await wait(pg, 500); }
+  ok('Achievement unlocked popup', /Achievement unlock/.test(ap) && /Welcome to the pros/.test(ap), ap.slice(0, 120));
+  await ev(pg, "PBL.closeDialog(); document.querySelector('#modal').innerHTML=''; location.hash = '#career'; PBL.render()"); await wait(pg, 600);
+  const lg = await ev(pg, "(() => { const e = document.getElementById('car-legend'); return e ? { t: e.textContent, w: e.querySelector('.car-lgbar i').style.width } : null; })()");
+  ok('Legend meter renders with tier + Hall of Fame tracker', lg && /Legend meter/.test(lg.t) && /Hall of Fame tracker/.test(lg.t) && /Prospect|Rotation|Starter|All-Star|Superstar|Legend/.test(lg.t) && /%$/.test(lg.w), lg);
+  const grid = await ev(pg, "({ n: document.querySelectorAll('.car-achc').length, on: document.querySelectorAll('.car-achc.on').length, b: document.querySelectorAll('.car-badge').length, st: !!document.querySelector('#car-stats table.sortable tbody tr') })");
+  ok('badge / achievement / stats panels render', grid.n >= 24 && grid.on >= 1 && grid.b >= 16 && grid.st, grid);
+  await ev(pg, "(() => { const L = PBL.L, p = L.players[L.career.pid]; for (const k of ['tp']) p[k] = 90; L.career.xp = 1000; delete L.career.badges.deadeye; L.career.tot.tpm = 0; PBL.render(); })()"); await wait(pg, 400);
+  const bb0 = await ev(pg, "(() => { const C = PBL.L.career; return { t: (C.badges || {}).deadeye, xp: C.xp }; })()");
+  ok('Buy button shows cost', await ev(pg, "(document.querySelector('[data-carbuy=deadeye]') || {}).textContent") === 'Buy Bronze · 60 XP', bb0);
+  await pg.click('[data-carbuy="deadeye"]'); await wait(pg, 400);
+  const bb1 = await ev(pg, "(() => { const C = PBL.L.career; return { t: (C.badges || {}).deadeye, xp: C.xp, own: !!document.querySelector('#car-badges .car-badge.own') }; })()");
+  ok('XP buys a badge tier', bb1.t === 0 && bb1.xp === bb0.xp - 60 && bb1.own, [bb0, bb1]);
+  const ch = await ev(pg, "(() => { const L = PBL.L, p = L.players[L.career.pid], o = { k: ['tp'], d: 0 }; const a = carChance(L, p, o); L.career.badges.deadeye = 3; const b = carChance(L, p, o); L.career.badges.deadeye = 0; return [a, b]; })()");
+  ok('badge raises decision chance', ch[1] >= ch[0] && (ch[1] > ch[0] || ch[0] >= 0.92), ch);
+  await shot('car-09-badges');
+  const ov = await ev(pg, "document.documentElement.scrollWidth > window.innerWidth + 1"); ok('no horizontal page scroll on career hub', !ov);
   await ev(pg, "PBL.closeDialog()"); await wait(pg, 300); await shot('car-08-pro-hub');
   ok('no page errors', !errs.length, errs.slice(0, 5));
   await b.close(); console.log(fails ? `\n${fails} FAILED` : '\nALL PASS'); process.exit(fails ? 1 : 0);

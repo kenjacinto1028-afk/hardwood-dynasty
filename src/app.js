@@ -5547,7 +5547,7 @@ function fxSimResult(ph0, g0) {
   FX.gameResult({ win: won, text });
 }
 function runSteps(stepFn, doneFn, label) {
-  if (ui.busy) return; ui.busy = true; ui.undo = []; renderHeader();
+  if (ui.busy) return; if (window.CAR && L.career && CAR.pending()) { afterRun(L.phase); return; }   // My Career: your game today comes first ui.busy = true; ui.undo = []; renderHeader();
   const prog = $('#prog'); const ph0 = L.phase, g0 = L.games.length;
   function tick() {
     const t0 = performance.now(); let more = true;

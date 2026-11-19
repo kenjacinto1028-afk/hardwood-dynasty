@@ -1575,6 +1575,7 @@ function buildSide(league, tid, isHome, playoff) {
     const list = avail.map(p => ({ id: p.id, k: rk(p) }));
     const mm = roleMinutes(list, coach, playoff, 240);
     for (const p of avail) g.target[p.id] = (mm[p.id] || 0) * 60;
+    if (league.career && typeof careerMinutes === 'function') careerMinutes(league, avail, g.target);   // My Career: coach trust moves your minutes
     g.stars = new Set(avail.filter(p => rk(p) === 'fs' || rk(p) === 'star').map(p => p.id));
     if (!g.stars.size) { const b = avail.slice().sort((a, b) => playerValue(b, coach) - playerValue(a, coach))[0]; if (b) g.stars.add(b.id); }
   } else {
@@ -1965,6 +1966,7 @@ function playGame0(league, homeId, awayId, playoff) {
     g.form[p.id].o += b; g.form[p.id].d += b; g.ub[p.id] = 1 + b * 0.1;
     g.special.push({ pid: p.id, grudge: !!gr, rival: rv ? (rv.a === p.id ? rv.b : rv.a) : null });
   }
+  if (league.career && typeof careerGameFx === 'function') careerGameFx(league, H, A);   // My Career: your calls in this game
   // Playoff games are more physical: slower, more fouls, tougher shots, and strength matters more inside
   const PHY = playoff ? { pace: 0.985, trans: 0.9, foul: 1.12, shot: 0.007, str: 0.0006 } : { pace: 1, trans: 1, foul: 1, shot: 0, str: 0 };
   // each coach's tempo, nudged by his systems: pace & space and pressure speed it up, inside-out slows it down

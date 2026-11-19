@@ -1,5 +1,12 @@
 # PBL progress
 
+## My Career, Phase 2: pro games (Opus, Nov 19 2026)
+- [x] As a pro, the sim stops on your team's games (choose: every game / big games / never; big = playoffs, rivalries, every 5th game). Play or Sim.
+- [x] Played games: 4 key moments with choices and % chances. Your calls change your form, shot volume and teammates' form in the real game engine, so the box score is real. Result popup: real line, FG, grade, XP, coach trust.
+- [x] Coach trust (0-100): moves with games you play; adds or takes minutes (-6 to +8) and makes the calls easier. A game you play gets at least 12 minutes.
+- [x] Created players get the new archetype habits (style tendencies), shown with playstyle caveats.
+- Hooks: engine.js buildSide (careerMinutes), playGame0 (careerGameFx); app.js runSteps (your game first). Test: tools/browser-career.js (now through the first pro game) ALL PASS at 1300 + 390.
+
 ## Archetypes and playstyles rework (Opus, Nov 19 2026)
 - [x] 8 distinct archetypes per position (40 total, redundant ones like All-around / Shooter / Movement shooter merged). An archetype is how a player plays: built from his shot habits as well as his skills.
 - [x] Playstyle caveats next to the archetype, e.g. "3pt sniper SG · Low-volume shooter", "Stretch 5 · Below-average 3pt shooter", "Shies away from the rim", "Looks to pass first", "Ball-dominant", "Defensive liability".

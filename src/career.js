@@ -14,7 +14,7 @@ const CAR_STORIES = {
   twosport: { n: 'Two-sport athlete', t: 'You gave up football for basketball. The athleticism is rare; the jump shot is a work in progress.', ovr: 0, pot: 3, wet: 3, xp: 1, fame: 8, add: { spd: 6, vrt: 6, str: 6, tp: -5, mid: -3 } }
 };
 const CAR_PATHS = { NCHF: 'College (NCHF)', EABL: 'Europe (EABL)', APBA: 'Asia-Pacific (APBA)' };
-const CAR_FX = { ovr0: 42, pot0: 71, played: 6, lgAvg: { NCHF: 40, EABL: 48, APBA: 41 }, diff: { NCHF: 48, APBA: 50, EABL: 55, PRO: 68 }, score: { NCHF: 72, EABL: 80, APBA: 84 } };
+const CAR_FX = { ovr0: 42, pot0: 71, played: 6, lgAvg: { NCHF: 40, EABL: 48, APBA: 41 }, diff: { NCHF: 48, APBA: 50, EABL: 55, PRO: 57 }, score: { NCHF: 72, EABL: 80, APBA: 84 } };
 const CAR_GRADES = ['F', 'D', 'C', 'C+', 'B', 'B+', 'A', 'A+'], CAR_GXP = [0, 6, 12, 18, 25, 32, 40, 50];
 const CAR_UP_KEYS = [['Athletic', ['spd', 'agi', 'vrt', 'str']], ['Scoring', ['fin', 'pst', 'mid', 'tp', 'ft', 'drw']], ['Playmaking', ['hnd', 'pas', 'iq']], ['Defense', ['per', 'pdf', 'stl', 'blk']], ['Rebounding', ['orb', 'drb']]];
 
@@ -46,6 +46,7 @@ function carCreate(L, o) {
   p.path = 'avg'; p.bloom = false; p.noGrow = false; delete p.ceil; delete p.severe;
   p.fame = st.fame || 0; p.num = o.num != null ? clamp(+o.num, 0, 99) : p.num;
   setBallDominance(p); addTendencies(p);
+  for (const k in w) { if (TEND_K.includes(k)) { fillTv(p); p.tv[k] += w[k] * 6; p[k] = r99(p[k] + w[k] * 6); } else if (k === 'tbd' || k === 'tpa' || k === 'tcs') p[k] = r99((p[k] || 50) + w[k] * 6); else if (k[0] === 'l' && ['tbd', 'tpa', 'tcs'].includes(k.slice(1))) p[k.slice(1)] = r99((p[k.slice(1)] || 50) - w[k] * 6); }   // the style's habits (archetypes = how he plays)
   p.arch = archetypes(p); p.prospect = true; p.draftYear = L.season; p.tier = 'first'; p.career = true;
   p.scout = Math.round(clamp(p.pot + (st.scout || 0), p.ovr, 99)); p.seen = 0;
   // pipeline: one season with the chosen league / team, then the draft
@@ -56,7 +57,7 @@ function carCreate(L, o) {
   p.pl = lg; p.pt = ti; p.pFrom = L.season;
   { const tm = L.pipe.lg[lg].t[ti]; if (tm.f.length) tm.f.splice(tm.f.reduce((m, f, k, a) => f.o < a[m].o ? k : m, 0), 1); }
   p.tx.push({ s: L.season, t: `Joined ${pipeTeamName(lg, ti)} (${lg})` });
-  L.career = { pid: p.id, story: o.story, style: o.style || '', lg, team: ti, s0: L.season, xp: 40, xpTot: 40, games: [], log: [], ups: {}, cur: null };
+  L.career = { pid: p.id, story: o.story, style: o.style || '', lg, team: ti, s0: L.season, xp: 40, xpTot: 40, games: [], log: [], ups: {}, cur: null, trust: 50, stop: 'all', pro: [] };
   carLog(L, `Your story begins: ${st.n}. You start at ${pipeTeamName(lg, ti)} (${lg}).`);
   carSchedule(L);
   return p;
@@ -105,14 +106,68 @@ function careerDay(L, games) {
   if (!carOn(L)) return;
   const p = carP(L);
   if (p.prospect) { if (L.phase === 'regular' && p.pl) for (const g of L.career.games) if (!g.done && g.day < L.day) carSimOne(L, g); return; }
-  // pro: XP from his box score (Phase 2 adds playing the games yourself)
+  // pro: grade + XP from his real box score; a game you played (decisions) earns more and moves coach trust
+  const C = L.career, fx = C.proFx; if ((games || []).some(g => g.home === p.team || g.away === p.team) || L.phase === 'regular') C.proFx = null;
   for (const g of games || []) { const r = (g.box || []).find(x => x[0] === p.id); if (!r) continue;
-    const v = k => r[2 + IX[k]] || 0, gs = v('pts') + 0.7 * (v('orb') + v('drb')) + 0.9 * v('ast') + 1.3 * (v('stl') + v('blk')) - 0.8 * v('tov');
-    const xp = Math.round(Math.max(2, 4 + gs / 3) * (g.playoff ? 1.5 : 1) * carXpK(L)); L.career.xp += xp; L.career.xpTot += xp; }
+    const v = k => r[2 + IX[k]] || 0, line = { min: Math.round(v('min') / 60), pts: v('pts'), reb: v('orb') + v('drb'), ast: v('ast'), stl: v('stl'), blk: v('blk'), tov: v('tov'), tpm: v('tpm'), fgm: v('fgm'), fga: v('fga') };
+    if (!line.min) continue;
+    const gs = carVal(line), avg = C.proAvg != null ? C.proAvg : Math.max(4, (p.ovr - 40) * 0.6), played = !!(fx && fx.pid === p.id);
+    const side = r[1], tid = side === 0 ? g.home : g.away, win = side === 0 ? g.hs > g.as : g.as > g.hs;
+    const gr = carGradeOf(gs / Math.max(4, avg) + (win ? 0.05 : -0.05) + (played ? fx.good * 0.03 : 0));
+    const xp = Math.round((played ? 12 + CAR_GXP[gr] * 0.4 + (win ? 4 : 0) : 3 + Math.max(0, gs) / 4) * (g.playoff ? 1.5 : 1) * carXpK(L));
+    C.xp += xp; C.xpTot += xp; C.proAvg = C.proAvg == null ? gs : C.proAvg * 0.9 + gs * 0.1;
+    if (played) C.trust = clamp(C.trust + (gr >= 5 ? 2 : gr >= 3 ? 1 : gr <= 1 ? -2 : 0) + (fx.good >= 3 ? 1 : 0), 0, 100);
+    const opp = side === 0 ? g.away : g.home, us = side === 0 ? g.hs : g.as, them = side === 0 ? g.as : g.hs;
+    const e = { s: L.season, gid: g.id, po: !!g.playoff, tid, opp, home: side === 0, win, us, them, line, gr, xp, played, res: played ? fx.res : null };
+    C.pro.push(e); if (C.pro.length > 40) C.pro.shift();
+    if (played) C.lastRes = e;
+    if (gr >= 7 && line.pts >= 30) carLog(L, `${line.pts} points vs ${(L.teams[opp] || {}).abbr || ''}. A+ game.`);
+  }
+}
+// ---------- pro games ----------
+// today's game for his team (regular season or playoffs), or null
+function carProToday(L) {
+  const p = carP(L); if (!p || p.prospect || p.team == null || p.injury > 0) return null;
+  if (L.phase === 'regular') { const d = L.schedule && L.schedule[L.day]; const m = d && d.find(([h, a]) => h === p.team || a === p.team); return m ? { key: L.season + ':r:' + L.day, opp: m[0] === p.team ? m[1] : m[0], home: m[0] === p.team, po: false } : null; }
+  if (L.phase === 'playoffs' && L.po) { const sr = (L.po.rounds[L.po.stage] || []).find(x => x.winner == null && (x.hi === p.team || x.lo === p.team)); if (!sr) return null; return { key: L.season + ':p:' + L.po.stage + ':' + sr.games.length, opp: sr.hi === p.team ? sr.lo : sr.hi, home: null, po: true, sr }; }
+  return null;
+}
+function carBigGame(L, t) { if (t.po) return true; const p = carP(L), tm = L.teams[p.team]; try { if (isRivalry(L, p.team, t.opp)) return true; } catch (e) { } return ((tm.w + tm.l) % 5) === 0; }
+function careerProPending(L) {
+  if (!carOn(L)) return null; const C = L.career, t = carProToday(L); if (!t || C.proKey === t.key) return null;
+  if (C.stop === 'none') return null; if (C.stop === 'big' && !carBigGame(L, t)) return null;
+  return t;
+}
+// decisions for a pro game: the same moments, but they change his form / usage in the real engine (L.career.proFx, read in playGame0)
+function carProStart(L) { const t = carProToday(L); if (!t) return null; const p = carP(L); L.career.cur = { pro: t.key, sc: carScenes(p), step: 0, mom: 0, add: {}, res: [], down: rint(1, 3) }; return L.career.cur; }
+function carProFx(L) {
+  const C = L.career, cur = C.cur; if (!cur || !cur.pro) return null;
+  const good = cur.res.filter(r => r.ok).length, a = cur.add, shots = (a.pts || 0) / 2, tr = (C.trust - 50) / 50;
+  const fx = { key: cur.pro, pid: C.pid, good, res: cur.res.map(r => r.ok ? 1 : 0),
+    o: clamp((good - 2) * 1.2 + cur.mom * 0.35 + tr, -4, 5), d: clamp(((a.stl || 0) + (a.blk || 0)) * 0.8 + cur.mom * 0.2, -3, 4),
+    ub: clamp(1 + shots * 0.05 + tr * 0.05 - (a.ast || 0) * 0.02, 0.85, 1.35), tm: clamp((a.ast || 0) * 0.3 + cur.mom * 0.1, -1, 1.5) };
+  C.proFx = fx; C.proKey = cur.pro; C.cur = null; return fx;
+}
+// engine hook (buildSide): coach trust adds / takes minutes (-6..+8); a game you play gets at least 12 minutes. Others give the time back evenly.
+function careerMinutes(league, avail, target) {
+  const C = league.career, p = avail.find(x => x.id === C.pid); if (!p || target[p.id] == null) return;
+  const cur = target[p.id] / 60, played = C.proFx && C.proFx.pid === p.id;
+  let want = clamp(cur + clamp((C.trust - 50) / 4, -6, 8), 0, 40); if (played) want = Math.max(want, 12);
+  const d = (want - cur) * 60, rest = avail.filter(x => x !== p && target[x.id] > 0), tot = rest.reduce((a, x) => a + target[x.id], 0); if (!d || !tot) return;
+  target[p.id] = want * 60; for (const x of rest) target[x.id] = Math.max(0, target[x.id] - d * target[x.id] / tot);
+}
+// engine hook (playGame0): apply today's decisions to his side
+function careerGameFx(league, H, A) {
+  const fx = league.career && league.career.proFx; if (!fx) return;
+  for (const g of [H, A]) { const p = g.players.find(x => x.id === fx.pid); if (!p || !g.form[p.id]) continue;
+    g.form[p.id].o += fx.o; g.form[p.id].d += fx.d; g.ub[p.id] = (g.ub[p.id] || 1) * fx.ub;
+    for (const q of g.players) if (q !== p && g.form[q.id]) g.form[q.id].o += fx.tm; }
 }
 // the playable game waiting today (stops the sim)
 function careerPending(L) {
-  if (!carOn(L) || L.phase !== 'regular') return null;
+  if (!carOn(L)) return null;
+  if (!carP(L).prospect) return careerProPending(L);
+  if (L.phase !== 'regular') return null;
   const p = carP(L); if (!p.prospect || !p.pl) return null;
   return L.career.games.find(g => !g.done && g.play && g.day <= L.day) || null;
 }
@@ -178,7 +233,7 @@ const CAR_CLUTCH = { k: 'clutch', t: 'Down {d} with 24 seconds left. Timeout. Co
   { l: 'Run it for the hot hand', k: ['pas', 'iq'], d: 0, ok: { ast: 1, m: 2.2, t: 'You draw two defenders and find him. Money.' }, no: { m: -1.4, t: 'He misses the look.' } },
   { l: 'Set the screen, crash the boards', k: ['orb', 'str'], d: 2, ok: { reb: 1, pts: 2, m: 2, t: 'Miss, but you tip it in!' }, no: { m: -1.4, t: 'They secure the rebound.' } }] };
 const carRating = (p, ks) => ks[0] === 'best' ? Math.max(p.fin, p.mid, p.tp) : ks.reduce((a, k) => a + (p[k] || 50), 0) / ks.length;
-function carChance(L, p, opt) { const D = CAR_FX.diff[p.prospect ? L.career.lg : 'PRO'] || 60; return clamp(0.5 + (carRating(p, opt.k) - D - (opt.d || 0)) / 40, 0.08, 0.92); }
+function carChance(L, p, opt) { const D = p.prospect ? (CAR_FX.diff[L.career.lg] || 50) : CAR_FX.diff.PRO + (L.career.trust - 50) / -10; return clamp(0.5 + (carRating(p, opt.k) - D - (opt.d || 0)) / 40, 0.08, 0.92); }
 function carScenes(p) {
   const pool = CAR_SCENES.slice(), out = [];
   for (let i = 0; i < 3; i++) { const sc = wpick(pool, pool.map(s => s.w[p.pos] + 0.05)); out.push(sc.k); pool.splice(pool.indexOf(sc), 1); }
@@ -291,7 +346,14 @@ if (typeof window !== 'undefined') window.CAR = (function () {
     const dayLbl = d => { try { const t = dayDate(L, d); if (t) return t.label.replace(/, \d{4}$/, ''); } catch (e) { } return 'Day ' + (d + 1); };
     function proNote(p) {
       if (p.team == null) return `<section class="panel"><h3>Free agent</h3><p>No team has signed you yet. Keep improving and wait for a call.</p></section>`;
-      return `<section class="panel"><h3>You're a pro</h3><p>You play for the <strong>${esc(tname(p.team))}</strong>. Your games are simmed for now; playing pro games yourself comes in the next update. You still earn XP from your pro stats.</p></section>`;
+      const C = L.career, t = carProToday(L), rec = C.pro.slice().reverse().slice(0, 12);
+      const tr = C.trust, trW = tr >= 75 ? 'Go-to guy' : tr >= 60 ? 'Trusted' : tr >= 40 ? 'Earning it' : 'On a short leash';
+      return `<section class="panel"><h3>You're a pro: ${esc(tname(p.team))}</h3>
+        <div class="car-stats" style="margin-bottom:8px"><div><div class="k">Coach trust</div><div class="v">${tr}</div><div class="muted" style="font-size:12px">${trW}</div></div><div><div class="k">Role</div><div class="v" style="font-size:16px">${esc(roleName(roleOf(L, p)) || '—')}</div></div></div>
+        <p class="muted" style="margin-top:0">Trust grows with good games you play. More trust = more touches and easier calls.</p>
+        ${t && careerPending(L) ? `<button class="primary" id="car-playnow">Today: ${t.home === false ? 'at' : 'vs'} ${esc(L.teams[t.opp].abbr)}. Play it now</button>` : ''}
+        <p style="margin:10px 0 4px">Stop the sim for: ${stopBtns()}</p></section>
+        ${rec.length ? `<section class="panel"><h3>Recent games</h3><div class="tblwrap"><table><thead><tr><th class="l">Opp</th><th>Result</th><th class="l">Your line</th><th>Grade</th><th>XP</th></tr></thead><tbody>${rec.map(e => `<tr class="${e.played ? 'car-big' : ''}"><td class="l">${e.home ? 'vs' : 'at'} ${esc((L.teams[e.opp] || {}).abbr || '')}${e.po ? ' (PO)' : ''}</td><td><span class="${e.win ? 'w' : 'lo'}">${e.win ? 'W' : 'L'}</span> ${e.us}-${e.them}</td><td class="l">${gline(e.line)}</td><td>${CAR_GRADES[e.gr]}</td><td>+${e.xp}</td></tr>`).join('')}</tbody></table></div><p class="muted" style="font-size:12px">Shaded = you made the calls.</p></section>` : ''}`;
     }
     function upPanel(p) {
       const C = L.career;
@@ -300,8 +362,42 @@ if (typeof window !== 'undefined') window.CAR = (function () {
     }
 
     // ----- game dialog -----
+    function proDialog() {
+      const C = L.career, p = carP(L), t = carProToday(L); if (!t) { closeDialog(); return; }
+      const me = L.teams[p.team], ot = L.teams[t.opp], vs = t.home === false ? 'at' : 'vs';
+      const title = `${esc(me.abbr)} ${vs} ${esc(ot.city + ' ' + ot.name)}${t.po ? ' · ' + esc(poStages(L)[L.po.stage]) + ' game ' + (t.sr.games.length + 1) : ''}`;
+      if (!C.cur || C.cur.pro !== t.key) {
+        dialog(`<h2>Game day: ${title}</h2><p>${t.po ? 'Playoff basketball. ' : carBigGame(L, t) ? 'A big one tonight. ' : ''}Coach trust ${C.trust}/100. Make the calls at four key moments (they change how you play in the real game), or let it sim.</p>
+          <div class="row" style="gap:8px;margin-top:12px;flex-wrap:wrap"><button class="primary" id="car-go">Play the game</button><button id="car-sim">Sim it</button></div>
+          <p class="muted" style="font-size:12px;margin-top:10px">Stop the sim for: ${stopBtns()}</p>`);
+        $('#car-go').onclick = () => { carProStart(L); save(); proDialog(); };
+        $('#car-sim').onclick = () => { C.proKey = t.key; save(); closeDialog(); simToday(); };
+        bindStop(); return;
+      }
+      const cur = C.cur;
+      if (cur.step >= cur.sc.length) { carProFx(L); save(); closeDialog(); simToday(); return; }
+      momentHtml(cur, `${esc(me.abbr)} ${vs} ${esc(ot.abbr)}`, p); document.querySelectorAll('[data-carop]').forEach(b => b.onclick = () => { carChoose(L, +b.dataset.carop); save(); proDialog(); });
+    }
+    const STOPS = [['all', 'every game'], ['big', 'big games'], ['none', 'never']];
+    const stopBtns = () => STOPS.map(([k, n]) => `<button class="sm ${L.career.stop === k ? 'on primary' : ''}" data-carstop="${k}">${n}</button>`).join(' ');
+    function bindStop() { document.querySelectorAll('#modal [data-carstop]').forEach(b => b.onclick = () => { L.career.stop = b.dataset.carstop; save(); render(); proDialog(); }); }
+    function simToday() { const b = document.querySelector(`#simctl [data-sim="${L.phase === 'playoffs' ? 'pday' : 'day'}"]`); if (b) { b.disabled = false; b.click(); } }
+    function momentHtml(cur, lbl, p) {
+      const sc = carScene(cur.sc[cur.step]), Q = ['1st quarter', '2nd quarter', '3rd quarter', 'Crunch time'][cur.step] || '', last = cur.res[cur.res.length - 1];
+      dialog(`<div class="car-game"><div class="k">${lbl} · ${Q} · Moment ${cur.step + 1} of ${cur.sc.length}</div>
+        ${last ? `<div class="msg ${last.ok ? 'ok' : 'no'}" style="margin:8px 0">${esc(last.t)}</div>` : ''}
+        <div class="panel" style="margin:8px 0"><strong>${esc(sc.t.replace('{d}', cur.down))}</strong></div>
+        <div class="car-opts">${sc.o.map((o, i) => { const ch = carChance(L, p, o); return `<button class="car-opt" data-carop="${i}"><strong>${esc(o.l)}</strong><span class="car-bar"><i style="width:${pct(ch)}"></i></span><span class="muted">${pct(ch)} chance · ${esc(o.k.map(k => k === 'best' ? 'best scoring skill' : (LABELS[k] || k)).join(' + '))}</span></button>`; }).join('')}</div>
+        <p class="muted" style="font-size:12px">Momentum ${cur.mom >= 0 ? '+' : ''}${Math.round(cur.mom * 10) / 10}. Good calls swing the game and your grade.</p></div>`);
+    }
+    function proResultDialog(e) {
+      const ot = L.teams[e.opp] || {}, l = e.line;
+      dialog(`<h2>${e.win ? 'Win' : 'Loss'} ${e.us}-${e.them} ${e.home ? 'vs' : 'at'} ${esc(ot.abbr || '')}</h2><div class="car-res"><div class="car-grade g${e.gr}">${CAR_GRADES[e.gr]}</div><div><div><strong>${gline(l)}</strong></div><div class="muted">${l.min} min · ${l.fgm}-${l.fga} FG · ${l.tpm} threes · ${l.tov} turnovers</div><div style="margin-top:6px">Your calls: ${(e.res || []).map(x => x ? '✓' : '✗').join(' ')} · +${e.xp} XP · coach trust ${L.career.trust}/100</div></div></div><div class="row" style="gap:8px;margin-top:12px"><button class="primary" id="car-ok">Continue</button><a class="btn" href="#career" id="car-up">Spend XP</a></div>`);
+      $('#car-ok').onclick = closeDialog; $('#car-up').onclick = () => closeDialog();
+    }
     function gameDialog() {
       const C = L.career; if (!C) return;
+      if (!carP(L).prospect) { proDialog(); return; }
       const g = C.cur ? C.games[C.cur.gi] : careerPending(L); if (!g) { closeDialog(); return; }
       const opp = pipeTeam(C.lg, g.opp), me = pipeTeam(C.lg, C.team);
       if (!C.cur) {
@@ -339,6 +435,7 @@ if (typeof window !== 'undefined') window.CAR = (function () {
     function afterRender() {
       if (!carOn(L)) return;
       const p = carP(L);
+      if (L.career.lastRes) { const e = L.career.lastRes; L.career.lastRes = null; queueDialog(() => proResultDialog(e)); }
       if (L.phase !== 'off-draft' && L.career.draftShown !== L.season && !p.prospect && ['off-resign', 'off-fa', 'off-ready', 'off-draft'].includes(L.phase) && (p.draft ? p.draft.s === L.season : p.draftYear === L.season)) queueDialog(draftDialog);
       else if (L.phase === 'off-draft' && L.career.draftShown !== L.season && !p.prospect) queueDialog(draftDialog);
     }
@@ -346,7 +443,8 @@ if (typeof window !== 'undefined') window.CAR = (function () {
       if (!L || !L.career) return;
       const u = e.target.closest('[data-carup]');
       if (u) { const err = carUpgrade(L, u.dataset.carup); if (!err) { save(); render(); } else { const m = document.getElementById('car-upmsg'); if (m) m.textContent = err; } return; }
-      if (e.target.id === 'car-playnow') { gameDialog(); }
+      if (e.target.id === 'car-playnow') { gameDialog(); return; }
+      const sb = e.target.closest('#main [data-carstop]'); if (sb) { L.career.stop = sb.dataset.carstop; save(); render(); }
     });
     window.P3V = window.P3V || {}; P3V.career = hub;
     return { setupForm, createFrom, afterRender, gameDialog, pending: () => !!careerPending(L) };

@@ -1,3 +1,10 @@
+# TASK_STATE — My Career face builder (Sonnet) — Nov 19 2026
+Branch `claude/project-thread-w2yrv1`.
+- [x] 1. app.js faceCustom + portrait hook; career.js builder, Edit look; CSS fix for hub avatar
+- [x] 2. tools/browser-face.js ALL PASS; PROGRESS.md; desktop 1.2.0
+- [ ] 3. PR, merge, Pages check, run desktop build
+
+---
 # TASK_STATE — Rework Walker Kessler ratings (Sonnet) — Nov 19 2026
 Branch `claude/project-thread-rf6n98`.
 - [x] 1. Baseline: tools/kessler.js prints his ratings, archetype, 1-season line

@@ -1,5 +1,11 @@
 # PBL progress
 
+## My Career face builder (Sonnet, Nov 19 2026)
+- [x] Create-your-player has a look builder: 8 skin tones, 8 hair colors, head shape, hair, eyes, eyebrows, nose, mouth, facial hair, glasses, Random. Saved as L.career.face.
+- [x] "Edit look" button on the My Career hub changes it any time. The face shows everywhere the career player's picture appears (portrait() in app.js).
+- [x] Fixed the hub header picture (a stray CSS rule squashed the avatar into a small box with empty space).
+- [x] Test: tools/browser-face.js ALL PASS (1300 + 390). Desktop version 1.2.0.
+
 ## My Career, Phase 4: career life (Sonnet + Haiku text, Nov 19 2026)
 - [x] Interviews: after about 1 in 6 pro games, and always after 30+ points, a 3+ game losing streak, the first playoff game and an expiring contract at the trade deadline. 30 questions picked by situation, 3 answers each; answers move fame, coach trust and team chemistry. Popup, quote result, history (last 5 on the hub).
 - [x] Locker room: chemistry (0-100) and a relationship score (-100 to 100) with the coach and every teammate. Weekly events shift them. Good chemistry gives teammates up to +0.6 form and lifts his mood. Talk to coach once a week for a bigger role (odds from trust, his overall vs his position rivals, recent grades).

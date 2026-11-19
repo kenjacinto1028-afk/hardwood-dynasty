@@ -1,5 +1,13 @@
 # PBL progress
 
+## Archetypes and playstyles rework (Opus, Nov 19 2026)
+- [x] 8 distinct archetypes per position (40 total, redundant ones like All-around / Shooter / Movement shooter merged). An archetype is how a player plays: built from his shot habits as well as his skills.
+- [x] Playstyle caveats next to the archetype, e.g. "3pt sniper SG · Low-volume shooter", "Stretch 5 · Below-average 3pt shooter", "Shies away from the rim", "Looks to pass first", "Ball-dominant", "Defensive liability".
+- [x] Shot habits less tied to skill: about 1 in 3 new players gets a habit that doesn't match his ratings (good shooter who rarely shoots, gunner, finishing big who would rather pass or shoot jumpers). League shooting totals unchanged (checked PBL + NBA season sims).
+- [x] Superstars (85+, about 5 a league) get a signature type: Point god, Heliocentric engine, Walking bucket, Gravity shooter, Two-way superstar, Freight train, Unicorn, Point center, Dominant big. Gold badge on the player page.
+- [x] Coach targets and team needs use the new types; targets also weigh playstyle vs the coach's offense (pace wants volume shooters, motion wants passers). Type filters grouped by position with a Superstars group. Old saves convert on load.
+- Tests: tools/arch-cal.js (calibration), tools/unit-v253.js, tools/browser-arch.js (desktop + phone) ALL PASS. Offline cache `pbl-app-v8`.
+
 ## Every page fills the window (Opus, Nov 19 2026)
 - [x] All pages on all tabs now use the full window width like My Team > Roster (before, most pages stopped at 1760px wide; How it works stopped at 840px). How it works text flows into columns on wide screens. Offline cache bumped to `pbl-app-v7`.
 - Test: tools/browser-fill.js checks 37 pages at 2560, 1920, 1280 and 390 (phone) wide.

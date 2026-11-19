@@ -4,7 +4,7 @@ Branch `claude/project-thread-5dsy65`. Item 4 of Kenneth's list only.
 - [x] 2. engine.js: shot habits less tied to skill (generated players get quirks); bigGate eased for bigs who like to shoot
 - [x] 3. Calibrate ARCH_CAL (tools/arch-cal.js); check real NBA examples (Kennard, Hachimura, Turner) — Kennard = 3pt sniper · Low-volume shooter; SSTAR 85 (~5 per league)
 - [x] 4. app.js: show "Archetype · playstyle" (player page, tables, coach targets, filters, Rules)
-- [ ] 5. Tests: unit + 3-season sim (3PA balance), browser check
+- [x] 5. Tests: unit + 3-season sim (3PA balance), browser check
 - [ ] 6. PR, merge, Pages check; message My Career thread with function names
 
 ---

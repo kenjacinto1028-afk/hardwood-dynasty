@@ -36,6 +36,28 @@ async function run(W, touch) {
   await pg.screenshot({ path: 'tools/_trophy-lg-' + W + '.png', fullPage: false });
   await go(() => { window.__pbl.ui.p3trT = window.__pbl.L.teams.findIndex(t => (t.nbaAb || t.abbr) === 'LAL'); window.__pbl.render(); });
   await pg.screenshot({ path: 'tools/_trophy-' + W + '.png', fullPage: false });
+  // 2. News table: sort + filters
+  await go(() => { const u = window.__pbl.ui; u.p3trT = null; u.ncat = ''; location.hash = '#news'; window.__pbl.render(); });
+  const nw = await pg.evaluate(() => { const tb = document.querySelector('#main table[data-sid="news"]'); return tb && { rows: tb.tBodies[0].rows.length, bar: !!document.querySelector('#main [data-gfbar="news"]'), sels: document.querySelectorAll('#main [data-gfbar="news"] select').length }; });
+  ok(tag + ' news is a table with a filter bar', nw && nw.rows > 10 && nw.bar && nw.sels >= 1, nw);
+  await pg.evaluate(() => { const s = document.querySelector('#main [data-gfbar="news"] select'); s.value = s.options[1].value; s.dispatchEvent(new Event('change')); }); await wait(pg, 300);
+  const nf = await pg.evaluate(() => { const tb = document.querySelector('#main table[data-sid="news"]'); const vis = [...tb.tBodies[0].rows].filter(r => r.style.display !== 'none').length; return { vis, all: tb.tBodies[0].rows.length, txt: document.querySelector('#main [data-gfn]').textContent }; });
+  ok(tag + ' news dropdown filters rows', nf.vis > 0 && nf.vis < nf.all && /of/.test(nf.txt), nf);
+  await pg.evaluate(() => { const i = document.querySelector('#main [data-gfbar="news"] [data-gfq]'); i.value = 'zzzzqqq'; i.dispatchEvent(new Event('input')); }); await wait(pg, 200);
+  ok(tag + ' news search hides all rows', await pg.evaluate(() => [...document.querySelector('#main table[data-sid="news"]').tBodies[0].rows].every(r => r.style.display === 'none')));
+  await pg.evaluate(() => document.querySelector('#main [data-gfx]').click()); await wait(pg, 500);
+  ok(tag + ' Clear resets filters', await pg.evaluate(() => [...document.querySelector('#main table[data-sid="news"]').tBodies[0].rows].every(r => r.style.display !== 'none')));
+  await pg.evaluate(() => [...document.querySelectorAll('#main table[data-sid="news"] thead th')][3].click()); await wait(pg, 600);
+  ok(tag + ' news sorts by Team', await pg.evaluate(() => { const v = [...document.querySelector('#main table[data-sid="news"]').tBodies[0].rows].map(r => r.cells[3].textContent.trim()).filter(x => x !== '—'); return v.length > 2 && v.every((x, i) => !i || v[i - 1].toLowerCase().localeCompare(x.toLowerCase()) <= 0); }));
+  await pg.screenshot({ path: 'tools/_news-' + W + '.png', fullPage: false });
+  // 3. History tabs: every table sortable, big ones filterable
+  for (const ht of ['seasons', 'book', 'awards', 'greats', 'records', 'legends', 'dyn', 'ach']) {
+    await go(h => { const u = window.__pbl.ui; u.histTab = h; u.hs = null; location.hash = '#history'; window.__pbl.render(); }, ht);
+    const r = await pg.evaluate(() => { const t = [...document.querySelectorAll('#main table')]; return { tables: t.length, sortable: t.filter(x => x.classList.contains('sortable')).length, bars: document.querySelectorAll('#main [data-gfbar]').length }; });
+    ok(tag + ' history/' + ht + ' tables sortable + filters', r.tables === 0 || (r.sortable > 0 && r.bars > 0), r);
+  }
+  await go(() => { const u = window.__pbl.ui; u.histTab = 'seasons'; window.__pbl.render(); });
+  await pg.screenshot({ path: 'tools/_hist-' + W + '.png', fullPage: false });
   ok(tag + ' no page errors', errs.length === 0, errs.slice(0, 3));
   await b.close();
 }

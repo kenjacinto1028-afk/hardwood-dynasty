@@ -4555,11 +4555,11 @@ function newsPics(text) {
 }
 function vNews() {
   const cats = [['', 'All'], ['trade', 'Trades'], ['tx', 'Transactions'], ['inj', 'Injuries'], ['feat', 'Feats'], ['award', 'Awards & honors'], ['draft', 'Draft'], ['coach', 'Coaches'], ['watch', 'Watch list'], ['rumor', 'Rumors'], ['beat', 'Beat reports'], ['feature', 'Features'], ['pipe', 'Pipeline'], ['league', 'League']];
-  const c = ui.ncat || '';
-  const items = L.log.filter(x => !c || (c === 'pipe' ? x.k === 'pipe' : x.cat === c)).slice(0, 250);
+  const c = ui.ncat || '', catN = Object.fromEntries(cats.filter(x => x[0]));
+  const items = L.log.filter(x => !c || (c === 'pipe' ? x.k === 'pipe' : x.cat === c)).slice(0, 400);
   const inj = Object.values(L.players).filter(p => p.team != null && p.injury > 0).sort((a, b) => b.injury - a.injury);
   const when = x => x.phase && (x.phase.startsWith('off') || x.phase === 'season-done') ? 'Offseason' : x.phase === 'playoffs' ? 'Playoffs' : 'Day ' + (x.day + 1);
-  return `<div class="grid2"><section class="panel"><h2>News & events</h2><div class="row" style="margin-bottom:10px">${cats.map(([k, n]) => `<button class="sm chipbtn ${c === k ? 'primary' : ''}" data-ncat="${k}">${n}</button>`).join('')}</div>${items.length ? items.map(x => `<div class="leader" style="grid-template-columns:110px minmax(0,1fr)"><span class="muted">${seasonName(x.season)} · ${when(x)}</span><span>${linkify(x.text)}${x.cat === 'trade' ? newsPics(x.text) : ''}</span></div>`).join('') : '<p class="muted">Nothing here yet.</p>'}</section>
+  return `<div class="grid2"><section class="panel"><h2>News & events</h2><div class="row" style="margin-bottom:10px">${cats.map(([k, n]) => `<button class="sm chipbtn ${c === k ? 'primary' : ''}" data-ncat="${k}">${n}</button>`).join('')}</div>${items.length ? `<div class="tblwrap"><table class="sortable" data-sid="news" data-gf="1"><thead><tr><th class="l">Season</th><th class="l">When</th><th class="l">Category</th><th class="l">Team</th><th class="l">Story</th></tr></thead><tbody>${items.map(x => `<tr><td class="l" data-v="${x.season}">${seasonName(x.season)}</td><td class="l" data-v="${x.season * 10000 + (x.phase === 'playoffs' ? 5000 : x.phase && (x.phase.startsWith('off') || x.phase === 'season-done') ? 9000 : (x.day || 0))}">${when(x)}</td><td class="l muted">${esc(catN[x.k === 'pipe' ? 'pipe' : x.cat] || 'League')}</td><td class="l">${x.tid != null && L.teams[x.tid] ? tlabel(x.tid) : '<span class="muted">—</span>'}</td><td class="l wrapt">${linkify(x.text)}${x.cat === 'trade' ? newsPics(x.text) : ''}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">No news yet.</p>'}</section>
   <section class="panel"><h2>Injury report</h2><p class="muted" style="margin-top:-4px"><a class="lk" href="#injuries">Full report with return dates →</a></p>${inj.length ? `<div class="tblwrap"><table><thead><tr><th class="l">Player</th><th class="l">Team</th><th class="l">Injury</th><th>Out</th></tr></thead><tbody>${inj.slice(0, 15).map(p => `<tr class="click" data-player="${p.id}"><td class="l">${esc(p.name)}</td><td class="l">${tlabel(p.team)}</td><td class="l muted">${esc(p.injName || '')}</td><td>${injGames(p)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">Everyone is healthy.</p>'}</section></div>`;
 }
 // v24.6: league-wide injury report: who's out, how long, when he's back, and who returns soon
@@ -5083,6 +5083,7 @@ function bindView() {
   on('#mktprice', 'click', () => { const t = ptid(); t.priceAuto = true; t.price = null; save(); render(); });
   on('#capdet', 'toggle', e => { ui.capOpen = e.target.open; });
   document.querySelectorAll('details[data-raceopen]').forEach(d => d.addEventListener('toggle', () => { ui.raceOpen = d.open; }));
+  try { gfPrep(); } catch (e) { console.error(e); }   // v39: News & history tables get sort + filters
   applySorts();
   ui.lf = ui.lf || {};
   const setF = (sid, k, v) => { ui.lf[sid] = ui.lf[sid] || {}; ui.lf[sid][k] = v; applyFilters(); };
@@ -5093,6 +5094,57 @@ function bindView() {
   document.querySelectorAll('#main select[data-ft]').forEach(el => el.addEventListener('change', () => setF(el.dataset.ft, 'type', el.value)));
   document.querySelectorAll('#main [data-qf]').forEach(el => el.addEventListener('click', e => { e.stopPropagation(); setF(el.dataset.qf, 'w', el.dataset.qv); document.querySelectorAll(`#main [data-qf="${el.dataset.qf}"]`).forEach(b => b.classList.toggle('primary', b === el)); }));
   applyFilters();
+  try { gfApply(); } catch (e) { console.error(e); }
+}
+// ---------- v39: filters + sort for every table on the News & history pages ----------
+// Tables there become sortable; any table with 6+ rows (or data-gf) gets a filter bar: a text search plus a dropdown for each
+// column with a few repeating values (season, team, award, category...). The choice sticks while you play (ui.gf[sid]).
+const GF_VIEWS = ['preview', 'weekly', 'news', 'stories', 'feed', 'topplays', 'history', 'trophies', 'hofc'];
+ui.gf = {};
+const gfTxt = td => (td ? td.textContent : '').replace(/\s+/g, ' ').trim();
+function gfPrep() {
+  if (!L || ui.player != null || ui.coach != null || ui.gm != null || ui.game != null || !GF_VIEWS.includes(ui.view)) return;
+  const sub = ui.view === 'history' ? (ui.hs != null ? 'hs' + ui.hs : ui.histTab || 'seasons') : '';
+  [...document.querySelectorAll('#main table')].forEach((tb, i) => {
+    if (tb.closest('.modal,.overlay,.help-tbl') || tb.classList.contains('help-tbl') || !tb.tHead || !tb.tBodies[0]) return;
+    if (tb.tHead.rows.length !== 1 || tb.tBodies[0].querySelector('[rowspan],[colspan]')) return;   // grouped tables keep their order
+    if (!tb.dataset.sid) tb.dataset.sid = 'gf-' + ui.view + '-' + sub + '-' + i;
+    tb.classList.add('sortable');
+    const rows = [...tb.tBodies[0].rows].filter(r => !r.classList.contains('nosort'));
+    if (rows.length < 6 && !tb.dataset.gf) return;
+    const sid = tb.dataset.sid, f = ui.gf[sid] || {}, heads = [...tb.tHead.rows[0].cells];
+    const cols = [];
+    heads.forEach((th, ci) => {
+      if (th.classList.contains('nosort')) return;
+      const vals = rows.map(r => gfTxt(r.cells[ci])).filter(v => v && v !== '—');
+      if (!vals.length || vals.every(v => /^[-+$]?[\d.,]+%?$/.test(v))) return;   // numbers: sort, don't list
+      const cnt = {}; for (const v of vals) cnt[v] = (cnt[v] || 0) + 1;
+      const n = Object.keys(cnt).length; if (n < 2 || n > 40 || n > vals.length * 0.7) return;
+      cols.push({ ci, name: gfTxt(th) || 'Column ' + (ci + 1), opts: Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a] || a.localeCompare(b)).slice(0, 40) });
+    });
+    const pri = c => /team|champ|category|award|kind|type|pos/i.test(c.name) ? 0 : /season|year/i.test(c.name) ? 1 : 2;
+    cols.sort((a, b) => pri(a) - pri(b) || a.ci - b.ci);
+    const sel = cols.slice(0, 4).sort((a, b) => a.ci - b.ci).map(c => `<select data-gfc="${c.ci}" aria-label="${esc(c.name)}"><option value="">All · ${esc(c.name)}</option>${c.opts.map(o => `<option value="${esc(o)}" ${(f.c || {})[c.ci] === o ? 'selected' : ''}>${esc(o.length > 40 ? o.slice(0, 38) + '…' : o)}</option>`).join('')}</select>`).join('');
+    const bar = document.createElement('div'); bar.className = 'filters gfbar'; bar.dataset.gfbar = sid;
+    bar.innerHTML = `<input type="search" data-gfq placeholder="Filter rows" value="${esc(f.q || '')}" aria-label="Filter rows" style="width:170px">${sel}${f.q || Object.values(f.c || {}).some(Boolean) ? '<button class="sm" data-gfx>Clear</button>' : ''}<span class="muted" data-gfn style="font-size:12px"></span><span class="muted" style="font-size:12px">Click a column to sort.</span>`;
+    const host = tb.closest('.tblwrap') || tb; host.parentNode.insertBefore(bar, host);
+    const set = (k, v) => { const g = ui.gf[sid] = ui.gf[sid] || {}; if (k === 'q') g.q = v; else { g.c = g.c || {}; g.c[k] = v; } gfApply(); };
+    bar.querySelector('[data-gfq]').addEventListener('input', e => set('q', e.target.value));
+    bar.querySelectorAll('[data-gfc]').forEach(el => el.addEventListener('change', () => set(el.dataset.gfc, el.value)));
+    const x = bar.querySelector('[data-gfx]'); if (x) x.addEventListener('click', () => { delete ui.gf[sid]; render(); });
+  });
+}
+function gfApply() {
+  document.querySelectorAll('#main [data-gfbar]').forEach(bar => {
+    const sid = bar.dataset.gfbar, tb = document.querySelector(`#main table[data-sid="${sid}"]`); if (!tb) return;
+    const f = ui.gf[sid] || {}, q = (f.q || '').toLowerCase().trim(), cs = Object.entries(f.c || {}).filter(([, v]) => v);
+    let n = 0, tot = 0;
+    for (const r of tb.tBodies[0].rows) { if (r.classList.contains('nosort')) continue; tot++;
+      const ok = (!q || r.textContent.toLowerCase().includes(q)) && cs.every(([ci, v]) => gfTxt(r.cells[+ci]) === v);
+      r.style.display = ok ? '' : 'none'; if (ok) n++; }
+    const c = bar.querySelector('[data-gfn]'); if (c) c.textContent = n === tot ? `${tot} rows` : `${n} of ${tot} rows`;
+    const x = bar.querySelector('[data-gfx]'); if (!x && (q || cs.length)) { const b = document.createElement('button'); b.className = 'sm'; b.dataset.gfx = '1'; b.textContent = 'Clear'; b.addEventListener('click', () => { delete ui.gf[sid]; render(); }); bar.insertBefore(b, c); }
+  });
 }
 // ---------- sortable tables: click a header to sort, again to flip; the choice sticks while you play ----------
 ui.tsorts = {};

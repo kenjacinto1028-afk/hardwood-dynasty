@@ -5,6 +5,12 @@ Branch `claude/project-thread-kvxv01`.
 - [x] 3. app.js gfPrep/gfApply: every table on News & history pages sortable + filter bar (search + up to 4 dropdowns)
 - [x] 4. app.js rmNeedsWin: Team needs window on Roster moves (needs, coach playstyles, position depth; team picker on League tab)
 - [ ] 5. Browser test, PROGRESS.md, commit, PR, merge, check live site
+# TASK_STATE — Top 100 single-game records from real NBA data (Opus) — Nov 19 2026
+Branch `claude/project-thread-dhek1n`. Only history single-game lists (NBA_HX.rec.game.RS) grow from ~25 to 100 per stat.
+- [x] 1. Research real lists online: tools/rec-game/*.csv (Basketball-Reference leaders pages) + *_pre.csv (Wikipedia, pre-1983-84 REB/AST/STL)
+- [x] 2. tools/rec-game/merge.py merged into src/nba-history.js (100 per stat, ORB added); app.js records note
+- [x] 3. tools/browser-recgame.js ALL PASS (1280 + 390); opponents fixed from Wikipedia / cross-stat lookup
+- [ ] 4. PROGRESS.md, PR, merge, Pages check
 
 ---
 # TASK_STATE — Every page fills the window (Opus) — Nov 19 2026

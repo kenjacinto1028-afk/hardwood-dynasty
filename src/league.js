@@ -78,7 +78,9 @@ function superArch(p) {
     const cal = SARCH_CAL[n] || [65, 8], v = (archVal(p, s.w) - cal[0]) / cal[1]; if (!best || v > best.v) best = { n, v }; }
   return best ? best.n : undefined;
 }
-function archLabel(p) { return (p.sarch ? '★ ' + p.sarch + ' · ' : '') + (p.arch || []).map(a => (a.e ? 'Elite ' : '') + a.n + ' ' + a.p).join(' + '); }
+// v35: the label everywhere is "[★ superstar type · ] archetype(s) · playstyle" (e.g. "3pt sniper SG · Low-volume shooter"); types=true leaves the playstyle off
+function archTypes(p) { return (p.arch || []).map(a => (a.e ? 'Elite ' : '') + a.n + ' ' + a.p).join(' + '); }
+function archLabel(p, types) { const ps = types ? [] : playstyle(p); return (p.sarch ? '★ ' + p.sarch + ' · ' : '') + archTypes(p) + (ps.length ? ' · ' + ps.join(', ') : ''); }
 // v35 playstyle: the habits and caveats next to the archetype ("3pt sniper · Low-volume shooter"). Up to 2, strongest first.
 function playstyle(p) {
   if (!p || p.t3 == null) return [];
@@ -107,7 +109,6 @@ function playstyle(p) {
   if (p.ft < (big ? 45 : 56)) add('Poor free-throw shooter', 0.3 + ((big ? 45 : 56) - p.ft) / 15);
   return out.sort((a, b) => b.m - a.m).slice(0, 2).map(x => x.txt);
 }
-function archFull(p) { const a = p.arch && p.arch[0], ps = playstyle(p); return (p.sarch ? '★ ' + p.sarch + ' · ' : '') + (a ? (a.e ? 'Elite ' : '') + a.n : 'Balanced') + (ps.length ? ' · ' + ps.join(', ') : ''); }
 const SYS_WANTS = {
   pace: ['PG|3pt sniper', 'PG|Slasher', 'SG|3pt sniper', 'SG|3-and-D', 'SF|Spot-up shooter', 'SF|3-and-D wing', 'SF|Athletic finisher', 'PF|Stretch 4', 'PF|Small-ball 4', 'C|Stretch 5', 'C|Rim runner'],
   inside: ['SF|Rebounding wing', 'SF|Slasher', 'PF|Post scorer', 'PF|Rim runner', 'PF|Glass cleaner', 'C|Post scorer', 'C|Rim runner', 'C|Glass cleaner', 'PG|Floor general'],
@@ -832,8 +833,11 @@ function coachTargets(L, t, kind, tab) {
     // now-score: what he gives this season; dev-score: what he can become, and how many years he has to get there
     const nowSc = p.ovr + need * 8 + (f - 60) * 0.15 + (cov[p.pos] < 2 ? 4 : 0) - (p.age >= 32 ? (p.age - 31) * 2 : 0);
     const devSc = est + (young ? (25 - p.age) * 0.8 : -10) + need * 6 + (f - 60) * 0.2 + (p.ovr - bar) * 0.2;
-    let sc = (1 - lean) * nowSc + lean * devSc;
-    if (needA && need >= 0.5) why.push(`fills a need: ${needA.n} ${needA.p}`);
+    const sf = styleFit(p, c), ps = playstyle(p);   // v35: his habits vs the coach's offense (a pace coach wants volume shooters)
+    let sc = (1 - lean) * nowSc + lean * devSc + sf * 3;
+    if (p.sarch) why.push(`superstar: ${p.sarch}`);
+    if (needA && need >= 0.5) why.push(`fills a need: ${needA.n} ${needA.p}${ps.length ? ' (' + ps[0].toLowerCase() + ')' : ''}`);
+    if (sf >= 0.4) why.push(`his playstyle suits ${OFF_SYS[c.off].name.toLowerCase()}`);
     if (f >= 70) why.push(`fits his ${OFF_SYS[c.off].name.toLowerCase()} / ${DEF_SYS[c.def].name.toLowerCase()} systems (fit ${f})`);
     if (cov[p.pos] < 2) why.push(`thin at ${POS[p.pos]}`);
     if (lean >= 0.5 && young && est >= p.ovr + 4) why.push(`${p.age} with room to grow (coach's read: ${est} potential)`);
@@ -6550,6 +6554,7 @@ function dayDate(L, day) {
 }
 function migrateLeague(L) {
   setSeasonLen(L);
+  if (!L.arch35) { NBA_ON = !!L.nba; for (const p of Object.values(L.players)) if (p && p.pos != null && p.t3 != null) { try { p.arch = archetypes(p); } catch (e) { } } L.arch35 = 1; }   // v35: new archetypes, superstar types and playstyles
   if (!L.askRef) { L.askRef = { f: ASK_REF0[L.nba ? 'nba' : 'pbl'].slice(), q0: ASK_REL.q.slice(), s: 0 }; }   // v33b: saves from before the league-relative asks
   if (!L.advFill) { try { advBackfill(L); } catch (e) { console.error('advBackfill', e); } L.advFill = 1; }   // v33c: PER / WS for sim seasons played before v33c
   setupDivisions(L);

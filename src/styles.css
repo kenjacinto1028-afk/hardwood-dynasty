@@ -998,3 +998,6 @@ body.p3-phone #pb-err { bottom: 76px; }
 .rules-cols > h2 { column-span: all; }
 .rules-cols h3 { break-after: avoid; }
 .rules-cols li, .rules-cols p { break-inside: avoid; }
+/* v35 archetypes: superstar badge + playstyle */
+.pill.sstar { background: linear-gradient(135deg, #f6d365, #d4a017); color: #3a2a00; border-color: #d4a017; font-weight: 700; }
+.psty { color: var(--accent, #c06a1a); font-style: italic; }

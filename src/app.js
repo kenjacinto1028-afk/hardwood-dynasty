@@ -4619,7 +4619,7 @@ function vReview() {
 }
 
 function vRules() {
-  return `<section class="panel" style="max-width:840px"><h2>How ${L && L.nba ? 'the NBA 2026-27 league' : 'the Pacific Basketball League'} works</h2>
+  return `<section class="panel rules-cols"><h2>How ${L && L.nba ? 'the NBA 2026-27 league' : 'the Pacific Basketball League'} works</h2>
   ${L && L.nba && typeof NBA_TEXT !== 'undefined' ? `<h3>NBA mode</h3><ul>${NBA_TEXT.how.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
   <p>${L && L.nba ? 'Thirty teams in the East and West conferences, six divisions of five. 2026-27 rosters and contracts.' : 'Sixteen teams in two conferences: North (Luzon) and South (the Visayas and Mindanao).'} Each team plays ${SEASON_GAMES} games (the season length is chosen when the league is created), mostly against its own conference. Games are simulated possession by possession with four 12-minute quarters, a 24-second shot clock and 5-minute overtimes.</p>
   <h3>Players</h3><p>Height, weight and wingspan shape athleticism, rebounding and defense. Each player has an archetype for his position, such as Pass-first PG or Rim protector. Players rated 80+ can carry a second archetype, 88+ a third, and the best get an Elite version. Each player also has a personality (Loyal, Money-first, Wants to win or Balanced) that shapes contract talks.</p>
@@ -4702,7 +4702,7 @@ function vSetup(note) {
     : { teams: leagueDefs(size).map((d, i) => ({ id: i, city: d[0], name: d[1], abbr: d[2], region: d[3], conf: confOfDef(d), c1: d[4], c2: d[5], logo: d[6] })), mode: 'commish' };
   if (s.team >= size) s.team = 0;
   const keep = L; L = fake; for (const k in logoCache) delete logoCache[k];
-  const html = `<section class="panel" style="max-width:980px;margin:0 auto"><h2>New league</h2>${note ? `<div class="note">${note}</div>` : ''}<p>${nba ? `${NBA_TEXT.setup} A ${g}-game season.` : size === 30 ? `Thirty teams in two conferences of 15: the 16 Philippine teams plus 14 from capital cities around the region. A ${g}-game season. Top 6 per conference make the playoffs; seeds 7–10 play in.` : `Sixteen teams in two conferences: North (Luzon) and South (the Visayas and Mindanao). ${g}-game seasons. Top 3 per conference make the playoffs; seeds 4–5 play in.`} ${nba ? '' : 'Every player starts new to the league, on contracts based on his rating.'}</p>
+  const html = `<section class="panel"><h2>New league</h2>${note ? `<div class="note">${note}</div>` : ''}<p>${nba ? `${NBA_TEXT.setup} A ${g}-game season.` : size === 30 ? `Thirty teams in two conferences of 15: the 16 Philippine teams plus 14 from capital cities around the region. A ${g}-game season. Top 6 per conference make the playoffs; seeds 7–10 play in.` : `Sixteen teams in two conferences: North (Luzon) and South (the Visayas and Mindanao). ${g}-game seasons. Top 3 per conference make the playoffs; seeds 4–5 play in.`} ${nba ? '' : 'Every player starts new to the league, on contracts based on his rating.'}</p>
   <h3>League</h3><div class="choice"><button data-setnba="0" class="${!nba ? 'on' : ''}"><strong>Pacific Basketball League</strong><br><span class="muted">Fictional league, generated players</span></button><button data-setnba="1" class="${nba ? 'on' : ''}"><strong>NBA 2026-27</strong><br><span class="muted">Teams, rosters, contracts and coaches as of Nov 2026. East / West, 6 divisions, play-in 7–10</span></button></div>
   ${nba ? '' : `<div class="choice"><button data-setsize="30" class="${size === 30 ? 'on' : ''}"><strong>30 teams</strong><br><span class="muted">Philippines plus 14 capital cities in the region</span></button><button data-setsize="16" class="${size === 16 ? 'on' : ''}"><strong>16 teams (classic)</strong><br><span class="muted">The original Philippine league</span></button></div>`}
   <h3>Season length</h3><div class="choice">${[[82, 'Full season', 'The default. About 156 days, a little slower to sim.'], [66, 'Medium', 'A shorter season with the same rules.'], [58, 'Short (classic)', 'The original length.']].map(([n, nm, d]) => `<button data-setgames="${n}" class="${g === n ? 'on' : ''}"><strong>${n} games</strong> <span class="muted">· ${nm}</span><br><span class="muted">${d}</span></button>`).join('')}</div>
@@ -4951,7 +4951,7 @@ function render() {
   html = undoBar() + html;
   if (ui.backDlg && (ui.player != null || ui.coach != null || ui.gm != null || ui.view === 'teams' || ui.team != null)) html = `<div class="backdlg"><button class="sm primary" id="b-backdlg">← Back to popup</button></div>` + html;
   $('#main').innerHTML = html;
-  document.body.classList.toggle('wide', ['myteam', 'draft', 'trades', 'players', 'fa', 'pipeline', 'stats', 'awards', 'teams'].includes(ui.view) && ui.gm == null && ui.coach == null && ui.game == null);   // v37a: wide tables use the full window
+  document.body.classList.add('wide');   // v39: every page uses the full window
   { const b = $('#b-undo'); if (b) b.onclick = doUndo; }
   { const b = $('#b-backdlg'); if (b) b.onclick = () => { const f = ui.backDlg; ui.backDlg = null; render(); if (f) runDialog(f); }; }
   ui.cur = snapNow();

@@ -1,5 +1,6 @@
 # PBL progress
 
+<<<<<<< HEAD
 ## My Career, Phase 4: career life (Opus, Nov 19 2026)
 - [x] Interviews: after about 1 in 6 pro games, and always after 30+ points, a 3+ game losing streak, the first playoff game and an expiring contract at the trade deadline. 30 questions picked by situation, 3 answers each; answers move fame, coach trust and team chemistry. Popup, quote result, history (last 5 on the hub).
 - [x] Locker room: chemistry (0-100) and a relationship score (-100 to 100) with the coach and every teammate. Weekly events shift them. Good chemistry gives teammates up to +0.6 form and lifts his mood. Talk to coach once a week for a bigger role (odds from trust, his overall vs his position rivals, recent grades).
@@ -15,6 +16,12 @@
 - [x] Legend meter (0-100: Prospect to GOAT conversation) from legacy score, awards and achievements, with a Hall of Fame tracker (on pace / not yet) in the hub header.
 - [x] Awards chips and a sortable season-by-season stats table on the hub.
 - Old saves work: all new fields default to empty. Test: tools/browser-career.js (badge buy, achievement, Legend meter) ALL PASS at 1300 + 390.
+=======
+## Walker Kessler rework (Sonnet, Nov 19 2026)
+- [x] Paint-only big: no threes (3P 22, 3PT tendency 1), poor free throws (FT 40), finishes at the rim, rebounds. Elite rim protector: Block 79, Interior D 80, shot contest 97 (highest in the league).
+- [x] Shows as "Rim protector C · Low usage, Poor free-throw shooter". Set in `NBA_SET` (src/nba-setup.js); new leagues only.
+- [x] 5 one-season sims (tools/kessler.js, seeds 1-5): avg 14.5 pts, 10.6 reb, 2.6 blk, 0.0 3PA, 58% FT, 72% FG, 31.7 min.
+>>>>>>> origin/main
 
 ## My Career, Phase 2: pro games (Opus, Nov 19 2026)
 - [x] As a pro, the sim stops on your team's games (choose: every game / big games / never; big = playoffs, rivalries, every 5th game). Play or Sim.

@@ -565,7 +565,12 @@ const NBA_ADJ = {
   'Stephon Castle': PS3, 'Shai Gilgeous-Alexander': PS3, 'Derrick White': PS3,
   'Anthony Davis': BLK3, 'Nic Claxton': BLK3, 'Rudy Gobert': BLK3,
   'Ivica Zubac': { fin: 2, orb: 3, drb: 3, pdf: 3 },                                              // a bit better: finishing, rebounding, defense (not overboard)
-  'Walker Kessler': { blk: 3, pdf: 3, fin: -3, mid: -3, tp: -3, pst: -3, drw: -3, pas: -3, hnd: -3 }  // better defensive big (rim + defense up), offense attributes down
+};
+// Exact values (not +/-) for players reworked to a set profile, ratings and tendencies. Applied after NBA_ADJ.
+// Walker Kessler (Nov 19): no threes, offense in the paint, poor free throws, elite rim protector (2 blocks, top shot contest), ~14 pts / 10 reb
+const NBA_SET = {
+  'Walker Kessler': { tp: 22, mid: 30, ft: 40, fin: 73, pst: 42, drw: 50, hnd: 28, pas: 38, orb: 72, drb: 77, blk: 79, pdf: 80, per: 44,
+    t3: 1, tmd: 6, trm: 92, tps: 18, tpa: 24, tbd: 26, tcs: 20, tcr: 55, tct: 97, qk: null, tv: null }
 };
 const NBA_OVR_ADJ = { 'Joel Embiid': -5 };                                                         // exactly -5 overall
 const NBA_PRONE = { 'Kawhi Leonard': 1, 'Joel Embiid': 1 };                                       // injury prone: at least "Fragile" (ipt 2, dur 40-ish); ipt 3 = very fragile
@@ -573,9 +578,10 @@ const NBA_PERM_GRUDGE = { 'Luka Doncic': 'DAL' };                               
 function nbaApplyRatings(L) {
   const rep = [];
   for (const p of Object.values(L.players)) {
-    if (!p.real) continue; const a = NBA_ADJ[p.name], o = NBA_OVR_ADJ[p.name], pr = NBA_PRONE[p.name]; if (!a && o == null && !pr) continue;
+    if (!p.real) continue; const a = NBA_ADJ[p.name], o = NBA_OVR_ADJ[p.name], pr = NBA_PRONE[p.name], st = NBA_SET[p.name]; if (!a && o == null && !pr && !st) continue;
     const before = p.ovr;
     if (a) for (const k in a) p[k] = r99(p[k] + a[k]);
+    if (st) for (const k in st) p[k] = st[k] == null ? st[k] : r99(st[k]);
     p.ovr = ovr(p);
     if (o != null) { const want = before + o, K = [...OFF, ...DEF, 'iq'].filter(k => k !== 'ft' && k !== 'fdc'); for (let i = 0; i < 400 && ovr(p) !== want; i++) { const k = K[i % K.length]; p[k] = r99(p[k] + (ovr(p) > want ? -1 : 1)); } p.ovr = ovr(p); }
     if (pr && (p.ipt == null || p.ipt < 2)) { p.ipt = 2; p.dur = r99(IPT_DUR[2] + gauss(0, 2)); }

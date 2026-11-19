@@ -2825,6 +2825,7 @@ function moraleParts(L, p) {
   parts.fit = clamp((fit(p, t.coach) - 60) * 0.15, -4, 3);
   const ts = tradeStatus(L, p); if (ts && ts.k === 'block' && !p.tradeReq) parts.shopped = -8;
   if (familyOn(L, p, t)) parts.family = 4;
+  if (p.career && L.career && L.career.chem != null) parts.chem = clamp((L.career.chem - 50) / 12, -4, 4);   // My Career: locker-room chemistry
   if (p.mentor != null && t.coach && t.coach.id === p.mentor && (p.svc || 0) >= 3) parts.mentor = 3;
   if ((p.friction || []).includes(t.coach.id)) parts.friction = -4;
   { const ps = promiseState(L, p); if (ps === 'broken') parts.promise = -8; else if (ps === 'kept') parts.promise = 2; }   // v26.1
@@ -2836,7 +2837,7 @@ function updateMorale(L) {
   for (const t of L.teams) for (const p of rosterOf(L, t)) {
     if (p.morale == null) p.morale = 60;
     const parts = moraleParts(L, p); if (!parts) continue;
-    const target = clamp(60 + ['minutes', 'winning', 'pay', 'loyalty', 'fit', 'shopped', 'family', 'mentor', 'friction', 'promise', 'locker', 'feud', 'talk', 'gmPromise', 'susp'].reduce((a, k) => a + (parts[k] || 0), 0), 0, 100);
+    const target = clamp(60 + ['minutes', 'winning', 'pay', 'loyalty', 'fit', 'shopped', 'family', 'mentor', 'friction', 'promise', 'locker', 'feud', 'talk', 'gmPromise', 'susp', 'chem'].reduce((a, k) => a + (parts[k] || 0), 0), 0, 100);
     noteMentor(L, p);
     p.morale = Math.round(clamp(p.morale + 0.35 * (target - p.morale), 0, 100));
     p.moraleParts = parts;
@@ -2848,7 +2849,7 @@ function updateMorale(L) {
       p.tx.push({ s: L.season, t: `Requested a trade from ${t.abbr}` });
       logNews(L, `${p.name} (${t.abbr}) has requested a trade${parts.minutes != null && parts.minutes < -8 ? ': he wants more minutes' : parts.winning < -6 ? ': he wants to win' : parts.pay != null && parts.pay < -6 ? ': he feels underpaid' : ''}`, t.id, 'tx');
     }
-    if (p.tradeReq === L.season && p.morale >= 50) p.tradeReq = null;     // patched things up
+    if (p.tradeReq === L.season && p.morale >= 50 && !p.career) p.tradeReq = null;     // patched things up
   }
   manageMoods(L);
 }
@@ -4253,6 +4254,7 @@ function extensionDeadline(L) {
   for (const t of L.teams) {
     if (t.id === L.user) continue;
     for (const p of rosterOf(L, t)) {
+      if (p.career && L.career) continue;   // My Career: his extension is his own choice
       const rookieEarly = p.contract && p.contract.type === 'rookie' && p.contract.exp === L.season + 1 && (p.ovr >= 66 || p.scout >= 74);
       if (!(p.contract && (p.contract.exp === L.season || rookieEarly) && (p.contract.len || 0) >= 3 && !p.ext)) continue;
       const want = (t.mode === 'tank' && p.age >= 28) ? false : rotationOf(L, t).some(x => x.id === p.id) || (p.age <= 24 && p.scout >= 72);
@@ -5324,6 +5326,7 @@ function startResign(L) {
     for (const p of exp) {
       if (p.bet && p.bet.s === S) { const won = superOK(L, p); if (p.ovr >= 70) logNews(L, won ? `${p.name} bet on himself and won: he's eligible for the supermax with ${t.abbr}` : p.mval < maxFor(p) * 0.85 ? `${p.name} bet on himself and lost: no award, and his market value is ${money(p.mval)}` : `${p.name} bet on himself: no award, but he'll still be paid well (value ${money(p.mval)})`, t.id, 'tx'); p.bet = null; }
       setAsk(L, p); p.ask = Math.min(maxForTeam(L, p, t.id), r1(Math.max(MINSAL, p.ask * loyDisc(p)))); if (p.ask < 1.5) p.ask = MINSAL;
+      if (p.career && L.career && L.career.testFA === S) { p.tx.push({ s: S, t: `Tested free agency (left ${t.abbr})` }); toFA(L, p); continue; }   // My Career
       if (t.id === L.user) { L.resign.push(p.id); continue; }
       const icon = iconTier(L, p, t.id);   // v27 L2: a franchise icon is kept, whatever the plan
       const rs = resignDecide(L, t, p, icon);   // v32e: team side (wants him, pays) + player side (several reasons to leave), all chances
@@ -5698,6 +5701,7 @@ function startFA(L) {
   topUpFA(L, 40);
   L.faDay = 1; L.phase = 'off-fa'; L.faOffers = {}; L.faEvents = []; L.faBids = {};
   refreshTradeStatus(L);
+  if (L.career && typeof careerFaStart === 'function') { try { careerFaStart(L); } catch (e) { console.error(e); } }   // My Career
 }
 // A cheap player a team would cut to make room (no dead money)
 function cuttable(L, t) {
@@ -5887,6 +5891,7 @@ function submitFAOffer(L, pid, amt, yrs, opt, extra) {
 function withdrawFAOffer(L, pid) { if (L.faOffers) delete L.faOffers[pid]; const p = L.players[pid]; if (p) p.faTalk = null; }
 function faDay(L) {
   L.faEvents = [];
+  if (L.career && typeof careerFaDay === 'function') { try { careerFaDay(L, false); } catch (e) { console.error(e); } }   // My Career: hold-out / auto-sign
   processPending(L); processOffers(L);
   if (R() < 0.4) aiOfferToUser(L);
   try { winFirstFA(L); } catch (e) { }   // v32e
@@ -5905,6 +5910,7 @@ function faDay(L) {
   if (L.faDay > 10) { if ((L.summer || {}).s !== L.season) { try { summerLeague(L); } catch (e) { } } revealRookies(L);   // v16: summer league and the reveal come after free agency
     for (const id of L.fa.slice()) { const q = L.players[id]; if (q && q.sheet && isRFA(L, q)) { if (q.rfa.tid === L.user) sheetDecide(L, q, false, 'you didn\'t match in time'); else resolveSheet(L, q, true); } }
     L.phase = 'off-ready'; L.faOffers = {}; for (const id of L.fa) { const q = L.players[id]; if (q) { q.rfa = null; q.sheet = null; } } for (const id of L.fa) { const q = L.players[id]; if (q) q.faTalk = null; } }
+  if (L.career && typeof careerFaDay === 'function') { try { careerFaDay(L, true); } catch (e) { console.error(e); } }
 }
 // Fill AI rosters to 13-15 with position coverage; report problems for the user's team
 function finalizeRosters(L) {

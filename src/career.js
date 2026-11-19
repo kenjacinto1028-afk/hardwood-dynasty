@@ -57,7 +57,7 @@ function carCreate(L, o) {
   p.pl = lg; p.pt = ti; p.pFrom = L.season;
   { const tm = L.pipe.lg[lg].t[ti]; if (tm.f.length) tm.f.splice(tm.f.reduce((m, f, k, a) => f.o < a[m].o ? k : m, 0), 1); }
   p.tx.push({ s: L.season, t: `Joined ${pipeTeamName(lg, ti)} (${lg})` });
-  L.career = { pid: p.id, story: o.story, style: o.style || '', lg, team: ti, s0: L.season, xp: 40, xpTot: 40, games: [], log: [], ups: {}, cur: null, trust: 50, stop: 'all', pro: [] };
+  L.career = { pid: p.id, story: o.story, style: o.style || '', lg, team: ti, s0: L.season, xp: 40, xpTot: 40, games: [], log: [], ups: {}, cur: null, trust: 50, stop: 'all', pro: [], chem: 50, rel: {}, iv: [], nf: {}, lastTeam: null };
   carLog(L, `Your story begins: ${st.n}. You start at ${pipeTeamName(lg, ti)} (${lg}).`);
   carSchedule(L);
   return p;
@@ -120,9 +120,11 @@ function careerDay0(L, games) {
     const opp = side === 0 ? g.away : g.home, us = side === 0 ? g.hs : g.as, them = side === 0 ? g.as : g.hs;
     const e = { s: L.season, gid: g.id, po: !!g.playoff, tid, opp, home: side === 0, win, us, them, line, gr, xp, played, res: played ? fx.res : null };
     C.pro.push(e); if (C.pro.length > 40) C.pro.shift(); carTally(C, line, true, gr, win);
+    try { carGameNews(L, p, e, line); carIvCheck(L, p, e, line); } catch (err) { console.error(err); }
     if (played) C.lastRes = e;
     if (gr >= 7 && line.pts >= 30) carLog(L, `${line.pts} points vs ${(L.teams[opp] || {}).abbr || ''}. A+ game.`);
   }
+  try { carDayLife(L, p); } catch (err) { console.error(err); }
 }
 // ---------- pro games ----------
 // today's game for his team (regular season or playoffs), or null
@@ -158,10 +160,11 @@ function careerMinutes(league, avail, target) {
 }
 // engine hook (playGame0): apply today's decisions to his side
 function careerGameFx(league, H, A) {
-  const C = league.career; if (!C) return; const fx = C.proFx, bf = carBadgeForm(league);
-  if (!fx && !bf.o && !bf.d) return;
+  const C = league.career; if (!C) return; const fx = C.proFx, bf = carBadgeForm(league), cb = C.chem != null ? clamp((C.chem - 50) / 50, 0, 1) * 0.6 : 0;   // good chemistry: teammates +0..0.6 form
+  if (!fx && !bf.o && !bf.d && !cb) return;
   for (const g of [H, A]) { const p = g.players.find(x => x.id === C.pid); if (!p || !g.form[p.id]) continue;
     g.form[p.id].o += (fx ? fx.o : 0) + bf.o; g.form[p.id].d += (fx ? fx.d : 0) + bf.d;
+    if (cb) for (const q of g.players) if (q !== p && g.form[q.id]) g.form[q.id].o += cb;
     if (!fx) continue;
     g.ub[p.id] = (g.ub[p.id] || 1) * fx.ub;
     for (const q of g.players) if (q !== p && g.form[q.id]) g.form[q.id].o += fx.tm; }
@@ -377,6 +380,7 @@ function carCheck(L) {
   for (const b of CAR_BADGES) { const t = carBadgeTier(b, C.tot), have = C.badges[b.k]; if (t >= 0 && (have == null || t > have)) { C.badges[b.k] = t; C.pop.push({ t: 'badge', n: `${b.n}: ${CAR_TIERS[t]}`, d: 'Earned from your stats' }); carLog(L, `Earned the ${b.n} badge (${CAR_TIERS[t]}).`); } }
   for (const a of CAR_ACH) { if (C.ach[a.k] != null) continue; let ok = false; try { ok = a.f(L, p, C); } catch (e) { } if (!ok) continue;
     C.ach[a.k] = L.season; C.xp += a.xp; C.xpTot += a.xp; C.pop.push({ t: 'ach', n: a.n, d: a.t, xp: a.xp }); carLog(L, `Achievement unlocked: ${a.n} (+${a.xp} XP).`); }
+  try { carLifeCheck(L); } catch (e) { console.error(e); }
 }
 // ---------- Legend meter ----------
 const CAR_LEGEND = [[0, 'Prospect'], [10, 'Rotation player'], [25, 'Starter'], [40, 'All-Star'], [55, 'Superstar'], [75, 'Legend'], [90, 'GOAT conversation']];
@@ -390,6 +394,254 @@ function carLegend(L) {
   const per = n ? Math.max(0, base / n) : Math.max(0, ((p.ovr || 0) + (p.pot || 0)) / 2 - 55) * 7, proj = Math.round(s + yrs * per * 0.8);
   return { s: Math.round(s), v, tier: CAR_LEGEND[ti][1], ti, next: CAR_LEGEND[ti + 1] || null, need, proj, hof: !!p.hof, on: !!p.hof || proj >= need };
 }
+
+// ===================== Phase 4: career life (interviews, relations, news, trade requests, contracts) =====================
+const CAR_OFF = ['off-review', 'off-lottery', 'off-draft', 'off-resign', 'off-fa', 'off-ready'];
+const CAR_MODE = { contend: 'Contender', hopeful: 'Playoff hopeful', rebuild: 'Rebuilding', tank: 'Tanking' };
+const carTx = () => typeof CAR_TEXT !== 'undefined' && CAR_TEXT ? CAR_TEXT : { iv: [], news: {}, rel: {} };
+const carFmt = (s, o) => String(s).replace(/\{(\w+)\}/g, (m, k) => o[k] != null ? o[k] : m);
+const carTm = (L, t) => t != null && L.teams[t] ? L.teams[t].city + ' ' + L.teams[t].name : 'the league';
+const carNum = n => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+// every new field has a default, so old saves load
+function carInit(L) {
+  const C = L.career; if (!C) return C; const p = carP(L);
+  if (C.chem == null) C.chem = 50;
+  C.rel = C.rel || {}; C.iv = C.iv || []; C.nf = C.nf || {}; C.ivGap = C.ivGap || 0;
+  if (C.lastTeam === undefined) C.lastTeam = p && p.team != null ? p.team : null;
+  if (C.ltSeen === undefined) C.ltSeen = p && p.lastTrade != null ? p.lastTrade : null;
+  return C;
+}
+const carMates = L => { const p = carP(L); return p && p.team != null && L.teams[p.team] ? rosterOf(L, L.teams[p.team]).filter(q => q.id !== p.id).sort((a, b) => b.ovr - a.ovr) : []; };
+const carCoach = L => { const p = carP(L), t = p && p.team != null ? L.teams[p.team] : null; return t && t.coach ? t.coach : null; };
+// ---------- news: milestones in the league log ----------
+function carNews(L, key, o) {
+  const p = carP(L); let arr = (carTx().news || {})[key]; if (!arr || !arr.length || !p) return null; o = o || {};
+  const tid = o.tid != null ? o.tid : p.team;
+  const ok = arr.filter(s => !(/\{opp\}/.test(s) && o.opp == null) && !(/\{pts\}/.test(s) && o.pts == null) && !(/\{n\}/.test(s) && o.n == null)); if (ok.length) arr = ok;
+  const txt = carFmt(pick(arr), { name: p.name, team: carTm(L, tid), opp: o.opp != null ? carTm(L, o.opp) : 'the opposition', pts: o.pts != null ? o.pts : '', n: o.n != null ? o.n : '' });
+  logNews(L, txt, tid, o.cat || 'feat', 'car'); return txt;
+}
+function carGameNews(L, p, e, line) {
+  const C = L.career, nf = C.nf, o = { tid: e.tid, opp: e.opp, pts: line.pts };
+  if (!nf.debut) { nf.debut = L.season; carNews(L, 'debut', o); }
+  let top = 0; for (const k of [20, 30, 40]) if (line.pts >= k && !nf['f' + k]) { nf['f' + k] = L.season; top = k; }
+  if (top) carNews(L, 'first' + top, o);
+  if ([line.pts, line.reb, line.ast, line.stl, line.blk].filter(x => x >= 10).length >= 3) carNews(L, 'tripleDouble', Object.assign({ n: line.pts }, o));
+  const after = (C.tot || {}).pts || 0, before = after - line.pts;
+  for (const [th, key] of [[1000, 'milestone1k'], [10000, 'milestone10k']]) if (before < th && after >= th && !nf['m' + th]) { nf['m' + th] = L.season; carNews(L, key, Object.assign({}, o, { n: carNum(th) })); }
+}
+const CAR_AWK = [[/^Rookie of the Year/, 'roy'], [/^Finals MVP$/, 'fmvp'], [/^MVP$/, 'mvp'], [/^Defensive Player of the Year$/, 'dpoy'], [/^All-Star$/, 'allStar'], [/^Champion$/, 'title']];
+function carNewsCheck(L) {
+  const p = carP(L), C = carInit(L), aw = p.awards || []; if (C.awN == null) { C.awN = aw.length; return; }
+  for (const a of aw.slice(C.awN)) { const m = CAR_AWK.find(([rx]) => rx.test(a.a)); if (m) carNews(L, m[1], { cat: 'award' }); }
+  C.awN = aw.length;
+  if (p.retired && !C.nf.ret) { C.nf.ret = 1; carNews(L, 'legend', { n: (p.hist || []).length, cat: 'award' }); }
+  const n = (p.contracts || []).length;
+  if (C.nCon == null) C.nCon = n; else if (n > C.nCon) { const c = p.contracts[n - 1]; C.nCon = n; if (c) { if (c.type === 'signing' || c.type === 're-sign') carNews(L, 'signed', { tid: c.tid, cat: 'tx' }); else if (c.type === 'extension') carNews(L, 'extension', { tid: c.tid, cat: 'tx' }); } }
+}
+// ---------- relationships ----------
+function carRelBase(L, q) {
+  const p = carP(L); let s = 8;
+  if (q.pos === p.pos && q.ovr > p.ovr + 2) s -= 6;
+  if (q.age <= 21) s += 4; if (q.pers === 'Mentor') s += 4;
+  try { if (rivalsOf(L, p).some(x => x.other && x.other.id === q.id)) s -= 30; } catch (e) { }
+  try { if (typeof duoYears === 'function') s += Math.min(18, duoYears(L, p.id, q.id) * 6); } catch (e) { }
+  return clamp(s, -100, 100);
+}
+function carRelOf(L, key) {
+  const C = carInit(L); if (C.rel[key] != null) return C.rel[key];
+  if (key === 'c') { const co = carCoach(L), p = carP(L); return clamp(10 + Math.round((C.trust - 50) / 5) - (co && (p.friction || []).includes(co.id) ? 15 : 0), -100, 100); }
+  const q = L.players[key]; return q ? carRelBase(L, q) : 0;
+}
+function carRelAdd(L, key, d) { const C = carInit(L); C.rel[key] = clamp(Math.round(carRelOf(L, key) + d), -100, 100); }
+const carChemWord = c => c >= 75 ? 'Tight' : c >= 58 ? 'Good' : c >= 42 ? 'Okay' : c >= 25 ? 'Tense' : 'Toxic';
+function carRelEvent(L) {
+  const T = carTx().rel || {}, keys = Object.keys(T).filter(k => T[k] && T[k].length), mates = carMates(L), co = carCoach(L); if (!keys.length || !mates.length) return null;
+  const young = mates.filter(q => q.age <= 22), w = keys.map(k => k === 'rookieHaze' || k === 'mentor' ? (young.length ? 1 : 0) : k === 'beef' ? 0.7 : 1), k = wpick(keys, w), ev = pick(T[k]);
+  const mate = (k === 'rookieHaze' || k === 'mentor') && young.length ? pick(young) : pick(mates), d = (ev.fx && ev.fx.chem) || 0, C = L.career;
+  const txt = carFmt(ev.t, { mate: mate.name, coach: co ? co.name : 'Coach', name: carP(L).name });
+  C.chem = clamp(C.chem + d, 0, 100);
+  if (/\{mate\}/.test(ev.t)) carRelAdd(L, mate.id, d * 4); if (/\{coach\}/.test(ev.t)) carRelAdd(L, 'c', d * 4);
+  carLog(L, txt); return { k, txt, d };
+}
+function carWeek(L, p) {
+  const C = carInit(L), mates = carMates(L); if (!mates.length) return;
+  if (R() < 0.75) carRelEvent(L);
+  const avg = mates.slice(0, 8).reduce((a, q) => a + carRelOf(L, q.id), 0) / Math.max(1, Math.min(8, mates.length)), t = L.teams[p.team], g = t.w + t.l, wp = g >= 5 ? t.w / g : 0.5;
+  C.chem = clamp(Math.round((C.chem + clamp((50 + avg * 0.6 - C.chem) * 0.12, -2, 2) + (wp - 0.5) * 3) * 10) / 10, 0, 100);
+}
+// ask the coach for a bigger role: once a week
+const carTalkKey = L => L.phase === 'regular' ? L.season + ':w' + Math.floor(L.day / 7) : L.season + ':' + L.phase;
+function carTalkOK(L) { const p = carP(L); if (!p || p.prospect || p.team == null || !L.teams[p.team]) return 'You need a team first.'; if (carInit(L).talk === carTalkKey(L)) return 'You already talked to the coach this week.'; return null; }
+function carTalkChance(L) {
+  const C = carInit(L), p = carP(L), rv = carMates(L).filter(q => q.pos === p.pos || q.pos2 === p.pos || (p.pos2 != null && q.pos === p.pos2)), best = rv.length ? rv[0].ovr : p.ovr - 6;
+  const gr = C.pro.slice(-5).map(e => e.gr), g = gr.length ? gr.reduce((a, b) => a + b, 0) / gr.length : 3.5;
+  return clamp(0.32 + (C.trust - 50) / 110 + (p.ovr - best) / 45 + (g - 3.5) * 0.045 + carRelOf(L, 'c') / 400, 0.08, 0.88);
+}
+function carTalk(L) {
+  const err = carTalkOK(L); if (err) return { err }; const C = carInit(L), p = carP(L), co = carCoach(L), ch = carTalkChance(L), ok = R() < ch, nm = co ? co.name : 'The coach';
+  C.talk = carTalkKey(L); let msg;
+  if (ok) { const d = rint(4, 8); C.trust = clamp(C.trust + d, 0, 100); carRelAdd(L, 'c', 8); msg = `${nm} hears you out and agrees to give you a bigger role. Coach trust +${d}.`; }
+  else { const d = rint(1, 4); C.trust = clamp(C.trust - d, 0, 100); carRelAdd(L, 'c', -5); if (ch < 0.3) C.chem = clamp(C.chem - 1, 0, 100); msg = `${nm} says you have to earn it first. Coach trust -${d}.`; }
+  C.talkRes = { ok, msg, s: L.season, d: L.day }; carLog(L, 'Talked to the coach about your role. ' + msg); return { ok, msg, chance: ch };
+}
+// ---------- interviews ----------
+function carIvFind(k) { return (carTx().iv || []).find(q => q.k === k) || null; }
+function carIvFmt(L, s, ctx) { const co = carCoach(L), p = carP(L); ctx = ctx || {}; return carFmt(s, { name: p.name, team: carTm(L, p.team), opp: ctx.opp != null ? carTm(L, ctx.opp) : 'the other team', coach: co ? co.name : 'Coach', pts: ctx.pts != null ? ctx.pts : '' }); }
+function carIvAsk(L, when, ctx) {
+  const C = carInit(L); if (C.ivQ) return C.ivQ; const Q = carTx().iv || [], recent = C.iv.slice(0, 8).map(x => x.k);
+  let pool = Q.filter(q => q.when === when && !recent.includes(q.k)); if (!pool.length) pool = Q.filter(q => q.when === when); if (!pool.length) pool = Q.filter(q => q.when === 'any'); if (!pool.length) return null;
+  const q = pick(pool); C.ivQ = { k: q.k, when, ctx: ctx || {}, s: L.season, d: L.day, shown: false }; C.ivGap = 0; return C.ivQ;
+}
+function carIvAnswer(L, i) {
+  const C = carInit(L), p = carP(L), Q = C.ivQ, q = Q && carIvFind(Q.k), a = q && q.a[i]; if (!a) return null; const fx = a.fx || {};
+  p.fameBase = (p.fameBase || 0) + (fx.fame || 0); p.fame = clamp((p.fame || 0) + (fx.fame || 0), 0, 100);
+  C.trust = clamp(C.trust + (fx.trust || 0), 0, 100); C.chem = clamp(C.chem + (fx.chem || 0), 0, 100); if (fx.trust) carRelAdd(L, 'c', fx.trust * 2);
+  const rec = { s: L.season, d: L.day, k: q.k, when: Q.when, q: carIvFmt(L, q.q, Q.ctx), t: carIvFmt(L, a.t, Q.ctx), tone: a.tone, fx: { fame: fx.fame || 0, trust: fx.trust || 0, chem: fx.chem || 0 }, tm: p.team };
+  C.iv.unshift(rec); if (C.iv.length > 40) C.iv.length = 40; C.ivQ = null; carLog(L, `Told reporters: "${rec.t}"`); return rec;
+}
+function carIvCheck(L, p, e, line) {
+  const C = carInit(L); C.ivGap = (C.ivGap || 0) + 1; if (C.ivQ) return;
+  const pro = C.pro; let loss = 0; for (let i = pro.length - 1; i >= 0 && !pro[i].win; i--) loss++;
+  let when = null;
+  if (e.po && !pro.slice(0, -1).some(x => x.po && x.s === e.s)) when = 'playoffs';
+  else if (L.phase === 'regular' && p.contract && p.contract.exp <= L.season && L.day >= deadlineDay(L) && C.ivCon !== L.season) { when = 'contract'; C.ivCon = L.season; }
+  else if (line.pts >= 30) when = 'hot';
+  else if (loss >= 3 && C.ivGap >= 3) when = 'slump';
+  else if (C.ivGap >= 2 && R() < 1 / 6) {
+    const rook = !(p.hist || []).some(h => h.rs && h.rs.gp), moved = C.movedS === L.season && L.day - (C.movedD || 0) < 15;
+    when = moved && R() < 0.4 ? 'trade' : p.tradeReq === L.season && R() < 0.4 ? 'trade' : rook && R() < 0.35 ? 'rookie' : R() < 0.2 ? 'any' : e.win ? 'win' : 'loss';
+  }
+  if (when) carIvAsk(L, when, { opp: e.opp, pts: line.pts, win: e.win, home: e.home });
+}
+// ---------- trade requests ----------
+function carTradeErr(L) {
+  const p = carP(L); if (!p || p.prospect || p.team == null || p.retired) return 'You need to be on a team first.';
+  if (p.tradeReq === L.season) return 'You already asked for a trade.';
+  if (!((L.phase === 'regular' && L.day < deadlineDay(L)) || CAR_OFF.includes(L.phase))) return 'Trade requests are only possible in the regular season before the deadline, or in the offseason.';
+  return null;
+}
+function carReqTrade(L) {
+  const err = carTradeErr(L); if (err) return { err }; const C = carInit(L), p = carP(L), t = L.teams[p.team], co = t.coach;
+  p.tradeReq = L.season; C.trust = clamp(C.trust - 12, 0, 100); C.chem = clamp(C.chem - 8, 0, 100); carRelAdd(L, 'c', -15);
+  if (co && !(p.friction || []).includes(co.id)) p.friction = (p.friction || []).concat(co.id);
+  p.tx.push({ s: L.season, t: `Requested a trade from ${t.abbr}` });
+  carNews(L, 'tradeRequest', { cat: 'tx' }); carLog(L, `You asked ${t.abbr} for a trade. Coach trust and team chemistry took a hit.`);
+  if (CAR_OFF.includes(L.phase) && inTradeWindow(L) && R() < 0.5) carTradeTry(L, 40);
+  return { ok: true };
+}
+// the AI trades him more readily: while he has asked out, the front office works the phones (only deals that send him away count)
+function carTradeTry(L, tries) {
+  const p = carP(L); if (!p || p.team == null || p.tradeReq !== L.season || !inTradeWindow(L) || L.mode === 'commish' || tradeRestricted(L, p)) return false;
+  for (let i = 0; i < (tries || 24); i++) {
+    let tr = null; try { tr = aiTradeAttempt(L, p.team, undefined); } catch (e) { tr = null; }
+    if (!tr || !tr.bGive.players.includes(p.id) || tr.bGive.players.length > 1 + 1) continue;
+    try { if (!afterTradeOK(L, tr)) continue; addWhy(L, tr); executeTrade(L, tr); countDeal(L, tr); } catch (e) { console.error(e); return false; }
+    carTeamCheck(L); return true;
+  }
+  return false;
+}
+// a new team: popup, and chemistry / relationships start over
+function carTeamCheck(L) {
+  const p = carP(L); if (!p || p.prospect || p.team == null) return; const C = carInit(L);
+  if (C.lastTeam == null) { C.lastTeam = p.team; C.ltSeen = p.lastTrade != null ? p.lastTrade : null; return; }
+  if (C.lastTeam === p.team) { if (p.lastTrade != null) C.ltSeen = p.lastTrade; return; }
+  const from = C.lastTeam, byTrade = p.lastTrade != null && p.lastTrade !== C.ltSeen;
+  C.lastTeam = p.team; C.ltSeen = p.lastTrade != null ? p.lastTrade : null;
+  C.chem = 45; C.rel = {}; C.trust = 50; C.talk = null; C.talkRes = null; C.movedS = L.season; C.movedD = L.day; C.ext = null; C.testFA = null;
+  C.moveQ = { from, to: p.team, how: byTrade ? 'trade' : 'signed', s: L.season };
+  if (byTrade) { carNews(L, 'traded', { tid: from, cat: 'trade' }); carLog(L, `Traded from ${L.teams[from].abbr} to ${L.teams[p.team].abbr}. New coach, new teammates, a fresh start.`); }
+  else carLog(L, `Signed with ${L.teams[p.team].abbr}. New coach, new teammates, a fresh start.`);
+}
+// ---------- contract: extension with agent negotiation ----------
+function carAgent(L, p) { const a = agentOf(L, p); return a ? { name: a.name, style: a.style, txt: (AGENT_STYLE[a.style] || {}).txt || '', kind: a.kind } : null; }
+function carExtMake(L) {
+  const p = carP(L), C = carInit(L), t = L.teams[p.team]; if (!canExtend(L, p)) return null; if (C.ext && C.ext.s === L.season) return C.ext;
+  const want = rotationOf(L, t).some(x => x.id === p.id) || (p.age <= 24 && p.scout >= 72);
+  let amt = Math.min(maxForTeam(L, p, t.id), r1(Math.max(MINSAL, (p.mval || MINSAL) * (p.age >= 30 ? Math.max(0.85, 1 - 0.03 * (p.age - 29)) : 1) * (t.mode === 'contend' && p.ovr >= 70 ? 1.05 : 1))));
+  if (amt < 1.5) amt = MINSAL; let g = 0; while (amt > MINSAL && !canFit(L, t, amt, false, 'extension') && g++ < 12) amt = r1(amt * 0.93);
+  if (!want || amt < (p.mval || 0) * 0.7) { C.ext = { s: L.season, st: 'none', tid: t.id }; carLog(L, `${t.abbr} are not ready to talk about an extension.`); return C.ext; }
+  C.ext = { s: L.season, st: 'open', tid: t.id, amt, amt0: amt, yrs: clamp(yrsFor(p, amt), 2, 5), ask: false, shown: false, msg: '' };
+  carLog(L, `${t.abbr} offer an extension: ${money(amt)} a year for ${C.ext.yrs} years.`); return C.ext;
+}
+function carExtLive(L) { const p = carP(L), C = carInit(L), x = C.ext; return !!(x && x.s === L.season && x.st === 'open' && p.team === x.tid && canExtend(L, p)); }
+function carExtChance(L) {
+  const p = carP(L), C = carInit(L), a = agentOf(L, p), k = a ? (a.style === 'tough' ? 0.06 : a.style === 'loyal' ? -0.04 : 0) + (a.kind === 'power' ? 0.06 : 0) : 0;
+  return clamp(0.28 + (p.ovr - 62) / 70 + (p.fame || 0) / 500 + (C.trust - 50) / 300 + (p.age <= 25 ? 0.04 : 0) + k, 0.1, 0.8);
+}
+function carExtAct(L, act) {
+  const p = carP(L), C = carInit(L), x = C.ext; if (!carExtLive(L)) return { err: 'That offer is no longer on the table.' }; const t = L.teams[x.tid];
+  if (act === 'ok') {
+    p.ext = { amt: x.amt, yrs: x.yrs, hg: false, opt: autoOption(p, x.yrs, x.amt) }; x.st = 'done'; C.trust = clamp(C.trust + 3, 0, 100);
+    p.tx.push({ s: L.season, t: `Signed an extension with ${t.abbr}: ${x.yrs} yr, ${money(x.amt)}/yr from next season` });
+    carNews(L, 'extension', { cat: 'tx' }); carLog(L, `Signed an extension with ${t.abbr}: ${money(x.amt)} a year for ${x.yrs} years.`); x.msg = 'Deal done.'; return { ok: true };
+  }
+  if (act === 'fa') { x.st = 'test'; C.testFA = L.season; C.trust = clamp(C.trust - 2, 0, 100); carLog(L, `You turned down the extension and will test free agency.`); x.msg = 'You will hit free agency after the season.'; return { ok: true }; }
+  if (act === 'ask') {
+    if (x.ask) return { err: 'Your agent already pushed once.' }; const ch = carExtChance(L), a = agentOf(L, p); x.ask = true;
+    if (R() < ch) { const na = Math.min(maxForTeam(L, p, t.id), r1(x.amt * (rnd(1.06, 1.16) + (a && a.style === 'tough' ? 0.03 : 0)))); x.amt = Math.max(x.amt, na); x.msg = `Your agent got ${t.abbr} up to ${money(x.amt)} a year.`; carLog(L, x.msg); return { ok: true, up: true }; }
+    const walk = clamp(0.32 - (p.ovr - 65) / 150 + (C.trust < 40 ? 0.1 : 0), 0.1, 0.5);
+    if (R() < walk) { x.st = 'walked'; x.msg = `${t.abbr} pulled the offer off the table.`; C.trust = clamp(C.trust - 2, 0, 100); carLog(L, x.msg); return { ok: false, walked: true }; }
+    x.msg = `${t.abbr} will not budge. The offer is still ${money(x.amt)} a year.`; carLog(L, x.msg); return { ok: false };
+  }
+  return { err: 'Unknown choice.' };
+}
+// ---------- contract: free agency offers ----------
+function carFaOffers(L, p) {
+  const out = [];
+  for (const t of L.teams) {
+    if (t.roster.length >= 15) continue; let W = null;
+    try {
+      const rot = rotationOf(L, t), pov = teamOvr(L, t.id, p);
+      if (pov >= (rot[8] ? rot[8].ovr : 0) - 1) W = Math.min(maxForTeam(L, p, t.id), (p.mval || MINSAL) * Math.max(needMult(L, t, p), demPay(p)) * modeSpend(t, p) * wetPay(p) * rnd(0.95, 1.05));
+      if (W != null) { const room = Math.min(faRoom(L, t), futRoom(L, t)); if (W > MINSAL && W > room) W = room >= 1.5 ? room : MINSAL; W = W < 1.5 ? MINSAL : r1(W); if (W > MINSAL && !canFit(L, t, W, false, 'signing')) W = MINSAL; }
+    } catch (e) { W = null; }
+    if (W == null) continue; let role = 'bench', ap = 1; try { role = expRole(L, t, p); ap = negAppeal(p, t, 'signing', L) * roleAppeal(p, role); } catch (e) { }
+    out.push({ tid: t.id, amt: W, yrs: yrsFor(p, W), role, sc: W * ap });
+  }
+  out.sort((a, b) => b.sc - a.sc);
+  const top = out.filter(o => o.amt > MINSAL + 0.05).slice(0, 6), have = new Set(top.map(o => o.tid));
+  if (top.length < 3) for (const o of out.filter(o => !have.has(o.tid)).slice(0, 3 - top.length)) { top.push(o); have.add(o.tid); }
+  if (top.length < 3) for (const t of L.teams.filter(t => !have.has(t.id) && t.roster.length < 15).sort((a, b) => a.roster.length - b.roster.length).slice(0, 3 - top.length)) { let role = 'bench'; try { role = expRole(L, t, p); } catch (e) { } top.push({ tid: t.id, amt: MINSAL, yrs: 1, role, sc: 0 }); }
+  return top.sort((a, b) => b.sc - a.sc || b.amt - a.amt);
+}
+// engine hook (end of startFA): a career free agent is held out of the AI's picks until he chooses (or 5 FA days pass)
+function careerFaStart(L) {
+  if (!carOn(L)) return; const p = carP(L), C = carInit(L); C.hold = null;
+  if (p.prospect || p.retired || p.team != null || !L.fa.includes(p.id)) return;
+  if (p.rfa) { p.rfa = null; p.sheet = null; }
+  const offers = carFaOffers(L, p); if (!offers.length) return;
+  C.hold = { s: capSeason(L), days: 0, offers, shown: false, msg: '' }; L.fa = L.fa.filter(id => id !== p.id);
+  carLog(L, `Free agency: ${offers.length} team${offers.length === 1 ? '' : 's'} want${offers.length === 1 ? 's' : ''} to sign you. Pick your next team.`);
+}
+function carFaPick(L, i, auto) {
+  const p = carP(L), C = carInit(L), h = C.hold; if (!h) return { err: 'No offers on the table.' };
+  let o = h.offers[i]; if (!o || L.teams[o.tid].roster.length >= 15) o = h.offers.find(x => L.teams[x.tid].roster.length < 15);
+  if (!o) { const t = L.teams.slice().sort((a, b) => a.roster.length - b.roster.length)[0]; o = { tid: t.id, amt: MINSAL, yrs: 1, role: 'bench' }; }
+  C.hold = null; if (!L.fa.includes(p.id)) L.fa.push(p.id);
+  signContract(L, p, o.tid, o.amt, o.yrs, 'signing', undefined, { rl: o.role });
+  carLog(L, auto ? `No decision in five days, so your agent took the best offer: ${L.teams[o.tid].abbr}, ${money(o.amt)} a year for ${o.yrs}.` : `You chose ${L.teams[o.tid].abbr}: ${money(o.amt)} a year for ${o.yrs} year${o.yrs === 1 ? '' : 's'}.`);
+  carTeamCheck(L); carNewsCheck(L); return { ok: true, tid: o.tid };
+}
+// engine hook (faDay, start and end of the day)
+function careerFaDay(L, end) {
+  if (!carOn(L)) return; const C = carInit(L), p = carP(L);
+  if (end) { if (C.hold && L.phase !== 'off-fa') carFaPick(L, 0, true); return; }
+  if (C.hold) { if (C.hold.days >= 5) carFaPick(L, 0, true); else C.hold.days++; }
+  if (p.team != null && p.tradeReq === L.season && R() < 0.5) carTradeTry(L, 30);
+}
+// ---------- daily upkeep (after careerDay0's games) ----------
+function carDayLife(L, p) {
+  const C = carInit(L), nf = C.nf;
+  if (p.injury > 0) { if (!nf.inj) { nf.inj = 1; const last = C.pro[C.pro.length - 1]; carNews(L, 'injury', { cat: 'inj', opp: last ? last.opp : null }); } } else nf.inj = 0;
+  if (L.phase === 'regular' && p.team != null) {
+    const wk = L.season * 1000 + Math.floor(L.day / 7); if (C.wk !== wk) { C.wk = wk; carWeek(L, p); }
+    if (p.tradeReq === L.season && inTradeWindow(L) && R() < 0.35) carTradeTry(L, 24);
+    if (p.team != null) { if (canExtend(L, p)) { if (!(C.ext && C.ext.s === L.season)) carExtMake(L); } else if (C.ext && C.ext.s === L.season && C.ext.st === 'open' && !p.ext) { C.ext.st = 'expired'; carLog(L, 'The extension window closed.'); } }
+  }
+  carTeamCheck(L);
+}
+function carLifeCheck(L) { const p = carP(L); if (!p || p.prospect) return; carInit(L); carTeamCheck(L); carNewsCheck(L); }
 
 // ===================== UI =====================
 if (typeof window !== 'undefined') window.CAR = (function () {

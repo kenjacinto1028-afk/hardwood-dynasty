@@ -2,7 +2,7 @@
 
 A basketball management game: run a franchise (or the whole league as commissioner), draft, trade, sign and play the games live. Runs in your browser, works offline, and installs as a desktop app.
 
-- **Play in the browser:** https://kenjacinto1028-afk.github.io/pacific-basketball-league/
+- **Play in the browser:** https://kenjacinto1028-afk.github.io/hardwood-dynasty/
 - **Desktop app (Windows / Mac / Linux):** see [DESKTOP.md](DESKTOP.md)
 - Leagues inside the game: the fictional **Pacific Basketball League** (16 teams) or the real **NBA 2026-27**.
 

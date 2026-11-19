@@ -1,5 +1,9 @@
 # PBL progress
 
+## Every page fills the window (Opus, Nov 19 2026)
+- [x] All pages on all tabs now use the full window width like My Team > Roster (before, most pages stopped at 1760px wide; How it works stopped at 840px). How it works text flows into columns on wide screens. Offline cache bumped to `pbl-app-v7`.
+- Test: tools/browser-fill.js checks 37 pages at 2560, 1920, 1280 and 390 (phone) wide.
+
 ## Draft tag buttons, Eye watch button, new name (Sonnet, Nov 19 2026)
 - [x] Draft board and draft class lists: T (Target), S (Sleeper), A (Avoid) and Eye (watch list) buttons on every row again (Tags column). Click again to remove. The ⋯ menu still has Move up / down.
 - [x] Eye button next to every name on League > Players and Stats > Players: one click adds to / removes from the watch list.

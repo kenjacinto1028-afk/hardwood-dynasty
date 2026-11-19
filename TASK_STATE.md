@@ -1,3 +1,11 @@
+# TASK_STATE — Every page fills the window (Opus) — Nov 19 2026
+Branch `claude/project-thread-05cgrl`.
+- [x] 1. Measure all pages (tools/browser-fill.js): 19 of 37 capped at 1760px; Rules 840px
+- [x] 2. styles.css: .wrap/.ticker no max-width; app.js body always .wide; Rules text in columns (.rules-cols); New league setup uncapped
+- [x] 3. browser-fill ALL PASS at 2560/1920/1280/390; committed, PR opened (ask before merge)
+- [ ] 4. After merge: live site check + desktop installers rebuild
+
+---
 # TASK_STATE — Draft tag buttons + Eye watch button (Sonnet) — Nov 19 2026
 Branch `draft-tag-buttons`.
 - [x] 1. app.js ptagBtns/eyeBtn: Tags column on draft board (boardPanel) + class list (vDraft); styles.css .qtag

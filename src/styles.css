@@ -19,7 +19,7 @@
 * { box-sizing: border-box; }
 body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 14px; line-height: 1.45; }
 body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
-.wrap { max-width: 1760px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.wrap { margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 header.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--hdr); border-bottom: 1px solid var(--hdr-line); color: var(--hdr-ink); }
 header.top .brand h1 { color: var(--hdr-ink); }
 header.top .brand .when { color: var(--hdr-muted); }
@@ -626,7 +626,7 @@ button.drc strong, button.drc span { white-space: normal; overflow-wrap: anywher
 @media (max-width: 700px) { .sch-top { grid-template-columns: 1fr 1fr; } .sch-top > span { display: none; } .sch-top > .sch-h:last-child { flex-direction: row; text-align: left; } }
 
 /* v30b #7: ticker */
-.ticker { display: flex; align-items: center; gap: 8px; max-width: 1760px; margin: 0 auto; padding: 4px max(16px, env(safe-area-inset-left, 0px)); border-bottom: 1px solid var(--line); font-size: 13px; box-sizing: border-box; }
+.ticker { display: flex; align-items: center; gap: 8px; margin: 0 auto; padding: 4px max(16px, env(safe-area-inset-left, 0px)); border-bottom: 1px solid var(--line); font-size: 13px; box-sizing: border-box; }
 .ticker select { font-size: 12px; padding: 2px 4px; flex: none; }
 .tk-view { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent); -webkit-mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent); }
 .tk-track { display: inline-flex; gap: 32px; animation: tkscroll 60s linear infinite; padding-left: 24px; }
@@ -993,3 +993,8 @@ body.p3-phone #pb-err { bottom: 76px; }
 .qtag.eye { color: var(--muted, #888); }
 .qtag.eye.on { color: #fff; }
 .nmc .qtag.eye { padding: 1px 4px; min-width: 0; vertical-align: middle; margin-right: 2px; }
+/* v39: every page fills the window. Long help text flows into columns on wide screens so lines stay readable. */
+.rules-cols { column-width: 480px; column-gap: 36px; }
+.rules-cols > h2 { column-span: all; }
+.rules-cols h3 { break-after: avoid; }
+.rules-cols li, .rules-cols p { break-inside: avoid; }

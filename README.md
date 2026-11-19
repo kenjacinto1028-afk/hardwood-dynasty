@@ -1,4 +1,14 @@
-# Pacific Basketball League: source layout (v26.6 Opus part, on v26.5 final)
+# Hardwood Dynasty
+
+A basketball management game: run a franchise (or the whole league as commissioner), draft, trade, sign and play the games live. Runs in your browser, works offline, and installs as a desktop app.
+
+- **Play in the browser:** https://kenjacinto1028-afk.github.io/pacific-basketball-league/
+- **Desktop app (Windows / Mac / Linux):** see [DESKTOP.md](DESKTOP.md)
+- Leagues inside the game: the fictional **Pacific Basketball League** (16 teams) or the real **NBA 2026-27**.
+
+---
+
+## Source layout (v26.6 Opus part, on v26.5 final)
 
 The game is split into small files so a change rewrites one file, not 1.3 MB.
 

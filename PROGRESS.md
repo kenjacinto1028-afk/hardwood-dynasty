@@ -1,5 +1,12 @@
 # PBL progress
 
+## Trophy room history, News & history filters + sort, Team needs (Opus, Nov 19 2026)
+- [x] Trophy room uses the franchise's real history before 2026 too: banners, championship trophies, MVP / Finals MVP / DPOY / Rookie / Sixth Man / Most Improved, All-League picks, Coach of the Year, retired numbers, Hall of Famers. New filters: All years / Your league / Before 2026, and an award filter. New "All teams" league table (sortable, click a team to open it).
+- [x] News & events is now a table (Season, When, Category, Team, Story) with sort and filters.
+- [x] Every table on the News & history pages (History tabs, Weekly report, Top plays, Hall of Fame...) sorts by column and gets a filter bar: search + dropdowns (team, season, award...).
+- [x] Roster moves > Overview: Team needs window (front office needs, playstyles the coach wants, position depth). League tab has a team picker.
+- Offline cache bumped to `pbl-app-v8`. Test: tools/browser-hist39.js (desktop + phone) ALL PASS.
+
 ## Real top 100 single-game records (Opus, Nov 19 2026)
 - [x] NBA leagues: History > League records > Single game now has the real all-time top 100 regular-season games for points, rebounds, assists, steals, blocks, 3-pointers, field goals, free throws and offensive rebounds (new list). Before: about 25 per stat.
 - [x] Sources: Basketball-Reference single-game leaders pages + Wikipedia single-game lists (read Nov 19 2026). Data in tools/rec-game/*.csv, merged by `python3 tools/rec-game/merge.py` (safe to re-run).

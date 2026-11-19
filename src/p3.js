@@ -178,27 +178,80 @@ ${sparkle}</svg>`;
   function banner(t, s, kind) {
     return `<svg class="p3-banner ${kind}" viewBox="0 0 60 90" width="60" height="90" role="img" aria-label="${kind === 'champ' ? 'Champions' : 'Finals'} ${seasonName(s)}"><path d="M4 2 H56 V76 L30 88 L4 76 Z" fill="${t.c1}" stroke="${t.c2}" stroke-width="3"/><text x="30" y="24" text-anchor="middle" font-size="9" font-weight="900" fill="${t.c2}" font-family="Inter,sans-serif">${kind === 'champ' ? 'WORLD' : 'CONF'}</text><text x="30" y="36" text-anchor="middle" font-size="9" font-weight="900" fill="${t.c2}" font-family="Inter,sans-serif">${kind === 'champ' ? 'CHAMPS' : 'CHAMPS'}</text>${kind === 'champ' ? '<path d="M22 44 h16 v6 q0 8 -8 9 q-8 -1 -8 -9z M28 59 h4 v6 h4 v3 h-12 v-3 h4z" fill="#ffd34d"/>' : '<circle cx="30" cy="52" r="7" fill="none" stroke="#fff" stroke-width="2"/>'}<text x="30" y="80" text-anchor="middle" font-size="9" font-weight="800" fill="#fff" font-family="Inter,sans-serif">${seasonName(s)}</text></svg>`;
   }
+  // v39: real history (NBA mode): titles, Finals, awards, All-League picks, Coach of the Year, retired numbers and Hall of Famers
+  // from the bundled history data (NBA_HIST / NBA_HX). Seasons are start years (y); game seasons are y - 2025.
+  const HXK = [['mvp', 'MVP'], ['fmvp', 'Finals MVP'], ['dpoy', 'Defensive Player of the Year'], ['roy', 'Rookie of the Year'], ['smoy', 'Sixth Man of the Year'], ['mip', 'Most Improved Player']];
+  const frAb = a => { a = String(a || '').trim(); return (typeof HX_FR !== 'undefined' && HX_FR[a]) || a; };
+  let HXT = null;   // y|name -> franchise ab, from every NBA_HX.aw row (All-League, All-Star, stat leaders)
+  const hxTeamOf = (y, n) => { if (!HXT) { HXT = {}; for (const r of NBA_HX.aw) { const t = String(r[3] || '').split('/').pop(); if (t && t !== 'TOT') HXT[r[0] + '|' + hxNorm(r[2])] = frAb(t); } } return HXT[y + '|' + hxNorm(n)] || null; };
+  const histOn = () => typeof nbaHistOn === 'function' && nbaHistOn(L) && typeof NBA_HX !== 'undefined';
+  const HXC = {};
+  function histTrophies(tid) {
+    const out = { titles: [], finals: [], aw: [], coy: [], all: 0, ret: [], hof: [] };
+    if (!histOn()) return out;
+    const ab = nbaAbOf(L.teams[tid]); if (HXC[ab]) return HXC[ab];
+    const fs = NBA_HX.fs[ab] || [];
+    for (const h of nbaHist()) {
+      if (h.champ === ab) out.titles.push({ y: h.y, then: h.champTm }); else if (h.ru === ab) out.finals.push({ y: h.y, then: h.ruTm });
+      for (const [k, n] of HXK) for (const nm of nbaNames(h[k])) { const t = k === 'fmvp' ? h.champ : hxTeamOf(h.y, nm); if (t === ab) out.aw.push({ y: h.y, k, n, name: nm }); }
+      for (const nm of nbaNames(h.coy)) { const r = fs.find(x => x[0] === h.y); if (r && String(r[5] || '').split(';').some(c => hxNorm(c) === hxNorm(nm))) out.coy.push({ y: h.y, name: nm }); }
+    }
+    for (const r of NBA_HX.aw) if (['AN1', 'AN2', 'AN3'].includes(r[1]) && String(r[3] || '').split('/').some(x => frAb(x) === ab)) out.all++;
+    out.ret = hxRetired(ab).map(r => ({ num: r[1], name: r[2], y: r[3] }));
+    out.hof = NBA_HX.hof.filter(r => r[2] === 'Player' && String(r[3] || '').split(/,\s*/).some(x => frAb(x) === ab)).map(r => ({ name: r[0], y: r[1] }));
+    return (HXC[ab] = out);
+  }
+  const hxLink = n => { try { return hbName(n); } catch (e) { return esc(n); } };
+  const hbanner = (t, y, kind) => banner(t, y - 2025, kind).replace(seasonName(y - 2025), nbaSeasonLbl(y));
+  // the whole league: one sortable row per team
+  function leagueTrophies() {
+    const rows = L.teams.map(t => { const T = teamTrophies(t.id), H = histTrophies(t.id), hof = (L.hof || []).filter(h => h.teams && h.teams.includes(t.id)).length;
+      return { t, ti: T.titles.length + H.titles.length, fi: T.titles.length + T.finals.length + H.titles.length + H.finals.length, mvp: T.aw.filter(x => x.k === 'mvp').length + H.aw.filter(x => x.k === 'mvp').length, aw: T.aw.length + H.aw.length, all: T.all + H.all, coy: T.coy.length + H.coy.length, ret: (t.retired || []).length + H.ret.length, hof: hof + H.hof.length, last: [...T.titles.map(s => s + 2025), ...H.titles.map(x => x.y)].sort((a, b) => b - a)[0] }; })
+      .sort((a, b) => b.ti - a.ti || b.fi - a.fi || b.aw - a.aw);
+    return `<div class="tblwrap"><table class="sortable" data-sid="trophy-lg" data-gf="1"><thead><tr><th class="l">Team</th><th title="Championships">Titles</th><th title="Finals appearances">Finals</th><th>MVPs</th><th title="MVP, Finals MVP, DPOY, Rookie, Sixth Man, Most Improved, Clutch won while on the team">Player awards</th><th title="All-League 1st, 2nd, 3rd team picks">All-League</th><th title="Coach of the Year">COY</th><th title="Retired numbers">Retired #</th><th title="Hall of Fame players">Hall of Fame</th><th class="l">Last title</th></tr></thead><tbody>${rows.map(r => `<tr class="click ${isUser(r.t.id) ? 'mine' : ''}" data-p3tr="${r.t.id}"><td class="l">${logo(r.t.id, 20)} ${esc(r.t.city + ' ' + r.t.name)}</td><td><strong>${r.ti}</strong></td><td>${r.fi}</td><td>${r.mvp}</td><td>${r.aw}</td><td>${r.all}</td><td>${r.coy}</td><td>${r.ret}</td><td>${r.hof}</td><td class="l">${r.last ? nbaSeasonLbl(r.last) : '—'}</td></tr>`).join('')}</tbody></table></div>`;
+  }
   P3V.trophies = function () {
-    const tid = ui.p3trT != null && L.teams[ui.p3trT] ? ui.p3trT : L.user != null ? L.user : (L.awards[L.season - 1] || {}).champion != null ? L.awards[L.season - 1].champion : 0;
-    const t = L.teams[tid], T = teamTrophies(tid);
-    const opts = L.teams.map(x => { const n = Object.values(L.awards || {}).filter(A => A && A.champion === x.id).length; return `<option value="${x.id}" ${x.id === tid ? 'selected' : ''}>${esc(x.city + ' ' + x.name)}${n ? ' · ' + n + '×' : ''}${isUser(x.id) ? ' (you)' : ''}</option>`; }).join('');
-    const rafters = T.titles.length || T.finals.length ? `<div class="p3-rafters">${T.titles.map(s => banner(t, s, 'champ')).join('')}${T.finals.map(s => banner(t, s, 'fin')).join('')}</div>` : '<p class="muted">No banners yet. Win a title to hang the first one.</p>';
+    const lg = ui.p3trT === 'all';
+    const tid = !lg && ui.p3trT != null && L.teams[ui.p3trT] ? ui.p3trT : L.user != null ? L.user : (L.awards[L.season - 1] || {}).champion != null ? L.awards[L.season - 1].champion : 0;
+    const era = ['', 'league', 'hist'].includes(ui.p3trE) ? ui.p3trE : '', hx = histOn();
+    const opts = `<option value="all" ${lg ? 'selected' : ''}>All teams (league table)</option>` + L.teams.map(x => { const n = Object.values(L.awards || {}).filter(A => A && A.champion === x.id).length + histTrophies(x.id).titles.length; return `<option value="${x.id}" ${!lg && x.id === tid ? 'selected' : ''}>${esc(x.city + ' ' + x.name)}${n ? ' · ' + n + '×' : ''}${isUser(x.id) ? ' (you)' : ''}</option>`; }).join('');
+    const eraBar = hx ? `<div class="seg" role="group" aria-label="Years">${[['', 'All years'], ['league', 'Your league'], ['hist', 'Before 2026']].map(([k, n]) => `<button class="sm ${era === k ? 'primary' : ''}" data-p3tre="${k}">${n}</button>`).join('')}</div>` : '';
+    const top = `<div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px"><h2 style="margin:0">${lg ? '' : logo(tid, 28) + ' '}Trophy room</h2><div class="row" style="gap:8px;flex-wrap:wrap">${lg ? '' : eraBar}<label class="row" style="gap:6px">Team <select id="p3-trteam" aria-label="Team">${opts}</select></label></div></div>`;
+    if (lg) return `<section class="panel">${top}<p class="muted">Every franchise's trophies${hx ? ', league years and history before 2026 together' : ''}. Click a team to open its trophy room; click a column to sort.</p>${leagueTrophies()}</section>`;
+    const t = L.teams[tid], T0 = teamTrophies(tid), H0 = histTrophies(tid);
+    const useL = era !== 'hist', useH = era !== 'league';
+    const T = useL ? T0 : { titles: [], finals: [], aw: [], coy: [], eoy: [], all: 0 }, H = useH ? H0 : { titles: [], finals: [], aw: [], coy: [], all: 0, ret: [], hof: [] };
+    const nT = T.titles.length + H.titles.length, nF = nT + T.finals.length + H.finals.length;
+    const rafters = nF ? `<div class="p3-rafters">${T.titles.slice().reverse().map(s => banner(t, s, 'champ')).join('')}${H.titles.slice().reverse().map(x => hbanner(t, x.y, 'champ')).join('')}${T.finals.slice().reverse().map(s => banner(t, s, 'fin')).join('')}${H.finals.slice().reverse().map(x => hbanner(t, x.y, 'fin')).join('')}</div>` : '<p class="muted">No banners yet. Win a title to hang the first one.</p>';
     const shelf = (items) => `<div class="p3-shelf">${items.join('')}</div>`;
-    const cups = T.titles.map(s => `<figure class="p3-tr">${trophySvg('champ', 76, seasonName(s))}<figcaption>Champions<br><span class="muted">${seasonName(s)}</span></figcaption></figure>`);
-    const indiv = T.aw.slice().reverse().map(x => { const p = L.players[x.pid]; return `<figure class="p3-tr">${trophySvg(TRK[x.k], 60, seasonName(x.s))}<figcaption>${esc(x.n)}<br>${p ? plink(p) : 'Former player'} <span class="muted">${seasonName(x.s)}</span></figcaption></figure>`; });
-    const misc = [...T.coy.map(s => `<figure class="p3-tr">${trophySvg('coy', 56, seasonName(s))}<figcaption>Coach of the Year<br><span class="muted">${seasonName(s)}</span></figcaption></figure>`), ...T.eoy.map(s => `<figure class="p3-tr">${trophySvg('eoy', 56, seasonName(s))}<figcaption>Executive of the Year<br><span class="muted">${seasonName(s)}</span></figcaption></figure>`)];
-    const jerseys = (t.retired || []).map(j => `<div class="p3-jersey" style="--c1:${t.c1};--c2:${t.c2}"><span class="n">${esc(j.num)}</span><span class="nm">${L.players[j.pid] ? plink(L.players[j.pid]) : esc(j.name)}</span></div>`).join('');
-    const hof = (L.hof || []).filter(h => h.teams && h.teams.includes(tid));
-    return `<section class="panel"><div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px"><h2 style="margin:0">${logo(tid, 28)} Trophy room</h2><label class="row" style="gap:6px">Team <select id="p3-trteam" aria-label="Team">${opts}</select></label></div>
-      <div class="p3-trsum"><div><span class="v" data-cu>${T.titles.length}</span><span class="k">Titles</span></div><div><span class="v" data-cu>${T.titles.length + T.finals.length}</span><span class="k">Finals</span></div><div><span class="v" data-cu>${T.aw.length}</span><span class="k">Player awards</span></div><div><span class="v" data-cu>${T.all}</span><span class="k">All-League picks</span></div><div><span class="v" data-cu>${hof.length}</span><span class="k">Hall of Famers</span></div></div>
+    const was = (then) => then && then !== t.city + ' ' + t.name ? `<br><span class="muted">as ${esc(then)}</span>` : '';
+    const cups = [...T.titles.slice().reverse().map(s => `<figure class="p3-tr">${trophySvg('champ', 76, seasonName(s))}<figcaption>Champions<br><span class="muted">${seasonName(s)}</span></figcaption></figure>`),
+      ...H.titles.slice().reverse().map(x => `<figure class="p3-tr">${trophySvg('champ', 76, nbaSeasonLbl(x.y))}<figcaption>Champions<br><span class="muted">${nbaSeasonLbl(x.y)}</span>${was(x.then)}</figcaption></figure>`)];
+    // player awards: filter by award
+    const awF = ui.p3trA && [...AWK, ...HXK].some(x => x[0] === ui.p3trA) ? ui.p3trA : '';
+    const awAll = [...T.aw.map(x => ({ y: x.s + 2025, k: x.k, n: x.n, who: L.players[x.pid] ? plink(L.players[x.pid]) : 'Former player', lbl: seasonName(x.s) })), ...H.aw.map(x => ({ y: x.y, k: x.k, n: x.n, who: hxLink(x.name), lbl: nbaSeasonLbl(x.y) }))].sort((a, b) => b.y - a.y);
+    const awCnt = {}; for (const x of awAll) awCnt[x.k] = (awCnt[x.k] || 0) + 1;
+    const awBar = awAll.length ? `<div class="seg" role="group" aria-label="Award" style="margin:4px 0 6px;flex-wrap:wrap">${[['', 'All'], ...AWK.filter(([k]) => awCnt[k])].map(([k, n]) => `<button class="sm ${awF === k ? 'primary' : ''}" data-p3tra="${k}">${esc(k ? n.replace('Defensive Player of the Year', 'DPOY').replace('Sixth Man of the Year', 'Sixth Man').replace('Most Improved Player', 'Most Improved').replace('Rookie of the Year', 'Rookie').replace('Clutch Player of the Year', 'Clutch') : n)} (${k ? awCnt[k] : awAll.length})</button>`).join('')}</div>` : '';
+    const indiv = awAll.filter(x => !awF || x.k === awF).map(x => `<figure class="p3-tr">${trophySvg(TRK[x.k], 60, x.lbl)}<figcaption>${esc(x.n)}<br>${x.who} <span class="muted">${x.lbl}</span></figcaption></figure>`);
+    const misc = [...T.coy.slice().reverse().map(s => `<figure class="p3-tr">${trophySvg('coy', 56, seasonName(s))}<figcaption>Coach of the Year<br><span class="muted">${seasonName(s)}</span></figcaption></figure>`), ...H.coy.slice().reverse().map(x => `<figure class="p3-tr">${trophySvg('coy', 56, nbaSeasonLbl(x.y))}<figcaption>Coach of the Year<br>${esc(x.name)} <span class="muted">${nbaSeasonLbl(x.y)}</span></figcaption></figure>`), ...T.eoy.slice().reverse().map(s => `<figure class="p3-tr">${trophySvg('eoy', 56, seasonName(s))}<figcaption>Executive of the Year<br><span class="muted">${seasonName(s)}</span></figcaption></figure>`)];
+    const own = useL ? (t.retired || []) : [], seen = new Set(own.map(j => String(j.num)));
+    const jerseys = [...own.map(j => `<div class="p3-jersey" style="--c1:${t.c1};--c2:${t.c2}"><span class="n">${esc(j.num)}</span><span class="nm">${L.players[j.pid] ? plink(L.players[j.pid]) : esc(j.name)}</span></div>`), ...H.ret.filter(j => !seen.has(String(j.num)) || !own.some(o => hxNorm(o.name || '') === hxNorm(j.name))).map(j => `<div class="p3-jersey" style="--c1:${t.c1};--c2:${t.c2}" title="${esc(j.name)}${j.y ? ' · retired ' + j.y : ''}"><span class="n">${esc(j.num)}</span><span class="nm">${hxLink(j.name)}</span></div>`)].join('');
+    const hofL = useL ? (L.hof || []).filter(h => h.teams && h.teams.includes(tid)) : [];
+    const hofN = [...hofL.map(h => L.players[h.pid] ? plink(L.players[h.pid]) : esc(h.name)), ...H.hof.map(h => hxLink(h.name))];
+    return `<section class="panel">${top}
+      <div class="p3-trsum"><div><span class="v" data-cu>${nT}</span><span class="k">Titles</span></div><div><span class="v" data-cu>${nF}</span><span class="k">Finals</span></div><div><span class="v" data-cu>${awAll.length}</span><span class="k">Player awards</span></div><div><span class="v" data-cu>${T.all + H.all}</span><span class="k">All-League picks</span></div><div><span class="v" data-cu>${hofN.length}</span><span class="k">Hall of Famers</span></div></div>
+      ${hx && era !== 'league' ? '<p class="muted" style="margin:0 0 8px;font-size:12px">Includes the franchise\'s real history before 2026 (titles, Finals, awards, All-League picks, retired numbers and Hall of Famers).</p>' : ''}
       <h3>Banners in the rafters</h3>${rafters}
-      ${cups.length ? `<h3>Championship trophies</h3>${shelf(cups)}` : ''}
-      <h3>Player awards won here</h3>${indiv.length ? shelf(indiv) : '<p class="muted">None yet.</p>'}
+      ${cups.length ? `<h3>Championship trophies · ${cups.length}</h3>${shelf(cups)}` : ''}
+      <h3>Player awards won here${awAll.length ? ' · ' + awAll.length : ''}</h3>${awBar}${indiv.length ? shelf(indiv) : '<p class="muted">None yet.</p>'}
       ${misc.length ? `<h3>Coach and front office</h3>${shelf(misc)}` : ''}
       ${jerseys ? `<h3>Retired numbers</h3><div class="p3-jerseys">${jerseys}</div>` : ''}
-      ${hof.length ? `<h3>Hall of Famers</h3><p>${hof.map(h => L.players[h.pid] ? plink(L.players[h.pid]) : esc(h.name)).join(', ')}</p>` : ''}</section>`;
+      ${hofN.length ? `<h3>Hall of Famers · ${hofN.length}</h3><p>${hofN.join(', ')}</p>` : ''}</section>`;
   };
-  document.addEventListener('change', e => { if (e.target && e.target.id === 'p3-trteam') { ui.p3trT = +e.target.value; render(); } });
+  document.addEventListener('click', e => { const b = e.target.closest('[data-p3tre],[data-p3tra],[data-p3tr]'); if (!b || !L || !document.getElementById('main').contains(b)) return;
+    if (b.dataset.p3tre != null) ui.p3trE = b.dataset.p3tre; else if (b.dataset.p3tra != null) ui.p3trA = b.dataset.p3tra; else { if (e.target.closest('a,button')) return; ui.p3trT = +b.dataset.p3tr; ui.p3trA = ''; }
+    render(); });
+  document.addEventListener('change', e => { if (e.target && e.target.id === 'p3-trteam') { ui.p3trT = e.target.value === 'all' ? 'all' : +e.target.value; ui.p3trA = ''; render(); } });
 
   // ceremony overlay (above popups). kind 'mvp' or 'title'. Click / Esc / Continue closes.
   let cerTimers = [];

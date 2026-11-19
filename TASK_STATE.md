@@ -6,6 +6,19 @@ Branch `claude/project-thread-dhek1n`. Only history single-game lists (NBA_HX.re
 - [ ] 4. PROGRESS.md, PR, merge, Pages check
 
 ---
+# TASK_STATE — My Career mode (Opus) — Nov 19 2026
+Branch `claude/project-thread-iocwy2`. One PR per phase. New file src/career.js (+ hooks in league/engine/app).
+- [x] 0. Read code, plan phases, ask archetype thread for its API
+- [x] P1a. career.js: Create-a-player screen (name, pos, height, archetype focus, backstory pick/random) + new league with L.career
+- [x] P1b. Pipeline season: pick league/team, ~6 playable games with 3-4 decisions each, rest simulated; season line + awards
+- [x] P1c. XP after each game; spend on attributes (cost rises with rating); career hub page
+- [x] P1d. Draft night as the player (stock from ratings + pipeline stats), lands on a team
+- [x] P1e. Tests (tools/browser-career.js ALL PASS 1300+390), PROGRESS.md; [ ] PR + Pages
+- [ ] P2. Pro games: Play or Sim each game; decisions change his usage/shots in the real engine; minutes from coach trust; XP
+- [ ] P3. Badges (earned + bought with XP, small engine effects), achievements, awards, Legend meter / Hall of Fame tracker
+- [ ] P4. Career life: interviews, player relations, news, trade requests, contract talks (reuse existing systems), phone polish, tests, Pages
+
+---
 # TASK_STATE — Every page fills the window (Opus) — Nov 19 2026
 Branch `claude/project-thread-05cgrl`.
 - [x] 1. Measure all pages (tools/browser-fill.js): 19 of 37 capped at 1760px; Rules 840px

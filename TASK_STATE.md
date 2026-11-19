@@ -20,7 +20,7 @@ Branch `claude/project-thread-iocwy2`. One PR per phase. New file src/career.js 
 - [x] P1b. Pipeline season: pick league/team, ~6 playable games with 3-4 decisions each, rest simulated; season line + awards
 - [x] P1c. XP after each game; spend on attributes (cost rises with rating); career hub page
 - [x] P1d. Draft night as the player (stock from ratings + pipeline stats), lands on a team
-- [x] P1e. Tests (tools/browser-career.js ALL PASS 1300+390), PROGRESS.md; [ ] PR + Pages
+- [x] P1e. Tests ALL PASS 1300+390; PR #24 merged
 - [ ] P2. Pro games: Play or Sim each game; decisions change his usage/shots in the real engine; minutes from coach trust; XP
 - [ ] P3. Badges (earned + bought with XP, small engine effects), achievements, awards, Legend meter / Hall of Fame tracker
 - [ ] P4. Career life: interviews, player relations, news, trade requests, contract talks (reuse existing systems), phone polish, tests, Pages

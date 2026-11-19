@@ -1,3 +1,11 @@
+# TASK_STATE — Rework archetypes + playstyles (Opus) — Nov 19 2026
+Branch `claude/project-thread-5dsy65`. Item 4 of Kenneth's list only.
+- [x] 1. league.js: 8 archetypes per position (how they play: tendencies + skill), superstar archetypes (p.sarch), playstyle caveats (playstyle(p)), SYS_WANTS/DEF_ARCH, migrate old saves — done: ARCH/SARCH/playstyle()/archFull()/styleFit() in league.js
+- [x] 2. engine.js: shot habits less tied to skill (generated players get quirks); bigGate eased for bigs who like to shoot
+- [x] 3. Calibrate ARCH_CAL (tools/arch-cal.js); check real NBA examples (Kennard, Hachimura, Turner) — Kennard = 3pt sniper · Low-volume shooter; SSTAR 85 (~5 per league)
+- [x] 4. app.js: show "Archetype · playstyle" (player page, tables, coach targets, filters, Rules)
+- [x] 5. Tests: unit + 3-season sim (3PA balance), browser check
+- [ ] 6. PR, merge, Pages check; message My Career thread with function names
 # TASK_STATE — Trophy room history, News/History table filters + sort, Team needs on Roster moves (Opus) — Nov 19 2026
 Branch `claude/project-thread-kvxv01`.
 - [x] 1. p3.js trophy room: real NBA history (histTrophies), league table (All teams), era + award filters; tools/browser-hist39.js

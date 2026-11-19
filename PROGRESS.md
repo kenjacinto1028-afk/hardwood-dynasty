@@ -1,5 +1,12 @@
 # PBL progress
 
+## Archetypes and playstyles rework (Opus, Nov 19 2026)
+- [x] 8 distinct archetypes per position (40 total, redundant ones like All-around / Shooter / Movement shooter merged). An archetype is how a player plays: built from his shot habits as well as his skills.
+- [x] Playstyle caveats next to the archetype, e.g. "3pt sniper SG · Low-volume shooter", "Stretch 5 · Below-average 3pt shooter", "Shies away from the rim", "Looks to pass first", "Ball-dominant", "Defensive liability".
+- [x] Shot habits less tied to skill: about 1 in 3 new players gets a habit that doesn't match his ratings (good shooter who rarely shoots, gunner, finishing big who would rather pass or shoot jumpers). League shooting totals unchanged (checked PBL + NBA season sims).
+- [x] Superstars (85+, about 5 a league) get a signature type: Point god, Heliocentric engine, Walking bucket, Gravity shooter, Two-way superstar, Freight train, Unicorn, Point center, Dominant big. Gold badge on the player page.
+- [x] Coach targets and team needs use the new types; targets also weigh playstyle vs the coach's offense (pace wants volume shooters, motion wants passers). Type filters grouped by position with a Superstars group. Old saves convert on load.
+- Tests: tools/arch-cal.js (calibration), tools/unit-v253.js, tools/browser-arch.js (desktop + phone) ALL PASS. Offline cache `pbl-app-v10`.
 ## Trophy room history, News & history filters + sort, Team needs (Opus, Nov 19 2026)
 - [x] Trophy room uses the franchise's real history before 2026 too: banners, championship trophies, MVP / Finals MVP / DPOY / Rookie / Sixth Man / Most Improved, All-League picks, Coach of the Year, retired numbers, Hall of Famers. New filters: All years / Your league / Before 2026, and an award filter. New "All teams" league table (sortable, click a team to open it).
 - [x] News & events is now a table (Season, When, Category, Team, Story) with sort and filters.

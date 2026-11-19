@@ -6238,6 +6238,7 @@ function scaleToOvr(p, target) {
 // A prospect's stock moves a little each year; his ratings track toward his (drifting) draft-day level
 function growProspect(L, p) {
   p.age++;
+  if (p.career) return;   // My Career: your player grows with XP
   p.draftOvr = clamp(p.draftOvr + gauss(0, 1.6), 25, 74);
   if (!p.noGrow) p.pot = clamp(Math.round(p.pot + gauss(0, 1.5)), Math.round(p.draftOvr) + 1, 97);
   const k = Math.max(0, p.draftYear - L.season);
@@ -9283,12 +9284,16 @@ function pipeSeason(L) {
       for (let a = 0; a < nT; a++) for (let b = a + 1; b < nT; b++) if (conf(a) === conf(b)) for (let k = 0; k < 3; k++) play(a, b);
       for (let r = 0; r < G - 9; r++) { const o = [...Array(nT).keys()].sort(() => R() - 0.5); for (let k = 0; k < nT; k += 2) play(o[k], o[k + 1]); }
     } else { const reps = Math.round(G / (nT - 1)); for (let k = 0; k < reps; k++) for (let a = 0; a < nT; a++) for (let b = a + 1; b < nT; b++) play(a, b); }
+    { const cr = typeof careerPipeRec === 'function' ? careerPipeRec(L, lg) : null;   // My Career: his team's record matches his games (wins moved to / from other teams)
+      if (cr) { const me = teams[cr.t]; let d = cr.w - me.w; const others = teams.filter(t => t !== me);
+        for (let it = 0; d !== 0 && it < 400; it++) { const o = others[rint(0, others.length - 1)]; if (d > 0 && o.w > 0 && me.l > 0) { o.w--; o.l++; me.w++; me.l--; d--; } else if (d < 0 && o.l > 0 && me.w > 0) { o.w++; o.l--; me.w--; me.l++; d++; } } } }
     const gT = teams[0].w + teams[0].l;
     const rank = teams.slice().sort((a, b) => b.w - a.w || b.str - a.str).map(t => t.i);
     // lines
     const rows = teams.flatMap(t => t.rows);
     rows.forEach(r => { const out = r.p && r.p.club && r.p.club.out != null && r.p.club.s === S ? r.p.club.out : 1; const miss = R() < 0.15 ? rint(1, Math.round(gT * 0.4)) : rint(0, 2); r.gp = Math.max(0, Math.round((gT - miss) * out)); });
     const lines = pipeLines(lg, rows);
+    if (typeof careerPipeLine === 'function') rows.forEach((r, k) => { const c = r.p && r.p.career ? careerPipeLine(L, r.p, lg) : null; if (c) { lines[k] = c; r.gp = c.gp; } });   // My Career: his real games
     rows.forEach((r, k) => { r.ln = lines[k]; r.val = pipeVal(r.ln); r.wp = teams[r.t].w / Math.max(1, gT); });
     // playoffs (results only)
     let po = [], champ, ru, fmvp = null;

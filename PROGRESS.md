@@ -6,7 +6,7 @@
 - [x] Shot habits less tied to skill: about 1 in 3 new players gets a habit that doesn't match his ratings (good shooter who rarely shoots, gunner, finishing big who would rather pass or shoot jumpers). League shooting totals unchanged (checked PBL + NBA season sims).
 - [x] Superstars (85+, about 5 a league) get a signature type: Point god, Heliocentric engine, Walking bucket, Gravity shooter, Two-way superstar, Freight train, Unicorn, Point center, Dominant big. Gold badge on the player page.
 - [x] Coach targets and team needs use the new types; targets also weigh playstyle vs the coach's offense (pace wants volume shooters, motion wants passers). Type filters grouped by position with a Superstars group. Old saves convert on load.
-- Tests: tools/arch-cal.js (calibration), tools/unit-v253.js, tools/browser-arch.js (desktop + phone) ALL PASS. Offline cache `pbl-app-v9`.
+- Tests: tools/arch-cal.js (calibration), tools/unit-v253.js, tools/browser-arch.js (desktop + phone) ALL PASS. Offline cache `pbl-app-v10`.
 ## Trophy room history, News & history filters + sort, Team needs (Opus, Nov 19 2026)
 - [x] Trophy room uses the franchise's real history before 2026 too: banners, championship trophies, MVP / Finals MVP / DPOY / Rookie / Sixth Man / Most Improved, All-League picks, Coach of the Year, retired numbers, Hall of Famers. New filters: All years / Your league / Before 2026, and an award filter. New "All teams" league table (sortable, click a team to open it).
 - [x] News & events is now a table (Season, When, Category, Team, Story) with sort and filters.
@@ -20,6 +20,13 @@
 - [x] Fixed made-up opponents in the old list (e.g. Wilt's 78 now says vs Los Angeles Lakers, Luka's 73 vs Atlanta). Games with no known opponent show the team only.
 - Limit: rebounds, assists, steals, blocks and offensive rebounds have full box scores only from 1983-84 on, so older games show only at the very top (Wilt/Russell 38+ rebounds, 22+ assists, 8+ steals). Note added under "How this works".
 - Test: tools/browser-recgame.js (desktop + phone) ALL PASS.
+## My Career, Phase 1 (Opus, Nov 19 2026)
+- [x] New league > **My Career**: create your player (name, number, position, height, style), pick or roll one of 8 backstories (each changes starting ratings, ceiling, work ethic or XP), pick college / Europe / Asia-Pacific and a team.
+- [x] Pipeline season: full schedule for your team; 6 big games stop the sim (Play: 4 key moments with 2-3 choices and a % chance from your ratings, or Sim). Other games are simmed. Each game gives a grade (F to A+) and XP.
+- [x] XP buys +1 on any rating (cost rises with the rating; athletic +50%). Upgrades raise overall, potential and draft stock.
+- [x] Your college/club season line and team record come from your games. Draft night popup when you are picked (or undrafted). As a pro, games are simmed for now and give XP from your box score.
+- New file src/career.js; small hooks in engine.js (simDay, playoffs), league.js (pipeSeason, growProspect), app.js (tab, setup, sim stop). Cache `pbl-app-v9`. Test: tools/browser-career.js (1300 + 390 wide) ALL PASS.
+- Next: Phase 2 pro games you play; Phase 3 badges/achievements/Legend meter; Phase 4 interviews, relationships, news, trade requests, contract talks.
 
 ## Every page fills the window (Opus, Nov 19 2026)
 - [x] All pages on all tabs now use the full window width like My Team > Roster (before, most pages stopped at 1760px wide; How it works stopped at 840px). How it works text flows into columns on wide screens. Offline cache bumped to `pbl-app-v7`.

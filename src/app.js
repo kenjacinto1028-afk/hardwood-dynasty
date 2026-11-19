@@ -937,7 +937,7 @@ function renderHeader() {
   const ut = L.user != null ? L.teams[L.user] : null;
   // F2: while you watch your game live, the top bar shows the record from before that game (no spoiler)
   const lg = liveGame(), lgMine = lg && ut && (isUser(lg.home) || isUser(lg.away)), lgWon = lgMine && (isUser(lg.home) ? lg.hs > lg.as : lg.as > lg.hs);
-  const recTxt = !ut ? ' · Commissioner' : lgMine ? ` · ${ut.w - (lgWon ? 1 : 0)}-${ut.l - (lgWon ? 0 : 1)}` : ' · ' + ut.w + '-' + ut.l + (L.phase === 'playoffs' && L.po ? ' · playoffs ' + poWL(ut.id) : '');
+  const recTxt = !ut ? (L.career ? ' · My Career' : ' · Commissioner') : lgMine ? ` · ${ut.w - (lgWon ? 1 : 0)}-${ut.l - (lgWon ? 0 : 1)}` : ' · ' + ut.w + '-' + ut.l + (L.phase === 'playoffs' && L.po ? ' · playoffs ' + poWL(ut.id) : '');
   $('#when').textContent = `${seasonName(L.season)} · ${ph}${recTxt}`;
   const fc = $('#fchip'); { const bn = $('#brandname'); if (bn && bn.textContent !== GAME_NAME) bn.textContent = GAME_NAME; if (bn) bn.title = leagueName(); }
   if (L.user != null) { const k = 'f' + L.user + L.teams[L.user].name; if (fc.dataset.k !== k) { fc.dataset.k = k; fc.innerHTML = `<a class="fchip lk tl" href="#myteam" title="Your team · ${leagueName()}">${logo(L.user, 36)}<strong>${esc(tname(L.user))}</strong><span>Franchise Mode</span></a>`; } fc.hidden = false; $('#brand').classList.add('fm'); document.title = tname(L.user) + ' · ' + GAME_NAME; }
@@ -953,9 +953,10 @@ function renderHeader() {
     $('#simctl').classList.remove('open');
   }
   // v24: tabs are grouped. The top row has five groups; the row under it lists the views in the group you are in.
-  const NAME = { expansion: 'Expansion', cards: 'Player cards', trophies: 'Trophy room', stories: 'Stories', rmoves: 'Overview', hofc: 'Hall of Fame', feed: 'Feed', topplays: 'Top plays', myteam: 'My team', coaches: 'Staff & GMs', preview: 'Season preview', weekly: 'Weekly report', standings: 'Standings', review: 'Progression', schedule: 'Schedule', stats: 'Stats', players: 'Players', awards: 'Awards', teams: 'Teams', trades: 'Trades', fa: 'Free agency', draft: 'Draft', news: 'News & events', injuries: 'Injuries', discipline: 'Discipline', pipeline: 'Pipeline', history: 'History', rules: 'How it works' };
+  const NAME = { career: 'My Career', expansion: 'Expansion', cards: 'Player cards', trophies: 'Trophy room', stories: 'Stories', rmoves: 'Overview', hofc: 'Hall of Fame', feed: 'Feed', topplays: 'Top plays', myteam: 'My team', coaches: 'Staff & GMs', preview: 'Season preview', weekly: 'Weekly report', standings: 'Standings', review: 'Progression', schedule: 'Schedule', stats: 'Stats', players: 'Players', awards: 'Awards', teams: 'Teams', trades: 'Trades', fa: 'Free agency', draft: 'Draft', news: 'News & events', injuries: 'Injuries', discipline: 'Discipline', pipeline: 'Pipeline', history: 'History', rules: 'How it works' };
   const showPre = L.phase === 'regular' && L.day <= 7 || ui.view === 'preview';
   const groups = [
+    ...(L.career ? [{ k: 'career', t: 'My Career', v: ['career'] }] : []),
     L.user != null ? { k: 'team', t: 'My team', v: ['myteam', 'cards', 'coaches'] } : { k: 'team', t: 'Staff & GMs', v: ['coaches', 'cards'] },
     { k: 'league', t: 'League', v: ['standings', ...(L.offSummary ? ['review'] : []), 'schedule', 'teams', 'stats', 'players', 'injuries', 'discipline', 'awards', 'pipeline', 'expansion'] },
     { k: 'moves', t: 'Roster moves', v: ['rmoves', 'trades', 'fa', 'draft'] },
@@ -4737,7 +4738,9 @@ function vSetup(note) {
   ${nba ? '' : `<div class="choice"><button data-setsize="30" class="${size === 30 ? 'on' : ''}"><strong>30 teams</strong><br><span class="muted">Philippines plus 14 capital cities in the region</span></button><button data-setsize="16" class="${size === 16 ? 'on' : ''}"><strong>16 teams (classic)</strong><br><span class="muted">The original Philippine league</span></button></div>`}
   <h3>Season length</h3><div class="choice">${[[82, 'Full season', 'The default. About 156 days, a little slower to sim.'], [66, 'Medium', 'A shorter season with the same rules.'], [58, 'Short (classic)', 'The original length.']].map(([n, nm, d]) => `<button data-setgames="${n}" class="${g === n ? 'on' : ''}"><strong>${n} games</strong> <span class="muted">· ${nm}</span><br><span class="muted">${d}</span></button>`).join('')}</div>
   <div class="choice"><button data-setmode="commish" class="${s.mode === 'commish' ? 'on' : ''}"><strong>Commissioner</strong><br><span class="muted">Watch the league run itself. You can review and veto AI trades.</span></button>
-  <button data-setmode="team" class="${s.mode === 'team' ? 'on' : ''}"><strong>Franchise Mode</strong><br><span class="muted">Run one team: set lineups, trade, sign and release players, draft, and hire or fire your coach. The AI runs the other ${size - 1} teams.</span></button></div>
+  <button data-setmode="team" class="${s.mode === 'team' ? 'on' : ''}"><strong>Franchise Mode</strong><br><span class="muted">Run one team: set lineups, trade, sign and release players, draft, and hire or fire your coach. The AI runs the other ${size - 1} teams.</span></button>
+  <button data-setmode="career" class="${s.mode === 'career' ? 'on' : ''}"><strong>My Career</strong><br><span class="muted">Create your own player. Start as a draft prospect, make the calls in big games, earn XP and become a legend.</span></button></div>
+  ${s.mode === 'career' && window.CAR ? CAR.setupForm() : ''}
   ${s.mode === 'team' ? `<h3>Pick your team</h3>${['North', 'South'].map(c => `<p class="k" style="margin:12px 0 6px">${nba ? (c === 'North' ? 'East' : 'West') : c} conference</p><div class="teamgrid">${fake.teams.filter(t => t.conf === c).map(t => `<button class="teampick ${s.team === t.id ? 'on' : ''}" data-setteam="${t.id}">${logo(t.id, 34)}<span>${esc(t.city)}<br><strong>${esc(t.name)}</strong><br><span class="muted">${nba ? esc(t.region) : `${t.region === 'Luzon' || t.region === 'Visayas' || t.region === 'Mindanao' ? '' : esc(t.region) + ' · '}${MARKET_LABEL[MARKET[t.abbr]]}`}</span></span></button>`).join('')}</div>`).join('')}` : ''}
   ${s.mode === 'team' ? `<div class="row" style="margin-top:14px"><label>Your name (general manager) <input id="gmname" maxlength="40" placeholder="You" value="${esc(s.gmName || '')}" style="min-width:220px"></label></div>` : ''}
   <div class="row" style="margin-top:18px"><button class="primary" id="create">Create league</button>${ui.prevL ? '<button id="setup-cancel">Cancel</button>' : ''}</div><p class="muted" style="font-size:12px">A new league gets its own save. Your other saves stay under Saves.</p></section>`;
@@ -4993,6 +4996,7 @@ function render() {
   try { negoAfterRender(); } catch (e) { console.error(e); }   // v30c #2
   try { if (window.P3) P3.afterRender(); } catch (e) { console.error(e); }   // Phase 3
   try { if (window.XP) XP.afterRender(); } catch (e) { console.error(e); }   // Phase A: expansion results popup (src/xp.js)
+  try { if (window.CAR) CAR.afterRender(); } catch (e) { console.error(e); }   // My Career: draft night popup
   try { if (window.PB) PB.afterRender(); } catch (e) { console.error(e); }   // Phase B: first-time tour (src/pb.js)
 }
 // v25.1: pinned notes. One plain-text note per save (L.note), in a box in a screen corner on every screen;
@@ -5243,7 +5247,7 @@ document.addEventListener('click', e => {
   if (!el || !($('#main').contains(el) || $('#modal').contains(el) || el.closest('#ticker') || el.closest('#rowmenu'))) return;
   if ($('#modal').contains(el) && (el.dataset.player || el.dataset.team || el.dataset.coach)) { ui.backDlg = ui.curDlg || null; closeDialog(); }
   const d = el.dataset;
-  if (el.id === 'create') { const s = ui.setup; SLOT = 'slot-' + Date.now(); setLeague(newLeague({ mode: s.mode, userTeam: s.mode === 'team' ? s.team : null, size: s.nba ? 30 : s.size === 16 ? 16 : 30, nba: !!s.nba, games: [58, 66, 82].includes(s.games) ? s.games : 82 })); if (L.me && (s.gmName || '').trim()) L.me.name = s.gmName.trim().slice(0, 40); ui.setupOpen = false; ui.setupNote = null; ui.newSlot = false; backStack.length = 0; ui.cur = null; save(); location.hash = '#preview'; route(); return; }
+  if (el.id === 'create') { const s = ui.setup; SLOT = 'slot-' + Date.now(); const car = s.mode === 'career'; setLeague(newLeague({ mode: car ? 'career' : s.mode, userTeam: s.mode === 'team' ? s.team : null, size: s.nba ? 30 : s.size === 16 ? 16 : 30, nba: !!s.nba, games: [58, 66, 82].includes(s.games) ? s.games : 82 })); if (L.me && (s.gmName || '').trim()) L.me.name = s.gmName.trim().slice(0, 40); if (car && window.CAR) CAR.createFrom(L); ui.setupOpen = false; ui.setupNote = null; ui.newSlot = false; backStack.length = 0; ui.cur = null; save(); location.hash = car ? '#career' : '#preview'; route(); return; }
   if (el.id === 'setup-cancel') { ui.setupOpen = false; L = ui.prevL; ui.prevL = null; render(); return; }
   if (d.setmode) { ui.setup.mode = d.setmode; render(); return; }
   if (d.setnba != null) { ui.setup.nba = d.setnba === '1'; ui.setup.team = 0; render(); return; }
@@ -5417,12 +5421,12 @@ document.addEventListener('click', e => {
   render(); window.scrollTo(0, 0);
 });
 
-const VIEWS = ['expansion', 'cards', 'trophies', 'stories', 'rmoves', 'hofc', 'topplays', 'preview', 'weekly', 'myteam', 'standings', 'review', 'schedule', 'stats', 'players', 'injuries', 'discipline', 'awards', 'pipeline', 'teams', 'trades', 'fa', 'draft', 'coaches', 'history', 'news', 'feed', 'rules'];
+const VIEWS = ['career', 'expansion', 'cards', 'trophies', 'stories', 'rmoves', 'hofc', 'topplays', 'preview', 'weekly', 'myteam', 'standings', 'review', 'schedule', 'stats', 'players', 'injuries', 'discipline', 'awards', 'pipeline', 'teams', 'trades', 'fa', 'draft', 'coaches', 'history', 'news', 'feed', 'rules'];
 // old tab names still work as links
 const VIEW_ALIAS = { leaders: ['stats', 'leaders'], tstats: ['stats', 'teams'], playoffs: ['standings', null] };
 function route() {
   const h = location.hash.replace('#', '');
-  ui.view = VIEWS.includes(h) ? h : VIEW_ALIAS[h] ? VIEW_ALIAS[h][0] : (L && L.user != null ? 'myteam' : 'standings');
+  ui.view = VIEWS.includes(h) ? h : VIEW_ALIAS[h] ? VIEW_ALIAS[h][0] : (L && L.career ? 'career' : L && L.user != null ? 'myteam' : 'standings');
   if (VIEW_ALIAS[h] && VIEW_ALIAS[h][1]) ui.statTab = VIEW_ALIAS[h][1];
   ui.teamTab = 'overview'; ui.editName = null;
   if (ui.cur && !ui.restoring) { backStack.push(ui.cur); if (backStack.length > 60) backStack.shift(); }
@@ -5455,6 +5459,7 @@ function pressDialog() {
 }
 const PRESS_HINT = { confident: 'Sound sure of yourself. Good in good times, risky after losses.', humble: 'Credit others. Steady media rep and owner trust.', deflect: 'Dodge the question. Costs media reputation.', callout: 'Challenge the player or the group. Can hurt morale.' };
 function interruptKind() {
+  if (window.CAR && L.career && CAR.pending()) return 'career';   // My Career: a big game today
   if (L.user != null && L.phase === 'regular' && L.teams[L.user].roster.length > 15) return 'roster';   // v24.2: a trade left you over 15: cut before simming
   if (L.mode === 'commish' && (L.pending || []).some(t => t.isNew)) return 'pending';
   if (L.phase === 'regular' && L.pauseDrama !== false && dramaOpen(L) && ui.dramaSeen !== dramaOpen(L).id) return 'drama';   // v28.7
@@ -5510,6 +5515,7 @@ function afterRun(ph0) {
   }
   { const P = pressActive(); if (P && L.pausePress !== false && ui.pressSeen !== P.id) { ui.pressSeen = P.id; queueDialog(pressDialog); } }
   const k = interruptKind();
+  if (k === 'career') queueDialog(CAR.gameDialog);
   if (k === 'drama') { ui.dramaSeen = dramaOpen(L).id; queueDialog(dramaDialog); }
   if (k === 'iv') { ui.ivSeen = ivOpen(L).id; queueDialog(ivDialog); }
   if (k === 'mtg') { ui.mtgSeen = mtgOpen(L).id; queueDialog(mtgDialog); }

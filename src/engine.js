@@ -2472,6 +2472,7 @@ function simDay(league) {
   if (typeof twoWayDay === 'function') twoWayDay(league, league.games.slice(-league.schedule[league.day].length));
   healDay(league, gpdOf(league));
   league.day++;
+  if (league.career && typeof careerDay === 'function') { try { careerDay(league, league.games.slice(-league.schedule[league.day - 1].length)); } catch (e) { console.error(e); } }   // My Career
   if (league.day % 7 === 0 || league.day >= league.schedule.length) raceRec(league);   // v28.3 F3
   afterDay(league);
   if (league.day >= league.schedule.length) {
@@ -2590,6 +2591,7 @@ function simPlayoffDay(league) {
     g.playoff = true; g.stage = poStages(league)[po.stage]; g.gnum = n; g.poDay = po.day;
     g.id = league.games.length + 1;
     applyGame(league, g); league.games.push(g); tlPrune(league); sr.games.push(g.id); played++;
+    if (league.career && typeof careerDay === 'function') { try { careerDay(league, [g]); } catch (e) { console.error(e); } }   // My Career: pro XP
     const hiWon = (home === sr.hi) === (g.hs > g.as);
     if (hiWon) sr.hw++; else sr.lw++;
     if (sr.hw >= sr.hiNeed) sr.winner = sr.hi;

@@ -57,7 +57,7 @@ function carCreate(L, o) {
   p.pl = lg; p.pt = ti; p.pFrom = L.season;
   { const tm = L.pipe.lg[lg].t[ti]; if (tm.f.length) tm.f.splice(tm.f.reduce((m, f, k, a) => f.o < a[m].o ? k : m, 0), 1); }
   p.tx.push({ s: L.season, t: `Joined ${pipeTeamName(lg, ti)} (${lg})` });
-  L.career = { pid: p.id, story: o.story, style: o.style || '', lg, team: ti, s0: L.season, xp: 40, xpTot: 40, games: [], log: [], ups: {}, cur: null, trust: 50, stop: 'all', pro: [] };
+  L.career = { pid: p.id, story: o.story, style: o.style || '', lg, team: ti, s0: L.season, xp: 40, xpTot: 40, games: [], log: [], ups: {}, cur: null, trust: 50, stop: 'all', pro: [], chem: 50, rel: {}, iv: [], nf: {}, lastTeam: null };
   carLog(L, `Your story begins: ${st.n}. You start at ${pipeTeamName(lg, ti)} (${lg}).`);
   carSchedule(L);
   return p;
@@ -97,19 +97,19 @@ function carSettle(L, g, line, mom, played) {
   const us = win ? ws : ls; line.pts = Math.min(line.pts, us - 10);
   const gr = carGradeOf(ratio + (win ? 0.05 : -0.05)), xp = Math.round((played ? 30 + CAR_GXP[gr] + (win ? 10 : 0) : 10 + CAR_GXP[gr] / 3 + (win ? 4 : 0)) * carXpK(L));
   Object.assign(g, { done: true, played: !!played, win, us, them: win ? ls : ws, line, gr, xp });
-  C.xp += xp; C.xpTot += xp;
+  C.xp += xp; C.xpTot += xp; carTally(C, line, false, gr, win);
   return g;
 }
 function carSimOne(L, g) { const p = carP(L); return carSettle(L, g, carNoise(carBase(L, p, L.career.lg), 1), 0, false); }
 // called after every sim day: games before today that were not played are simmed
-function careerDay(L, games) {
-  if (!carOn(L)) return;
+function careerDay(L, games) { if (!carOn(L)) return; if (typeof carInit === 'function') carInit(L); try { careerDay0(L, games); } finally { carCheck(L); } }
+function careerDay0(L, games) {
   const p = carP(L);
   if (p.prospect) { if (L.phase === 'regular' && p.pl) for (const g of L.career.games) if (!g.done && g.day < L.day) carSimOne(L, g); return; }
   // pro: grade + XP from his real box score; a game you played (decisions) earns more and moves coach trust
   const C = L.career, fx = C.proFx; if ((games || []).some(g => g.home === p.team || g.away === p.team) || L.phase === 'regular') C.proFx = null;
   for (const g of games || []) { const r = (g.box || []).find(x => x[0] === p.id); if (!r) continue;
-    const v = k => r[2 + IX[k]] || 0, line = { min: Math.round(v('min') / 60), pts: v('pts'), reb: v('orb') + v('drb'), ast: v('ast'), stl: v('stl'), blk: v('blk'), tov: v('tov'), tpm: v('tpm'), fgm: v('fgm'), fga: v('fga') };
+    const v = k => r[2 + IX[k]] || 0, line = { min: Math.round(v('min') / 60), pts: v('pts'), reb: v('orb') + v('drb'), ast: v('ast'), stl: v('stl'), blk: v('blk'), tov: v('tov'), tpm: v('tpm'), fgm: v('fgm'), fga: v('fga'), ftm: v('ftm') };
     if (!line.min) continue;
     const gs = carVal(line), avg = C.proAvg != null ? C.proAvg : Math.max(4, (p.ovr - 40) * 0.6), played = !!(fx && fx.pid === p.id);
     const side = r[1], tid = side === 0 ? g.home : g.away, win = side === 0 ? g.hs > g.as : g.as > g.hs;
@@ -119,10 +119,12 @@ function careerDay(L, games) {
     if (played) C.trust = clamp(C.trust + (gr >= 5 ? 2 : gr >= 3 ? 1 : gr <= 1 ? -2 : 0) + (fx.good >= 3 ? 1 : 0), 0, 100);
     const opp = side === 0 ? g.away : g.home, us = side === 0 ? g.hs : g.as, them = side === 0 ? g.as : g.hs;
     const e = { s: L.season, gid: g.id, po: !!g.playoff, tid, opp, home: side === 0, win, us, them, line, gr, xp, played, res: played ? fx.res : null };
-    C.pro.push(e); if (C.pro.length > 40) C.pro.shift();
+    C.pro.push(e); if (C.pro.length > 40) C.pro.shift(); carTally(C, line, true, gr, win);
+    try { carGameNews(L, p, e, line); carIvCheck(L, p, e, line); } catch (err) { console.error(err); }
     if (played) C.lastRes = e;
     if (gr >= 7 && line.pts >= 30) carLog(L, `${line.pts} points vs ${(L.teams[opp] || {}).abbr || ''}. A+ game.`);
   }
+  try { carDayLife(L, p); } catch (err) { console.error(err); }
 }
 // ---------- pro games ----------
 // today's game for his team (regular season or playoffs), or null
@@ -158,9 +160,13 @@ function careerMinutes(league, avail, target) {
 }
 // engine hook (playGame0): apply today's decisions to his side
 function careerGameFx(league, H, A) {
-  const fx = league.career && league.career.proFx; if (!fx) return;
-  for (const g of [H, A]) { const p = g.players.find(x => x.id === fx.pid); if (!p || !g.form[p.id]) continue;
-    g.form[p.id].o += fx.o; g.form[p.id].d += fx.d; g.ub[p.id] = (g.ub[p.id] || 1) * fx.ub;
+  const C = league.career; if (!C) return; const fx = C.proFx, bf = carBadgeForm(league), cb = C.chem != null ? clamp((C.chem - 50) / 50, 0, 1) * 0.6 : 0;   // good chemistry: teammates +0..0.6 form
+  if (!fx && !bf.o && !bf.d && !cb) return;
+  for (const g of [H, A]) { const p = g.players.find(x => x.id === C.pid); if (!p || !g.form[p.id]) continue;
+    g.form[p.id].o += (fx ? fx.o : 0) + bf.o; g.form[p.id].d += (fx ? fx.d : 0) + bf.d;
+    if (cb) for (const q of g.players) if (q !== p && g.form[q.id]) g.form[q.id].o += cb;
+    if (!fx) continue;
+    g.ub[p.id] = (g.ub[p.id] || 1) * fx.ub;
     for (const q of g.players) if (q !== p && g.form[q.id]) g.form[q.id].o += fx.tm; }
 }
 // the playable game waiting today (stops the sim)
@@ -233,7 +239,7 @@ const CAR_CLUTCH = { k: 'clutch', t: 'Down {d} with 24 seconds left. Timeout. Co
   { l: 'Run it for the hot hand', k: ['pas', 'iq'], d: 0, ok: { ast: 1, m: 2.2, t: 'You draw two defenders and find him. Money.' }, no: { m: -1.4, t: 'He misses the look.' } },
   { l: 'Set the screen, crash the boards', k: ['orb', 'str'], d: 2, ok: { reb: 1, pts: 2, m: 2, t: 'Miss, but you tip it in!' }, no: { m: -1.4, t: 'They secure the rebound.' } }] };
 const carRating = (p, ks) => ks[0] === 'best' ? Math.max(p.fin, p.mid, p.tp) : ks.reduce((a, k) => a + (p[k] || 50), 0) / ks.length;
-function carChance(L, p, opt) { const D = p.prospect ? (CAR_FX.diff[L.career.lg] || 50) : CAR_FX.diff.PRO + (L.career.trust - 50) / -10; return clamp(0.5 + (carRating(p, opt.k) - D - (opt.d || 0)) / 40, 0.08, 0.92); }
+function carChance(L, p, opt) { const D = p.prospect ? (CAR_FX.diff[L.career.lg] || 50) : CAR_FX.diff.PRO + (L.career.trust - 50) / -10; return clamp(0.5 + (carRating(p, opt.k) - D - (opt.d || 0)) / 40 + carBadgeBonus(L, opt.k), 0.08, 0.92); }
 function carScenes(p) {
   const pool = CAR_SCENES.slice(), out = [];
   for (let i = 0; i < 3; i++) { const sc = wpick(pool, pool.map(s => s.w[p.pos] + 0.05)); out.push(sc.k); pool.splice(pool.indexOf(sc), 1); }
@@ -247,7 +253,7 @@ function carChoose(L, oi) {
   const sc = carScene(cur.sc[cur.step]), opt = sc.o[oi]; if (!opt) return null;
   const ch = carChance(L, p, opt), ok = R() < ch, fx = ok ? opt.ok : opt.no;
   for (const k in fx) if (k !== 't' && k !== 'm') cur.add[k] = (cur.add[k] || 0) + fx[k];
-  cur.mom += fx.m || 0; cur.res.push({ k: sc.k, o: oi, ok, t: fx.t }); cur.step++;
+  cur.mom += fx.m || 0; cur.res.push({ k: sc.k, o: oi, ok, t: fx.t }); cur.step++; if (ok) { const t = C.tot = C.tot || {}; t.ok = (t.ok || 0) + 1; }
   return { ok, t: fx.t, ch };
 }
 function carFinish(L) {
@@ -256,6 +262,7 @@ function carFinish(L) {
   for (const k in cur.add) line[k] = (line[k] || 0) + cur.add[k];
   const good = cur.res.filter(r => r.ok).length; line.min = Math.round(line.min + (good - 2) * 1.5);
   carSettle(L, g, line, cur.mom, true); g.res = cur.res.map(r => r.ok ? 1 : 0); C.cur = null;
+  carCheck(L);
   if (g.gr >= 6) carLog(L, `${CAR_GRADES[g.gr]} game vs ${pipeTeam(C.lg, g.opp).abbr}: ${line.pts} pts, ${line.reb} reb, ${line.ast} ast.`);
   return g;
 }
@@ -279,6 +286,376 @@ function carSeasonLine(L) {
   const n = gs.length, a = k => Math.round(gs.reduce((s, g) => s + (g.line[k] || 0), 0) / n * 10) / 10;
   return { gp: n, w: gs.filter(g => g.win).length, min: a('min'), pts: a('pts'), reb: a('reb'), ast: a('ast'), stl: a('stl'), blk: a('blk'), tov: a('tov'), tpm: a('tpm') };
 }
+
+// ---------- badges ----------
+// k: rating keys it relates to; side: o = offense form, d = defense form; st / need: stat milestone that EARNS each tier (L.career.tot); buying needs an average rating (CAR_BREQ) and XP (CAR_BCOST)
+const CAR_TIERS = ['Bronze', 'Silver', 'Gold', 'Hall of Fame'], CAR_BCOST = [60, 120, 220, 400], CAR_BP = [0.03, 0.05, 0.07, 0.09], CAR_BF = [0.3, 0.6, 0.9, 1.2], CAR_BREQ = [50, 62, 74, 85];
+const CAR_BADGES = [
+  { k: 'deadeye', n: 'Deadeye', t: 'Three-pointers', keys: ['tp'], side: 'o', st: 'tpm', need: [40, 120, 300, 700], u: 'threes made' },
+  { k: 'midrange', n: 'Mid-range Maestro', t: 'Two-point shots', keys: ['mid'], side: 'o', st: 'fg2', need: [80, 250, 650, 1400], u: 'twos made' },
+  { k: 'posterizer', n: 'Posterizer', t: 'Finishing at the rim', keys: ['fin', 'vrt'], side: 'o', st: 'g20', need: [3, 10, 25, 50], u: '20-pt games' },
+  { k: 'ankle', n: 'Ankle Breaker', t: 'Handles', keys: ['hnd', 'agi'], side: 'o', st: 'pts', need: [250, 800, 2000, 4500], u: 'points' },
+  { k: 'dimer', n: 'Dimer', t: 'Passing', keys: ['pas'], side: 'o', st: 'a8', need: [2, 8, 20, 40], u: '8-assist games' },
+  { k: 'lockdown', n: 'Lockdown', t: 'Perimeter defense', keys: ['per', 'pdf'], side: 'd', st: 'd3', need: [2, 8, 20, 40], u: '3+ stocks games' },
+  { k: 'pocket', n: 'Pick Pocket', t: 'Steals', keys: ['stl'], side: 'd', st: 'stl', need: [20, 70, 180, 400], u: 'steals' },
+  { k: 'rimprot', n: 'Rim Protector', t: 'Blocks', keys: ['blk'], side: 'd', st: 'blk', need: [15, 50, 130, 300], u: 'blocks' },
+  { k: 'glass', n: 'Glass Cleaner', t: 'Rebounding', keys: ['drb', 'orb'], side: 'd', st: 'reb', need: [100, 350, 900, 2000], u: 'rebounds' },
+  { k: 'clutch', n: 'Clutch Gene', t: 'Big moments', keys: ['iq', 'mid', 'tp'], side: 'o', st: 'ok', need: [10, 30, 70, 140], u: 'good calls' },
+  { k: 'microwave', n: 'Microwave', t: 'Instant offense in short minutes', keys: ['tp', 'fin'], side: 'o', st: 'mw', need: [2, 6, 15, 30], u: 'hot short games' },
+  { k: 'ironman', n: 'Iron Man', t: 'Durability', keys: ['str', 'spd'], side: 'd', st: 'g', need: [30, 100, 250, 500], u: 'games played' },
+  { k: 'general', n: 'Floor General', t: 'Basketball IQ', keys: ['iq', 'pas'], side: 'o', st: 'ast', need: [80, 300, 800, 1800], u: 'assists' },
+  { k: 'post', n: 'Post Wizard', t: 'Post game', keys: ['pst'], side: 'o', st: 'dd', need: [3, 10, 25, 50], u: 'double-doubles' },
+  { k: 'ftace', n: 'Free Throw Ace', t: 'Free throws', keys: ['ft', 'drw'], side: 'o', st: 'ftm', need: [60, 200, 500, 1100], u: 'free throws' },
+  { k: 'hustle', n: 'Hustle', t: 'Effort plays', keys: ['orb', 'str', 'spd'], side: 'd', st: 'r10', need: [3, 10, 25, 50], u: '10-rebound games' }
+];
+// his running totals (pipeline + pro games); the 40-game list in L.career.pro is too short for career milestones
+function carTally(C, l, pro, gr, win) {
+  const t = C.tot = C.tot || {}, a = (k, v) => { t[k] = (t[k] || 0) + v; };
+  for (const k of ['pts', 'reb', 'ast', 'stl', 'blk', 'tpm', 'tov', 'min']) a(k, l[k] || 0);
+  const fgm = l.fgm != null ? l.fgm : Math.round(l.pts * 0.38); a('g', 1); a('fg2', Math.max(0, fgm - (l.tpm || 0))); a('ftm', l.ftm != null ? l.ftm : Math.round(l.pts * 0.15));
+  if (l.pts >= 20) a('g20', 1); if (l.reb >= 10) a('r10', 1); if (l.ast >= 8) a('a8', 1); if (l.stl + l.blk >= 3) a('d3', 1); if (l.pts >= 15 && l.min <= 22) a('mw', 1);
+  const dbl = [l.pts, l.reb, l.ast, l.stl, l.blk].filter(x => x >= 10).length; if (dbl >= 2) a('dd', 1);
+  if (gr >= 7) a('aplus', 1); if (win) a('w', 1);
+  if (pro) { a('pg', 1); t.pm = Math.max(t.pm || 0, l.pts); if (dbl >= 3) a('ptd', 1); }
+}
+const carBadgeTier = (b, tot) => { let t = -1; for (let i = 0; i < 4; i++) if ((tot[b.st] || 0) >= b.need[i]) t = i; return t; };
+function carBadgeBonus(L, ks) {
+  const B = (L.career && L.career.badges) || {}, kk = []; for (const k of ks) { if (k === 'best') kk.push('fin', 'mid', 'tp'); else kk.push(k); }
+  let m = 0; for (const b of CAR_BADGES) { const t = B[b.k]; if (t != null && b.keys.some(k => kk.includes(k))) m = Math.max(m, CAR_BP[t]); } return m;
+}
+function carBadgeForm(L) {
+  const B = (L.career && L.career.badges) || {}, f = { o: 0, d: 0 }; for (const b of CAR_BADGES) { const t = B[b.k]; if (t != null) f[b.side] += CAR_BF[t]; }
+  f.o = Math.min(3, f.o); f.d = Math.min(3, f.d); return f;
+}
+// can he buy the next tier? returns { tier, cost, ok, why }
+function carBadgeBuy(L, b) {
+  const C = L.career, p = carP(L), have = (C.badges || {})[b.k], tier = have == null ? 0 : have + 1; if (tier > 3) return null;
+  const r = Math.round(carRating(p, b.keys)), cost = CAR_BCOST[tier];
+  return { tier, cost, r, req: CAR_BREQ[tier], ok: r >= CAR_BREQ[tier] && C.xp >= cost, why: r < CAR_BREQ[tier] ? `Needs ${CAR_BREQ[tier]} average ${b.keys.map(k => LABELS[k] || k).join(' + ')} (yours ${r})` : C.xp < cost ? `Needs ${cost} XP` : '' };
+}
+function carBuyBadge(L, key) {
+  const C = L.career, b = CAR_BADGES.find(x => x.k === key); if (!b) return 'Unknown badge.';
+  const o = carBadgeBuy(L, b); if (!o) return 'Already Hall of Fame tier.'; if (!o.ok) return o.why;
+  C.xp -= o.cost; (C.badges = C.badges || {})[key] = o.tier; carLog(L, `Bought the ${b.n} badge (${CAR_TIERS[o.tier]}).`); return null;
+}
+// ---------- achievements ----------
+const carAw = (p, a) => (p.awards || []).filter(x => x.a === a).length;
+// his pro seasons: finished ones from p.hist plus the current one
+function carSeasons(L, p) {
+  const out = (p.hist || []).filter(h => h.rs && h.rs.gp).map(h => ({ s: h.s, tid: h.tid, age: h.age, ...h.rs })), cur = p.stats && p.stats.rs;
+  if (cur && cur.gp && !out.some(x => x.s === L.season)) out.push({ s: L.season, tid: p.team, age: p.age, ...cur });
+  return out;
+}
+const carProTot = (L, p, k) => carSeasons(L, p).reduce((a, x) => a + (x[k] || 0), 0);
+const CAR_ACH = [
+  { k: 'first1', n: 'First round', t: 'Get drafted in the 1st round', xp: 40, f: (L, p) => !!(p.draft && p.draft.rd === 1) },
+  { k: 'top5', n: 'Top 5 pick', t: 'Go in the top 5 of the draft', xp: 80, f: (L, p) => !!(p.draft && p.draft.rd === 1 && p.draft.no <= 5) },
+  { k: 'progame', n: 'Welcome to the pros', t: 'Play your first pro game', xp: 25, f: (L, p, C) => (C.tot.pg || 0) >= 1 },
+  { k: 'roy', n: 'Rookie of the Year', t: 'Win Rookie of the Year', xp: 120, f: (L, p) => carAw(p, 'Rookie of the Year') > 0 },
+  { k: 'p20', n: 'Twenty piece', t: 'Score 20 in a pro game', xp: 30, f: (L, p, C) => (C.tot.pm || 0) >= 20 },
+  { k: 'p30', n: 'Thirty ball', t: 'Score 30 in a pro game', xp: 60, f: (L, p, C) => (C.tot.pm || 0) >= 30 },
+  { k: 'p40', n: 'Forty burger', t: 'Score 40 in a pro game', xp: 100, f: (L, p, C) => (C.tot.pm || 0) >= 40 },
+  { k: 'p50', n: 'Fifty bomb', t: 'Score 50 in a pro game', xp: 160, f: (L, p, C) => (C.tot.pm || 0) >= 50 },
+  { k: 'td', n: 'Triple-double', t: 'Get a triple-double in a pro game', xp: 80, f: (L, p, C) => (C.tot.ptd || 0) >= 1 },
+  { k: 'asg', n: 'All-Star', t: 'Make the All-Star Game', xp: 100, f: (L, p) => carAw(p, 'All-Star') >= 1 },
+  { k: 'asg5', n: 'Perennial All-Star', t: 'Make five All-Star Games', xp: 200, f: (L, p) => carAw(p, 'All-Star') >= 5 },
+  { k: 'mvp', n: 'Most Valuable Player', t: 'Win MVP', xp: 300, f: (L, p) => carAw(p, 'MVP') >= 1 },
+  { k: 'dpoy', n: 'Defensive Player of the Year', t: 'Win DPOY', xp: 200, f: (L, p) => carAw(p, 'Defensive Player of the Year') >= 1 },
+  { k: 'champ', n: 'Champion', t: 'Win a championship', xp: 150, f: (L, p) => carAw(p, 'Champion') >= 1 },
+  { k: 'fmvp', n: 'Finals MVP', t: 'Win Finals MVP', xp: 250, f: (L, p) => carAw(p, 'Finals MVP') >= 1 },
+  { k: 'c1k', n: '1,000 points', t: 'Score 1,000 career pro points', xp: 50, f: (L, p) => carProTot(L, p, 'pts') >= 1000 },
+  { k: 'c10k', n: '10,000 points', t: 'Score 10,000 career pro points', xp: 200, f: (L, p) => carProTot(L, p, 'pts') >= 10000 },
+  { k: 'c20k', n: '20,000 points', t: 'Score 20,000 career pro points', xp: 400, f: (L, p) => carProTot(L, p, 'pts') >= 20000 },
+  { k: 'gp100', n: 'Veteran', t: 'Play 100 pro games', xp: 60, f: (L, p) => carProTot(L, p, 'gp') >= 100 },
+  { k: 'trust90', n: 'Coach\'s guy', t: 'Reach coach trust 90+', xp: 70, f: (L, p, C) => C.trust >= 90 },
+  { k: 'aplus', n: 'A+ game', t: 'Earn an A+ grade in a game', xp: 50, f: (L, p, C) => (C.tot.aplus || 0) >= 1 },
+  { k: 'bigsix', n: 'Big-game player', t: 'Win all 6 big games of your pipeline season', xp: 70, f: (L, p, C) => { const b = (C.games || []).filter(g => g.play); return b.length >= CAR_FX.played && b.every(g => g.done && g.win); } },
+  { k: 'r90', n: 'Elite skill', t: 'Get any rating to 90+', xp: 90, f: (L, p) => PROG_KEYS.some(k => p[k] >= 90) },
+  { k: 'badges5', n: 'Badge collector', t: 'Own 5 badges', xp: 60, f: (L, p, C) => Object.keys(C.badges || {}).length >= 5 },
+  { k: 'hof', n: 'Hall of Famer', t: 'Get inducted into the Hall of Fame', xp: 500, f: (L, p) => !!p.hof }
+];
+// after every game and at season end: earn badges from milestones, unlock achievements (XP, story line, popup list in C.pop)
+function carCheck(L) {
+  if (!carOn(L)) return; const C = L.career, p = carP(L); C.tot = C.tot || {}; C.badges = C.badges || {}; C.ach = C.ach || {}; C.pop = C.pop || [];
+  for (const b of CAR_BADGES) { const t = carBadgeTier(b, C.tot), have = C.badges[b.k]; if (t >= 0 && (have == null || t > have)) { C.badges[b.k] = t; C.pop.push({ t: 'badge', n: `${b.n}: ${CAR_TIERS[t]}`, d: 'Earned from your stats' }); carLog(L, `Earned the ${b.n} badge (${CAR_TIERS[t]}).`); } }
+  for (const a of CAR_ACH) { if (C.ach[a.k] != null) continue; let ok = false; try { ok = a.f(L, p, C); } catch (e) { } if (!ok) continue;
+    C.ach[a.k] = L.season; C.xp += a.xp; C.xpTot += a.xp; C.pop.push({ t: 'ach', n: a.n, d: a.t, xp: a.xp }); carLog(L, `Achievement unlocked: ${a.n} (+${a.xp} XP).`); }
+  try { carLifeCheck(L); } catch (e) { console.error(e); }
+}
+// ---------- Legend meter ----------
+const CAR_LEGEND = [[0, 'Prospect'], [10, 'Rotation player'], [25, 'Starter'], [40, 'All-Star'], [55, 'Superstar'], [75, 'Legend'], [90, 'GOAT conversation']];
+function carLegend(L) {
+  const C = L.career, p = carP(L), ach = Object.keys(C.ach || {}).length; let s = 0;
+  try { s = typeof legacyScore === 'function' ? legacyScore(p) : 0; } catch (e) { }
+  try { if (!(p.hist || []).some(h => h.s === L.season) && p.stats && p.stats.rs && p.stats.rs.gp) s += seasonValue({ rs: p.stats.rs }) + (p.stats.po && p.stats.po.gp ? poValue({ po: p.stats.po }) : 0); } catch (e) { }
+  const base = s; s += ach * 6 + Math.max(0, (p.ovr || 0) - 45) * 1.2;
+  const v = Math.round(clamp(100 * (1 - Math.exp(-s / 700)), 0, 100) * 10) / 10; let ti = 0; CAR_LEGEND.forEach(([m], i) => { if (v >= m) ti = i; });
+  const need = typeof hofMin === 'function' ? hofMin(L) : 650, yrs = Math.max(0, 34 - (p.age || 25)), n = (p.hist || []).filter(h => h.rs && h.rs.gp).length;
+  const per = n ? Math.max(0, base / n) : Math.max(0, ((p.ovr || 0) + (p.pot || 0)) / 2 - 55) * 7, proj = Math.round(s + yrs * per * 0.8);
+  return { s: Math.round(s), v, tier: CAR_LEGEND[ti][1], ti, next: CAR_LEGEND[ti + 1] || null, need, proj, hof: !!p.hof, on: !!p.hof || proj >= need };
+}
+
+// ===================== Phase 4: career life (interviews, relations, news, trade requests, contracts) =====================
+const CAR_OFF = ['off-review', 'off-lottery', 'off-draft', 'off-resign', 'off-fa', 'off-ready'];
+const CAR_MODE = { contend: 'Contender', hopeful: 'Playoff hopeful', rebuild: 'Rebuilding', tank: 'Tanking' };
+const carTx = () => typeof CAR_TEXT !== 'undefined' && CAR_TEXT ? CAR_TEXT : { iv: [], news: {}, rel: {} };
+const carFmt = (s, o) => String(s).replace(/\{(\w+)\}/g, (m, k) => o[k] != null ? o[k] : m);
+const carTm = (L, t) => t != null && L.teams[t] ? L.teams[t].city + ' ' + L.teams[t].name : 'the league';
+const carNum = n => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+// every new field has a default, so old saves load
+function carInit(L) {
+  const C = L.career; if (!C) return C; const p = carP(L);
+  if (C.chem == null) C.chem = 50;
+  C.rel = C.rel || {}; C.iv = C.iv || []; C.nf = C.nf || {}; C.ivGap = C.ivGap || 0;
+  if (C.lastTeam === undefined) C.lastTeam = p && p.team != null ? p.team : null;
+  if (C.ltSeen === undefined) C.ltSeen = p && p.lastTrade != null ? p.lastTrade : null;
+  return C;
+}
+const carMates = L => { const p = carP(L); return p && p.team != null && L.teams[p.team] ? rosterOf(L, L.teams[p.team]).filter(q => q.id !== p.id).sort((a, b) => b.ovr - a.ovr) : []; };
+const carCoach = L => { const p = carP(L), t = p && p.team != null ? L.teams[p.team] : null; return t && t.coach ? t.coach : null; };
+// ---------- news: milestones in the league log ----------
+function carNews(L, key, o) {
+  const p = carP(L); let arr = (carTx().news || {})[key]; if (!arr || !arr.length || !p) return null; o = o || {};
+  const tid = o.tid != null ? o.tid : p.team;
+  const ok = arr.filter(s => !(/\{opp\}/.test(s) && o.opp == null) && !(/\{pts\}/.test(s) && o.pts == null) && !(/\{n\}/.test(s) && o.n == null)); if (ok.length) arr = ok;
+  const txt = carFmt(pick(arr), { name: p.name, team: carTm(L, tid), opp: o.opp != null ? carTm(L, o.opp) : 'the opposition', pts: o.pts != null ? o.pts : '', n: o.n != null ? o.n : '' });
+  logNews(L, txt, tid, o.cat || 'feat', 'car'); return txt;
+}
+function carGameNews(L, p, e, line) {
+  const C = L.career, nf = C.nf, o = { tid: e.tid, opp: e.opp, pts: line.pts };
+  if (!nf.debut) { nf.debut = L.season; carNews(L, 'debut', o); }
+  let top = 0; for (const k of [20, 30, 40]) if (line.pts >= k && !nf['f' + k]) { nf['f' + k] = L.season; top = k; }
+  if (top) carNews(L, 'first' + top, o);
+  if ([line.pts, line.reb, line.ast, line.stl, line.blk].filter(x => x >= 10).length >= 3) carNews(L, 'tripleDouble', Object.assign({ n: line.pts }, o));
+  const after = (C.tot || {}).pts || 0, before = after - line.pts;
+  for (const [th, key] of [[1000, 'milestone1k'], [10000, 'milestone10k']]) if (before < th && after >= th && !nf['m' + th]) { nf['m' + th] = L.season; carNews(L, key, Object.assign({}, o, { n: carNum(th) })); }
+}
+const CAR_AWK = [[/^Rookie of the Year/, 'roy'], [/^Finals MVP$/, 'fmvp'], [/^MVP$/, 'mvp'], [/^Defensive Player of the Year$/, 'dpoy'], [/^All-Star$/, 'allStar'], [/^Champion$/, 'title']];
+function carNewsCheck(L) {
+  const p = carP(L), C = carInit(L), aw = p.awards || []; if (C.awN == null) { C.awN = aw.length; return; }
+  for (const a of aw.slice(C.awN)) { const m = CAR_AWK.find(([rx]) => rx.test(a.a)); if (m) carNews(L, m[1], { cat: 'award' }); }
+  C.awN = aw.length;
+  if (p.retired && !C.nf.ret) { C.nf.ret = 1; carNews(L, 'legend', { n: (p.hist || []).length, cat: 'award' }); }
+  const n = (p.contracts || []).length;
+  if (C.nCon == null) C.nCon = n; else if (n > C.nCon) { const c = p.contracts[n - 1]; C.nCon = n; if (c) { if (c.type === 'signing' || c.type === 're-sign') carNews(L, 'signed', { tid: c.tid, cat: 'tx' }); else if (c.type === 'extension') carNews(L, 'extension', { tid: c.tid, cat: 'tx' }); } }
+}
+// ---------- relationships ----------
+function carRelBase(L, q) {
+  const p = carP(L); let s = 8;
+  if (q.pos === p.pos && q.ovr > p.ovr + 2) s -= 6;
+  if (q.age <= 21) s += 4; if (q.pers === 'Mentor') s += 4;
+  try { if (rivalsOf(L, p).some(x => x.other && x.other.id === q.id)) s -= 30; } catch (e) { }
+  try { if (typeof duoYears === 'function') s += Math.min(18, duoYears(L, p.id, q.id) * 6); } catch (e) { }
+  return clamp(s, -100, 100);
+}
+function carRelOf(L, key) {
+  const C = carInit(L); if (C.rel[key] != null) return C.rel[key];
+  if (key === 'c') { const co = carCoach(L), p = carP(L); return clamp(10 + Math.round((C.trust - 50) / 5) - (co && (p.friction || []).includes(co.id) ? 15 : 0), -100, 100); }
+  const q = L.players[key]; return q ? carRelBase(L, q) : 0;
+}
+function carRelAdd(L, key, d) { const C = carInit(L); C.rel[key] = clamp(Math.round(carRelOf(L, key) + d), -100, 100); }
+const carChemWord = c => c >= 75 ? 'Tight' : c >= 58 ? 'Good' : c >= 42 ? 'Okay' : c >= 25 ? 'Tense' : 'Toxic';
+function carRelEvent(L) {
+  const T = carTx().rel || {}, keys = Object.keys(T).filter(k => T[k] && T[k].length), mates = carMates(L), co = carCoach(L); if (!keys.length || !mates.length) return null;
+  const young = mates.filter(q => q.age <= 22), w = keys.map(k => k === 'rookieHaze' || k === 'mentor' ? (young.length ? 1 : 0) : k === 'beef' ? 0.7 : 1), k = wpick(keys, w), ev = pick(T[k]);
+  const mate = (k === 'rookieHaze' || k === 'mentor') && young.length ? pick(young) : pick(mates), d = (ev.fx && ev.fx.chem) || 0, C = L.career;
+  const txt = carFmt(ev.t, { mate: mate.name, coach: co ? co.name : 'Coach', name: carP(L).name });
+  C.chem = clamp(C.chem + d, 0, 100);
+  if (/\{mate\}/.test(ev.t)) carRelAdd(L, mate.id, d * 4); if (/\{coach\}/.test(ev.t)) carRelAdd(L, 'c', d * 4);
+  carLog(L, txt); return { k, txt, d };
+}
+function carWeek(L, p) {
+  const C = carInit(L), mates = carMates(L); if (!mates.length) return;
+  if (R() < 0.75) carRelEvent(L);
+  const avg = mates.slice(0, 8).reduce((a, q) => a + carRelOf(L, q.id), 0) / Math.max(1, Math.min(8, mates.length)), t = L.teams[p.team], g = t.w + t.l, wp = g >= 5 ? t.w / g : 0.5;
+  C.chem = clamp(Math.round((C.chem + clamp((50 + avg * 0.6 - C.chem) * 0.12, -2, 2) + (wp - 0.5) * 3) * 10) / 10, 0, 100);
+}
+// ask the coach for a bigger role: once a week
+const carTalkKey = L => L.phase === 'regular' ? L.season + ':w' + Math.floor(L.day / 7) : L.season + ':' + L.phase;
+function carTalkOK(L) { const p = carP(L); if (!p || p.prospect || p.team == null || !L.teams[p.team]) return 'You need a team first.'; if (carInit(L).talk === carTalkKey(L)) return 'You already talked to the coach this week.'; return null; }
+function carTalkChance(L) {
+  const C = carInit(L), p = carP(L), rv = carMates(L).filter(q => q.pos === p.pos || q.pos2 === p.pos || (p.pos2 != null && q.pos === p.pos2)), best = rv.length ? rv[0].ovr : p.ovr - 6;
+  const gr = C.pro.slice(-5).map(e => e.gr), g = gr.length ? gr.reduce((a, b) => a + b, 0) / gr.length : 3.5;
+  return clamp(0.32 + (C.trust - 50) / 110 + (p.ovr - best) / 45 + (g - 3.5) * 0.045 + carRelOf(L, 'c') / 400, 0.08, 0.88);
+}
+function carTalk(L) {
+  const err = carTalkOK(L); if (err) return { err }; const C = carInit(L), p = carP(L), co = carCoach(L), ch = carTalkChance(L), ok = R() < ch, nm = co ? co.name : 'The coach';
+  C.talk = carTalkKey(L); let msg;
+  if (ok) { const d = rint(4, 8); C.trust = clamp(C.trust + d, 0, 100); carRelAdd(L, 'c', 8); msg = `${nm} hears you out and agrees to give you a bigger role. Coach trust +${d}.`; }
+  else { const d = rint(1, 4); C.trust = clamp(C.trust - d, 0, 100); carRelAdd(L, 'c', -5); if (ch < 0.3) C.chem = clamp(C.chem - 1, 0, 100); msg = `${nm} says you have to earn it first. Coach trust -${d}.`; }
+  C.talkRes = { ok, msg, s: L.season, d: L.day }; carLog(L, 'Talked to the coach about your role. ' + msg); return { ok, msg, chance: ch };
+}
+// ---------- interviews ----------
+function carIvFind(k) { return (carTx().iv || []).find(q => q.k === k) || null; }
+function carIvFmt(L, s, ctx) { const co = carCoach(L), p = carP(L); ctx = ctx || {}; return carFmt(s, { name: p.name, team: carTm(L, p.team), opp: ctx.opp != null ? carTm(L, ctx.opp) : 'the other team', coach: co ? co.name : 'Coach', pts: ctx.pts != null ? ctx.pts : '' }); }
+function carIvAsk(L, when, ctx) {
+  const C = carInit(L); if (C.ivQ) return C.ivQ; const Q = carTx().iv || [], recent = C.iv.slice(0, 8).map(x => x.k);
+  let pool = Q.filter(q => q.when === when && !recent.includes(q.k)); if (!pool.length) pool = Q.filter(q => q.when === when); if (!pool.length) pool = Q.filter(q => q.when === 'any'); if (!pool.length) return null;
+  const q = pick(pool); C.ivQ = { k: q.k, when, ctx: ctx || {}, s: L.season, d: L.day, shown: false }; C.ivGap = 0; return C.ivQ;
+}
+function carIvAnswer(L, i) {
+  const C = carInit(L), p = carP(L), Q = C.ivQ, q = Q && carIvFind(Q.k), a = q && q.a[i]; if (!a) return null; const fx = a.fx || {};
+  p.fameBase = (p.fameBase || 0) + (fx.fame || 0); p.fame = clamp((p.fame || 0) + (fx.fame || 0), 0, 100);
+  C.trust = clamp(C.trust + (fx.trust || 0), 0, 100); C.chem = clamp(C.chem + (fx.chem || 0), 0, 100); if (fx.trust) carRelAdd(L, 'c', fx.trust * 2);
+  const rec = { s: L.season, d: L.day, k: q.k, when: Q.when, q: carIvFmt(L, q.q, Q.ctx), t: carIvFmt(L, a.t, Q.ctx), tone: a.tone, fx: { fame: fx.fame || 0, trust: fx.trust || 0, chem: fx.chem || 0 }, tm: p.team };
+  C.iv.unshift(rec); if (C.iv.length > 40) C.iv.length = 40; C.ivQ = null; carLog(L, `Told reporters: "${rec.t}"`); return rec;
+}
+function carIvCheck(L, p, e, line) {
+  const C = carInit(L); C.ivGap = (C.ivGap || 0) + 1; if (C.ivQ) return;
+  const pro = C.pro; let loss = 0; for (let i = pro.length - 1; i >= 0 && !pro[i].win; i--) loss++;
+  let when = null;
+  if (e.po && !pro.slice(0, -1).some(x => x.po && x.s === e.s)) when = 'playoffs';
+  else if (L.phase === 'regular' && p.contract && p.contract.exp <= L.season && L.day >= deadlineDay(L) && C.ivCon !== L.season) { when = 'contract'; C.ivCon = L.season; }
+  else if (line.pts >= 30) when = 'hot';
+  else if (loss >= 3 && C.ivGap >= 3) when = 'slump';
+  else if (C.ivGap >= 2 && R() < 1 / 6) {
+    const rook = !(p.hist || []).some(h => h.rs && h.rs.gp), moved = C.movedS === L.season && L.day - (C.movedD || 0) < 15;
+    when = moved && R() < 0.4 ? 'trade' : p.tradeReq === L.season && R() < 0.4 ? 'trade' : rook && R() < 0.35 ? 'rookie' : R() < 0.2 ? 'any' : e.win ? 'win' : 'loss';
+  }
+  if (when) carIvAsk(L, when, { opp: e.opp, pts: line.pts, win: e.win, home: e.home });
+}
+// ---------- trade requests ----------
+function carTradeErr(L) {
+  const p = carP(L); if (!p || p.prospect || p.team == null || p.retired) return 'You need to be on a team first.';
+  if (p.tradeReq === L.season) return 'You already asked for a trade.';
+  if (!((L.phase === 'regular' && L.day < deadlineDay(L)) || CAR_OFF.includes(L.phase))) return 'Trade requests are only possible in the regular season before the deadline, or in the offseason.';
+  return null;
+}
+function carReqTrade(L) {
+  const err = carTradeErr(L); if (err) return { err }; const C = carInit(L), p = carP(L), t = L.teams[p.team], co = t.coach;
+  C.treqTry = 0; p.tradeReq = L.season; C.trust = clamp(C.trust - 12, 0, 100); C.chem = clamp(C.chem - 8, 0, 100); carRelAdd(L, 'c', -15);
+  if (co && !(p.friction || []).includes(co.id)) p.friction = (p.friction || []).concat(co.id);
+  p.tx.push({ s: L.season, t: `Requested a trade from ${t.abbr}` });
+  carNews(L, 'tradeRequest', { cat: 'tx' }); carLog(L, `You asked ${t.abbr} for a trade. Coach trust and team chemistry took a hit.`);
+  if (CAR_OFF.includes(L.phase) && inTradeWindow(L) && R() < 0.5) carTradeTry(L, 40);
+  return { ok: true };
+}
+// the AI trades him more readily: while he has asked out, the front office works the phones (only deals that send him away count)
+// fallback after a few quiet days: a plain one-for-one swap with a team that has a similar player
+function carTradeSwap(L, p) {
+  const B = L.teams[p.team];
+  for (const A of L.teams.filter(t => t.id !== B.id && t.id !== L.user).sort(() => R() - 0.5)) {
+    const cs = rosterOf(L, A).filter(q => !q.hardship && !q.career && !tradeRestricted(L, q) && q.ovr <= p.ovr + 6 && q.ovr >= p.ovr - 15 && Math.abs((q.contract ? q.contract.amt : 1) - (p.contract ? p.contract.amt : 1)) <= Math.max(8, (p.contract ? p.contract.amt : 1) * 0.3)).sort((x, y) => y.ovr - x.ovr);
+    for (const q of cs.slice(0, 5)) {
+      const tr = { a: A.id, b: B.id, aGive: { players: [q.id], picks: [] }, bGive: { players: [p.id], picks: [] }, id: 'swap-career' };
+      try { if (tradeCheck(L, tr.a, tr.b, tr.aGive, tr.bGive) || !afterTradeOK(L, tr)) continue; addWhy(L, tr); executeTrade(L, tr); countDeal(L, tr); return true; } catch (e) { continue; }
+    }
+  }
+  return false;
+}
+function carTradeTry(L, tries) {
+  const p = carP(L); if (!p || p.team == null || p.tradeReq !== L.season || !inTradeWindow(L) || L.mode === 'commish' || tradeRestricted(L, p)) return false;
+  const C = carInit(L); C.treqTry = (C.treqTry || 0) + 1;
+  for (let i = 0; i < (tries || 24); i++) {
+    let tr = null; try { tr = aiTradeAttempt(L, p.team, undefined); } catch (e) { tr = null; }
+    if (!tr || !tr.bGive.players.includes(p.id) || tr.bGive.players.length > 1 + 1) continue;
+    try { if (!afterTradeOK(L, tr)) continue; addWhy(L, tr); executeTrade(L, tr); countDeal(L, tr); } catch (e) { console.error(e); return false; }
+    carTeamCheck(L); return true;
+  }
+  if (C.treqTry >= 5 && carTradeSwap(L, p)) { C.treqTry = 0; carTeamCheck(L); return true; }
+  return false;
+}
+// a new team: popup, and chemistry / relationships start over
+function carTeamCheck(L) {
+  const p = carP(L); if (!p || p.prospect || p.team == null) return; const C = carInit(L);
+  if (C.lastTeam == null) { C.lastTeam = p.team; C.ltSeen = p.lastTrade != null ? p.lastTrade : null; return; }
+  if (C.lastTeam === p.team) { if (p.lastTrade != null) C.ltSeen = p.lastTrade; return; }
+  const from = C.lastTeam, byTrade = p.lastTrade != null && p.lastTrade !== C.ltSeen;
+  C.lastTeam = p.team; C.ltSeen = p.lastTrade != null ? p.lastTrade : null;
+  C.chem = 45; C.rel = {}; C.trust = 50; C.talk = null; C.talkRes = null; C.movedS = L.season; C.movedD = L.day; C.ext = null; C.testFA = null;
+  C.moveQ = { from, to: p.team, how: byTrade ? 'trade' : 'signed', s: L.season };
+  if (byTrade) { carNews(L, 'traded', { tid: from, cat: 'trade' }); carLog(L, `Traded from ${L.teams[from].abbr} to ${L.teams[p.team].abbr}. New coach, new teammates, a fresh start.`); }
+  else carLog(L, `Signed with ${L.teams[p.team].abbr}. New coach, new teammates, a fresh start.`);
+}
+// ---------- contract: extension with agent negotiation ----------
+function carAgent(L, p) { const a = agentOf(L, p); return a ? { name: a.name, style: a.style, txt: (AGENT_STYLE[a.style] || {}).txt || '', kind: a.kind } : null; }
+function carExtMake(L) {
+  const p = carP(L), C = carInit(L), t = L.teams[p.team]; if (!canExtend(L, p)) return null; if (C.ext && C.ext.s === L.season) return C.ext;
+  const want = rotationOf(L, t).some(x => x.id === p.id) || (p.age <= 24 && p.scout >= 72);
+  let amt = Math.min(maxForTeam(L, p, t.id), r1(Math.max(MINSAL, (p.mval || MINSAL) * (p.age >= 30 ? Math.max(0.85, 1 - 0.03 * (p.age - 29)) : 1) * (t.mode === 'contend' && p.ovr >= 70 ? 1.05 : 1))));
+  if (amt < 1.5) amt = MINSAL; let g = 0; while (amt > MINSAL && !canFit(L, t, amt, false, 'extension') && g++ < 12) amt = r1(amt * 0.93);
+  if (!want || amt < (p.mval || 0) * 0.7) { C.ext = { s: L.season, st: 'none', tid: t.id }; carLog(L, `${t.abbr} are not ready to talk about an extension.`); return C.ext; }
+  C.ext = { s: L.season, st: 'open', tid: t.id, amt, amt0: amt, yrs: clamp(yrsFor(p, amt), 2, 5), ask: false, shown: false, msg: '' };
+  carLog(L, `${t.abbr} offer an extension: ${money(amt)} a year for ${C.ext.yrs} years.`); return C.ext;
+}
+function carExtLive(L) { const p = carP(L), C = carInit(L), x = C.ext; return !!(x && x.s === L.season && x.st === 'open' && p.team === x.tid && canExtend(L, p)); }
+function carExtChance(L) {
+  const p = carP(L), C = carInit(L), a = agentOf(L, p), k = a ? (a.style === 'tough' ? 0.06 : a.style === 'loyal' ? -0.04 : 0) + (a.kind === 'power' ? 0.06 : 0) : 0;
+  return clamp(0.28 + (p.ovr - 62) / 70 + (p.fame || 0) / 500 + (C.trust - 50) / 300 + (p.age <= 25 ? 0.04 : 0) + k, 0.1, 0.8);
+}
+function carExtAct(L, act) {
+  const p = carP(L), C = carInit(L), x = C.ext; if (!carExtLive(L)) return { err: 'That offer is no longer on the table.' }; const t = L.teams[x.tid];
+  if (act === 'ok') {
+    p.ext = { amt: x.amt, yrs: x.yrs, hg: false, opt: autoOption(p, x.yrs, x.amt) }; x.st = 'done'; C.trust = clamp(C.trust + 3, 0, 100);
+    p.tx.push({ s: L.season, t: `Signed an extension with ${t.abbr}: ${x.yrs} yr, ${money(x.amt)}/yr from next season` });
+    carNews(L, 'extension', { cat: 'tx' }); carLog(L, `Signed an extension with ${t.abbr}: ${money(x.amt)} a year for ${x.yrs} years.`); x.msg = 'Deal done.'; return { ok: true };
+  }
+  if (act === 'fa') { x.st = 'test'; C.testFA = L.season; C.trust = clamp(C.trust - 2, 0, 100); carLog(L, `You turned down the extension and will test free agency.`); x.msg = 'You will hit free agency after the season.'; return { ok: true }; }
+  if (act === 'ask') {
+    if (x.ask) return { err: 'Your agent already pushed once.' }; const ch = carExtChance(L), a = agentOf(L, p); x.ask = true;
+    if (R() < ch) { const na = Math.min(maxForTeam(L, p, t.id), r1(x.amt * (rnd(1.06, 1.16) + (a && a.style === 'tough' ? 0.03 : 0)))); x.amt = Math.max(x.amt, na); x.msg = `Your agent got ${t.abbr} up to ${money(x.amt)} a year.`; carLog(L, x.msg); return { ok: true, up: true }; }
+    const walk = clamp(0.32 - (p.ovr - 65) / 150 + (C.trust < 40 ? 0.1 : 0), 0.1, 0.5);
+    if (R() < walk) { x.st = 'walked'; x.msg = `${t.abbr} pulled the offer off the table.`; C.trust = clamp(C.trust - 2, 0, 100); carLog(L, x.msg); return { ok: false, walked: true }; }
+    x.msg = `${t.abbr} will not budge. The offer is still ${money(x.amt)} a year.`; carLog(L, x.msg); return { ok: false };
+  }
+  return { err: 'Unknown choice.' };
+}
+// ---------- contract: free agency offers ----------
+function carFaOffers(L, p) {
+  const out = [];
+  for (const t of L.teams) {
+    if (t.roster.length >= 15) continue; let W = null;
+    try {
+      const rot = rotationOf(L, t), pov = teamOvr(L, t.id, p);
+      if (pov >= (rot[8] ? rot[8].ovr : 0) - 1) W = Math.min(maxForTeam(L, p, t.id), (p.mval || MINSAL) * Math.max(needMult(L, t, p), demPay(p)) * modeSpend(t, p) * wetPay(p) * rnd(0.95, 1.05));
+      if (W != null) { const room = Math.min(faRoom(L, t), futRoom(L, t)); if (W > MINSAL && W > room) W = room >= 1.5 ? room : MINSAL; W = W < 1.5 ? MINSAL : r1(W); if (W > MINSAL && !canFit(L, t, W, false, 'signing')) W = MINSAL; }
+    } catch (e) { W = null; }
+    if (W == null) continue; let role = 'bench', ap = 1; try { role = expRole(L, t, p); ap = negAppeal(p, t, 'signing', L) * roleAppeal(p, role); } catch (e) { }
+    out.push({ tid: t.id, amt: W, yrs: yrsFor(p, W), role, sc: W * ap });
+  }
+  out.sort((a, b) => b.sc - a.sc);
+  const top = out.filter(o => o.amt > MINSAL + 0.05).slice(0, 6), have = new Set(top.map(o => o.tid));
+  if (top.length < 3) for (const o of out.filter(o => !have.has(o.tid)).slice(0, 3 - top.length)) { top.push(o); have.add(o.tid); }
+  if (top.length < 3) for (const t of L.teams.filter(t => !have.has(t.id) && t.roster.length < 15).sort((a, b) => a.roster.length - b.roster.length).slice(0, 3 - top.length)) { let role = 'bench'; try { role = expRole(L, t, p); } catch (e) { } top.push({ tid: t.id, amt: MINSAL, yrs: 1, role, sc: 0 }); }
+  return top.sort((a, b) => b.sc - a.sc || b.amt - a.amt);
+}
+// engine hook (end of startFA): a career free agent is held out of the AI's picks until he chooses (or 5 FA days pass)
+function careerFaStart(L) {
+  if (!carOn(L)) return; const p = carP(L), C = carInit(L); C.hold = null;
+  if (p.prospect || p.retired || p.team != null || !L.fa.includes(p.id)) return;
+  if (p.rfa) { p.rfa = null; p.sheet = null; }
+  const offers = carFaOffers(L, p); if (!offers.length) return;
+  C.hold = { s: capSeason(L), days: 0, offers, shown: false, msg: '' }; L.fa = L.fa.filter(id => id !== p.id);
+  carLog(L, `Free agency: ${offers.length} team${offers.length === 1 ? '' : 's'} want${offers.length === 1 ? 's' : ''} to sign you. Pick your next team.`);
+}
+function carFaPick(L, i, auto) {
+  const p = carP(L), C = carInit(L), h = C.hold; if (!h) return { err: 'No offers on the table.' };
+  let o = h.offers[i]; if (!o || L.teams[o.tid].roster.length >= 15) o = h.offers.find(x => L.teams[x.tid].roster.length < 15);
+  if (!o) { const t = L.teams.slice().sort((a, b) => a.roster.length - b.roster.length)[0]; o = { tid: t.id, amt: MINSAL, yrs: 1, role: 'bench' }; }
+  C.hold = null; if (!L.fa.includes(p.id)) L.fa.push(p.id);
+  signContract(L, p, o.tid, o.amt, o.yrs, 'signing', undefined, { rl: o.role });
+  carLog(L, auto ? `No decision in five days, so your agent took the best offer: ${L.teams[o.tid].abbr}, ${money(o.amt)} a year for ${o.yrs}.` : `You chose ${L.teams[o.tid].abbr}: ${money(o.amt)} a year for ${o.yrs} year${o.yrs === 1 ? '' : 's'}.`);
+  carTeamCheck(L); carNewsCheck(L); return { ok: true, tid: o.tid };
+}
+// engine hook (faDay, start and end of the day)
+function careerFaDay(L, end) {
+  if (!carOn(L)) return; const C = carInit(L), p = carP(L);
+  if (end) { if (C.hold && (L.phase !== 'off-fa' || end === 2)) carFaPick(L, 0, true); return; }
+  if (C.hold) { if (C.hold.days >= 5) carFaPick(L, 0, true); else C.hold.days++; }
+  if (p.team != null && p.tradeReq === L.season && R() < 0.5) carTradeTry(L, 30);
+}
+// ---------- daily upkeep (after careerDay0's games) ----------
+function carDayLife(L, p) {
+  const C = carInit(L), nf = C.nf;
+  if (p.injury > 0) { if (!nf.inj) { nf.inj = 1; const last = C.pro[C.pro.length - 1]; carNews(L, 'injury', { cat: 'inj', opp: last ? last.opp : null }); } } else nf.inj = 0;
+  if (L.phase === 'regular' && p.team != null) {
+    const wk = L.season * 1000 + Math.floor(L.day / 7); if (C.wk !== wk) { C.wk = wk; carWeek(L, p); }
+    if (p.tradeReq === L.season && inTradeWindow(L) && R() < 0.35) carTradeTry(L, 24);
+    if (p.team != null) { if (canExtend(L, p)) { if (!(C.ext && C.ext.s === L.season)) carExtMake(L); } else if (C.ext && C.ext.s === L.season && C.ext.st === 'open' && !p.ext) { C.ext.st = 'expired'; carLog(L, 'The extension window closed.'); } }
+  }
+  carTeamCheck(L);
+}
+function carLifeCheck(L) { const p = carP(L); if (!p || p.prospect) return; carInit(L); carTeamCheck(L); carNewsCheck(L); }
 
 // ===================== UI =====================
 if (typeof window !== 'undefined') window.CAR = (function () {
@@ -335,17 +712,157 @@ if (typeof window !== 'undefined') window.CAR = (function () {
       const club = pre ? pipeTeamName(C.lg, C.team) : p.team != null ? tname(p.team) : 'Free agent';
       const head = `<section class="panel car-head"><div class="car-id">${portrait('p', p.id, p.nat, p.team)}<div><div class="k">${esc(st.n || '')} · ${posLabel(p)} · ${Math.floor(p.hgt / 12)}'${p.hgt % 12}" · Age ${p.age}</div><div class="big">${esc(p.name)} <span class="muted">#${p.num}</span></div><div>${esc(club)}${pre ? ` <span class="muted">(${C.lg})</span>` : ''} · ${esc(archLabel(p))}</div></div></div>
         <div class="car-stats"><div><div class="k">Overall</div><div class="v">${p.ovr}</div></div><div><div class="k">XP to spend</div><div class="v">${C.xp}</div></div>${pre ? `<div><div class="k">Record</div><div class="v">${sl ? sl.w + '-' + (sl.gp - sl.w) : '0-0'}</div></div><div><div class="k">Draft</div><div class="v" style="font-size:16px">${esc(draftLabel(p.draftYear))}</div></div>` : p.draft ? `<div><div class="k">Drafted</div><div class="v" style="font-size:16px">${p.draft.rd === 1 ? '1st' : '2nd'} round, #${p.draft.no}</div></div>` : ''}</div>
-        <div class="row" style="gap:8px;margin-top:8px"><button class="sm" data-player="${p.id}">Full player page</button></div></section>`;
+        <div class="row" style="gap:8px;margin-top:8px"><button class="sm" data-player="${p.id}">Full player page</button></div>${legendBar()}</section>`;
       const next = nxt ? `<section class="panel"><h3>Next game</h3><p>${nxt.home ? 'vs' : 'at'} <strong>${esc(pipeTeamName(C.lg, nxt.opp))}</strong> · ${esc(dayLbl(nxt.day))}${nxt.play ? ' · <span class="pill">Big game: you make the calls</span>' : ' · simmed'}</p>${careerPending(L) ? '<button class="primary" id="car-playnow">Play it now</button>' : `<p class="muted">Use the sim buttons at the top. The sim stops on your big games.</p>`}</section>`
         : pre ? `<section class="panel"><h3>Season over</h3><p>Your ${C.lg} season is done. Sim to the end of the league season, then the playoffs, then the draft. Your name will be called… or not.</p></section>` : proNote(p);
       const ups = upPanel(p);
       const sched = pre ? `<section class="panel"><h3>${esc(pipeTeamName(C.lg, C.team))} schedule</h3><div class="tblwrap"><table class="car-sched"><thead><tr><th>#</th><th class="l">Date</th><th class="l">Opponent</th><th>Result</th><th class="l">Your line</th><th>Grade</th><th>XP</th></tr></thead><tbody>${C.games.map(g => `<tr class="${g.play ? 'car-big' : ''}"><td>${g.i + 1}</td><td class="l">${esc(dayLbl(g.day))}</td><td class="l">${g.home ? 'vs' : 'at'} ${esc(pipeTeam(C.lg, g.opp).abbr)}${g.play ? ' ★' : ''}</td><td>${g.done ? `<span class="${g.win ? 'w' : 'lo'}">${g.win ? 'W' : 'L'}</span> ${g.us}-${g.them}` : ''}</td><td class="l">${g.done ? gline(g.line) : ''}</td><td>${g.done ? CAR_GRADES[g.gr] : ''}</td><td>${g.done ? '+' + g.xp : ''}</td></tr>`).join('')}</tbody></table></div>${sl ? `<p class="muted">Averages: ${sl.pts} pts, ${sl.reb} reb, ${sl.ast} ast, ${sl.stl} stl, ${sl.blk} blk in ${sl.min} min over ${sl.gp} games. ★ = big game you play.</p>` : '<p class="muted">★ = big game you play.</p>'}</section>` : '';
       const log = `<section class="panel"><h3>Career story</h3>${C.log.slice().reverse().slice(0, 30).map(x => `<div class="leader" style="grid-template-columns:auto minmax(0,1fr)"><span class="muted">${esc(seasonName(x.s))}</span><span>${esc(x.t)}</span></div>`).join('')}</section>`;
-      return `<div class="car">${head}<div class="grid2"><div class="stack">${next}${sched}</div><div class="stack">${ups}${log}</div></div></div>`;
+      const life = contractPanel(p) + relPanel(p) + ivPanel(p) + newsPanel(p);
+      return `<div class="car">${head}<div class="grid2"><div class="stack">${next}${sched}${life}${statsPanel(p)}</div><div class="stack">${ups}${badgePanel(p)}${achPanel()}${log}</div></div></div>`;
     }
+
+    // ----- Legend meter, badges, achievements, awards + stats -----
+    function legendBar() {
+      const g = carLegend(L), nx = g.next;
+      return `<div class="car-legend" id="car-legend"><div class="car-lg-top"><span><span class="k">Legend meter</span> <strong class="car-lg-tier">${esc(g.tier)}</strong></span><span class="v car-lg-v">${g.v}<span class="muted" style="font-size:13px">/100</span></span></div>
+        <span class="car-bar car-lgbar"><i style="width:${g.v}%"></i>${CAR_LEGEND.slice(1).map(([m]) => `<b style="left:${m}%"></b>`).join('')}</span>
+        <div class="muted car-lg-sub">${nx ? `${nx[0] - g.v > 0 ? (Math.round((nx[0] - g.v) * 10) / 10) : 0} to ${esc(nx[1])}` : 'Top of the meter'} · Hall of Fame tracker: ${g.hof ? '<span class="pill w">Hall of Famer</span>' : g.on ? `<span class="pill w">On pace</span> projected ${g.proj} of ${g.need} legacy points` : `<span class="pill">Not yet</span> projected ${g.proj} of ${g.need} legacy points`}</div></div>`;
+    }
+    function badgePanel(p) {
+      const C = L.career, B = C.badges || {}, tot = C.tot || {};
+      const row = b => {
+        const have = B[b.k], nt = carBadgeTier(b, tot), nxt = have == null ? 0 : have + 1, buy = carBadgeBuy(L, b), v = tot[b.st] || 0;
+        const earnT = nxt <= 3 ? b.need[nxt] : null, pg = earnT ? Math.min(100, Math.round(100 * v / earnT)) : 100;
+        return `<div class="car-badge ${have != null ? 'own' : ''}"><div class="car-bh"><strong>${esc(b.n)}</strong><span class="car-pips" title="${have != null ? esc(CAR_TIERS[have]) : 'Not owned'}">${[0, 1, 2, 3].map(i => `<i class="t${i} ${have != null && i <= have ? 'on' : ''}"></i>`).join('')}</span></div>
+          <div class="muted car-bs">${esc(b.t)}${have != null ? ' · ' + esc(CAR_TIERS[have]) : ''}</div>
+          ${earnT ? `<span class="car-bar"><i style="width:${pg}%"></i></span><div class="muted car-bs">${v}/${earnT} ${esc(b.u)} earns ${esc(CAR_TIERS[nxt])}</div>` : '<div class="muted car-bs">Maxed out</div>'}
+          ${buy ? `<button class="sm ${buy.ok ? 'primary' : ''}" data-carbuy="${b.k}" ${buy.ok ? '' : 'disabled'} title="${esc(buy.ok ? 'Buy now' : buy.why)}">Buy ${esc(CAR_TIERS[buy.tier])} · ${buy.cost} XP</button>${buy.ok ? '' : `<div class="muted car-bs">${esc(buy.why)}</div>`}` : ''}</div>`;
+      };
+      const n = Object.keys(B).length;
+      return `<section class="panel" id="car-badges"><h3>Badges <span class="muted" style="font-weight:normal">· ${n} of ${CAR_BADGES.length} · ${C.xp} XP</span></h3><p class="muted" style="margin-top:-4px">Earn tiers from your stats, or buy the next tier with XP once your ratings are high enough. Badges add +3 to +9% to calls that use their skills and a little form in every game.</p><div class="car-badges">${CAR_BADGES.map(row).join('')}</div><div id="car-badgemsg" class="muted"></div></section>`;
+    }
+    function achPanel() {
+      const A = L.career.ach || {}, n = CAR_ACH.filter(a => A[a.k] != null).length;
+      return `<section class="panel" id="car-ach"><h3>Achievements <span class="muted" style="font-weight:normal">· ${n} of ${CAR_ACH.length}</span></h3><div class="car-achgrid">${CAR_ACH.map(a => { const on = A[a.k] != null; return `<div class="car-achc ${on ? 'on' : ''}" title="${esc(a.t)}"><strong>${on ? '✓ ' : ''}${esc(a.n)}</strong><span class="muted">${esc(a.t)}</span><span class="car-achx">${on ? esc(seasonName(A[a.k])) + ' · ' : ''}+${a.xp} XP</span></div>`; }).join('')}</div></section>`;
+    }
+    function statsPanel(p) {
+      const aw = {}; for (const a of p.awards || []) { (aw[a.a] = aw[a.a] || []).push(a.s); }
+      const keys = Object.keys(aw).sort((a, b) => (AWARD_PTS[b] || 0) - (AWARD_PTS[a] || 0));
+      const chips = keys.length ? keys.map(k => `<span class="pill" title="${esc(aw[k].map(seasonName).join(', '))}">${esc(k)}${aw[k].length > 1 ? ' ×' + aw[k].length : ''}</span>`).join(' ') : '<span class="muted">No awards yet. They show up here as you win them.</span>';
+      const rows = [], tm = t => t != null && L.teams[t] ? L.teams[t].abbr : '—', f = (v, g) => g ? (Math.round(v / g * 10) / 10).toFixed(1) : '0.0';
+      for (const h of (p.pre || [])) if (h.gp) rows.push({ s: h.s, tm: h.lg || (L.career.lg), age: '', gp: h.gp, min: h.min, pts: h.pts, reb: h.reb, ast: h.ast, stl: h.stl, blk: h.blk, pre: 1 });
+      for (const x of carSeasons(L, p)) rows.push({ s: x.s, tm: tm(x.tid), age: x.age, gp: x.gp, min: x.min / 60 / x.gp, pts: x.pts / x.gp, reb: (x.orb + x.drb) / x.gp, ast: x.ast / x.gp, stl: x.stl / x.gp, blk: x.blk / x.gp });
+      const T = carSeasons(L, p).reduce((a, x) => { a.gp += x.gp; for (const k of ['min', 'pts', 'orb', 'drb', 'ast', 'stl', 'blk']) a[k] += x[k] || 0; return a; }, { gp: 0, min: 0, pts: 0, orb: 0, drb: 0, ast: 0, stl: 0, blk: 0 });
+      const n1 = v => (Math.round(v * 10) / 10).toFixed(1);
+      return `<section class="panel" id="car-stats"><h3>Awards &amp; career stats</h3><div class="car-awards">${chips}</div>
+        <div class="tblwrap" style="margin-top:10px"><table class="sortable" data-sid="car-stats"><thead><tr><th class="l">Season</th><th class="l">Team</th><th>GP</th><th>Min</th><th>Pts</th><th>Reb</th><th>Ast</th><th>Stl</th><th>Blk</th></tr></thead><tbody>${rows.map(r => `<tr><td class="l" data-v="${r.s}">${esc(seasonName(r.s))}${r.pre ? ' <span class="muted">(pre-draft)</span>' : ''}</td><td class="l">${esc(r.tm)}</td><td>${r.gp}</td><td>${n1(r.min)}</td><td>${n1(r.pts)}</td><td>${n1(r.reb)}</td><td>${n1(r.ast)}</td><td>${n1(r.stl)}</td><td>${n1(r.blk)}</td></tr>`).join('') || '<tr><td class="l muted" colspan="9">No games yet.</td></tr>'}</tbody>${T.gp ? `<tfoot><tr><td class="l" colspan="2"><strong>Pro career</strong></td><td>${T.gp}</td><td>${f(T.min / 60, T.gp)}</td><td>${f(T.pts, T.gp)}</td><td>${f(T.orb + T.drb, T.gp)}</td><td>${f(T.ast, T.gp)}</td><td>${f(T.stl, T.gp)}</td><td>${f(T.blk, T.gp)}</td></tr></tfoot>` : ''}</table></div><p class="muted" style="font-size:12px;margin:6px 0 0">Per game, regular season. ${T.pts ? T.pts.toLocaleString() + ' career pro points. ' : ''}Click a column to sort.</p></section>`;
+    }
+    function achDialog(list) {
+      dialog(`<h2>Achievement unlocked${list.length > 1 ? 's' : ''}</h2><div class="car-pop">${list.map(x => `<div class="car-popi"><strong>${x.t === 'badge' ? '🏅 ' : '🏆 '}${esc(x.n)}</strong><div class="muted">${esc(x.d || '')}${x.xp ? ' · +' + x.xp + ' XP' : ''}</div></div>`).join('')}</div><div class="row" style="margin-top:12px"><button class="primary" id="car-ok">Nice</button></div>`);
+      $('#car-ok').onclick = closeDialog;
+    }
+
+    // ----- Phase 4 panels: contract & agent, locker room, interviews, your news -----
+    const NCAT = { tx: 'Contracts & moves', trade: 'Trades', award: 'Awards', inj: 'Injuries', feat: 'Milestones', draft: 'Draft', league: 'League', coach: 'Coaches' };
+    const sgn = n => (n > 0 ? '+' : '') + n;
+    const fxTxt = f => [f.fame ? `Fame ${sgn(f.fame)}` : '', f.trust ? `Trust ${sgn(f.trust)}` : '', f.chem ? `Chemistry ${sgn(f.chem)}` : ''].filter(Boolean).join(' · ') || 'No change';
+    const relBar = v => `<span class="car-rel" title="${v}"><i class="${v < 0 ? 'neg' : 'pos'}" style="width:${Math.abs(v) / 2}%;${v < 0 ? 'right' : 'left'}:50%"></i></span>`;
+    function offerCards(h) {
+      return `<div class="car-offers">${h.offers.map((o, i) => { const t = L.teams[o.tid]; return `<div class="car-offer"><div class="car-oh"><strong>${esc(t.city + ' ' + t.name)}</strong><span class="pill">${esc(CAR_MODE[t.mode] || 'Team')}</span></div>
+        <div class="car-os"><span><span class="k">Per year</span><b>${money(o.amt)}</b></span><span><span class="k">Years</span><b>${o.yrs}</b></span><span><span class="k">Role</span><b>${esc(roleName(o.role))}</b></span></div>
+        <button class="primary sm" data-carfa="${i}">Sign with ${esc(t.abbr)}</button></div>`; }).join('')}</div>`;
+    }
+    function extBlock() {
+      const C = L.career, p = carP(L), x = C.ext, ag = carAgent(L, p);
+      const agt = ag ? `<p class="muted car-bs">Your agent: ${esc(ag.name)} (${esc(ag.txt)})</p>` : '';
+      if (carExtLive(L)) return `<div class="car-ext"><strong>${esc(L.teams[x.tid].abbr)} offer an extension</strong><div class="car-os"><span><span class="k">Per year</span><b>${money(x.amt)}</b></span><span><span class="k">Years</span><b>${x.yrs}</b></span><span><span class="k">Starts</span><b>${esc(seasonName(L.season + 1))}</b></span></div>${agt}
+        ${x.msg ? `<div class="msg ${/pulled|not budge/.test(x.msg) ? 'no' : 'ok'}">${esc(x.msg)}</div>` : ''}
+        <div class="row" style="gap:8px;flex-wrap:wrap"><button class="primary sm" data-carext="ok">Accept</button>${x.ask ? '' : `<button class="sm" data-carext="ask" title="Agent counter">Ask for more (~${Math.round(carExtChance(L) * 100)}%)</button>`}<button class="sm" data-carext="fa">Test free agency</button></div>${x.ask ? '' : '<p class="muted car-bs">Asking can win a better deal, but the team may walk away.</p>'}</div>`;
+      if (p.ext) return `<div class="msg ok">Extension agreed: ${money(p.ext.amt)} a year for ${p.ext.yrs} years from next season.</div>`;
+      if (x && x.s === L.season && x.st === 'walked') return `<div class="msg no">${esc(x.msg)} No more extension talks this season.</div>`;
+      if (x && x.s === L.season && x.st === 'test') return `<div class="msg ok">${esc(x.msg)}</div>`;
+      if (x && x.s === L.season && x.st === 'none') return `<p class="muted">${esc(L.teams[x.tid].abbr)} are not ready to talk about an extension.</p>`;
+      return '';
+    }
+    function contractPanel(p) {
+      const C = L.career; if (p.prospect) return '';
+      if (p.team == null) return `<section class="panel" id="car-contract"><h3>Free agency</h3>${C.hold ? `<p class="muted" style="margin-top:-4px">${C.hold.offers.length} offer${C.hold.offers.length === 1 ? '' : 's'}. Choose a team. If you wait ${Math.max(0, 5 - C.hold.days)} more day${5 - C.hold.days === 1 ? '' : 's'}, your agent takes the best one.</p>${offerCards(C.hold)}` : '<p class="muted">No offers yet. Teams call when free agency opens.</p>'}</section>`;
+      const c = p.contract, ag = carAgent(L, p), err = carTradeErr(L);
+      return `<section class="panel" id="car-contract"><h3>Contract &amp; agent</h3>
+        <div class="car-stats" style="margin-bottom:8px"><div><div class="k">Salary</div><div class="v">${c ? money(c.amt) : '—'}</div></div><div><div class="k">Through</div><div class="v" style="font-size:16px">${c ? esc(seasonName(contractEnd(p))) : '—'}</div></div><div><div class="k">Agent</div><div class="v" style="font-size:16px">${ag ? esc(ag.name) : '—'}</div></div></div>
+        ${extBlock()}
+        ${p.tradeReq === L.season ? '<div class="msg no">You asked for a trade. The front office is listening, and your coach and teammates noticed.</div>' : err ? `<p class="muted car-bs">${esc(err)}</p>` : '<button class="sm" id="car-treq">Request a trade</button>'}
+        <div id="car-conmsg" class="muted"></div></section>`;
+    }
+    function relPanel(p) {
+      const C = L.career; if (p.prospect || p.team == null) return '';
+      const mates = carMates(L), co = carCoach(L), ch = C.chem, err = carTalkOK(L), tr = C.talkRes;
+      return `<section class="panel" id="car-rel"><h3>Locker room <span class="muted" style="font-weight:normal">· chemistry ${Math.round(ch)} (${carChemWord(ch)})</span></h3>
+        <span class="car-bar"><i style="width:${ch}%"></i></span><p class="muted car-bs" style="margin:4px 0 8px">Good chemistry gives your teammates a little form and lifts your mood. Events happen about weekly.</p>
+        ${co ? `<div class="car-relrow"><span class="nm">Coach ${esc(co.name)}</span><span class="muted">Trust ${C.trust}</span>${relBar(carRelOf(L, 'c'))}</div>` : ''}
+        ${mates.map(q => `<div class="car-relrow" data-player="${q.id}"><span class="nm">${esc(q.name)}</span><span class="muted">${esc(posLabel(q))} · ${q.ovr}</span>${relBar(carRelOf(L, q.id))}</div>`).join('')}
+        <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap"><button class="sm primary" id="car-talk" ${err ? 'disabled' : ''}>Talk to coach</button><span class="muted car-bs">${err ? esc(err) : `Ask for more minutes or a bigger role (about ${Math.round(carTalkChance(L) * 100)}%)`}</span></div>
+        ${tr && tr.s === L.season ? `<div class="msg ${tr.ok ? 'ok' : 'no'}" style="margin-top:8px">${esc(tr.msg)}</div>` : ''}</section>`;
+    }
+    function ivPanel(p) {
+      const C = L.career; if (p.prospect) return '';
+      const q = C.ivQ && carIvFind(C.ivQ.k), last = C.iv.slice(0, 5);
+      return `<section class="panel" id="car-iv"><h3>Interviews</h3>
+        ${q ? `<div class="msg" style="margin:0 0 8px">Reporters are waiting: “${esc(carIvFmt(L, q.q, C.ivQ.ctx))}” <button class="sm primary" id="car-ivopen">Answer</button></div>` : ''}
+        ${last.length ? last.map(r => `<div class="car-ivrow"><div class="car-ivq muted">${esc(seasonName(r.s))} · ${esc(r.q)}</div><div>“${esc(r.t)}” <span class="pill">${esc(r.tone || '')}</span></div><div class="muted car-bs">${esc(fxTxt(r.fx))}</div></div>`).join('') : '<p class="muted">No interviews yet. Reporters ask after some games, big nights, losing streaks and playoff openers.</p>'}</section>`;
+    }
+    function newsPanel(p) {
+      if (p.prospect) return '';
+      const all = (L.log || []).filter(x => x.text && x.text.includes(p.name)), f = ui.carNews || '', cats = [...new Set(all.map(x => x.cat))];
+      const list = all.filter(x => !f || x.cat === f).slice(0, 30), when = x => x.phase && (x.phase.startsWith('off') || x.phase === 'season-done') ? 'Offseason' : x.phase === 'playoffs' ? 'Playoffs' : 'Day ' + (x.day + 1);
+      return `<section class="panel" id="car-news"><h3>Your news</h3>
+        <div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:8px"><button class="sm chipbtn ${f ? '' : 'primary'}" data-carnews="">All</button>${cats.map(k => `<button class="sm chipbtn ${f === k ? 'primary' : ''}" data-carnews="${k}">${esc(NCAT[k] || k)}</button>`).join('')}</div>
+        ${list.length ? list.map(x => `<div class="car-nrow"><span class="muted">${esc(seasonName(x.season))} · ${when(x)}</span><span>${esc(x.text)}</span></div>`).join('') : '<p class="muted">Nothing yet. Debuts, big games, awards, contracts and trades that name you show up here.</p>'}</section>`;
+    }
+    // ----- Phase 4 popups -----
+    function ivDlg() {
+      const C = L.career, Q = C.ivQ, q = Q && carIvFind(Q.k); if (!q) return; const x = Q.ctx || {};
+      dialog(`<h2>Post-game interview</h2>${x.opp != null ? `<div class="k">${x.win ? 'After the win' : 'After the loss'} ${x.home ? 'vs' : 'at'} ${esc((L.teams[x.opp] || {}).abbr || '')} · ${x.pts} pts</div>` : ''}
+        <div class="msg" style="margin:8px 0"><strong>“${esc(carIvFmt(L, q.q, x))}”</strong></div><div class="car-opts">${q.a.map((a, i) => `<button class="car-opt" data-civ="${i}"><strong>${esc(carIvFmt(L, a.t, x))}</strong><span class="pill">${esc(a.tone || '')}</span></button>`).join('')}</div>`);
+    }
+    function ivResult(r) {
+      dialog(`<h2>On the record</h2><div class="car-quote">“${esc(r.t)}”<div class="muted">${esc(carP(L).name)} · ${esc(r.tone || '')}</div></div><div class="car-fxl ${r.fx.trust < 0 || r.fx.chem < 0 ? 'lo' : 'w'}">${esc(fxTxt(r.fx))}</div><div class="row" style="margin-top:12px"><button class="primary" id="car-ok">Continue</button></div>`);
+      $('#car-ok').onclick = closeDialog;
+    }
+    function moveDlg(m) {
+      const t = L.teams[m.to], f = L.teams[m.from], co = t.coach, rk = rotationOf(L, t), idx = rk.findIndex(x => x.id === carP(L).id);
+      dialog(`<div style="text-align:center"><div class="k">${m.how === 'trade' ? 'Traded' : 'New team'}</div>${logo(t.id, 72)}<h2 style="margin-top:6px">${m.how === 'trade' ? `${esc(f.abbr)} trades you to the ${esc(tname(t.id))}` : `You signed with the ${esc(tname(t.id))}`}</h2></div>
+        <p class="muted" style="text-align:center">${esc(CAR_MODE[t.mode] || '')} · Coach ${esc(co ? co.name : '—')}${idx >= 0 ? ` · you are #${idx + 1} in the rotation` : ''}</p><p>Chemistry and relationships start over with your new teammates, and your coach trust resets.</p><div class="row" style="justify-content:center;margin-top:12px"><button class="primary" id="car-ok">Let's go</button></div>`);
+      $('#car-ok').onclick = closeDialog;
+    }
+    function extDlg() {
+      if (!carExtLive(L)) return; const C = L.career;
+      dialog(`<h2>Contract talks</h2>${extBlock()}<div class="row" style="margin-top:12px"><button id="car-ok">Later</button></div>`); $('#car-ok').onclick = closeDialog;
+    }
+    function faDlg() {
+      const h = L.career.hold; if (!h) return;
+      dialog(`<h2>Free agency offers</h2><p class="muted">Teams want to sign you. Pick one now, or your agent takes the best offer in ${Math.max(0, 5 - h.days)} day${5 - h.days === 1 ? '' : 's'}.</p>${offerCards(h)}<div class="row" style="margin-top:12px"><button id="car-ok">Decide later</button></div>`); $('#car-ok').onclick = closeDialog;
+    }
+    function treqDlg() {
+      dialog(`<h2>Request a trade?</h2><p>Your team will know. Coach trust and chemistry drop, and the front office starts looking for a deal. You may not like where you land.</p><div class="row" style="gap:8px;margin-top:12px"><button class="primary" id="car-treq-go">Request trade</button><button id="car-ok">Cancel</button></div>`);
+      $('#car-ok').onclick = closeDialog;
+    }
+    document.addEventListener('click', e => {
+      if (!L || !L.career || !e.target.closest) return; const C = carInit(L), T = e.target.closest('[data-civ],[data-carfa],[data-carext],[data-carnews],#car-treq,#car-treq-go,#car-talk,#car-ivopen'); if (!T) return;
+      const inDlg = !!T.closest('#modal');
+      if (T.dataset.civ != null) { const r = carIvAnswer(L, +T.dataset.civ); save(); render(); if (r) ivResult(r); return; }
+      if (T.dataset.carfa != null) { const r = carFaPick(L, +T.dataset.carfa); save(); closeDialog(); render(); if (r.ok) { const m = C.moveQ; if (m) { C.moveQ = null; queueDialog(() => moveDlg(m)); } } return; }
+      if (T.dataset.carext) { const r = carExtAct(L, T.dataset.carext); save(); if (r.err) { const m = document.getElementById('car-conmsg'); if (m) m.textContent = r.err; return; } closeDialog(); render(); if (inDlg && carExtLive(L)) queueDialog(extDlg); return; }
+      if (T.dataset.carnews != null) { ui.carNews = T.dataset.carnews; render(); return; }
+      if (T.id === 'car-treq') { treqDlg(); return; }
+      if (T.id === 'car-treq-go') { const r = carReqTrade(L); save(); closeDialog(); render(); if (r.err) { const m = document.getElementById('car-conmsg'); if (m) m.textContent = r.err; } return; }
+      if (T.id === 'car-talk') { carTalk(L); save(); render(); return; }
+      if (T.id === 'car-ivopen') { ivDlg(); return; }
+    });
     const dayLbl = d => { try { const t = dayDate(L, d); if (t) return t.label.replace(/, \d{4}$/, ''); } catch (e) { } return 'Day ' + (d + 1); };
     function proNote(p) {
-      if (p.team == null) return `<section class="panel"><h3>Free agent</h3><p>No team has signed you yet. Keep improving and wait for a call.</p></section>`;
+      if (p.team == null) return `<section class="panel"><h3>Free agent</h3><p>${L.career.hold ? 'Teams want you. Pick an offer below.' : 'No team has signed you yet. Keep improving and wait for a call.'}</p></section>`;
       const C = L.career, t = carProToday(L), rec = C.pro.slice().reverse().slice(0, 12);
       const tr = C.trust, trW = tr >= 75 ? 'Go-to guy' : tr >= 60 ? 'Trusted' : tr >= 40 ? 'Earning it' : 'On a short leash';
       return `<section class="panel"><h3>You're a pro: ${esc(tname(p.team))}</h3>
@@ -438,11 +955,22 @@ if (typeof window !== 'undefined') window.CAR = (function () {
       if (L.career.lastRes) { const e = L.career.lastRes; L.career.lastRes = null; queueDialog(() => proResultDialog(e)); }
       if (L.phase !== 'off-draft' && L.career.draftShown !== L.season && !p.prospect && ['off-resign', 'off-fa', 'off-ready', 'off-draft'].includes(L.phase) && (p.draft ? p.draft.s === L.season : p.draftYear === L.season)) queueDialog(draftDialog);
       else if (L.phase === 'off-draft' && L.career.draftShown !== L.season && !p.prospect) queueDialog(draftDialog);
+      try { carLifeCheck(L); } catch (e) { console.error(e); }
+      { const C = L.career, busy = !!C.cur;
+        if (C.moveQ && !busy) { const m = C.moveQ; C.moveQ = null; queueDialog(() => moveDlg(m)); save(); }
+        if (C.ivQ && !C.ivQ.shown && !busy) { C.ivQ.shown = true; queueDialog(ivDlg); save(); }
+        if (!p.prospect && carExtLive(L) && C.ext && !C.ext.shown && !busy) { C.ext.shown = true; queueDialog(extDlg); save(); }
+        if (C.hold && !C.hold.shown) { C.hold.shown = true; queueDialog(faDlg); save(); } }
+      // achievements / badges earned since last time: one popup (waits while a game is waiting to be played)
+      try { carCheck(L); } catch (e) { console.error(e); }
+      const C = L.career; if (C.pop && C.pop.length && !C.cur && !careerPending(L)) { const list = C.pop.splice(0, C.pop.length); queueDialog(() => achDialog(list)); save(); }
     }
     document.addEventListener('click', e => {
       if (!L || !L.career) return;
       const u = e.target.closest('[data-carup]');
       if (u) { const err = carUpgrade(L, u.dataset.carup); if (!err) { save(); render(); } else { const m = document.getElementById('car-upmsg'); if (m) m.textContent = err; } return; }
+      const bb = e.target.closest('[data-carbuy]');
+      if (bb) { const err = carBuyBadge(L, bb.dataset.carbuy); if (!err) { carCheck(L); save(); render(); } else { const m = document.getElementById('car-badgemsg'); if (m) m.textContent = err; } return; }
       if (e.target.id === 'car-playnow') { gameDialog(); return; }
       const sb = e.target.closest('#main [data-carstop]'); if (sb) { L.career.stop = sb.dataset.carstop; save(); render(); }
     });
@@ -450,4 +978,4 @@ if (typeof window !== 'undefined') window.CAR = (function () {
     return { setupForm, createFrom, afterRender, gameDialog, pending: () => !!careerPending(L) };
   }
 })();
-if (typeof module !== 'undefined') module.exports = { CAR_STORIES, CAR_FX, carCreate, careerDay, careerPending, careerPipeLine, careerPipeRec, carStart, carChoose, carFinish, carUpgrade, carCost, carSeasonLine, carSimOne };
+if (typeof module !== 'undefined') module.exports = { CAR_STORIES, CAR_FX, carCreate, careerDay, careerPending, careerPipeLine, careerPipeRec, carStart, carChoose, carFinish, carUpgrade, carCost, carSeasonLine, carSimOne, carCheck, carBuyBadge, carLegend, carTally, CAR_BADGES, CAR_ACH };

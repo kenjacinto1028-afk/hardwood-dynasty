@@ -36,8 +36,16 @@ Branch `claude/project-thread-iocwy2`. One PR per phase. New file src/career.js 
 - [x] P1d. Draft night as the player (stock from ratings + pipeline stats), lands on a team
 - [x] P1e. Tests ALL PASS 1300+390; PR #24 merged
 - [x] P2. (merged with tests) Pro games: Play or Sim each game; decisions change his usage/shots in the real engine; minutes from coach trust; XP
-- [ ] P3. Badges (earned + bought with XP, small engine effects), achievements, awards, Legend meter / Hall of Fame tracker
-- [ ] P4. Career life: interviews, player relations, news, trade requests, contract talks (reuse existing systems), phone polish, tests, Pages
+- [x] P3. Badges (earned + bought with XP, small engine effects), achievements, awards, Legend meter / Hall of Fame tracker
+  - [x] P3.1 Badges: CAR_BADGES (16, 4 tiers), earn from L.career.tot milestones or buy with XP, carChance +3..9%, careerGameFx form (cap +3), hub panel
+  - [x] P3.2 Achievements: CAR_ACH (25), carCheck after each game + on render, XP + carLog + one batched popup, hub grid
+  - [x] P3.3 Legend meter (carLegend, bar on hub header, Hall of Fame tracker)
+  - [x] P3.4 Awards & career stats panel (sortable season table)
+  - [x] P3.5 Tests ALL PASS 1300 + 390, PROGRESS.md
+- [x] P4. Career life: interviews, player relations, news, trade requests, contract talks (reuse existing systems), phone polish, tests, Pages
+  - [x] P4.1 Wiring: career-text.js (index/sw/build, cache v12); logic in career.js (interviews, relations, news, trade request + AI try, extension + FA offers, hold-out); league.js hooks (moraleParts chem, tradeReq sticks, startFA/faDay/startResign/extensionDeadline)
+  - [x] P4.2 Hub panels (Contract & agent, Locker room, Interviews, Your news) + popups (interview, traded, extension, FA offers, trade confirm)
+  - [x] P4.3 CSS phone polish, tools/browser-career.js Phase 4 checks ALL PASS at 1300 + 390, PROGRESS.md
 
 ---
 # TASK_STATE — Every page fills the window (Opus) — Nov 19 2026

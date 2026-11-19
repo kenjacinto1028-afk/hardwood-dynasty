@@ -148,6 +148,14 @@ function carProFx(L) {
     ub: clamp(1 + shots * 0.05 + tr * 0.05 - (a.ast || 0) * 0.02, 0.85, 1.35), tm: clamp((a.ast || 0) * 0.3 + cur.mom * 0.1, -1, 1.5) };
   C.proFx = fx; C.proKey = cur.pro; C.cur = null; return fx;
 }
+// engine hook (buildSide): coach trust adds / takes minutes (-6..+8); a game you play gets at least 12 minutes. Others give the time back evenly.
+function careerMinutes(league, avail, target) {
+  const C = league.career, p = avail.find(x => x.id === C.pid); if (!p || target[p.id] == null) return;
+  const cur = target[p.id] / 60, played = C.proFx && C.proFx.pid === p.id;
+  let want = clamp(cur + clamp((C.trust - 50) / 4, -6, 8), 0, 40); if (played) want = Math.max(want, 12);
+  const d = (want - cur) * 60, rest = avail.filter(x => x !== p && target[x.id] > 0), tot = rest.reduce((a, x) => a + target[x.id], 0); if (!d || !tot) return;
+  target[p.id] = want * 60; for (const x of rest) target[x.id] = Math.max(0, target[x.id] - d * target[x.id] / tot);
+}
 // engine hook (playGame0): apply today's decisions to his side
 function careerGameFx(league, H, A) {
   const fx = league.career && league.career.proFx; if (!fx) return;

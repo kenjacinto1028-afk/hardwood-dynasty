@@ -29,7 +29,7 @@ Branch `claude/project-thread-iocwy2`. One PR per phase. New file src/career.js 
 - [x] P1c. XP after each game; spend on attributes (cost rises with rating); career hub page
 - [x] P1d. Draft night as the player (stock from ratings + pipeline stats), lands on a team
 - [x] P1e. Tests ALL PASS 1300+390; PR #24 merged
-- [ ] P2. Pro games: Play or Sim each game; decisions change his usage/shots in the real engine; minutes from coach trust; XP
+- [x] P2. (merged with tests) Pro games: Play or Sim each game; decisions change his usage/shots in the real engine; minutes from coach trust; XP
 - [ ] P3. Badges (earned + bought with XP, small engine effects), achievements, awards, Legend meter / Hall of Fame tracker
 - [ ] P4. Career life: interviews, player relations, news, trade requests, contract talks (reuse existing systems), phone polish, tests, Pages
 

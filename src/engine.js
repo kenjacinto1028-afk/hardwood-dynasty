@@ -1575,6 +1575,7 @@ function buildSide(league, tid, isHome, playoff) {
     const list = avail.map(p => ({ id: p.id, k: rk(p) }));
     const mm = roleMinutes(list, coach, playoff, 240);
     for (const p of avail) g.target[p.id] = (mm[p.id] || 0) * 60;
+    if (league.career && typeof careerMinutes === 'function') careerMinutes(league, avail, g.target);   // My Career: coach trust moves your minutes
     g.stars = new Set(avail.filter(p => rk(p) === 'fs' || rk(p) === 'star').map(p => p.id));
     if (!g.stars.size) { const b = avail.slice().sort((a, b) => playerValue(b, coach) - playerValue(a, coach))[0]; if (b) g.stars.add(b.id); }
   } else {

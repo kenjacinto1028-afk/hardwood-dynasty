@@ -639,8 +639,9 @@ function genPlayer(intendedPos, talent, age, used) {
   // v25.4 2b: the random part of each shot tendency is kept (p.tv) so tendencies can follow skills later; a good shooter sometimes just doesn't shoot much
   p.tk = intendedPos; p.tv = { t3: gauss(0, 10), tmd: gauss(0, 10), trm: gauss(0, 10), tps: gauss(0, 10) };
   if (p.tp >= 62 && R() < 0.2) p.tv.t3 -= rnd(10, 18);
+  const qk = shotQuirk(p, intendedPos);   // v35: habits that don't follow the skills (a finishing big who would rather pass or shoot jumpers, a gunner, ...)
   { const tg = tendTarget(p); for (const k of TEND_K) p[k] = r99(tg[k]); }
-  p.tpa = r99(t.tpa + (p.pas - t.pas) * 0.6 + gauss(0, 10));
+  p.tpa = r99(t.tpa + (p.pas - t.pas) * 0.6 + gauss(0, 10) + (qk.tpa || 0));
   p.tct = r99(60 + gauss(0, 12));
   p.tgb = r99(45 + (p.stl - 50) * 0.5 + gauss(0, 12));
   addTendencies(p);
@@ -849,6 +850,18 @@ const TEND_K = ['t3', 'tmd', 'trm', 'tps'];
 function tendBase(p) {
   const t = TPL[p.tk] || TPL[POS[p.pos]];
   return { t3: t.t3 + (p.tp - t.tp) * 0.8, tmd: t.tmd + (p.mid - t.mid) * 0.6, trm: t.trm + (p.fin - t.fin) * 0.6 + (p.spd - 60) * 0.3, tps: t.tps + (p.pst - t.pst) * 0.6 };
+}
+// v35: about 1 in 3 players gets a shot habit that doesn't follow his skills. Shifts the kept random part (p.tv), so it lasts as skills change.
+const QUIRK = {
+  big: [['perim', 0.11, { t3: [10, 20], tmd: [8, 14], trm: [-14, -8], tps: [-10, -5] }], ['shyPass', 0.09, { trm: [-18, -10], tps: [-14, -8], tpa: [12, 20] }],
+    ['midBig', 0.08, { tmd: [14, 22], t3: [-6, 0], tps: [-6, 0] }], ['paintOnly', 0.08, { t3: [-16, -8], tmd: [-12, -6], trm: [6, 12], tps: [4, 10] }]],
+  wing: [['gunner', 0.09, { t3: [10, 16], tmd: [-6, -2] }], ['midLover', 0.08, { tmd: [12, 20], t3: [-10, -4] }], ['slash', 0.07, { trm: [10, 16], t3: [-8, -3] }],
+    ['passer', 0.07, { tpa: [12, 18], t3: [-6, -2], tmd: [-6, -2] }], ['avoid', 0.05, { trm: [-14, -8], t3: [4, 8] }]]
+};
+function shotQuirk(p, ip) {
+  const L = QUIRK[ip === 'PF' || ip === 'C' ? 'big' : 'wing'], r = R(); let acc = 0;
+  for (const [id, pr, sh] of L) { acc += pr; if (r < acc) { const o = {}; for (const k in sh) { const v = rnd(sh[k][0], sh[k][1]); if (k === 'tpa') o.tpa = v; else p.tv[k] += v; } p.qk = id; return o; } }
+  return {};
 }
 function tendTarget(p) { const b = tendBase(p), o = {}; for (const k of TEND_K) o[k] = b[k] + ((p.tv && p.tv[k]) || 0); return o; }
 function fillTv(p) { if (p.tv) return; const b = tendBase(p); p.tv = {}; for (const k of TEND_K) p.tv[k] = p[k] - b[k]; }   // old saves: no jump
@@ -1784,7 +1797,7 @@ function onCourt(g) { return g.court.filter(Boolean); }
 function avgOf(g, k, def) { const c = onCourt(g); let s = 0; for (const p of c) s += eff(g, p, k, def); return s / c.length; }
 
 // v25.4 2a: bigs (PF/C) take threes and mid-range shots only as often as their skill supports
-function bigGate(p, r, k) { if (p.pos < 3 || !k) return 1; return clamp((r - k[0]) / k[1], k[2], 1); }
+function bigGate(p, r, k) { if (p.pos < 3 || !k) return 1; return clamp((r - k[0]) / k[1], p.qk === 'perim' || p.qk === 'midBig' ? Math.max(k[2], 0.35) : k[2], 1); }   // v35: bigs who love jumpers take some even when they can't hit them
 // v27 U8: in NBA mode real players' shot tendencies already carry their team's style, so the system's shot mix counts half (3PA spread 22-56 → about 30-46)
 const SYS_SHOT_NBA = {}; for (const k in SYS_SHOT) { SYS_SHOT_NBA[k] = {}; for (const x in SYS_SHOT[k]) SYS_SHOT_NBA[k][x] = 1 + (SYS_SHOT[k][x] - 1) * 0.5; }
 const NBA_TPK = 0.5;   // v27.13 U7: NBA mode, the coach's three-point slider counts half (team 3PA spread was 22-60, real 31-46)

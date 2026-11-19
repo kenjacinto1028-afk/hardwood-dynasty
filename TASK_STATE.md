@@ -6,6 +6,13 @@ Branch `claude/project-thread-5dsy65`. Item 4 of Kenneth's list only.
 - [x] 4. app.js: show "Archetype · playstyle" (player page, tables, coach targets, filters, Rules)
 - [x] 5. Tests: unit + 3-season sim (3PA balance), browser check
 - [ ] 6. PR, merge, Pages check; message My Career thread with function names
+# TASK_STATE — Trophy room history, News/History table filters + sort, Team needs on Roster moves (Opus) — Nov 19 2026
+Branch `claude/project-thread-kvxv01`.
+- [x] 1. p3.js trophy room: real NBA history (histTrophies), league table (All teams), era + award filters; tools/browser-hist39.js
+- [x] 2. app.js vNews: news list is a table (Season, When, Category, Team, Story), 400 rows
+- [x] 3. app.js gfPrep/gfApply: every table on News & history pages sortable + filter bar (search + up to 4 dropdowns)
+- [x] 4. app.js rmNeedsWin: Team needs window on Roster moves (needs, coach playstyles, position depth; team picker on League tab)
+- [ ] 5. Browser test, PROGRESS.md, commit, PR, merge, check live site
 # TASK_STATE — Top 100 single-game records from real NBA data (Opus) — Nov 19 2026
 Branch `claude/project-thread-dhek1n`. Only history single-game lists (NBA_HX.rec.game.RS) grow from ~25 to 100 per stat.
 - [x] 1. Research real lists online: tools/rec-game/*.csv (Basketball-Reference leaders pages) + *_pre.csv (Wikipedia, pre-1983-84 REB/AST/STL)

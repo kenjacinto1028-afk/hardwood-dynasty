@@ -6,7 +6,14 @@
 - [x] Shot habits less tied to skill: about 1 in 3 new players gets a habit that doesn't match his ratings (good shooter who rarely shoots, gunner, finishing big who would rather pass or shoot jumpers). League shooting totals unchanged (checked PBL + NBA season sims).
 - [x] Superstars (85+, about 5 a league) get a signature type: Point god, Heliocentric engine, Walking bucket, Gravity shooter, Two-way superstar, Freight train, Unicorn, Point center, Dominant big. Gold badge on the player page.
 - [x] Coach targets and team needs use the new types; targets also weigh playstyle vs the coach's offense (pace wants volume shooters, motion wants passers). Type filters grouped by position with a Superstars group. Old saves convert on load.
-- Tests: tools/arch-cal.js (calibration), tools/unit-v253.js, tools/browser-arch.js (desktop + phone) ALL PASS. Offline cache `pbl-app-v8`.
+- Tests: tools/arch-cal.js (calibration), tools/unit-v253.js, tools/browser-arch.js (desktop + phone) ALL PASS. Offline cache `pbl-app-v9`.
+## Trophy room history, News & history filters + sort, Team needs (Opus, Nov 19 2026)
+- [x] Trophy room uses the franchise's real history before 2026 too: banners, championship trophies, MVP / Finals MVP / DPOY / Rookie / Sixth Man / Most Improved, All-League picks, Coach of the Year, retired numbers, Hall of Famers. New filters: All years / Your league / Before 2026, and an award filter. New "All teams" league table (sortable, click a team to open it).
+- [x] News & events is now a table (Season, When, Category, Team, Story) with sort and filters.
+- [x] Every table on the News & history pages (History tabs, Weekly report, Top plays, Hall of Fame...) sorts by column and gets a filter bar: search + dropdowns (team, season, award...).
+- [x] Roster moves > Overview: Team needs window (front office needs, playstyles the coach wants, position depth). League tab has a team picker.
+- Offline cache bumped to `pbl-app-v8`. Test: tools/browser-hist39.js (desktop + phone) ALL PASS.
+
 ## Real top 100 single-game records (Opus, Nov 19 2026)
 - [x] NBA leagues: History > League records > Single game now has the real all-time top 100 regular-season games for points, rebounds, assists, steals, blocks, 3-pointers, field goals, free throws and offensive rebounds (new list). Before: about 25 per stat.
 - [x] Sources: Basketball-Reference single-game leaders pages + Wikipedia single-game lists (read Nov 19 2026). Data in tools/rec-game/*.csv, merged by `python3 tools/rec-game/merge.py` (safe to re-run).

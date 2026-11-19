@@ -1,6 +1,6 @@
 // Hardwood Dynasty: offline support (I1). Saves live in the browser (IndexedDB), so only the game files are cached here.
 // Change CACHE when you want every device to drop the old files at once; otherwise files refresh in the background on each visit.
-const CACHE = 'pbl-app-v8';
+const CACHE = 'pbl-app-v9';
 const FILES = ['./', 'index.html', 'manifest.webmanifest', 'src/styles.css', 'src/desk.js', 'src/vendor-faces.js', 'src/engine.js', 'src/league.js', 'src/nba-2026.js', 'src/nba-text.js', 'src/nba-setup.js', 'src/nba-history.js', 'src/app.js', 'src/fx.js', 'src/court.js', 'src/p3.js', 'src/xp.js', 'src/career.js', 'src/pb.js', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {

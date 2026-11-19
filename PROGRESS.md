@@ -1,5 +1,12 @@
 # PBL progress
 
+## Trophy room history, News & history filters + sort, Team needs (Opus, Nov 19 2026)
+- [x] Trophy room uses the franchise's real history before 2026 too: banners, championship trophies, MVP / Finals MVP / DPOY / Rookie / Sixth Man / Most Improved, All-League picks, Coach of the Year, retired numbers, Hall of Famers. New filters: All years / Your league / Before 2026, and an award filter. New "All teams" league table (sortable, click a team to open it).
+- [x] News & events is now a table (Season, When, Category, Team, Story) with sort and filters.
+- [x] Every table on the News & history pages (History tabs, Weekly report, Top plays, Hall of Fame...) sorts by column and gets a filter bar: search + dropdowns (team, season, award...).
+- [x] Roster moves > Overview: Team needs window (front office needs, playstyles the coach wants, position depth). League tab has a team picker.
+- Offline cache bumped to `pbl-app-v8`. Test: tools/browser-hist39.js (desktop + phone) ALL PASS.
+
 ## Real top 100 single-game records (Opus, Nov 19 2026)
 - [x] NBA leagues: History > League records > Single game now has the real all-time top 100 regular-season games for points, rebounds, assists, steals, blocks, 3-pointers, field goals, free throws and offensive rebounds (new list). Before: about 25 per stat.
 - [x] Sources: Basketball-Reference single-game leaders pages + Wikipedia single-game lists (read Nov 19 2026). Data in tools/rec-game/*.csv, merged by `python3 tools/rec-game/merge.py` (safe to re-run).
@@ -11,7 +18,7 @@
 - [x] Pipeline season: full schedule for your team; 6 big games stop the sim (Play: 4 key moments with 2-3 choices and a % chance from your ratings, or Sim). Other games are simmed. Each game gives a grade (F to A+) and XP.
 - [x] XP buys +1 on any rating (cost rises with the rating; athletic +50%). Upgrades raise overall, potential and draft stock.
 - [x] Your college/club season line and team record come from your games. Draft night popup when you are picked (or undrafted). As a pro, games are simmed for now and give XP from your box score.
-- New file src/career.js; small hooks in engine.js (simDay, playoffs), league.js (pipeSeason, growProspect), app.js (tab, setup, sim stop). Cache `pbl-app-v8`. Test: tools/browser-career.js (1300 + 390 wide) ALL PASS.
+- New file src/career.js; small hooks in engine.js (simDay, playoffs), league.js (pipeSeason, growProspect), app.js (tab, setup, sim stop). Cache `pbl-app-v9`. Test: tools/browser-career.js (1300 + 390 wide) ALL PASS.
 - Next: Phase 2 pro games you play; Phase 3 badges/achievements/Legend meter; Phase 4 interviews, relationships, news, trade requests, contract talks.
 
 ## Every page fills the window (Opus, Nov 19 2026)

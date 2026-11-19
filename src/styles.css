@@ -179,6 +179,9 @@ nav.tabs a .gc { opacity: .65; font-weight: 600; }
 .filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; align-items: center; }
 input[type=search], input[type=number], select { font: 14px var(--body); padding: 6px 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); }
 input[type=number] { width: 90px; }
+/* v39: filter bar on News & history tables; two dropdowns a row on phones */
+.gfbar select { max-width: 220px; }
+@media (max-width: 600px) { .gfbar input[type=search] { flex: 1 1 100%; width: auto !important; } .gfbar select { flex: 1 1 calc(50% - 8px); min-width: 0; max-width: none; width: auto !important; } }
 .leader { display: grid; grid-template-columns: 20px minmax(0,1fr) auto; gap: 6px; padding: 4px 0; border-bottom: 1px solid var(--line); }
 .leader:last-child { border-bottom: 0; }
 .leader .v { font-variant-numeric: tabular-nums; font-weight: 700; }

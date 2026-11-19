@@ -1,5 +1,10 @@
 # PBL progress
 
+## Walker Kessler rework (Sonnet, Nov 19 2026)
+- [x] Paint-only big: no threes (3P 22, 3PT tendency 1), poor free throws (FT 40), finishes at the rim, rebounds. Elite rim protector: Block 79, Interior D 80, shot contest 97 (highest in the league).
+- [x] Shows as "Rim protector C · Low usage, Poor free-throw shooter". Set in `NBA_SET` (src/nba-setup.js); new leagues only.
+- [x] 5 one-season sims (tools/kessler.js, seeds 1-5): avg 14.5 pts, 10.6 reb, 2.6 blk, 0.0 3PA, 58% FT, 72% FG, 31.7 min.
+
 ## My Career, Phase 2: pro games (Opus, Nov 19 2026)
 - [x] As a pro, the sim stops on your team's games (choose: every game / big games / never; big = playoffs, rivalries, every 5th game). Play or Sim.
 - [x] Played games: 4 key moments with choices and % chances. Your calls change your form, shot volume and teammates' form in the real game engine, so the box score is real. Result popup: real line, FG, grade, XP, coach trust.

@@ -1,3 +1,9 @@
+# TASK_STATE — Rework Walker Kessler ratings (Sonnet) — Nov 19 2026
+Branch `claude/project-thread-rf6n98`.
+- [x] 1. Baseline: tools/kessler.js prints his ratings, archetype, 1-season line
+- [x] 2. Rework: NBA_SET in src/nba-setup.js (exact ratings + tendencies), applied in nbaApplyRatings
+- [x] 3. 5 one-season sims: 14.5 pts / 10.6 reb / 2.6 blk, 0 3PA, 58% FT
+- [ ] 4. README/PROGRESS notes, PR, rebase on main, merge, Pages check
 # TASK_STATE — Rework archetypes + playstyles (Opus) — Nov 19 2026
 Branch `claude/project-thread-5dsy65`. Item 4 of Kenneth's list only.
 - [x] 1. league.js: 8 archetypes per position (how they play: tendencies + skill), superstar archetypes (p.sarch), playstyle caveats (playstyle(p)), SYS_WANTS/DEF_ARCH, migrate old saves — done: ARCH/SARCH/playstyle()/archFull()/styleFit() in league.js

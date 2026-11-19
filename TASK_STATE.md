@@ -1,3 +1,7 @@
+# TASK_STATE — Update live site (Haiku-size, Nov 19 2026)
+- [x] 1. Pages already deployed main 2b6b348 (has #15 + #16)
+- [x] 2. sw.js CACHE v4 -> v5, PR + merge
+
 # TASK_STATE — Back arrow keeps scroll position (Opus) — Nov 18 2026
 Branch `back-keeps-scroll`.
 - [x] 1. app.js: save scroll on every back/forward snapshot, restore it on Back/Forward (backStack.push/snapNow/applyNav; route() opens new pages at top)
@@ -9,7 +13,7 @@ Branch `playtime-counter`.
 - [x] 1. app.js: playtime tracker (counts while the tab is visible and you touched it in the last 5 min), L.playMs per league, 'playtotal' overall
 - [x] 2. Show it: Saves popup (total at top, each save's time) + Settings > Game
 - [x] 3. tools/browser-play.js ALL PASS; browser-pb + browser-desk ALL PASS; PROGRESS.md
-- [ ] 4. Commit, PR, merge if tests pass
+- [x] 4. Commit, PR, merge if tests pass (PR #16 merged)
 
 ---
 # TASK_STATE — Phases A/B/C: expansion teams, save safety + tutorial, desktop app (Opus) — Nov 18 2026

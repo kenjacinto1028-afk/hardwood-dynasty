@@ -32,6 +32,18 @@ i = next(k for k, l in enumerate(lines) if l.startswith(pre))
 body = lines[i][len(pre):]; assert body.endswith(';')
 hx = json.loads(body[:-1])
 rs = hx['rec']['game'].setdefault('RS', {})
+# One game shows up in several stat lists (Wilt's 100: points, FGM, FTM), so team + opponent are looked up by player + date.
+# GM = trusted team/opponent (Wikipedia lists, Kenneth's files = flag c); BB = team from the Basketball-Reference pages.
+GM, BB = {}, {}
+for st, L0 in rs.items():
+    for r in L0:
+        if r[5] == 'c' and r[3]: GM.setdefault((norm(r[0]), r[2]), (r[1], r[3]))
+for fn in os.listdir(HERE):
+    if not fn.endswith('.csv'): continue
+    for c in csv.DictReader(open(os.path.join(HERE, fn), encoding='utf-8')):
+        k = (norm(c['player']), c['date'])
+        if c.get('opponent'): GM[k] = (c['team'], c['opponent'])
+        elif c['team'] in TEAM: BB.setdefault(k, TEAM[c['team']])
 for f, st in STATS.items():
     old = rs.get(st, [])
     for r in old:
@@ -48,6 +60,10 @@ for f, st in STATS.items():
             if k in seen: continue
             seen.add(k); added += 1
             rows.append([c['player'], TEAM.get(c['team'], c['team']), c['date'], c.get('opponent') or '', int(c['v']), fl])
+    for r in rows:   # old 'f' rows had a made-up opponent (a team that existed that season): fix from sources or leave it blank
+        k = (norm(r[0]), r[2])
+        if k in GM: r[1], r[3] = GM[k]
+        elif r[5] == 'f': r[3] = ''; r[1] = BB.get(k, r[1])
     rows.sort(key=lambda r: (-r[4], [-ord(ch) for ch in r[2]]))
     rs[st] = rows[:100]
     print(f'{st}: {len(old)} old + {added} new -> {len(rs[st])} kept, cutoff {rs[st][-1][4]}')

@@ -1,5 +1,12 @@
 # PBL progress
 
+## Real top 100 single-game records (Opus, Nov 19 2026)
+- [x] NBA leagues: History > League records > Single game now has the real all-time top 100 regular-season games for points, rebounds, assists, steals, blocks, 3-pointers, field goals, free throws and offensive rebounds (new list). Before: about 25 per stat.
+- [x] Sources: Basketball-Reference single-game leaders pages + Wikipedia single-game lists (read Nov 19 2026). Data in tools/rec-game/*.csv, merged by `python3 tools/rec-game/merge.py` (safe to re-run).
+- [x] Fixed made-up opponents in the old list (e.g. Wilt's 78 now says vs Los Angeles Lakers, Luka's 73 vs Atlanta). Games with no known opponent show the team only.
+- Limit: rebounds, assists, steals, blocks and offensive rebounds have full box scores only from 1983-84 on, so older games show only at the very top (Wilt/Russell 38+ rebounds, 22+ assists, 8+ steals). Note added under "How this works".
+- Test: tools/browser-recgame.js (desktop + phone) ALL PASS.
+
 ## Every page fills the window (Opus, Nov 19 2026)
 - [x] All pages on all tabs now use the full window width like My Team > Roster (before, most pages stopped at 1760px wide; How it works stopped at 840px). How it works text flows into columns on wide screens. Offline cache bumped to `pbl-app-v7`.
 - Test: tools/browser-fill.js checks 37 pages at 2560, 1920, 1280 and 390 (phone) wide.

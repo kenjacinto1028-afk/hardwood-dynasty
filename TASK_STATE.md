@@ -2,7 +2,7 @@
 Branch `claude/project-thread-dhek1n`. Only history single-game lists (NBA_HX.rec.game.RS) grow from ~25 to 100 per stat.
 - [x] 1. Research real lists online: tools/rec-game/*.csv (Basketball-Reference leaders pages) + *_pre.csv (Wikipedia, pre-1983-84 REB/AST/STL)
 - [x] 2. tools/rec-game/merge.py merged into src/nba-history.js (100 per stat, ORB added); app.js records note
-- [ ] 3. Test in browser (Records > Single game > Top 100)
+- [x] 3. tools/browser-recgame.js ALL PASS (1280 + 390); opponents fixed from Wikipedia / cross-stat lookup
 - [ ] 4. PROGRESS.md, PR, merge, Pages check
 
 ---

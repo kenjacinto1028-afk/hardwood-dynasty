@@ -48,6 +48,7 @@ const MOTIF = {
   croc: '<path d="M2 12 L11 10 Q15 9 18 10.5 Q21 11.5 22 13 Q19 14 16 13.5 Q13 15 9 14.5 L7 17 L6 14.5 L2 13.5 Z"/><path d="M8 10.5 L9 9 L10 10.3 L11 8.7 L12 10 L13 8.6 L14 10" fill="none" stroke="currentColor" stroke-width="0.8"/><circle cx="17" cy="11.2" r="0.8" fill="#ffffff99"/>'
 };
 const leagueName = () => L && L.nba ? 'NBA 2026-27' : 'Pacific Basketball League';
+const GAME_NAME = 'Hardwood Dynasty';   // v38: the game's name (the fictional league inside it is still the Pacific Basketball League)
 const lgTag = () => L && L.nba ? 'NBA' : 'PBL';
 const mktTxt = t => L && L.nba ? '' : ' · ' + MARKET_LABEL[t.market];
 const logoCache = {};
@@ -908,10 +909,10 @@ function renderHeader() {
   const lg = liveGame(), lgMine = lg && ut && (isUser(lg.home) || isUser(lg.away)), lgWon = lgMine && (isUser(lg.home) ? lg.hs > lg.as : lg.as > lg.hs);
   const recTxt = !ut ? ' · Commissioner' : lgMine ? ` · ${ut.w - (lgWon ? 1 : 0)}-${ut.l - (lgWon ? 0 : 1)}` : ' · ' + ut.w + '-' + ut.l + (L.phase === 'playoffs' && L.po ? ' · playoffs ' + poWL(ut.id) : '');
   $('#when').textContent = `${seasonName(L.season)} · ${ph}${recTxt}`;
-  const fc = $('#fchip'); { const bn = $('#brandname'); if (bn && bn.textContent !== leagueName()) bn.textContent = leagueName(); }
-  if (L.user != null) { const k = 'f' + L.user + L.teams[L.user].name; if (fc.dataset.k !== k) { fc.dataset.k = k; fc.innerHTML = `<a class="fchip lk tl" href="#myteam" title="Your team · ${leagueName()}">${logo(L.user, 36)}<strong>${esc(tname(L.user))}</strong><span>Franchise Mode</span></a>`; } fc.hidden = false; $('#brand').classList.add('fm'); document.title = tname(L.user) + ' · ' + leagueName(); }
-  else if (L.mode === 'team' && L.jobless) { const k = 'jobless'; if (fc.dataset.k !== k) { fc.dataset.k = k; fc.innerHTML = `<span class="fchip"><strong>Between jobs</strong><span>Watching the league</span></span>`; } fc.hidden = false; $('#brand').classList.add('fm'); document.title = leagueName(); }
-  else { fc.hidden = true; fc.innerHTML = ''; fc.dataset.k = ''; $('#brand').classList.remove('fm'); document.title = leagueName(); }
+  const fc = $('#fchip'); { const bn = $('#brandname'); if (bn && bn.textContent !== GAME_NAME) bn.textContent = GAME_NAME; if (bn) bn.title = leagueName(); }
+  if (L.user != null) { const k = 'f' + L.user + L.teams[L.user].name; if (fc.dataset.k !== k) { fc.dataset.k = k; fc.innerHTML = `<a class="fchip lk tl" href="#myteam" title="Your team · ${leagueName()}">${logo(L.user, 36)}<strong>${esc(tname(L.user))}</strong><span>Franchise Mode</span></a>`; } fc.hidden = false; $('#brand').classList.add('fm'); document.title = tname(L.user) + ' · ' + GAME_NAME; }
+  else if (L.mode === 'team' && L.jobless) { const k = 'jobless'; if (fc.dataset.k !== k) { fc.dataset.k = k; fc.innerHTML = `<span class="fchip"><strong>Between jobs</strong><span>Watching the league</span></span>`; } fc.hidden = false; $('#brand').classList.add('fm'); document.title = GAME_NAME; }
+  else { fc.hidden = true; fc.innerHTML = ''; fc.dataset.k = ''; $('#brand').classList.remove('fm'); document.title = GAME_NAME; }
   const btns = ui.auto ? [['autostop', 'Stop autopilot']] : controls().concat(pressActive() ? [['press', 'Press conference']] : []).concat(dramaOpen(L) ? [['drama', 'Locker room issue']] : []).concat(L.user != null && ivOpen(L) ? [['iv', 'Interview']] : []).concat(L.user != null && mtgOpen(L) ? [['mtg', 'Meeting']] : []).concat(multiBtn());
   const key = L.phase + ui.busy + JSON.stringify(btns);
   if (ui.auto) { const a = L.auto; if (a) $('#when').textContent = autoWhen(a); }

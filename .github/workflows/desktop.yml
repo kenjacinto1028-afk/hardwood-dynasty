@@ -43,7 +43,7 @@ jobs:
         with:
           projectPath: desktop
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || 'desktop-v__VERSION__' }}
-          releaseName: 'Pacific Basketball League v__VERSION__'
+          releaseName: 'Hardwood Dynasty v__VERSION__'
           releaseBody: 'Download the installer for your computer below: Windows = .exe (or .msi), Mac = .dmg, Linux = .AppImage or .deb. Mac and Windows may warn that the app is from an unknown developer (it is not signed yet): on Windows click "More info" > "Run anyway"; on Mac right-click the app > Open.'
           releaseDraft: true
           args: ${{ matrix.args }}

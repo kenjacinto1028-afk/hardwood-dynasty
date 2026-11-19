@@ -2,8 +2,8 @@
 Branch `draft-tag-buttons`.
 - [x] 1. app.js ptagBtns/eyeBtn: Tags column on draft board (boardPanel) + class list (vDraft); styles.css .qtag
 - [x] 2. app.js eyeBtn in name cell: vPlayers (basic+adv) + vPlayerDir (4 tabs)
-- [ ] 2b. Rename game to "Hardwood Dynasty" (user picked)
-- [ ] 3. Build + browser test
+- [x] 2b. Rename game to "Hardwood Dynasty" (user picked)
+- [x] 3. tools/browser-qtags.js ALL PASS (1280 + 390)
 - [ ] 4. PROGRESS.md, commit, PR, merge (after PR #17), Pages check
 - [ ] 5. Run release workflow for installers
 

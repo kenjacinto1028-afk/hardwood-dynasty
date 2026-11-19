@@ -2,7 +2,8 @@
 Branch `claude/project-thread-w2yrv1`.
 - [x] 1. app.js faceCustom + portrait hook; career.js builder, Edit look; CSS fix for hub avatar
 - [x] 2. tools/browser-face.js ALL PASS; PROGRESS.md; desktop 1.2.0
-- [ ] 3. PR, merge, Pages check, run desktop build
+- [x] 3. PR #29 merged, desktop 1.2.0 build run
+- [x] 4. Header avatar refit: whole head + shoulders in frame (100x150), cache v15
 
 ---
 # TASK_STATE — Rework Walker Kessler ratings (Sonnet) — Nov 19 2026

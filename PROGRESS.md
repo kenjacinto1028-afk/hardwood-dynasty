@@ -1,5 +1,8 @@
 # PBL progress
 
+## Live site refresh (Nov 19 2026)
+- [x] Offline cache bumped to `pbl-app-v5` (sw.js) so installed home-screen copies drop old files and load the back-arrow + playtime update.
+
 ## Back arrow keeps your spot (Opus, Nov 18 2026)
 - [x] Back (and Forward) now return you to the same place on the page you left, e.g. My Team > Lineup & rotation > News > Back. Also keeps the My Team sub-tab. New pages still open at the top. Works in browser, phone layout and desktop app (same code). Test: tools/browser-backscroll.js (desktop + phone) ALL PASS.
 

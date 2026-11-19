@@ -102,7 +102,7 @@ function carSettle(L, g, line, mom, played) {
 }
 function carSimOne(L, g) { const p = carP(L); return carSettle(L, g, carNoise(carBase(L, p, L.career.lg), 1), 0, false); }
 // called after every sim day: games before today that were not played are simmed
-function careerDay(L, games) { if (!carOn(L)) return; try { careerDay0(L, games); } finally { carCheck(L); } }
+function careerDay(L, games) { if (!carOn(L)) return; if (typeof carInit === 'function') carInit(L); try { careerDay0(L, games); } finally { carCheck(L); } }
 function careerDay0(L, games) {
   const p = carP(L);
   if (p.prospect) { if (L.phase === 'regular' && p.pl) for (const g of L.career.games) if (!g.done && g.day < L.day) carSimOne(L, g); return; }
@@ -534,9 +534,9 @@ function carReqTrade(L) {
 // fallback after a few quiet days: a plain one-for-one swap with a team that has a similar player
 function carTradeSwap(L, p) {
   const B = L.teams[p.team];
-  for (const A of L.teams.filter(t => t.id !== B.id && t.id !== L.user).sort(() => R() - 0.5).slice(0, 14)) {
-    const cs = rosterOf(L, A).filter(q => !q.hardship && !q.career && !tradeRestricted(L, q) && q.ovr <= p.ovr + 4 && q.ovr >= p.ovr - 12 && Math.abs((q.contract ? q.contract.amt : 1) - (p.contract ? p.contract.amt : 1)) <= 8).sort((x, y) => y.ovr - x.ovr);
-    for (const q of cs.slice(0, 3)) {
+  for (const A of L.teams.filter(t => t.id !== B.id && t.id !== L.user).sort(() => R() - 0.5)) {
+    const cs = rosterOf(L, A).filter(q => !q.hardship && !q.career && !tradeRestricted(L, q) && q.ovr <= p.ovr + 6 && q.ovr >= p.ovr - 15 && Math.abs((q.contract ? q.contract.amt : 1) - (p.contract ? p.contract.amt : 1)) <= Math.max(8, (p.contract ? p.contract.amt : 1) * 0.3)).sort((x, y) => y.ovr - x.ovr);
+    for (const q of cs.slice(0, 5)) {
       const tr = { a: A.id, b: B.id, aGive: { players: [q.id], picks: [] }, bGive: { players: [p.id], picks: [] }, id: 'swap-career' };
       try { if (tradeCheck(L, tr.a, tr.b, tr.aGive, tr.bGive) || !afterTradeOK(L, tr)) continue; addWhy(L, tr); executeTrade(L, tr); countDeal(L, tr); return true; } catch (e) { continue; }
     }

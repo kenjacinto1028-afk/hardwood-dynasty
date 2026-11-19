@@ -108,11 +108,11 @@ const SHOTS = process.env.SHOTS;
   const grid = await ev(pg, "({ n: document.querySelectorAll('.car-achc').length, on: document.querySelectorAll('.car-achc.on').length, b: document.querySelectorAll('.car-badge').length, st: !!document.querySelector('#car-stats table.sortable tbody tr') })");
   ok('badge / achievement / stats panels render', grid.n >= 24 && grid.on >= 1 && grid.b >= 16 && grid.st, grid);
   await ev(pg, "(() => { const L = PBL.L, p = L.players[L.career.pid]; for (const k of ['tp']) p[k] = 90; L.career.xp = 1000; delete L.career.badges.deadeye; L.career.tot.tpm = 0; PBL.render(); })()"); await wait(pg, 400);
-  const bb0 = await ev(pg, "(() => { const C = PBL.L.career; return { t: (C.badges || {}).deadeye, xp: C.xp }; })()");
+  const bb0 = await ev(pg, "(() => { const C = PBL.L.career; return { t: (C.badges || {}).deadeye, xp: C.xp, tot: C.xpTot }; })()");
   ok('Buy button shows cost', await ev(pg, "(document.querySelector('[data-carbuy=deadeye]') || {}).textContent") === 'Buy Bronze · 60 XP', bb0);
   await ev(pg, "PBL.closeDialog(); document.querySelector('#modal').innerHTML = ''; document.querySelector('[data-carbuy=deadeye]').click()"); await wait(pg, 400);
-  const bb1 = await ev(pg, "(() => { const C = PBL.L.career; return { t: (C.badges || {}).deadeye, xp: C.xp, own: !!document.querySelector('#car-badges .car-badge.own') }; })()");
-  ok('XP buys a badge tier', bb1.t === 0 && bb1.xp === bb0.xp - 60 && bb1.own, [bb0, bb1]);
+  const bb1 = await ev(pg, "(() => { const C = PBL.L.career; return { t: (C.badges || {}).deadeye, xp: C.xp, tot: C.xpTot, own: !!document.querySelector('#car-badges .car-badge.own') }; })()");
+  ok('XP buys a badge tier', bb1.t === 0 && (bb0.xp - bb1.xp) + (bb1.tot - bb0.tot) === 60 && bb1.own, [bb0, bb1]);   // achievement XP may land in between
   const ch = await ev(pg, "(() => { const L = PBL.L, p = L.players[L.career.pid], o = { k: ['tp'], d: 0 }; const a = carChance(L, p, o); L.career.badges.deadeye = 3; const b = carChance(L, p, o); L.career.badges.deadeye = 0; return [a, b]; })()");
   ok('badge raises decision chance', ch[1] >= ch[0] && (ch[1] > ch[0] || ch[0] >= 0.92), ch);
   await shot('car-09-badges');

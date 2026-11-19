@@ -1,3 +1,12 @@
+# TASK_STATE — Trophy room history, News/History table filters + sort, Team needs on Roster moves (Opus) — Nov 19 2026
+Branch `claude/project-thread-kvxv01`.
+- [ ] 1. p3.js trophy room: add real NBA history (titles, Finals, awards, All-League, COY, retired numbers, Hall of Fame) + league-wide trophy summary
+- [ ] 2. app.js: News list as a sortable table with filters (season, category, team, search)
+- [ ] 3. app.js: generic filter + sort for every table on News & history pages (search box + column dropdowns)
+- [ ] 4. app.js vRMoves: Team needs window (team picker, needs list, archetypes wanted)
+- [ ] 5. Browser test, PROGRESS.md, commit, PR, merge, check live site
+
+---
 # TASK_STATE — Every page fills the window (Opus) — Nov 19 2026
 Branch `claude/project-thread-05cgrl`.
 - [x] 1. Measure all pages (tools/browser-fill.js): 19 of 37 capped at 1760px; Rules 840px

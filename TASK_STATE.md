@@ -1,6 +1,6 @@
 # TASK_STATE — Trophy room history, News/History table filters + sort, Team needs on Roster moves (Opus) — Nov 19 2026
 Branch `claude/project-thread-kvxv01`.
-- [ ] 1. p3.js trophy room: add real NBA history (titles, Finals, awards, All-League, COY, retired numbers, Hall of Fame) + league-wide trophy summary
+- [x] 1. p3.js trophy room: real NBA history (histTrophies), league table (All teams), era + award filters; tools/browser-hist39.js
 - [ ] 2. app.js: News list as a sortable table with filters (season, category, team, search)
 - [ ] 3. app.js: generic filter + sort for every table on News & history pages (search box + column dropdowns)
 - [ ] 4. app.js vRMoves: Team needs window (team picker, needs list, archetypes wanted)

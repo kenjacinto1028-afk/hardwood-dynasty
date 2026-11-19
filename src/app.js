@@ -306,8 +306,28 @@ function curateFace(f, rnd) {
   f.facialHair = { id: rnd() < 0.15 ? 'goatee1' : 'none' };
   f.eyeLine = { id: 'none' }; f.smileLine = { id: 'none' }; f.miscLine = { id: 'none' }; f.glasses = { id: 'none' };
 }
+// Custom look (My Career): a saved spec {skin, hairColor, head, hair, eye, eyebrow, mouth, nose, facialHair, glasses} drawn on a fixed base face
+function faceCustom(sp, cls, tid) {
+  if (!window.FACES || !sp) return '';
+  const t = tid != null && L && L.teams[tid] ? L.teams[tid] : null, key = 'c' + JSON.stringify(sp) + ':' + (t ? tid : '');
+  let svg = FACE_CACHE.get(key);
+  if (!svg) {
+    const keep = Math.random; let s = 12345; Math.random = () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; };
+    try {
+      const f = window.FACES.generate(undefined, { gender: 'male', race: 'brown' });
+      f.body = { ...f.body, color: sp.skin }; f.head = { id: sp.head, shave: 'rgba(0,0,0,0)' }; f.hair = { ...f.hair, id: sp.hair, color: sp.hairColor, flip: false }; f.hairBg = { id: 'none' };
+      f.eye = { ...f.eye, id: sp.eye, angle: 0 }; f.eyebrow = { ...f.eyebrow, id: sp.eyebrow, angle: 0 }; f.mouth = { ...f.mouth, id: sp.mouth, flip: false }; f.nose = { ...f.nose, id: sp.nose, flip: false, size: 0.9 };
+      f.facialHair = { id: sp.facialHair }; f.glasses = { id: sp.glasses || 'none' }; f.accessories = { id: 'none' }; f.eyeLine = { id: 'none' }; f.smileLine = { id: 'none' }; f.miscLine = { id: 'none' };
+      window.FACES.display(faceHost(), f, { teamColors: t ? [t.c1, t.c2, '#ffffff'] : ['#5b6670', '#c9ced3', '#ffffff'] }); svg = faceHost().innerHTML; faceHost().innerHTML = '';
+    } catch (e) { svg = ''; } finally { Math.random = keep; }
+    if (FACE_CACHE.size > 400) FACE_CACHE.clear();
+    FACE_CACHE.set(key, svg);
+  }
+  return svg ? `<div class="face ${cls || ''}" aria-hidden="true">${svg}</div>` : '';
+}
 function portrait(kind, id, nat, tid, cls) {
   if (!window.FACES) return '';
+  if (kind === 'p' && L && L.career && L.career.face && id === L.career.pid) { const h = faceCustom(L.career.face, cls, tid); if (h) return h; }
   const key = kind + id + ':' + (tid == null ? '' : tid);
   let svg = FACE_CACHE.get(key);
   if (!svg) {
@@ -5894,7 +5914,7 @@ function doUndo() {
 // test hook (read-only access for automated tests)
 window.__pblCourt = { get L() { return L; }, scSpot, scRng };   // Phase 2: court.js reads the league and the shot-zone helpers
 // Phase 3: app helpers for src/p3.js (it reads them through `with (PBL)`)
-window.PBL = { get L() { return L; }, popupBusy, liveGame, ui, $, esc, f1, render, dialog, closeDialog, queueDialog, ovrTxt, lgTag, portrait, logo, isUser, awardTid, trophySvg, plink, tname, save, saveNow, logoBody, tlabel, fmtPlay, playTotal };
+window.PBL = { get L() { return L; }, popupBusy, liveGame, ui, $, esc, f1, render, dialog, closeDialog, queueDialog, ovrTxt, lgTag, portrait, faceCustom, logo, isUser, awardTid, trophySvg, plink, tname, save, saveNow, logoBody, tlabel, fmtPlay, playTotal };
 window.__pbl = { get L() { return L; }, lvTicker: (g, n) => lvTicker(g, n), lvTickerLines: g => lvTickerLines(g), save: () => save(), render: () => render(), awardsDialog: t => awardsDialog(t), championDialog: () => championDialog(), trainCheckDialog: () => queueDialog(trainCheckDialog), openPlayer: id => { ui.player = id; render(); }, review: S => seasonReviewDialog(S), get ui() { return ui; }, interruptKind: () => interruptKind(), dlg: n => runDialog({ iv: ivDialog, mtg: mtgDialog, drama: dramaDialog }[n]), v30: { logo, logoBody, hexContrast, pipeLogo, todo: { on: () => todoOn(), state: () => todoState(), group: () => todoGroup(), list: g => todoList(g), open: g => todoOpenCount(g), stopEnd: e => todoStopEnd(e) } }, pipeUi: { pipeSchool: p => pipeSchool(p), pipeLatest: () => pipeLatest(), stockChip: p => stockChip(p) } };   // v29: test hooks
 (async () => {
   $('#main').innerHTML = '<p class="muted">Loading your league…</p>';

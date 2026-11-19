@@ -58,6 +58,7 @@ function carCreate(L, o) {
   { const tm = L.pipe.lg[lg].t[ti]; if (tm.f.length) tm.f.splice(tm.f.reduce((m, f, k, a) => f.o < a[m].o ? k : m, 0), 1); }
   p.tx.push({ s: L.season, t: `Joined ${pipeTeamName(lg, ti)} (${lg})` });
   L.career = { pid: p.id, story: o.story, style: o.style || '', lg, team: ti, s0: L.season, xp: 40, xpTot: 40, games: [], log: [], ups: {}, cur: null, trust: 50, stop: 'all', pro: [], chem: 50, rel: {}, iv: [], nf: {}, lastTeam: null };
+  if (o.face) L.career.face = o.face;
   carLog(L, `Your story begins: ${st.n}. You start at ${pipeTeamName(lg, ti)} (${lg}).`);
   carSchedule(L);
   return p;
@@ -661,7 +662,44 @@ function carLifeCheck(L) { const p = carP(L); if (!p || p.prospect) return; carI
 if (typeof window !== 'undefined') window.CAR = (function () {
   if (!window.PBL) return null;
   with (window.PBL) {   // eslint-disable-line no-with
-    const S = () => (ui.car = ui.car || { first: '', last: '', pos: 2, hgt: 79, style: '', story: 'grinder', path: 'NCHF', team: -1, num: 23 });
+    const S = () => (ui.car = ui.car || { face: null, first: '', last: '', pos: 2, hgt: 79, style: '', story: 'grinder', path: 'NCHF', team: -1, num: 23 });
+    // ----- face builder (setup form + "Edit look" on the hub) -----
+    const CF_SKIN = ['#f2d3b8', '#e0b48c', '#c68e63', '#aa816f', '#8d5a3c', '#74453d', '#5a3226', '#3e2219'];
+    const CF_HAIRC = ['#272421', '#3b2a1d', '#6b4423', '#a9753a', '#d9b46a', '#8c8c8c', '#b5412b', '#2e5d9f'];
+    const CF = { head: ['head1', 'head2', 'head3', 'head4', 'head5', 'head6', 'head7', 'head8', 'head9', 'head10', 'head11', 'head12', 'head13', 'head14', 'head15', 'head16', 'head17', 'head18'],
+      hair: ['bald', 'short-bald', 'crop', 'crop-fade', 'crop-fade2', 'short', 'short2', 'short3', 'short-fade', 'short-fade-2', 'blowoutFade', 'tall-fade', 'fauxhawk-fade', 'faux-hawk', 'parted', 'middle-part', 'curly', 'curlyFade1', 'curlyFade2', 'afro', 'afro2', 'cornrows', 'dreads', 'messy', 'messy-short', 'shaggy1', 'spike', 'juice', 'longHair', 'emo'],
+      eye: ['eye1', 'eye2', 'eye3', 'eye4', 'eye5', 'eye6', 'eye7', 'eye8', 'eye9', 'eye10', 'eye11', 'eye12', 'eye13', 'eye14', 'eye15', 'eye16', 'eye17', 'eye18', 'eye19'],
+      eyebrow: ['eyebrow1', 'eyebrow2', 'eyebrow3', 'eyebrow4', 'eyebrow5', 'eyebrow6', 'eyebrow7', 'eyebrow8', 'eyebrow9', 'eyebrow10', 'eyebrow11', 'eyebrow12', 'eyebrow13', 'eyebrow14', 'eyebrow15', 'eyebrow16', 'eyebrow17', 'eyebrow18', 'eyebrow19', 'eyebrow20'],
+      nose: ['nose1', 'nose2', 'nose3', 'nose4', 'nose5', 'nose6', 'nose7', 'nose8', 'nose9', 'nose10', 'nose11', 'nose12', 'nose13', 'nose14', 'small'],
+      mouth: ['mouth', 'mouth2', 'mouth3', 'mouth4', 'mouth5', 'mouth6', 'mouth7', 'mouth8', 'smile', 'smile2', 'smile3', 'smile4', 'smile-closed', 'straight', 'closed', 'side'],
+      facialHair: ['none', 'mustache-thin', 'mustache1', 'sideburns1', 'sideburns2', 'goatee-thin', 'goatee1', 'goatee1-stache', 'fullgoatee', 'chin-strap', 'soul', 'soul-stache', 'beard1', 'beard2', 'beard3', 'beard4', 'beard5', 'beard6', 'neckbeard', 'muttonStache', 'wilt'],
+      glasses: ['none', 'glasses1-primary', 'glasses1-secondary', 'glasses2-black', 'glasses2-primary', 'glasses2-secondary'] };
+    const CF_ROWS = [['head', 'Head shape', i => 'Shape ' + (i + 1)], ['hair', 'Hair'], ['eye', 'Eyes', i => 'Eyes ' + (i + 1)], ['eyebrow', 'Eyebrows', i => 'Brows ' + (i + 1)], ['nose', 'Nose', i => 'Nose ' + (i + 1)], ['mouth', 'Mouth'], ['facialHair', 'Facial hair'], ['glasses', 'Glasses']];
+    const cfName = id => id === 'none' ? 'None' : id.replace(/([A-Z])/g, ' $1').replace(/[-_]/g, ' ').replace(/\bglasses(\d)/, 'Glasses $1').replace(/^./, m => m.toUpperCase());
+    function faceRand() { const f = { skin: pick(CF_SKIN), hairColor: pick(CF_HAIRC) }; for (const k in CF) f[k] = pick(CF[k]); if (Math.random() < 0.7) f.facialHair = 'none'; if (Math.random() < 0.85) f.glasses = 'none'; return f; }
+    function faceBuilder(f) {
+      const rows = CF_ROWS.map(([k, lab, nm]) => { const i = Math.max(0, CF[k].indexOf(f[k])); return `<div class="cf-row"><span>${lab}</span><div class="cf-pick"><button type="button" class="sm" data-cf="${k}|-1" aria-label="Previous ${lab}">‹</button><b>${esc(nm ? nm(i) : cfName(CF[k][i]))}</b><button type="button" class="sm" data-cf="${k}|1" aria-label="Next ${lab}">›</button></div></div>`; });
+      const sw = (k, lab, arr) => `<div class="cf-row"><span>${lab}</span><div class="cf-sw">${arr.map(c => `<button type="button" data-cfs="${k}|${c}" class="${f[k] === c ? 'on' : ''}" style="background:${c}" aria-label="${lab} ${c}"></button>`).join('')}</div></div>`;
+      return `<div class="cf"><div class="cf-prev">${faceCustom(f, '', null)}<button type="button" class="sm" id="cf-rand" style="margin-top:8px;width:100%">🎲 Random</button></div><div class="cf-rows">${sw('skin', 'Skin tone', CF_SKIN)}${sw('hairColor', 'Hair color', CF_HAIRC)}${rows.join('')}</div></div>`;
+    }
+    function cfTarget() { return ui.setupOpen ? S().face : ui.carFace; }
+    function cfRedraw() { if (ui.setupOpen) render(); else editLook(); }
+    document.addEventListener('click', e => {
+      const a = e.target.closest('[data-cf],[data-cfs],#cf-rand'); if (!a) return;
+      const f = cfTarget(); if (!f) return;
+      if (a.id === 'cf-rand') Object.assign(f, faceRand());
+      else if (a.dataset.cfs) { const [k, v] = a.dataset.cfs.split('|'); f[k] = v; }
+      else { const [k, d] = a.dataset.cf.split('|'), arr = CF[k], i = Math.max(0, arr.indexOf(f[k])); f[k] = arr[(i + +d + arr.length) % arr.length]; }
+      cfRedraw();
+    });
+    function editLook() {
+      const C = L.career, p = carP(L); if (!p) return;
+      if (!ui.carFace) ui.carFace = Object.assign(faceRand(), C.face || {});
+      dialog(`<h2 style="margin-top:0">Edit your look</h2>${faceBuilder(ui.carFace)}<div class="row" style="gap:8px;justify-content:flex-end"><button id="cf-cancel" type="button">Cancel</button><button id="cf-save" type="button" class="primary">Save look</button></div>`, 'wide');
+      $('#cf-cancel').onclick = () => { ui.carFace = null; closeDialog(); };
+      $('#cf-save').onclick = () => { C.face = Object.assign({}, ui.carFace); ui.carFace = null; closeDialog(); save(); render(); };
+    }
+    document.addEventListener('click', e => { if (e.target.closest('#car-look') && L && !ui.setupOpen) { ui.carFace = null; editLook(); } });
     const styles = pos => Object.keys(ARCH[POS[pos]] || {});
     // ----- setup form (shown on New league when My Career is picked) -----
     function setupForm() {
@@ -671,7 +709,9 @@ if (typeof window !== 'undefined') window.CAR = (function () {
       if (!hs.includes(s.hgt)) s.hgt = Math.round(m);
       const ft = h => Math.floor(h / 12) + "'" + (h % 12) + '"';
       const path = st.path || s.path, teams = PIPE_TEAMS[path] || [];
+      if (!s.face) s.face = faceRand();
       return `<h3>Create your player</h3>
+      <p class="k" style="margin:0 0 4px">Your look</p>${faceBuilder(s.face)}
       <div class="car-form">
         <label class="xp-f">First name <input id="car-first" maxlength="20" value="${esc(s.first)}" placeholder="First"></label>
         <label class="xp-f">Last name <input id="car-last" maxlength="24" value="${esc(s.last)}" placeholder="Last"></label>
@@ -701,7 +741,7 @@ if (typeof window !== 'undefined') window.CAR = (function () {
       if (id === 'car-first') s.first = e.target.value; else if (id === 'car-last') s.last = e.target.value; else if (id === 'car-num') s.num = +e.target.value; });
     document.addEventListener('change', e => { const id = e.target && e.target.id; if (!id || !id.startsWith('car-')) return; const s = S();
       if (id === 'car-hgt') s.hgt = +e.target.value; else if (id === 'car-style') s.style = e.target.value; else if (id === 'car-team') s.team = +e.target.value; });
-    function createFrom(Lnew) { const s = S(); if (!s.first.trim()) s.first = 'Rookie'; if (!s.last.trim()) s.last = 'Player'; carCreate(Lnew, { first: s.first, last: s.last, pos: s.pos, hgt: s.hgt, style: s.style, story: s.story, path: s.path, team: s.team >= 0 ? s.team : null, num: s.num }); }
+    function createFrom(Lnew) { const s = S(); if (!s.first.trim()) s.first = 'Rookie'; if (!s.last.trim()) s.last = 'Player'; carCreate(Lnew, { first: s.first, last: s.last, pos: s.pos, hgt: s.hgt, style: s.style, story: s.story, path: s.path, team: s.team >= 0 ? s.team : null, num: s.num, face: s.face }); }
 
     // ----- hub page -----
     const pct = x => Math.round(x * 100) + '%';
@@ -712,7 +752,7 @@ if (typeof window !== 'undefined') window.CAR = (function () {
       const club = pre ? pipeTeamName(C.lg, C.team) : p.team != null ? tname(p.team) : 'Free agent';
       const head = `<section class="panel car-head"><div class="car-id">${portrait('p', p.id, p.nat, p.team)}<div><div class="k">${esc(st.n || '')} · ${posLabel(p)} · ${Math.floor(p.hgt / 12)}'${p.hgt % 12}" · Age ${p.age}</div><div class="big">${esc(p.name)} <span class="muted">#${p.num}</span></div><div>${esc(club)}${pre ? ` <span class="muted">(${C.lg})</span>` : ''} · ${esc(archLabel(p))}</div></div></div>
         <div class="car-stats"><div><div class="k">Overall</div><div class="v">${p.ovr}</div></div><div><div class="k">XP to spend</div><div class="v">${C.xp}</div></div>${pre ? `<div><div class="k">Record</div><div class="v">${sl ? sl.w + '-' + (sl.gp - sl.w) : '0-0'}</div></div><div><div class="k">Draft</div><div class="v" style="font-size:16px">${esc(draftLabel(p.draftYear))}</div></div>` : p.draft ? `<div><div class="k">Drafted</div><div class="v" style="font-size:16px">${p.draft.rd === 1 ? '1st' : '2nd'} round, #${p.draft.no}</div></div>` : ''}</div>
-        <div class="row" style="gap:8px;margin-top:8px"><button class="sm" data-player="${p.id}">Full player page</button></div>${legendBar()}</section>`;
+        <div class="row" style="gap:8px;margin-top:8px"><button class="sm" data-player="${p.id}">Full player page</button><button class="sm" id="car-look" type="button">🎨 Edit look</button></div>${legendBar()}</section>`;
       const next = nxt ? `<section class="panel"><h3>Next game</h3><p>${nxt.home ? 'vs' : 'at'} <strong>${esc(pipeTeamName(C.lg, nxt.opp))}</strong> · ${esc(dayLbl(nxt.day))}${nxt.play ? ' · <span class="pill">Big game: you make the calls</span>' : ' · simmed'}</p>${careerPending(L) ? '<button class="primary" id="car-playnow">Play it now</button>' : `<p class="muted">Use the sim buttons at the top. The sim stops on your big games.</p>`}</section>`
         : pre ? `<section class="panel"><h3>Season over</h3><p>Your ${C.lg} season is done. Sim to the end of the league season, then the playoffs, then the draft. Your name will be called… or not.</p></section>` : proNote(p);
       const ups = upPanel(p);

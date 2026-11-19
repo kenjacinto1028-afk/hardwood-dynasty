@@ -51,8 +51,8 @@ function archVal(p, w, skillOnly) {
 }
 // Each type is judged by how far a player stands out on it compared with others at his position (calibrated from generated
 // players, tools/arch-cal.js), so types built on naturally high ratings don't crowd out the rest.
-const ARCH_CAL = {};   // filled below
-let SARCH_CAL = {};
+const ARCH_CAL = {"PG":{"Floor general":[62.5,8.7,0.074],"Scoring guard":[56.3,6.8,0.072],"3pt sniper":[54.9,10.1,-0.24],"Slasher":[56.9,10.3,0.058],"Mid-range maestro":[49,9.8,-0.119],"Defensive pest":[51.2,8.3,0.015],"Jumbo playmaker":[58,6.4,0.106],"Rebounding guard":[28.6,9.9,0.091]},"SG":{"3pt sniper":[54.7,10.4,-0.054],"Shot creator":[51.9,8.9,0.095],"Slasher":[52.9,10.9,0.062],"Mid-range maestro":[49.6,10.1,-0.142],"3-and-D":[51.8,6.6,0.023],"Lockdown defender":[51.1,7.7,0.134],"Combo guard":[51.6,11.5,-0.13],"Rebounding guard":[32,10.9,0.056]},"SF":{"Scoring wing":[46.8,8.8,0.087],"Slasher":[50.8,10.3,0.107],"Spot-up shooter":[51.1,8.7,-0.164],"3-and-D wing":[51.8,7.1,0.101],"Wing stopper":[50.2,7.1,0.059],"Point forward":[45.2,11.2,-0.019],"Athletic finisher":[53.3,7.1,-0.069],"Rebounding wing":[42.5,9.9,-0.037]},"PF":{"Stretch 4":[41.7,13,-0.119],"Face-up 4":[44.5,11.5,0.018],"Post scorer":[46.2,11.4,-0.114],"Rim runner":[55.5,7.4,-0.011],"Point 4":[39.6,11.6,0.003],"Small-ball 4":[48.6,8.9,0.175],"Glass cleaner":[51.1,8.5,0.01],"Rim protector":[51.7,9.4,0.153]},"C":{"Stretch 5":[26.9,11.8,-0.207],"Face-up 5":[36.9,11.5,-0.053],"Post scorer":[55.2,10.3,-0.045],"Rim runner":[57.9,7.4,-0.005],"Playmaking hub":[38.4,11.3,0.024],"Rim protector":[60.8,8.7,0.146],"Mobile big":[47.2,9.1,0.281],"Glass cleaner":[58.6,8.2,-0.038]}};   // [mean, spread, offset] per type
+const SARCH_CAL = {"Point god":[73.7,6.8],"Heliocentric engine":[72.6,6.3],"Walking bucket":[68.2,5.3],"Gravity shooter":[70.9,7.9],"Two-way superstar":[66,4.5],"Freight train":[70.1,5.6],"Unicorn":[58.5,5.5],"Point center":[59.2,9.1],"Dominant big":[72.3,4.5]};
 function archetypes(p) {
   const c = [];
   for (const slot of [p.pos, p.pos2]) {

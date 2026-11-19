@@ -22,7 +22,7 @@ let fails = 0; const ok = (n, c, x) => { console.log((c ? 'PASS ' : 'FAIL ') + n
   await pg.click('#create'); await pg.waitForTimeout(3000); await pg.evaluate("document.querySelector('#modal').innerHTML=''");
   ok('look saved on the player', await pg.evaluate("JSON.stringify(PBL.L.career.face)") === want);
   const box = await pg.evaluate("(() => { const f = document.querySelector('.car-id .face'), s = f.querySelector('svg'); const a = f.getBoundingClientRect(), b = s.getBoundingClientRect(); return [a.width, a.height, b.width, b.height].map(Math.round); })()");
-  ok('hub avatar fills its frame', box[0] === box[2] && box[3] >= box[1], box);
+  ok('hub avatar fills its frame', box[0] === box[2] && box[3] === box[1], box);
   await shot('face-2-hub');
   await pg.click('#car-look'); await pg.waitForTimeout(300); await pg.click('[data-cfs="hairColor|#d9b46a"]'); await pg.click('[data-cf="mouth|1"]'); await pg.waitForTimeout(200);
   await shot('face-3-edit'); await pg.click('#cf-save'); await pg.waitForTimeout(300);

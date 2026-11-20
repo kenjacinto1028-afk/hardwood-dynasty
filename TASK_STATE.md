@@ -1,3 +1,12 @@
+# TASK_STATE — All-Star Weekend contests (Opus logic, Sonnet UI, Haiku text) — Nov 20 2026
+Branch `claude/project-thread-p56evz`.
+- [ ] 1. league.js: runContests (3-Point, Dunk, Skills) with own seeded dice (sim hash unchanged), awards, fame, news, allStarHist
+- [ ] 2. Haiku text: dunk names + contest news lines
+- [ ] 3. app.js: All-Star Weekend panel (Awards tab + popup), history table, winner confetti
+- [ ] 4. Tests: unit sim + browser check
+- [ ] 5. PROGRESS.md, PR, merge, Pages check
+
+---
 # TASK_STATE — Friendships and duos (Opus logic, Sonnet panel, Haiku text) — Nov 20 2026
 Branch `claude/project-thread-gyg68h`.
 - [x] 1. league.js: L.fr friendships + duos (seedFriends at season end, news), FA appeal + morale + negotiation tag

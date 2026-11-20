@@ -33,17 +33,26 @@ async function run(W, touch) {
   const { b, pg, errs } = await load(W, touch), T = `${W}px: `, click = s => touch ? pg.tap(s) : pg.click(s);
   await ev(pg, "location.hash='#cards'"); await wait(pg, 1200);
   const counts = {};
-  for (const k of ['now', 'best', 'career', 'rookie', 'special', 'coach', 'hof']) {
+  for (const k of ['now', 'best', 'career', 'rookie', 'special', 'coach', 'hof', 'legend']) {
     await click(`[data-p3show="${k}"]`); await wait(pg, 500);
     counts[k] = await ev(pg, "document.querySelectorAll('.p3-binder .p3-slot').length");
     ok(T + `"${k}" binder fits`, await ev(pg, 'document.documentElement.scrollWidth<=innerWidth+1'));
   }
-  ok(T + 'every card type shows cards', counts.now >= 12 && counts.best >= 8 && counts.career >= 8 && counts.rookie >= 8 && counts.coach === 30 && counts.hof >= 5, counts);
+  ok(T + 'every card type shows cards', counts.now >= 12 && counts.best >= 8 && counts.career >= 8 && counts.rookie >= 8 && counts.coach === 30 && counts.hof >= 5 && counts.legend >= 70, counts);
   const rar = await ev(pg, "(()=>{const c={};for(const p of Object.values(L.players)){if((p.retired||p.team==null)&&!L.hof.some(h=>h.pid===p.id))continue;for(const k of ['now','career']){const r=P3.cardOf(p,{k}).d.r;c[r]=(c[r]||0)+1}}return c})()");
   ok(T + 'all rarity tiers in use', ['com', 'unc', 'rare', 'epic', 'leg', 'hof'].every(k => rar[k] > 0), rar);
   // MVP season card is Legendary-ish and named
   const mvp = await ev(pg, "(()=>{for(const p of Object.values(L.players)){const a=(p.awards||[]).find(a=>a.a==='MVP'&&P3.seasonsOf(p).some(h=>h.s===a.s));if(a){const d=P3.seasonCard(p,'season',a.s);return [d.rb,d.r,P3.flavorOf(d)]}}})()");
   ok(T + 'MVP season card has ribbon + high rarity', mvp && /MVP SEASON/.test(mvp[0]) && ['leg', 'epic'].includes(mvp[1]), mvp);
+  const real = await ev(pg, "(()=>{const p=Object.values(L.players).find(p=>p.name==='Victor Wembanyama'||p.name==='LeBron James');const ss=P3.seasonsOf(p).filter(h=>h.real);const d=P3.seasonCard(p,'rookie');return [p.name,ss.length,d.s,d.rb,d.tc,P3.careerCard(p).st]})()");
+  ok(T + 'real past seasons give cards (rookie card is the real rookie year)', real[1] >= 2 && /^20[0-2]/.test(real[2]), real);
+  const kar = await ev(pg, "(()=>{const d=P3.legendCard(0);return [d.n,d.r,d.rb,d.st,d.tc]})()");
+  ok(T + 'legend card (real career totals)', kar[0] === 'Kareem Abdul-Jabbar' && kar[1] === 'hof' && kar[3][0] > 20, kar);
+  const wilt = await ev(pg, "(()=>{const i=nbaLegends().findIndex(g=>g.name==='Wilt Chamberlain');return P3.legendCard(i).st})()");
+  ok(T + 'old-era legend rebounds (total rebounds only)', wilt[1] > 15, wilt);
+  await click('[data-p3show="legend"]'); await wait(pg, 500); await click('.p3-binder .p3-slot'); await wait(pg, 700);
+  ok(T + 'legend card popup', await ev(pg, "document.querySelector('#modal h2').textContent==='Legend card'&&/LEGEND/.test(document.querySelector('#modal .p3-card svg').textContent)"));
+  await shot(pg, 'legend-' + W); await closeModals(pg);
   // popup picker on a vet with a title
   await click('[data-p3show="special"]'); await wait(pg, 400);
   if (counts.special) {

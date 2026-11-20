@@ -6,7 +6,11 @@
 - [x] Standings (sortable, playoff line), top 4 playoffs (semifinal week, final week), bracket, champion popup with confetti, news line, Fantasy champions history (L.fanHist).
 - [x] Waivers: drop then add a free agent, 4 adds a week, counts from that day. AI managers swap their weakest player for a clearly better free agent each week (2 if someone is hurt long).
 - [x] Logic in src/fantasy.js (FAN), no sim random numbers: league results identical with or without fantasy (tools/fantasy.js hash check).
-- Test: tools/fantasy.js 11/11 (full season: 22 weeks, 23 AI moves, champion), tools/browser-fantasy.js ALL PASS (1300 + 390, no page scroll). Cache v23.
+- Test: tools/fantasy.js 11/11 (full season: 22 weeks, 23 AI moves, champion), tools/browser-fantasy.js ALL PASS (1300 + 390, no page scroll). Cache v24.
+## Real-history cards (Sonnet, Nov 20 2026)
+- [x] Real NBA players get cards for their real past seasons (e.g. LeBron's 2003-04 Rookie of the Year card), with real teams and real awards; their Career card adds real seasons to league seasons. Rating on a real season comes from that season's PER (or box score).
+- [x] Legends binder (NBA leagues): 77 retired greats (Kareem, Jordan, Wilt, Magic, Bird...) from real career totals, Hall of Fame gold frame, silhouette face.
+- Test: tools/browser-cards.js ALL PASS (1300 + 390). Cache v24.
 
 ## Card variety and rarities (Sonnet UI, Haiku flavor text, Nov 20 2026)
 - [x] New card types on top of the existing player cards: Season card (any one year, e.g. "2026-27 · MVP season"), Rookie card, Title run card (playoff numbers), Career card (whole career in this league; Hall of Famers get the gold Hall of Fame frame), Coach card (wins, losses, titles, win%).

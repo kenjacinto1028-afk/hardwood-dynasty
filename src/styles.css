@@ -1220,3 +1220,8 @@ tr.fan-cut td { border-bottom: 2px dashed var(--accent); }
 .cm-toast { position: fixed; left: 50%; bottom: 84px; transform: translate(-50%, 20px); background: var(--ink); color: var(--surface); padding: 10px 16px; border-radius: 10px; font-size: 14px; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 9999; max-width: calc(100vw - 32px); }
 .cm-toast.on { opacity: 1; transform: translate(-50%, 0); }
 @media (max-width: 720px) { .cm-hero { grid-template-columns: 1fr; } .cm-act { white-space: normal; } .cm-act button { margin: 2px 0; } }
+.cm-ocards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+.cm-oc { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: var(--surface-2); display: flex; flex-direction: column; gap: 10px; }
+.cm-oc-t { display: flex; gap: 10px; align-items: center; } .cm-oc-t div { display: flex; flex-direction: column; } .cm-oc-t span { font-size: 12px; }
+.cm-oc-d { display: flex; gap: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.cm-oc .cm-act { text-align: left; }

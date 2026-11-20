@@ -7,7 +7,7 @@
 
 // ---------- logic ----------
 const CM_FX = { sec0: 62, offMax: 3, yrs: 3 };
-const cmOn = L => !!(L && L.mode === 'coach' && L.cm);
+const cmOn = L => !!(L && L.cm && (L.mode === 'coach' || (L.auto && L.auto.mode === 'coach')));   // also while the multi-season autopilot runs
 const cmTeam = L => cmOn(L) && !L.cm.jobless ? L.teams[L.cm.tid] : null;
 function cmCoach(L) { if (!cmOn(L)) return null; const id = L.cm.cid; for (const t of L.teams) if (t.coach && t.coach.id === id) return t.coach; return (L.coachPool || []).find(c => c.id === id) || null; }
 
@@ -99,6 +99,7 @@ function cmAfter(L) {
   }
   // offseason: job offers (once per offseason, after the coaching carousel)
   if (L.phase.startsWith('off') && cm.offS !== L.season) { cm.offS = L.season; cm.offers = cmMakeOffers(L); if (cm.offers.length) { cm.pop = { k: 'offers', s: L.season, n: cm.offers.length }; cmNews(L, `${cm.offers.length} team${cm.offers.length > 1 ? 's want' : ' wants'} to talk to you about their head coaching job`); } }
+  if (L.auto && cm.jobless && cm.offers.length) cmTakeJob(L, cm.offers[0].tid);   // autopilot: take the best offer
   if (!L.phase.startsWith('off') && cm.offers.length) cm.offers = [];
 }
 const gmName = t => t.gm ? t.gm.name : 'the front office';
@@ -143,7 +144,7 @@ function cmTakeJob(L, tid) {
   T.manual = null; T.coachFired = null;
   cm.tid = tid; cm.jobless = false; cm.offers = []; cm.pop = null; cm.warn = {};
   cm.log.push({ s: L.season, t: `Hired by the ${T.city} ${T.name} (${o.yrs} yr, ${money(c.contract.amt)}/yr)` });
-  L.user = tid;
+  if (L.auto) L.auto.user = tid; else L.user = tid;
   logNews(L, `The ${T.city} ${T.name} hired ${c.name} as head coach`, tid, 'coach');
   return null;
 }
@@ -172,7 +173,7 @@ const CMUI = (function () {
   }
   function offersPanel(L) {
     const of = L.cm.offers || []; if (!of.length) return '';
-    return `<section class="panel cm-offers"><h3>Job offers <span class="muted" style="font-weight:400;font-size:13px">${L.cm.jobless ? 'Pick your next team' : 'Better jobs are calling. Stay, or move on.'}</span></h3><div class="tblwrap"><table><thead><tr><th>Team</th><th class="num">Last season</th><th class="num">Roster rank</th><th class="num">Years</th><th class="num">Per year</th><th></th></tr></thead><tbody>${of.map(o => { const t = L.teams[o.tid]; return `<tr><td>${tl(o.tid)}</td><td class="num">${t.w}-${t.l}</td><td class="num">#${o.rank}</td><td class="num">${o.yrs}</td><td class="num">${money(o.amt)}</td><td class="cm-act"><button class="sm primary" data-cmtake="${o.tid}">Take job</button><button class="sm" data-cmno="${o.tid}">No thanks</button></td></tr>`; }).join('')}</tbody></table></div></section>`;
+    return `<section class="panel cm-offers"><h3>Job offers <span class="muted" style="font-weight:400;font-size:13px">${L.cm.jobless ? 'Pick your next team' : 'Better jobs are calling. Stay, or move on.'}</span></h3><div class="cm-ocards">${of.map(o => { const t = L.teams[o.tid]; return `<div class="cm-oc"><div class="cm-oc-t">${P.logo(o.tid, 34)}<div><strong>${esc(t.city)} ${esc(t.name)}</strong><span class="muted">${t.w}-${t.l} · roster #${o.rank} of ${L.teams.length}</span></div></div><div class="cm-oc-d"><span>${o.yrs} years</span><span>${money(o.amt)}/yr</span></div><div class="cm-act"><button class="sm primary" data-cmtake="${o.tid}">Take job</button><button class="sm" data-cmno="${o.tid}">No thanks</button></div></div>`; }).join('')}</div></section>`;
   }
   function careerPanel(L) {
     const k = cmCareer(L); if (!k) return '';
@@ -204,7 +205,7 @@ const CMUI = (function () {
     if (x.k === 'fired') h = `<div class="cm-pop cm-pop-fired"><div class="cm-pop-ic">📋</div><h2>You're fired</h2><p>The ${esc(t.city)} ${esc(t.name)} have let you go. Clean out your office, then keep simming: teams that need a coach will call in the offseason.</p>`;
     else if (x.k === 'offers') h = `<div class="cm-pop"><div class="cm-pop-ic">📞</div><h2>Your phone is ringing</h2><p>${x.n} team${x.n > 1 ? 's want' : ' wants'} to interview you for a head coaching job.</p>`;
     else h = `<div class="cm-pop cm-pop-warn"><div class="cm-pop-ic">🔥</div><h2>${x.ice ? 'On thin ice' : 'Hot seat'}</h2><p>${t ? `GM ${esc(gmName(t))} is not happy with ${t.w}-${t.l}.` : ''} Job security is down to ${x.v}. Win now, or you may be replaced.</p>`;
-    P.dialog(h + `<div class="row" style="justify-content:center;margin-top:14px"><a class="lk btn primary" href="#cmjob" data-cmclose="1">Open My job</a><button data-cmclose="1">Close</button></div></div>`);
+    P.dialog(h + `<div class="row" style="justify-content:center;margin-top:14px"><button class="primary" data-cmclose="go">Open My job</button><button data-cmclose="1">Close</button></div></div>`);
   }
 
   // GM-only actions are off: your GM makes roster moves
@@ -217,7 +218,7 @@ const CMUI = (function () {
     if (b && !e.target.closest('#cm-ok')) { e.preventDefault(); e.stopImmediatePropagation(); toast('You are the coach. Your GM makes trades, signings and draft picks.'); return; }
     const a = e.target.closest('[data-cmtake],[data-cmno],[data-cmclose]'); if (!a) return;
     const d = a.dataset;
-    if (d.cmclose) { P.closeDialog(); if (a.getAttribute('href')) return; return; }
+    if (d.cmclose) { e.preventDefault(); P.closeDialog(); if (d.cmclose === 'go') location.hash = '#cmjob'; return; }
     e.preventDefault();
     if (d.cmtake) { const err = cmTakeJob(L, +d.cmtake); if (err) toast(err); else toast(`Welcome to the ${L.teams[+d.cmtake].name}.`); P.save(); location.hash = '#cmjob'; P.render(); return; }
     if (d.cmno) { cmDecline(L, +d.cmno); P.save(); P.render(); }

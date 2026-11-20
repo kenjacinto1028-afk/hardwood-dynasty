@@ -23,6 +23,7 @@ out.offers=L.cm.offers.map(x=>x.tid);out.stillJobless=L.cm.jobless&&L.teams.ever
 if(L.cm.offers.length){const tid2=L.cm.offers[0].tid;out.take=cmTakeJob(L,tid2);out.newUser=L.user===tid2;out.newCoachMe=L.teams[tid2].coach.id===L.cm.cid;out.contract=L.teams[tid2].coach.contract&&L.teams[tid2].coach.contract.yrs;}
 let m=0;while(L.phase!=='regular'&&m++<5000)step();for(let i=0;i<20;i++)step();out.after=L.user===L.cm.tid&&L.teams[L.cm.tid].coach.id===L.cm.cid;
 out.pool=L.coachPool.filter(c=>c.user).length;
+autoBegin(L,1,true);let q=0;while(autoStep(L)&&q++<20000){}autoEnd(L);out.auto={mode:L.mode,ok:L.cm.jobless?L.user===null:(L.user===L.cm.tid&&L.teams[L.user].coach.id===L.cm.cid&&!!L.teams[L.user].gm)};
 return JSON.stringify(out);})()`));
 console.log(JSON.stringify(r));
 ok('coach mode set up', r.mode === 'coach' && r.coachIsMe && r.gm);
@@ -36,4 +37,5 @@ ok('jobless coach is not hired by AI teams', r.stillJobless);
 ok('job offers after firing', r.offers.length >= 1, r.offers);
 ok('taking a job works', r.take === null && r.newUser && r.newCoachMe && r.contract >= 3);
 ok('next season runs as the new coach', r.after && r.pool === 0);
+ok('autopilot keeps coach mode', r.auto.mode === 'coach' && r.auto.ok, r.auto);
 console.log(fails ? fails + ' FAILED' : 'ALL PASS'); process.exit(fails ? 1 : 0);

@@ -8582,7 +8582,7 @@ function autoEnd(L) {
   L.user = a.user; L.mode = a.mode; if (a.pauseOffers !== undefined) L.pauseOffers = a.pauseOffers;
   if (L.user != null) {
     const t = L.teams[L.user];
-    if (t.gm) { t.gm = null; }   // the AI front office leaves with the autopilot; you are the GM again
+    if (t.gm && L.mode !== 'coach') { t.gm = null; }   // the AI front office leaves with the autopilot; you are the GM again (coach mode keeps its GM)
     t.manual = null;
     const ids = new Set(), tr = (L.trades || []).filter(x => x.s >= a.s0 && (x.a === L.user || x.b === L.user || x.c === L.user));
     a.trades = tr.length;

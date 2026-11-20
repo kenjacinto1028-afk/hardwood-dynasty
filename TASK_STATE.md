@@ -1,3 +1,11 @@
+# TASK_STATE — Draft combine (Opus logic, Sonnet UI) — Nov 20 2026
+Branch `claude/project-thread-cg3tyi`.
+- [ ] 1. src/combine.js logic: runCombine after lottery (measurements + drills, deterministic), boost to mocks/boards, tighter athletic reads, news; league.js hooks; node test
+- [ ] 2. UI: Draft > Combine page (sortable, filterable table, mock moves), combine block on prospect page; file lists, sw cache
+- [ ] 3. Browser test
+- [ ] 4. PROGRESS.md, PR, merge, Pages check
+
+---
 # TASK_STATE — Play as coach mode (Opus logic, Sonnet UI, Haiku text) — Nov 20 2026
 Branch `claude/project-thread-wky5hn`.
 - [x] 1. src/coach-mode.js logic: start as coach, AI GM runs roster (L.user swap wrapper), job security, firing, job offers; small league/engine patches; node test

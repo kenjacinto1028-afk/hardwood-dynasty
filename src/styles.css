@@ -799,7 +799,12 @@ table.hwrap td.l .muted { white-space: nowrap; }
 .p3-slot .p3-card { width: 100%; box-shadow: 0 4px 14px rgba(0,0,0,.25); }
 .p3-slot .p3-cardwrap { width: 100%; }
 .p3-chip { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; color: #fff; }
-.p3-chip.rar-com { background: #6f757c; } .p3-chip.rar-rare { background: #2a6ae0; } .p3-chip.rar-epic { background: #7a33d6; } .p3-chip.rar-leg { background: #b88600; } .p3-chip.rar-hof { background: #111; color: #d4af37; }
+.p3-chip.rar-com { background: #6f757c; } .p3-chip.rar-unc { background: #2f9e5a; } .p3-chip.rar-rare { background: #2a6ae0; } .p3-chip.rar-epic { background: #7a33d6; } .p3-chip.rar-leg { background: #b88600; } .p3-chip.rar-hof { background: #111; color: #d4af37; }
+.p3-show { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0 4px; }
+.p3-vpick { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin: 0 0 8px; }
+.p3-vpick select { max-width: 100%; }
+.p3-flavor { text-align: center; font-style: italic; margin: 6px auto 0; max-width: 320px; display: flex; gap: 8px; justify-content: center; align-items: center; flex-wrap: wrap; }
+.p3-flavor .p3-chip { font-style: normal; }
 .fx-off .p3-card { transition: none; } .fx-off .p3-cardwrap .p3-card::after, .fx-off .p3-spk { animation: none; }
 /* trophy room */
 .p3-trsum { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin: 12px 0 6px; }

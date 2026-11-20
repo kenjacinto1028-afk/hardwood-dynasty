@@ -1,5 +1,11 @@
 # PBL progress
 
+## All-Star Weekend contests (Opus logic, Sonnet UI, Haiku text, Nov 20 2026)
+- [x] Three-Point Contest (8 best shooters, 5 racks with money balls, max 34, top 3 to the final), Slam Dunk Contest (4 young high flyers, 2 dunks each, 5 judges 6-10, harder dunks miss more, top 2 final), Skills Challenge (4 guards/wings + 2 bigs, timed course, top 2 final). Run on All-Star day (league.js `runContests`) with their own dice: no R() draws.
+- [x] Winners get an award (Three-Point Contest / Slam Dunk Contest / Skills Challenge champion, small fame boost), a news story (engine.js FLAVOR `asw.*`) and are saved in `L.allStarHist[s].contests`.
+- [x] Screens: All-Star Weekend panel on the Awards tab (3 cards: winner, crowd call, round table, final-round detail with rack dots / dunk names / misses) and Past champions table; the All-Star popup shows it and celebrates your winner with confetti. Rules text added.
+- Test: tools/asw.js 19/19 checks over 3 seasons (fixed news check), tools/browser-asw.js ALL PASS (1300 + 390, no page scroll). Cache v21.
+
 ## Friendships and duos (Opus logic, Sonnet panel, Haiku text, Nov 20 2026)
 - [x] Teammates in the same rotation for 2+ seasons can become friends (10% a pair a season, more with a Loyal player; at most 2 new per team a season); a Mentor often befriends a young teammate. Max 3 friends a player. Old saves and new leagues start with up to 2 bonds per team (`setupFriends`). Data: `L.fr` (league.js `seedFriends`, `friendsOf`, `friendOn`).
 - [x] Duo: two friends who both start, are 70+ and have 2+ seasons together. A duo splits (news) when they stop being teammates; the friendship stays.

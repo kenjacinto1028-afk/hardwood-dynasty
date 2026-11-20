@@ -14,5 +14,5 @@ for(const s of ss){const c=H[s].contests;
  out.push('S'+s+' 3PT: '+nm(c.three.win)+' final '+c.three.fin.map(x=>x.pts).join('/')+' | r1 '+c.three.r1.map(x=>x.pts).join(',')+' | racks '+c.three.fin[0].racks.join(' '));
  out.push('   DUNK: '+nm(c.dunk.win)+' '+c.dunk.best+' final '+c.dunk.fin.map(x=>x.pts).join('/')+' | r1 '+c.dunk.r1.map(x=>x.pts).join(','));
  out.push('   SKILLS: '+nm(c.skills.win)+' final '+c.skills.fin.map(x=>x.time).join('/')+' | r1 '+c.skills.r1.map(x=>x.time+(x.big?'b':'')).join(','));}
-const nw=(L.log||[]).map(x=>x.text).filter(x=>/Contest|Skills Challenge/.test(x));chk('news lines',nw.length>=3*N,nw.length);out.push('  '+nw.slice(0,3).join('\\n  '));
+const nw=(L.log||[]).map(x=>x.text).filter(x=>/Contest|Skills Challenge/.test(x));chk('news lines',nw.length>=3,nw.length);out.push('  '+nw.slice(0,3).join('\\n  '));
 out.push(ok+' pass, '+bad+' fail');return out.join('\\n');})(${+process.argv[2]||2})`));

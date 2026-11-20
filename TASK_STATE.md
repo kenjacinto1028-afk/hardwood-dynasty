@@ -2,8 +2,8 @@
 Branch `claude/project-thread-p56evz`.
 - [x] 1. league.js: runContests (3-Point 8→3, Dunk 4→2, Skills 6→2), hrand dice, awards, FAME_W, news, allStarHist.contests; tools/asw.js
 - [x] 2. engine.js FLAVOR asw.* news + crowd-call lines
-- [ ] 3. app.js: All-Star Weekend panel (Awards tab + popup), history table, winner confetti
-- [ ] 4. Tests: unit sim + browser check
+- [x] 3. app.js aswCard/aswPanel/aswHistory, popup winner + confetti, Rules; styles .asw-*; cache v21
+- [x] 4. tools/asw.js PASS, tools/browser-asw.js ALL PASS
 - [ ] 5. PROGRESS.md, PR, merge, Pages check
 
 ---

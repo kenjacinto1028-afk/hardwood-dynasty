@@ -140,7 +140,7 @@
       for (const id of ids) { const d = sc.dots[id], p = sc.drawn[id]; if (p) drawDot(g, v, p[0], p[1], d.col, d.num, sc.hi === +id && t > (sc.hiFrom || 0)); }
       if (sc.ball) { const b = at(sc.ball, t); if (b) { sc.drawn.ball = [b[1], b[2]]; drawBall(g, v, b[1], b[2], Math.max(0, (b[3] || 0) + (b[5] || 0))); } }
       if (sc.tag && t >= (sc.tag.from || 0)) { const p = sc.drawn[sc.tag.id]; if (p) drawTag(g, v, p[0], p[1], sc.tag.text, sc.tag.col); }
-      if (sc.banner && t < 0.97) drawBanner(g, v, sc.banner);
+      if (sc.banner && t < 0.97) drawBanner(g, v, sc.banner, sc.bannerR);
       if (sc.pop && t >= sc.pop.at) drawPop(g, v, sc.pop.x, sc.pop.y, sc.pop.text, (t - sc.pop.at) / (1 - sc.pop.at + 0.0001), sc.pop.col);
       if (sc.onShot && !sc.sfxDone && t >= sc.onShotAt) { sc.sfxDone = true; try { sc.onShot(); } catch (e) { } }
     }
@@ -346,10 +346,10 @@
     if (pts.length < 2) return;
     g.save(); g.setLineDash([v.s * 0.6, v.s * 0.5]); g.lineWidth = Math.max(1.5, v.s * 0.22); g.strokeStyle = col; g.globalAlpha = 0.55; poly(g, pts); g.stroke(); g.restore();
   }
-  function drawBanner(g, v, text) {
+  function drawBanner(g, v, text, atRight) {
     if (!text) return;
     const fs = Math.round(Math.max(11 * v.dpr, Math.min(15 * v.dpr, v.s * 1.35))); g.font = `700 ${fs}px system-ui,sans-serif`;
-    const w = g.measureText(text).width + fs * 1.1, x = 8 * v.dpr, y = 8 * v.dpr;
+    const w = g.measureText(text).width + fs * 1.1, x = atRight ? v.w * v.dpr - w - 8 * v.dpr : 8 * v.dpr, y = 8 * v.dpr;
     g.fillStyle = 'rgba(20,20,24,.78)'; g.beginPath(); if (g.roundRect) g.roundRect(x, y, w, fs * 1.6, fs * 0.5); else g.rect(x, y, w, fs * 1.6); g.fill();
     g.fillStyle = '#ffd76a'; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText(text, x + fs * 0.55, y + fs * 0.82);
   }
@@ -390,6 +390,7 @@
     const posAt = (id, t) => { const d = dots[id]; const p = d ? at(d.kf, t) : null; return p ? [p[1], p[2]] : B; };
     const fl = r.fl;
     const pl = Array.isArray(e[11]) && e[11][0] ? e[11] : null;   // Nov 20: the play the engine ran
+    sc.bannerR = !right;   // the banner sits in the empty backcourt
     if (fl.includes('q') || fl.includes('t')) {   // quarter break or timeout: everyone walks to the bench side
       T.forEach((id, k) => { const s = SIDE_OF(court, id), i = k % 5; place(id, [[0.8, (s === 0 ? 38 : 56) + (i - 2) * 1.6 * (s === 0 ? -1 : 1), 6 + (i % 2) * 2.5]]); });
       sc.ball = [[0, ...(was.ball || [47, 25]), 0], [0.8, 47, 25, 0]];
@@ -410,6 +411,7 @@
         for (const id of off5) { const d = dots[id], k = d.kf[d.kf.length - 1]; if (id !== shooter) d.kf.push([1, k[1] + (B[0] - k[1]) * 0.06, k[2]]); }
         sc.banner = plan.label; sc.screens = plan.screens; sc.trails = plan.trails;
       }
+      if (pl && ftOnly && PLAY_N[pl[0]]) sc.banner = PLAY_N[pl[0]] + ' · shooting foul';
       if (!act) for (const id of off5) {
         const home = F.o[id] || B;
         if (id === shooter) place(id, ftOnly ? [[0.4, spot[0], spot[1]]] : r.type <= 1 ? [[0.25, home[0], home[1]], [0.55, spot[0] + (right ? -5 : 5), spot[1] + 3], [0.62, spot[0], spot[1]]] : [[0.3, home[0], home[1]], [0.48, spot[0], spot[1]]]);

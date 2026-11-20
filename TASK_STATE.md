@@ -1,7 +1,7 @@
 # TASK_STATE — Live-game coaching (Opus engine, Sonnet UI) — Nov 20 2026
 Branch `claude/project-thread-1t1i21`.
-- [ ] 1. engine.js: playGame0 -> generator playGameG (yield per possession); playGame runs it to the end; sim hash unchanged
-- [ ] 2. engine.js: coaching hooks (timeout, sub lock, play call, coverage incl. zone) + simDay/simPlayoffDay use L.preGame
+- [x] 1. engine.js: playGame0 -> generator playGameG (yield per possession); playGame runs it to the end; sim hash unchanged
+- [x] 2. engine.js: coaching hooks (timeout, sub lock, play call, coverage incl. zone) + simDay/simPlayoffDay use L.preGame — done: liveGameStart, ctx.cmd, takePre; tools/live-coach.js 6/6 PASS; hash unchanged
 - [ ] 3. app.js: Coach live flow (partial game on live screen, finish -> sim day), coaching panel UI
 - [ ] 4. Tests: hash unchanged, coaching changes results, browser check
 - [ ] 5. PROGRESS.md, PR, merge, Pages check

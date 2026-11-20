@@ -973,11 +973,11 @@ function renderHeader() {
     $('#simctl').classList.remove('open');
   }
   // v24: tabs are grouped. The top row has five groups; the row under it lists the views in the group you are in.
-  const NAME = { career: 'My Career', expansion: 'Expansion', cards: 'Player cards', trophies: 'Trophy room', stories: 'Stories', rmoves: 'Overview', hofc: 'Hall of Fame', feed: 'Feed', topplays: 'Top plays', myteam: 'My team', coaches: 'Staff & GMs', preview: 'Season preview', weekly: 'Weekly report', standings: 'Standings', review: 'Progression', schedule: 'Schedule', stats: 'Stats', players: 'Players', awards: 'Awards', teams: 'Teams', trades: 'Trades', fa: 'Free agency', draft: 'Draft', news: 'News & events', injuries: 'Injuries', discipline: 'Discipline', pipeline: 'Pipeline', history: 'History', rules: 'How it works' };
+  const NAME = { fantasy: 'Fantasy', career: 'My Career', expansion: 'Expansion', cards: 'Player cards', trophies: 'Trophy room', stories: 'Stories', rmoves: 'Overview', hofc: 'Hall of Fame', feed: 'Feed', topplays: 'Top plays', myteam: 'My team', coaches: 'Staff & GMs', preview: 'Season preview', weekly: 'Weekly report', standings: 'Standings', review: 'Progression', schedule: 'Schedule', stats: 'Stats', players: 'Players', awards: 'Awards', teams: 'Teams', trades: 'Trades', fa: 'Free agency', draft: 'Draft', news: 'News & events', injuries: 'Injuries', discipline: 'Discipline', pipeline: 'Pipeline', history: 'History', rules: 'How it works' };
   const showPre = L.phase === 'regular' && L.day <= 7 || ui.view === 'preview';
   const groups = [
     ...(L.career ? [{ k: 'career', t: 'My Career', v: ['career'] }] : []),
-    L.user != null ? { k: 'team', t: 'My team', v: ['myteam', 'cards', 'coaches'] } : { k: 'team', t: 'Staff & GMs', v: ['coaches', 'cards'] },
+    L.user != null ? { k: 'team', t: 'My team', v: ['myteam', 'cards', 'coaches', 'fantasy'] } : { k: 'team', t: 'Staff & GMs', v: ['coaches', 'cards', 'fantasy'] },
     { k: 'league', t: 'League', v: ['standings', ...(L.offSummary ? ['review'] : []), 'schedule', 'teams', 'stats', 'players', 'injuries', 'discipline', 'awards', 'pipeline', 'expansion'] },
     { k: 'moves', t: 'Roster moves', v: ['rmoves', 'trades', 'fa', 'draft'] },
     { k: 'story', t: 'News & history', v: [...(showPre ? ['preview'] : []), 'weekly', 'news', 'stories', 'feed', 'topplays', 'history', 'trophies', 'hofc'] },
@@ -5549,7 +5549,7 @@ document.addEventListener('click', e => {
   render(); window.scrollTo(0, 0);
 });
 
-const VIEWS = ['career', 'expansion', 'cards', 'trophies', 'stories', 'rmoves', 'hofc', 'topplays', 'preview', 'weekly', 'myteam', 'standings', 'review', 'schedule', 'stats', 'players', 'injuries', 'discipline', 'awards', 'pipeline', 'teams', 'trades', 'fa', 'draft', 'coaches', 'history', 'news', 'feed', 'rules'];
+const VIEWS = ['fantasy', 'career', 'expansion', 'cards', 'trophies', 'stories', 'rmoves', 'hofc', 'topplays', 'preview', 'weekly', 'myteam', 'standings', 'review', 'schedule', 'stats', 'players', 'injuries', 'discipline', 'awards', 'pipeline', 'teams', 'trades', 'fa', 'draft', 'coaches', 'history', 'news', 'feed', 'rules'];
 // old tab names still work as links
 const VIEW_ALIAS = { leaders: ['stats', 'leaders'], tstats: ['stats', 'teams'], playoffs: ['standings', null] };
 function route() {

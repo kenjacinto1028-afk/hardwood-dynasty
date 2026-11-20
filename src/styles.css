@@ -1130,3 +1130,64 @@ body.p3-phone #pb-err { bottom: 76px; }
 .asw-b.mk.money { background: #f2c230; border-color: #d9a400; }
 .asw-key { font-size: 11px; margin: 6px 0 0; }
 .asw-yours { padding: 10px 12px; margin: 0 0 10px; border-radius: 10px; font-weight: 700; background: color-mix(in srgb, #f2c230 22%, transparent); border: 1px solid #d9a400; }
+
+/* Fantasy league (Nov 20 2026) */
+.fan-top { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; justify-content: space-between; margin-bottom: 14px; }
+.fan-top h2 { margin: 0; font-size: 22px; }
+.fan-tn { font-weight: 600; }
+.fan-tn.you { color: var(--accent); }
+.fan-hero p { max-width: 70ch; }
+.fan-how { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px; margin: 12px 0; }
+.fan-how ul { margin: 6px 0 0; padding-left: 18px; line-height: 1.6; }
+.fan-sc { border-collapse: collapse; margin-top: 6px; }
+.fan-sc td { padding: 3px 12px 3px 0; border-bottom: 1px solid var(--line); }
+.fan-start { align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.fan-start label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.fan-start input { min-width: 220px; }
+.fan-clock { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+.fan-clock > div:first-child { display: flex; flex-direction: column; gap: 2px; }
+.fan-clock strong { font-size: 18px; }
+.fan-list { margin: 0; padding-left: 20px; line-height: 1.7; }
+ul.fan-list { list-style: none; padding-left: 0; }
+.fan-note { font-size: 13px; margin: 8px 0; }
+.fan-msg { font-weight: 600; color: var(--accent); }
+.fan-tbl td, .fan-tbl th { white-space: nowrap; }
+.fan-tbl td:not(.num), .fan-tbl th:not(.num), .fan-mini td:first-child, table[data-sid=fanhist] td, table[data-sid=fanhist] th { text-align: left; }
+tr.fan-me td { background: var(--accent-soft); }
+tr.fan-sel td { background: color-mix(in srgb, var(--loss) 12%, transparent); }
+tr.fan-cut td { border-bottom: 2px dashed var(--accent); }
+.fan-wknav { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.fan-wknav strong { font-size: 16px; }
+.fan-score { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; padding: 14px; border-radius: 12px; background: var(--surface-2); margin-bottom: 12px; }
+.fan-score span { font-size: 34px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--muted); }
+.fan-score span:last-child { text-align: right; }
+.fan-score span.w { color: var(--win); }
+.fan-score em { font-style: normal; font-weight: 600; text-align: center; }
+.fan-sides { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+.fan-sh { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; border-bottom: 2px solid var(--line); padding-bottom: 4px; margin-bottom: 4px; }
+.fan-sh span { display: flex; flex-direction: column; min-width: 0; }
+.fan-sh b { font-size: 18px; font-variant-numeric: tabular-nums; }
+.fan-mini { width: 100%; border-collapse: collapse; font-size: 13px; }
+.fan-mini td { padding: 3px 4px; border-bottom: 1px solid var(--line); }
+.fan-mini td:first-child { overflow: hidden; text-overflow: ellipsis; max-width: 0; width: 70%; white-space: nowrap; }
+.fan-oms { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.fan-om { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
+.fan-om span, .fan-bt { display: flex; justify-content: space-between; gap: 8px; }
+.fan-om span.w b, .fan-bt.w b { color: var(--win); }
+.fan-br { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.fan-br > div { display: flex; flex-direction: column; gap: 8px; }
+.fan-bm { border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; display: flex; flex-direction: column; gap: 4px; }
+.fan-bt.w .fan-tn { text-decoration: underline; text-decoration-color: var(--win); }
+.fan-champ { font-weight: 700; font-size: 16px; }
+.fan-teams { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.fan-teams .panel { margin: 0; }
+.fan-pop { text-align: center; }
+.fan-trophy { font-size: 56px; line-height: 1; }
+@media (max-width: 700px) {
+  .fan-how { grid-template-columns: minmax(0, 1fr); }
+  .fan-sides { grid-template-columns: minmax(0, 1fr); }
+  .fan-score span { font-size: 26px; }
+  .fan-br { grid-template-columns: minmax(0, 1fr); }
+  .fan-start input { min-width: 0; width: 100%; }
+  .fan-top .seg { width: 100%; }
+}

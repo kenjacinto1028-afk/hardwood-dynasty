@@ -1477,6 +1477,7 @@ function planMakeUp(g, elapsed) {
 }
 // one substitution check (every possession). due = the old 3-minute window (or a forced change)
 function subStep(g, elapsed, quarter, clock, margin, ot, due) {
+  if (uLocked(g)) return;   // Nov 20: your live subs hold for 4 game minutes
   const st = subState(g, Math.min(quarter, 4), clock, margin, ot), changed = st !== g.subSt; g.subSt = st;
   if (g.plan && st === 'normal' && !ot && quarter <= 4 && followPlan(g, elapsed, quarter, clock)) return;
   if (due || changed) doSubs(g, elapsed, Math.min(quarter, 4), clock, margin, ot);
@@ -1723,28 +1724,32 @@ function playbookOf(league, g) {
 }
 // pick-and-roll coverages; each has trade-offs by play (mk = make-rate change for the offense, tov = turnover multiplier)
 const COVS = ['drop', 'switch', 'hedge', 'blitz', 'ice'];
-const COV_LBL = { drop: 'Drop', switch: 'Switch', hedge: 'Hedge', blitz: 'Blitz', ice: 'Ice' };
-const COV_TXT = { drop: 'Big sags back to protect the rim: gives up pick-and-pop threes and pull-ups', switch: 'Switch the screen: kills off-screen shooting, gives up isolations and post mismatches', hedge: 'Big jumps out on the ball handler: slows him, the roll man gets space', blitz: 'Trap the ball handler: forces turnovers, gives up the roll man and cuts', ice: 'Push side pick-and-rolls to the baseline: a middle ground' };
+const COV_LBL = { drop: 'Drop', switch: 'Switch', hedge: 'Hedge', blitz: 'Blitz', ice: 'Ice', zone: 'Zone' };   // zone: live coaching only (not in COVS, so AI coaches never pick it)
+const COV_TXT = { drop: 'Big sags back to protect the rim: gives up pick-and-pop threes and pull-ups', switch: 'Switch the screen: kills off-screen shooting, gives up isolations and post mismatches', hedge: 'Big jumps out on the ball handler: slows him, the roll man gets space', blitz: 'Trap the ball handler: forces turnovers, gives up the roll man and cuts', ice: 'Push side pick-and-rolls to the baseline: a middle ground' , zone: '2-3 zone: packs the paint (fewer drives, post-ups and cuts), gives up open threes'};
 const COV_FX = {
   drop:   { pnr: { mk: 0.006 }, roll: { mk: -0.025 }, pop: { mk: 0.03 }, dho: { mk: 0.01 }, cut: { mk: -0.01 } },
   switch: { pnr: { mk: -0.01 }, roll: { mk: -0.015 }, pop: { mk: -0.01 }, iso: { mk: 0.015 }, post: { mk: 0.02 }, screen: { mk: -0.025 }, dho: { mk: -0.012 } },
   hedge:  { pnr: { mk: -0.015, tov: 1.06 }, roll: { mk: 0.015 }, pop: { mk: 0.012 }, dho: { mk: -0.006 } },
   blitz:  { pnr: { mk: -0.03, tov: 1.15 }, roll: { mk: 0.03 }, cut: { mk: 0.02 }, pop: { mk: 0.015 }, kick: { mk: 0.01 }, spot: { mk: 0.004 } },
-  ice:    { pnr: { mk: -0.01 }, roll: { mk: -0.006 }, pop: { mk: 0.006 }, spot: { mk: 0.004 } }
+  ice:    { pnr: { mk: -0.01 }, roll: { mk: -0.006 }, pop: { mk: 0.006 }, spot: { mk: 0.004 } },
+  zone:   { pnr: { mk: -0.012 }, roll: { mk: -0.02 }, iso: { mk: -0.02 }, post: { mk: -0.03, tov: 1.06 }, cut: { mk: -0.025 }, dho: { mk: -0.006 }, spot: { mk: 0.022 }, kick: { mk: 0.028 }, pop: { mk: 0.018 }, screen: { mk: 0.012 }, horns: { mk: 0.006 } }
 };
 // how the offense leans against a coverage (scaled by the offensive coach)
-const COV_OFF = { switch: { post: 1.3, iso: 1.25, screen: 0.8 }, blitz: { roll: 1.35, pop: 1.3, pnr: 0.85 }, drop: { pop: 1.2, pnr: 1.1 }, hedge: { roll: 1.15 }, ice: {} };
+const COV_OFF = { switch: { post: 1.3, iso: 1.25, screen: 0.8 }, blitz: { roll: 1.35, pop: 1.3, pnr: 0.85 }, drop: { pop: 1.2, pnr: 1.1 }, hedge: { roll: 1.15 }, ice: {}, zone: { spot: 1.35, kick: 1.3, pop: 1.15, screen: 1.1, iso: 0.8, post: 0.75, cut: 0.8 } };
 function coachCov(c) { if (c && c.cov && COVS.includes(c.cov)) return c.cov; const h = (((((c && c.id) || 1) * 2246822519) >>> 0) ^ 0x27d4eb2d) >>> 0, r = (h % 100) / 100;
   return c && c.def === 'switch' ? (r < 0.7 ? 'switch' : 'hedge') : c && c.def === 'pressure' ? (r < 0.5 ? 'blitz' : 'hedge') : (r < 0.75 ? 'drop' : 'ice'); }
 function covOf(league, t) { return league.user === t.id && t.cov && COVS.includes(t.cov) ? t.cov : coachCov(t.coach); }
 const coachAdj = c => clamp(((c.rd || 60) * 0.6 + (c.ovr || 60) * 0.4 - 50) / 35, 0, 1);   // 0 slow / overreacts ... 1 sharp
 function pickPlay(off, def) {
+  if (off.uPlay) return off.uPlay;   // Nov 20: your live play call
   const cm = COV_OFF[def.cov] || {}, k = clamp(0.5 + ((off.coach.ro || 60) - 50) / 50, 0.3, 1.2), ks = [], ws = [];
   for (const p of PLAY_KEYS) { let w = off.pb[p]; if (cm[p]) w *= 1 + (cm[p] - 1) * k; if (def.dbl != null && off.court.some(x => x && x.id === def.dbl)) { if (p === 'post') w *= 0.8; else if (p === 'kick') w *= 1.3; } ks.push(p); ws.push(w); }
   return wpick(ks, ws);
 }
 function lateOf(league, t) { const base = coachLate(t.coach); return league.user === t.id && t.late ? Object.assign(base, t.late) : base; }
+const uLocked = g => !!g.uLock && g.court.every(p => p && !g.out.has(p.id) && g.st[p.id][IX.pf] < 6);
 function lateSubs(g, need) {
+  if (uLocked(g)) return;
   const pool = g.players.filter(p => !g.out.has(p.id) && g.st[p.id][IX.pf] < 6).sort((a, b) => playerValue(b, g.coach) - playerValue(a, g.coach)).slice(0, 8);
   const pairs = [];
   for (const p of pool) for (let s = 0; s < 5; s++) {
@@ -1903,7 +1908,17 @@ function addInjury(p, med) {
 function medFactor(t) { const b = t && t.staffBudget != null ? t.staffBudget : 12; return 1 - 0.1 * clamp((b - 9) / 7, 0, 1); }
 function playedYesterday(league, tid) { const d = league.schedule && league.schedule[league.day - 1]; return !!d && d.some(([h, a]) => h === tid || a === tid); }
 function playGame(league, homeId, awayId, playoff) { const t0 = ENG_TICK; ENG_TICK = ++ENG_SEQ; try { return playGame0(league, homeId, awayId, playoff); } finally { ENG_TICK = t0; } }
-function playGame0(league, homeId, awayId, playoff) {
+function playGame0(league, homeId, awayId, playoff) { const it = playGameG(league, homeId, awayId, playoff); let r; while (!(r = it.next()).done); return r.value; }
+// Nov 20 live coaching: the same game, paused before every possession. step() runs until the play-by-play grows (or the game ends);
+// lg.cmd(...) applies your call (timeout, sub, play, defense) at the pause. lg.game is set when it is over.
+function liveGameStart(league, homeId, awayId, playoff) {
+  const lg = { tick: ++ENG_SEQ, game: null, ctx: null, home: homeId, away: awayId, playoff: !!playoff };
+  const t0 = ENG_TICK; ENG_TICK = lg.tick; let it; try { it = playGameG(league, homeId, awayId, playoff, lg); } finally { ENG_TICK = t0; }
+  lg.step = (minLog) => { if (lg.game) return true; const t1 = ENG_TICK; ENG_TICK = lg.tick; try { let guard = 0; do { const r = it.next(); if (r.done) { lg.game = r.value; return true; } } while (lg.ctx.LOG.length < (minLog || 0) && ++guard < 500); } finally { ENG_TICK = t1; } return false; };
+  lg.finish = () => { while (!lg.step(1e9)); return lg.game; };
+  return lg;
+}
+function* playGameG(league, homeId, awayId, playoff, LIVE) {
   const H = buildSide(league, homeId, true, playoff), A = buildSide(league, awayId, false, playoff);
   H.oppCoach = A.coach; A.oppCoach = H.coach;   // v27 K2: shot mix reacts to the other coach's help defense
   // v24.8 late game: settings, timeouts (7 a game, 2 more per overtime), runs, intentional fouls
@@ -1980,6 +1995,19 @@ function playGame0(league, homeId, awayId, playoff) {
     c.defC.forEach(p => clAdd(p.id, 3, dp - op)); };
   let poss = R() < 0.5 ? 0 : 1; const firstPoss = poss;
   let elapsed = 0, quarter = 0;
+  if (LIVE) LIVE.ctx = { H, A, LOG: LOG || [], quarter: 0, clock: 720, elapsed: 0, poss, ot: false, cmd(c) {   // Nov 20 live coaching: your calls, applied before the next possession
+    const x = LIVE.ctx, g = sides[c.side], o = sides[1 - c.side], q = Math.max(1, x.quarter), ck = x.clock; if (!g) return 'No team';
+    if (c.k === 'to') { if (g.tos <= 0) return 'No timeouts left'; g.tos--; g.toUsed++; logE(q, ck, c.side, `Timeout ${g.t.abbr}${o.run >= 4 ? ` (${o.t.abbr} on a ${o.run}-0 run)` : ''}`, 't'); o.run = 0; g.atoNext = true; g.uRally = 3; adjustD(o, g, q, ck); return null; }
+    if (c.k === 'sub') { const s = g.court.findIndex(p => p && p.id === c.out), p = g.players.find(y => y.id === c.in);
+      if (s < 0 || !p || g.out.has(p.id) || g.st[p.id][IX.pf] >= 6 || g.court.some(y => y && y.id === p.id)) return 'Cannot make that sub';
+      g.court = g.court.slice(); g.court[s] = p; g.slotOf = {}; g.court.forEach((y, i) => { if (y) g.slotOf[y.id] = i; }); g.uLock = x.elapsed + 240; subLog(q, ck); return null; }
+    if (c.k === 'auto') { g.uLock = 0; return null; }
+    if (c.k === 'play') { g.uPlay = c.v && PLAYS[c.v] && c.v !== 'trans' ? c.v : null; return null; }
+    if (c.k === 'cov') { if (!c.v || c.v === 'auto') { g.covFixed = league.user === g.t.id && !!g.t.covHold; g.uCov = null; return null; }
+      if (!COV_FX[c.v]) return 'Unknown defense'; if (g.cov !== c.v) logE(q, ck, c.side, `${g.t.abbr} ${c.v === 'zone' ? 'goes to a 2-3 zone' : c.v === 'switch' ? 'starts switching' : 'switches to ' + COV_LBL[c.v].toLowerCase() + ' coverage'}`, 'a');
+      g.cov = c.v; g.covFixed = true; g.uCov = c.v; return null; }
+    return 'Unknown call';
+  } };
   const qScores = [];
 
   function injuryCheck(g, involved) {
@@ -1997,7 +2025,7 @@ function playGame0(league, homeId, awayId, playoff) {
     return false;
   }
 
-  function runPeriod(len, ot) {
+  function* runPeriod(len, ot) {
     quarter++;
     let clock = len, lastSub = elapsed;
     H.qFouls = 0; A.qFouls = 0;
@@ -2012,6 +2040,7 @@ function playGame0(league, homeId, awayId, playoff) {
     subLog(quarter, clock);
     let orebPoss = false, cPend = null, pushTeam = null;   // v25.3: pushTeam = side whose rebounder (rebG/pointW) starts the break
     while (clock > 0) {
+      if (LIVE) { Object.assign(LIVE.ctx, { quarter, clock, elapsed, poss, ot }); yield 0; for (const g of sides) if (g.uLock && elapsed >= g.uLock) g.uLock = 0; }
       const off = sides[poss], def = sides[1 - poss];
       // substitution windows (every ~3 minutes) or forced
       const need = sides.some(g => g.court.some(p => !p || g.out.has(p.id)));
@@ -2034,11 +2063,12 @@ function playGame0(league, homeId, awayId, playoff) {
       if (quarter >= 4 && clock <= 120 && Math.abs(H.pts - A.pts) <= 6) cPend = { off, offC, defC, h: H.pts, a: A.pts, pts: offC.map(p => off.st[p.id][IX.pts]), fga: offC.map(p => off.st[p.id][IX.fga]), fgm: offC.map(p => off.st[p.id][IX.fgm]) };
       // v24.8 late game: timeouts, intentional fouls, hack-a-player, clock management
       const lead0 = (off === H ? 1 : -1) * (H.pts - A.pts), lateQ = quarter >= 4;
-      let special = null, atoNow = false;
+      let special = null, atoNow = false, rally = false;
       { // a team on the wrong end of a run calls timeout (how soon depends on the coach), and runs a set play next time down
         for (const g of sides) { const o = g === H ? A : H, L8 = g.late.to, thr = L8 === 'runs' ? 6 : L8 === 'save' ? 10 : 8, keep = L8 === 'save' ? 3 : L8 === 'runs' ? 1 : 2;
           if (o.run >= thr && g.tos > keep && !(lateQ && clock <= 180)) { g.tos--; g.toUsed++; logE(quarter, clock, g === H ? 0 : 1, `Timeout ${g.t.abbr} (${o.t.abbr} on a ${o.run}-0 run)`, 't'); o.run = 0; g.atoNext = true; adjustD(H, A, quarter, clock); adjustD(A, H, quarter, clock); } }
         if (off.atoNext) { off.atoNext = false; atoNow = true; }
+        if (off.uRally > 0) { off.uRally--; rally = true; }   // Nov 20: your timeout settles the team for 3 trips
         // late and close: the offense calls timeout to advance the ball and draw up a play
         if (lateQ && clock <= 24 && lead0 <= 0 && lead0 >= -3 && off.tos > 0 && off.toLate < 2 && !orebPoss) { off.tos--; off.toUsed++; off.toLate++; atoNow = true; logE(quarter, clock, off === H ? 0 : 1, `Timeout ${off.t.abbr}`, 't'); adjustD(def, off, quarter, clock); }
       }
@@ -2195,7 +2225,7 @@ function playGame0(league, homeId, awayId, playoff) {
             else if (type === 'mid') pm = ZB.mid + (eff(off, shooter, 'mid') - 60) * 0.0045 - (perD - 58) * 0.0025;
             else pm = ZB.tp + (eff(off, shooter, 'tp') - 60) * ENG.tpSlope - (perD - 58) * 0.0022 + (zone === 9 || zone === 13 ? ENG.c3 : ENG.atb3 * clamp((eff(off, shooter, 'tp') - 35) / 30, 0, 1.3));   // v25.2: the above-the-break lift goes to real shooters
             if (putback) pm += 0.04;
-            if (atoNow) pm += ENG.ato;   // v24.8: a play drawn up in a timeout
+            if (atoNow) pm += ENG.ato; if (rally) pm += 0.012;   // v24.8: a play drawn up in a timeout
             { const b0 = ZB[type]; pm = b0 + (pm - b0) * ENG.slope; }   // how much skill gaps matter
             // system trade-offs
             const inside = type === 'dunk' || type === 'lay' || type === 'paint';
@@ -2316,9 +2346,9 @@ function playGame0(league, homeId, awayId, playoff) {
     return 'done';
   }
 
-  for (let q = 0; q < 4; q++) runPeriod(720, false);
+  for (let q = 0; q < 4; q++) yield* runPeriod(720, false);
   let ot = 0;
-  while (H.pts === A.pts && ot < 8) { ot++; runPeriod(300, true); }
+  while (H.pts === A.pts && ot < 8) { ot++; yield* runPeriod(300, true); }
   if (H.pts === A.pts) { H.pts++; } // safety: never ends tied
 
   const game = finishGame(league, H, A, qScores, ot, events);
@@ -2463,17 +2493,19 @@ function raceRec(L) {
   if (L.race.d[L.race.d.length - 1] === L.day) return;
   L.race.d.push(L.day); L.race.w.push(L.teams.map(t => t.w));
 }
+// Nov 20 live coaching: the game you coached live (L.preGame) is used for your matchup instead of a new sim
+function takePre(league, h, a) { const g = league.preGame; if (!g || g.home !== h || g.away !== a) return null; league.preGame = null; g.id = league.games.length + 1; g.day = league.day; return g; }
 function simDay(league) {
   if (league.phase !== 'regular' || league.day >= league.schedule.length) return false;
-  beforeDay(league);
+  if (!league.preGame) beforeDay(league);   // Nov 20: a coached live game already ran beforeDay at tip-off
   for (const [h, a] of league.schedule[league.day]) {
-    const g = playGame(league, h, a);
+    const g = takePre(league, h, a) || playGame(league, h, a);
     applyGame(league, g);
     league.games.push(g); tlPrune(league);
   }
   if (typeof twoWayDay === 'function') twoWayDay(league, league.games.slice(-league.schedule[league.day].length));
   healDay(league, gpdOf(league));
-  league.day++;
+  league.day++; league.preGame = null;
   if (league.career && typeof careerDay === 'function') { try { careerDay(league, league.games.slice(-league.schedule[league.day - 1].length)); } catch (e) { console.error(e); } }   // My Career
   if (league.day % 7 === 0 || league.day >= league.schedule.length) raceRec(league);   // v28.3 F3
   afterDay(league);
@@ -2584,12 +2616,12 @@ function simPlayoffDay(league) {
   if (league.phase !== 'playoffs') return false;
   const po = league.po, round = po.rounds[po.stage];
   let played = 0;
-  beforeDay(league);
+  if (!league.preGame) beforeDay(league);
   for (const sr of round) {
     if (sr.winner != null) continue;
     const n = sr.games.length + 1;
     const home = hiHome(sr, n) ? sr.hi : sr.lo, away = home === sr.hi ? sr.lo : sr.hi;
-    const g = playGame(league, home, away, true);
+    const g = takePre(league, home, away) || playGame(league, home, away, true);
     g.playoff = true; g.stage = poStages(league)[po.stage]; g.gnum = n; g.poDay = po.day;
     g.id = league.games.length + 1;
     applyGame(league, g); league.games.push(g); tlPrune(league); sr.games.push(g.id); played++;
@@ -2610,7 +2642,7 @@ function simPlayoffDay(league) {
     }
   }
   healDay(league, 1);   // v24.6
-  po.day++;
+  po.day++; league.preGame = null;
   if (round.every(sr => sr.winner != null)) nextRound(league);
   return played > 0;
 }

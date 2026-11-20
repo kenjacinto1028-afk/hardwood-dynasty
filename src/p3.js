@@ -144,6 +144,7 @@ const P3 = (function () { with (window.PBL) {   // eslint-disable-line no-with
     const lg = logoHtml ? placeSvg(logoHtml, 186, 16, 46, 46).replace('preserveAspectRatio="xMidYMax meet"', '') : `<g><circle cx="209" cy="39" r="22" fill="${d.c2}" stroke="#fff" stroke-width="2"/><text x="209" y="44" text-anchor="middle" font-size="13" font-weight="900" fill="${d.c1}">${esc(d.ab)}</text></g>`;
     const stat = (i, k, x) => `<text x="${x}" y="308" text-anchor="middle" font-size="19" font-weight="900" fill="#fff">${(+d.st[i] || 0).toFixed(fx)}</text><text x="${x}" y="322" text-anchor="middle" font-size="8.5" font-weight="700" fill="#fff" opacity=".8" letter-spacing="1">${esc(k)}</text>`;
     const sparkle = d.r === 'leg' || d.r === 'hof' ? [[30, 120], [222, 150], [40, 210], [214, 230], [120, 60]].map(([x, y], i) => `<path class="p3-spk" style="animation-delay:${i * 0.4}s" d="M${x} ${y - 6} L${x + 1.6} ${y - 1.6} L${x + 6} ${y} L${x + 1.6} ${y + 1.6} L${x} ${y + 6} L${x - 1.6} ${y + 1.6} L${x - 6} ${y} L${x - 1.6} ${y - 1.6} Z" fill="#fff"/>`).join('') : '';
+    let foot = (d.lg ? d.lg + ' ' : '') + (d.s || ''); const fmax = 40 - R.n.length; if (d.aw && (foot + ' · ' + d.aw).length <= fmax) foot += ' · ' + d.aw; else if (d.aw && d.aw.length <= fmax) foot = d.aw;
     const rb = d.rb ? String(d.rb).slice(0, 34) : '', rbW = Math.min(150, 18 + rb.length * 4.7);
     const ribbon = rb ? `<g><rect x="${125 - rbW / 2}" y="223" width="${rbW}" height="15" rx="7.5" fill="url(#${u}b)"/><rect x="${125 - rbW / 2 + 1.5}" y="224.5" width="${rbW - 3}" height="12" rx="6" fill="#0b0d10" opacity=".78"/><text x="125" y="233.6" text-anchor="middle" font-size="7.6" font-weight="900" fill="#fff" letter-spacing=".9">${esc(rb)}</text></g>` : '';
     return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" font-family="Inter,system-ui,sans-serif" role="img" aria-label="${esc(d.n)} ${d.k === 'coach' ? 'coach' : 'player'} card, ${R.n}${rb ? ', ' + esc(rb.toLowerCase()) : ''}">
@@ -161,7 +162,7 @@ ${lg}${ribbon}
 <text x="125" y="281" text-anchor="middle" font-size="10" fill="#fff" opacity=".85">${esc(d.tc)}${d.num !== '' && d.num != null ? ' · #' + esc(d.num) : ''}${d.a ? ' · age ' + d.a : ''}</text>
 ${stat(0, sk[0], 62)}${stat(1, sk[1], 125)}${stat(2, sk[2], 188)}
 <text x="22" y="337" font-size="8" font-weight="800" fill="#fff" opacity=".9" letter-spacing="1.2">${esc(R.n.toUpperCase())}</text>
-<text x="228" y="337" text-anchor="end" font-size="8" fill="#fff" opacity=".75">${esc(d.lg)} ${esc(d.s)}${d.aw ? ' · ' + esc(d.aw) : ''}</text>
+<text x="228" y="337" text-anchor="end" font-size="8" fill="#fff" opacity=".75">${esc(foot)}</text>
 ${sparkle}</svg>`;
   }
   // v = { k: now | season | rookie | title | career | coach, s }; falls back to the "now" card
@@ -199,7 +200,7 @@ ${sparkle}</svg>`;
   function cardDialog(pid, list, v) {
     v = v || { k: 'now' }; const coach = v.k === 'coach', p = coach ? coachById(pid) : L.players[pid]; if (!p) return;
     const { d, svg } = cardOf(p, v);
-    const items = (list || []).map(x => Array.isArray(x) ? x : [x, null]), i = items.findIndex(x => x[0] === pid && (x[1] == null || x[1] === vKey(v)));
+    const items = (list || []).map(x => Array.isArray(x) ? x : [x, null]), i0 = items.findIndex(x => x[0] === pid && (x[1] == null || x[1] === vKey(v))), i = i0 >= 0 ? i0 : items.findIndex(x => x[0] === pid);
     const nb = j => { const x = items[(j + items.length) % items.length]; return `data-p3cn="${x[0]}" data-p3cv="${x[1] || vKey(coach ? v : { k: v.k === 'title' ? 'now' : v.k })}"`; };
     const nav = i >= 0 && items.length > 1 ? `<button class="sm" ${nb(i - 1)} aria-label="Previous card">←</button><span class="muted">${i + 1} / ${items.length}</span><button class="sm" ${nb(i + 1)} aria-label="Next card">→</button>` : '';
     const V = coach ? null : variantsOf(p), cur = vKey(d.k === 'now' ? { k: 'now' } : { k: d.k, s: d.k === 'career' || d.k === 'rookie' ? null : d.sv });

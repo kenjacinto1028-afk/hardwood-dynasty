@@ -1,5 +1,12 @@
 # PBL progress
 
+## Card variety and rarities (Sonnet UI, Haiku flavor text, Nov 20 2026)
+- [x] New card types on top of the existing player cards: Season card (any one year, e.g. "2026-27 · MVP season"), Rookie card, Title run card (playoff numbers), Career card (whole career in this league; Hall of Famers get the gold Hall of Fame frame), Coach card (wins, losses, titles, win%).
+- [x] Rarity tiers: Common, Uncommon 55+ (new, green), Rare 60+, Epic 70+, Legendary 80+, Hall of Fame. Big awards and titles move a season card up one or two tiers (MVP, Finals MVP +2; title, DPOY, ROY, scoring title and more +1).
+- [x] Ribbon on each special card names it; a short flavor line under the card in the popup.
+- [x] Cards tab: "Show" filter (Current, Best season, Career, Rookie, Specials, Coaches, Hall of Fame), sorted by rarity. Card popup: switch to Now / Career / Rookie / Title, or pick any season.
+- Test: tools/browser-cards.js ALL PASS (1300 + 390), tools/browser-p3.js 98/100 (the 2 fails need the draft test save, not related). Cache v22.
+
 ## All-Star Weekend contests (Opus logic, Sonnet UI, Haiku text, Nov 20 2026)
 - [x] Three-Point Contest (8 best shooters, 5 racks with money balls, max 34, top 3 to the final), Slam Dunk Contest (4 young high flyers, 2 dunks each, 5 judges 6-10, harder dunks miss more, top 2 final), Skills Challenge (4 guards/wings + 2 bigs, timed course, top 2 final). Run on All-Star day (league.js `runContests`) with their own dice: no R() draws.
 - [x] Winners get an award (Three-Point Contest / Slam Dunk Contest / Skills Challenge champion, small fame boost), a news story (engine.js FLAVOR `asw.*`) and are saved in `L.allStarHist[s].contests`.

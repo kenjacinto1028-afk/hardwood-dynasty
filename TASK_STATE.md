@@ -2,7 +2,7 @@
 Branch `claude/project-thread-ld9xl2`.
 - [x] 1. p3.js: card kinds (now, season, rookie, title run, career, Hall of Fame), Uncommon tier, ribbon tag, award-boosted rarity, coach cards, flavor lines
 - [x] 2. p3.js: card popup variant picker + binder "Show" filter (current, best season, career, rookie, specials, coach, Hall of Fame list); styles
-- [ ] 3. Tests: tools/browser-cards.js (1300 + 390), browser-p3 still passes
+- [x] 3. Tests: tools/browser-cards.js ALL PASS (1300 + 390), browser-p3 98/100 (draft fixture missing, unrelated)
 - [ ] 4. PROGRESS.md, PR, merge, Pages check
 
 ---

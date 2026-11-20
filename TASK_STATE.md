@@ -1,7 +1,8 @@
 # TASK_STATE — Court dots act out real plays (Opus) — Nov 20 2026
 Branch `claude/project-thread-1ou2as`.
 - [x] 1. engine.js logE: entry[11] = [play, handler, kick-out post man, coverage, doubled id]; sim hash unchanged (tools/court-plays.js)
-- [ ] 2. court.js: per-play choreography (11 plays + transition), screens, defense coverage, play label
+- [~] 2. court.js: choreo() + actOut() play animations, screens, coverage, trails, play banner, ½x speed — WRITTEN, needs browser check (tools/browser-p2.js 81/81 PASS already)
+  PAUSED Nov 20 (Kenneth low on usage). Next: new browser test for play scenes + screenshots, then step 3.
 - [ ] 3. Tests: sim results identical before/after, browser check 1300 + 390
 - [ ] 4. PROGRESS.md, PR, merge, Pages check
 

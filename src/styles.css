@@ -1099,4 +1099,8 @@ body.p3-phone #pb-err { bottom: 76px; }
 .cg-pn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .cg-p select, .cg-grid select { min-height: 34px; max-width: 100%; }
 .cg-msg { margin: 8px 0 0; font-weight: 600; } .cg-tip { font-size: 12px; margin: 6px 0 0; }
 @media (max-width: 700px) { .cg-grid, .cg-p { grid-template-columns: 1fr; } .cg-pn { white-space: normal; } }
+
+/* v37 friendships */
+.fr-tag{display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;background:color-mix(in srgb,var(--accent,#3b82f6) 14%,transparent);color:var(--accent,#3b82f6);margin-right:4px;vertical-align:1px}
+.fr-tag.duo{background:color-mix(in srgb,#f59e0b 20%,transparent);color:#d97706}
 .lv-cph { font-size: 10px; font-weight: 700; border-bottom: 1px solid var(--line); } .lv-cp > span:nth-child(n+3) { text-align: right; }

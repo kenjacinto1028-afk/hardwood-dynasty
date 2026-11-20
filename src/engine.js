@@ -1625,7 +1625,7 @@ function buildSide(league, tid, isHome, playoff) {
   try { rotSetup(league, g, playoff); } catch (e) { g.plan = null; }   // v32c: rotation plan (coach pattern or your chart)
   g.chem = teamChem(g.court.filter(Boolean), coach);
   // player chemistry: starters who have played together for years get a small edge; a brand-new five a small penalty
-  { const f = g.court.filter(Boolean); let s = 0, n = 0; for (let i = 0; i < f.length; i++) for (let j = i + 1; j < f.length; j++) { s += duoYears(league, f[i].id, f[j].id); n++; } g.chem.duo = n ? (s / n - 1) * 0.003 : 0; if (coach && coach.ch0) g.chem.duo = Math.max(0, g.chem.duo); g.chem.duoAvg = n ? s / n : 0; }
+  { const f = g.court.filter(Boolean); let s = 0, n = 0; for (let i = 0; i < f.length; i++) for (let j = i + 1; j < f.length; j++) { s += duoYears(league, f[i].id, f[j].id); n++; } g.chem.duo = n ? (s / n - 1) * 0.003 : 0; if (coach && coach.ch0) g.chem.duo = Math.max(0, g.chem.duo); g.chem.duoAvg = n ? s / n : 0;  if (typeof frChem === 'function') { const fc = frChem(league, f); g.chem.fr = fc; g.chem.duo += fc.v; } }
   return g;
 }
 // Team chemistry: do the starters fit together? Spacing, too many ball-dominant players, rim protection, perimeter defense, system fit.

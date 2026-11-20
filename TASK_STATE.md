@@ -1,7 +1,7 @@
 # TASK_STATE — All-Star Weekend contests (Opus logic, Sonnet UI, Haiku text) — Nov 20 2026
 Branch `claude/project-thread-p56evz`.
-- [ ] 1. league.js: runContests (3-Point, Dunk, Skills) with own seeded dice (sim hash unchanged), awards, fame, news, allStarHist
-- [ ] 2. Haiku text: dunk names + contest news lines
+- [x] 1. league.js: runContests (3-Point 8→3, Dunk 4→2, Skills 6→2), hrand dice, awards, FAME_W, news, allStarHist.contests; tools/asw.js
+- [x] 2. engine.js FLAVOR asw.* news + crowd-call lines
 - [ ] 3. app.js: All-Star Weekend panel (Awards tab + popup), history table, winner confetti
 - [ ] 4. Tests: unit sim + browser check
 - [ ] 5. PROGRESS.md, PR, merge, Pages check

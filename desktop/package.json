@@ -1,7 +1,7 @@
 {
   "name": "pbl-desktop",
   "private": true,
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Hardwood Dynasty as a desktop app (Tauri)",
   "scripts": {
     "web": "node copy-web.js",

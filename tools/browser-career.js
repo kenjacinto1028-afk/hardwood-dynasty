@@ -23,6 +23,7 @@ const SHOTS = process.env.SHOTS;
   await pg.click('#create'); await wait(pg, 3000); await ev(pg, "document.querySelector('#modal').innerHTML=''");
   const st = await ev(pg, "(() => { const L = PBL.L, p = L.players[L.career.pid]; return { view: PBL.ui.view, name: p.name, pos: p.pos, ovr: p.ovr, pl: p.pl, games: L.career.games.length, big: L.career.games.filter(g => g.play).length, cls: L.classes[L.season].includes(p.id), tab: document.querySelector('#tabs a.on').textContent }; })()");
   ok('career league created, hub open', st.view === 'career' && st.tab === 'My Career', st);
+  ok('Draft stock panel shows a mock rank and projection', await ev(pg, "(() => { const e = document.getElementById('car-stock'); return !!e && /Mock draft\\s*#\\d+/i.test(e.innerText) && /pick|undrafted/i.test(e.innerText); })()"));
   ok('player built as asked', st.name === 'Kenji Dela Cruz' && st.pos === 1 && st.pl === 'NCHF' && st.cls, st);
   ok('30-game college schedule with 6 big games', st.games === 30 && st.big === 6, st);
   await shot('car-02-hub');
@@ -69,6 +70,8 @@ const SHOTS = process.env.SHOTS;
   await shot('car-05-draft');
   await ev(pg, "PBL.closeDialog()"); await wait(pg, 300);
   const hub = await ev(pg, "document.querySelector('#main').textContent"); ok('hub shows pro status', /You're a pro|Free agent/.test(hub));
+  ok('pro hub shows season averages', await ev(pg, "/averages/.test(document.getElementById('main').innerText)"));
+  ok('award popup lists a new award', await ev(pg, "(() => { const L = PBL.L, p = L.players[L.career.pid]; p.awards.push({ s: L.season, a: 'All-Star' }); carCheck(L); return (L.career.pop || []).some(x => x.t === 'award' && x.n === 'All-Star'); })()"));
   // Phase 2: next season as a pro (offseason by the top sim button until the new season starts)
   for (let i = 0; i < 40 && await ev(pg, "PBL.L.phase !== 'regular'"); i++) {
     await ev(pg, "(() => { const c = document.getElementById('p3-cer'); if (c) c.remove(); document.querySelector('#modal').innerHTML = ''; })()");
@@ -136,7 +139,8 @@ const SHOTS = process.env.SHOTS;
   const tk = await ev(pg, "(() => { const C = PBL.L.career; return { talk: C.talk, res: C.talkRes && C.talkRes.msg, tr: C.trust, dis: document.getElementById('car-talk').disabled, log: C.log.some(x => /Talked to the coach/.test(x.t)) }; })()");
   ok('Talk to coach: outcome, trust change, story line, once a week', !!tk.talk && !!tk.res && tk.tr !== tr0 && tk.dis && tk.log, [tr0, tk]);
   // extension: offer popup, ask, accept
-  await ev(pg, "(() => { const L = PBL.L, p = L.players[L.career.pid]; p.contract = { amt: 4, exp: L.season, type: 'rookie', len: 3, opt: null }; p.ext = null; p.mval = Math.max(p.mval || 1, 8); L.career.ext = null; carExtMake(L); PBL.render(); })()"); await wait(pg, 800);
+  ok('no extension offer in the rookie year', await ev(pg, "(() => { const L = PBL.L, p = L.players[L.career.pid]; p.contract = { amt: 4, exp: L.season, type: 'rookie', len: 3, opt: null }; p.ext = null; L.career.ext = null; return carExtMake(L) === null; })()"));
+  await ev(pg, "(() => { const L = PBL.L, p = L.players[L.career.pid]; p.rookieSeason = L.season - 1; (p.hist = p.hist || []).push({ s: L.season - 1, tid: p.team, age: p.age - 1, rs: { gp: 50, min: 50 * 1500, pts: 500, orb: 50, drb: 150, ast: 100, stl: 30, blk: 10, fgm: 200, fga: 450, tpm: 20, ftm: 80, fta: 100, tov: 60 } }); p.contract = { amt: 4, exp: L.season, type: 'rookie', len: 3, opt: null }; p.ext = null; p.mval = Math.max(p.mval || 1, 8); L.career.ext = null; carExtMake(L); PBL.render(); })()"); await wait(pg, 800);
   let ex = ''; for (let i = 0; i < 8; i++) { ex = await modal(); if (/Contract talks/.test(ex)) break; await ev(pg, "(() => { const c = document.getElementById('p3-cer'); if (c) c.remove(); PBL.closeDialog(); })()"); await wait(pg, 500); }
   ok('extension offer popup (Accept / Ask for more / Test free agency)', /Contract talks/.test(ex) && /Accept/.test(ex) && /Ask for more/.test(ex) && /Test free agency/.test(ex), ex.slice(0, 120));
   await noOv('extension popup'); await shot('car-11-extension');

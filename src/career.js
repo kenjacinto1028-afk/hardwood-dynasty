@@ -106,7 +106,7 @@ function carSimOne(L, g) { const p = carP(L); return carSettle(L, g, carNoise(ca
 function careerDay(L, games) { if (!carOn(L)) return; if (typeof carInit === 'function') carInit(L); try { careerDay0(L, games); } finally { carCheck(L); } }
 function careerDay0(L, games) {
   const p = carP(L);
-  if (p.prospect) { if (L.phase === 'regular' && p.pl) for (const g of L.career.games) if (!g.done && g.day < L.day) carSimOne(L, g); return; }
+  if (p.prospect) { if (L.phase === 'regular' && p.pl) for (const g of L.career.games) if (!g.done && g.day < L.day) carSimOne(L, g); try { carStockLog(L, p); } catch (e) { } return; }
   // pro: grade + XP from his real box score; a game you played (decisions) earns more and moves coach trust
   const C = L.career, fx = C.proFx; if ((games || []).some(g => g.home === p.team || g.away === p.team) || L.phase === 'regular') C.proFx = null;
   for (const g of games || []) { const r = (g.box || []).find(x => x[0] === p.id); if (!r) continue;
@@ -115,7 +115,7 @@ function careerDay0(L, games) {
     const gs = carVal(line), avg = C.proAvg != null ? C.proAvg : Math.max(4, (p.ovr - 40) * 0.6), played = !!(fx && fx.pid === p.id);
     const side = r[1], tid = side === 0 ? g.home : g.away, win = side === 0 ? g.hs > g.as : g.as > g.hs;
     const gr = carGradeOf(gs / Math.max(4, avg) + (win ? 0.05 : -0.05) + (played ? fx.good * 0.03 : 0));
-    const xp = Math.round((played ? 12 + CAR_GXP[gr] * 0.4 + (win ? 4 : 0) : 3 + Math.max(0, gs) / 4) * (g.playoff ? 1.5 : 1) * carXpK(L));
+    const xp = Math.max(1, Math.round((played ? 12 + CAR_GXP[gr] * 0.4 + (win ? 4 : 0) : 3 + Math.max(0, gs) / 4) * (g.playoff ? 1.5 : 1) * carXpK(L) * CAR_PROXP));
     C.xp += xp; C.xpTot += xp; C.proAvg = C.proAvg == null ? gs : C.proAvg * 0.9 + gs * 0.1;
     if (played) C.trust = clamp(C.trust + (gr >= 5 ? 2 : gr >= 3 ? 1 : gr <= 1 ? -2 : 0) + (fx.good >= 3 ? 1 : 0), 0, 100);
     const opp = side === 0 ? g.away : g.home, us = side === 0 ? g.hs : g.as, them = side === 0 ? g.as : g.hs;
@@ -126,6 +126,19 @@ function careerDay0(L, games) {
     if (gr >= 7 && line.pts >= 30) carLog(L, `${line.pts} points vs ${(L.teams[opp] || {}).abbr || ''}. A+ game.`);
   }
   try { carDayLife(L, p); } catch (err) { console.error(err); }
+}
+// ---------- draft stock (pre-draft) ----------
+// consensus mock rank from the three outlets; a point is saved every couple of weeks so the page can show the trend
+function carStock(L, p) {
+  if (!p.prospect || typeof mockRanksOf !== 'function') return null;
+  const r = mockRanksOf(L, p), cs = r.c; if (!cs) return null;
+  const n = L.teams.length, o = (r.o || []).filter(x => x), lo = o.length ? Math.min(...o) : cs, hi = o.length ? Math.max(...o) : cs;
+  const tier = cs <= Math.min(14, n / 2 + 1) ? 'Lottery pick' : cs <= n ? 'First-round pick' : cs <= 2 * n ? 'Second-round pick' : 'Likely undrafted';
+  return { c: cs, lo, hi, o, n, tier, size: (L.classes[p.draftYear] || []).length };
+}
+function carStockLog(L, p) {
+  const C = L.career, st = carStock(L, p); if (!st) return; const h = C.stock = C.stock || [], last = h[h.length - 1], key = L.season * 1000 + Math.floor(L.day / 14);
+  if (last && last.k === key) { last.c = st.c; return; } h.push({ k: key, c: st.c, s: L.season, d: L.day }); if (h.length > 14) h.shift();
 }
 // ---------- pro games ----------
 // today's game for his team (regular season or playoffs), or null
@@ -269,7 +282,9 @@ function carFinish(L) {
 }
 
 // ---------- XP upgrades ----------
-function carCost(p, k) { const r = p[k] || 50, phys = ATH.includes(k) ? 1.5 : 1; return Math.round((5 + Math.max(0, r - 40) / 5 + Math.pow(Math.max(0, r - 75), 2) / 25) * phys); }
+// pre-draft XP and costs stay easy; as a pro, XP per game is lower and upgrades cost more the higher the rating
+const CAR_PROXP = 0.4;
+function carCost(p, k) { const r = p[k] || 50, phys = ATH.includes(k) ? 1.5 : 1, pro = p.prospect ? 1 : 2 + Math.max(0, r - 60) / 15; return Math.round((5 + Math.max(0, r - 40) / 5 + Math.pow(Math.max(0, r - 75), 2) / 25) * phys * pro); }
 function carUpgrade(L, k) {
   const C = L.career, p = carP(L); if (!p || !PROG_KEYS.includes(k)) return 'Unknown rating.';
   if (p[k] >= 99) return 'Already maxed.';
@@ -381,8 +396,14 @@ function carCheck(L) {
   for (const b of CAR_BADGES) { const t = carBadgeTier(b, C.tot), have = C.badges[b.k]; if (t >= 0 && (have == null || t > have)) { C.badges[b.k] = t; C.pop.push({ t: 'badge', n: `${b.n}: ${CAR_TIERS[t]}`, d: 'Earned from your stats' }); carLog(L, `Earned the ${b.n} badge (${CAR_TIERS[t]}).`); } }
   for (const a of CAR_ACH) { if (C.ach[a.k] != null) continue; let ok = false; try { ok = a.f(L, p, C); } catch (e) { } if (!ok) continue;
     C.ach[a.k] = L.season; C.xp += a.xp; C.xpTot += a.xp; C.pop.push({ t: 'ach', n: a.n, d: a.t, xp: a.xp }); carLog(L, `Achievement unlocked: ${a.n} (+${a.xp} XP).`); }
+  // awards he has won since the last check: one popup line each (and an interview about the big ones)
+  C.awSeen = C.awSeen || {};
+  for (const a of p.awards || []) { if (a.real || a.s < C.s0) continue; const key = a.s + '|' + a.a; if (C.awSeen[key]) continue; C.awSeen[key] = 1;
+    C.pop.push({ t: 'award', n: a.a, d: seasonName(a.s), s: a.s }); carLog(L, `Won ${a.a} (${seasonName(a.s)}).`);
+    if (CAR_BIGAW.includes(a.a)) { try { carIvAsk(L, 'award', { award: a.a }); } catch (e) { } } }
   try { carLifeCheck(L); } catch (e) { console.error(e); }
 }
+const CAR_BIGAW = ['MVP', 'Finals MVP', 'Rookie of the Year', 'Defensive Player of the Year', 'All-Star', 'Champion', 'Sixth Man of the Year', 'Most Improved Player', 'All-NBA 1st Team'];
 // ---------- Legend meter ----------
 const CAR_LEGEND = [[0, 'Prospect'], [10, 'Rotation player'], [25, 'Starter'], [40, 'All-Star'], [55, 'Superstar'], [75, 'Legend'], [90, 'GOAT conversation']];
 function carLegend(L) {
@@ -488,9 +509,23 @@ function carTalk(L) {
 }
 // ---------- interviews ----------
 function carIvFind(k) { return (carTx().iv || []).find(q => q.k === k) || null; }
-function carIvFmt(L, s, ctx) { const co = carCoach(L), p = carP(L); ctx = ctx || {}; return carFmt(s, { name: p.name, team: carTm(L, p.team), opp: ctx.opp != null ? carTm(L, ctx.opp) : 'the other team', coach: co ? co.name : 'Coach', pts: ctx.pts != null ? ctx.pts : '' }); }
+// what is true about his season so far, so a question is only asked when it fits (no MVP talk at 15 points a game)
+function carIvTags(L, p, ctx) {
+  const t = {}, rs = p.stats && p.stats.rs, gp = rs ? rs.gp : 0, ppg = gp ? rs.pts / gp : 0; ctx = ctx || {};
+  let rank = 999, rrank = 999;
+  if (gp >= 8) { rank = rrank = 1; for (const q of Object.values(L.players)) { const r = q.stats && q.stats.rs; if (q === p || q.team == null || q.prospect || !r || r.gp < 8 || r.pts / r.gp <= ppg) continue; rank++; if (q.rookieSeason === L.season) rrank++; } }
+  const tm = L.teams[p.team], wp = tm && tm.w + tm.l ? tm.w / (tm.w + tm.l) : 0.5, rook = p.rookieSeason === L.season;
+  t.star = gp >= 8 && (ppg >= 20 || rank <= 40);
+  t.mvp = gp >= 15 && ppg >= 24 && rank <= 6 && wp >= 0.5;
+  t.roy = rook && gp >= 10 && ppg >= 12 && rrank <= 3;
+  t.hyped = !!(p.draft && p.draft.rd === 1 && p.draft.no <= 10) || (p.fame || 0) >= 40;
+  t.bench = gp >= 8 && ppg < 9;
+  t.good = (ctx.pts || 0) >= 15;
+  return t;
+}
+function carIvFmt(L, s, ctx) { const co = carCoach(L), p = carP(L); ctx = ctx || {}; return carFmt(s, { award: ctx.award || 'the award', name: p.name, team: carTm(L, p.team), opp: ctx.opp != null ? carTm(L, ctx.opp) : 'the other team', coach: co ? co.name : 'Coach', pts: ctx.pts != null ? ctx.pts : '' }); }
 function carIvAsk(L, when, ctx) {
-  const C = carInit(L); if (C.ivQ) return C.ivQ; const Q = carTx().iv || [], recent = C.iv.slice(0, 8).map(x => x.k);
+  const C = carInit(L); if (C.ivQ) return C.ivQ; const tg = carIvTags(L, carP(L), ctx), Q = (carTx().iv || []).filter(q => !q.req || tg[q.req]), recent = C.iv.slice(0, 16).map(x => x.k);
   let pool = Q.filter(q => q.when === when && !recent.includes(q.k)); if (!pool.length) pool = Q.filter(q => q.when === when); if (!pool.length) pool = Q.filter(q => q.when === 'any'); if (!pool.length) return null;
   const q = pick(pool); C.ivQ = { k: q.k, when, ctx: ctx || {}, s: L.season, d: L.day, shown: false }; C.ivGap = 0; return C.ivQ;
 }
@@ -510,11 +545,12 @@ function carIvCheck(L, p, e, line) {
   else if (line.pts >= 30) when = 'hot';
   else if (loss >= 3 && C.ivGap >= 3) when = 'slump';
   else if (C.ivGap >= 2 && R() < 1 / 6) {
-    const rook = !(p.hist || []).some(h => h.rs && h.rs.gp), moved = C.movedS === L.season && L.day - (C.movedD || 0) < 15;
+    const rook = p.rookieSeason === L.season, moved = C.movedS === L.season && L.day - (C.movedD || 0) < 15;
     when = moved && R() < 0.4 ? 'trade' : p.tradeReq === L.season && R() < 0.4 ? 'trade' : rook && R() < 0.35 ? 'rookie' : R() < 0.2 ? 'any' : e.win ? 'win' : 'loss';
   }
   if (when) carIvAsk(L, when, { opp: e.opp, pts: line.pts, win: e.win, home: e.home });
 }
+
 // ---------- trade requests ----------
 function carTradeErr(L) {
   const p = carP(L); if (!p || p.prospect || p.team == null || p.retired) return 'You need to be on a team first.';
@@ -570,8 +606,14 @@ function carTeamCheck(L) {
 }
 // ---------- contract: extension with agent negotiation ----------
 function carAgent(L, p) { const a = agentOf(L, p); return a ? { name: a.name, style: a.style, txt: (AGENT_STYLE[a.style] || {}).txt || '', kind: a.kind } : null; }
+// extensions only talk to a player who has played at least 2 pro seasons, in the last year of his deal
+function carExtOK(L, p) {
+  if (!canExtend(L, p) || !p.contract || p.contract.exp > L.season) return false;
+  const yrs = carSeasons(L, p).filter(x => x.s < L.season).length;
+  return yrs >= 1 && p.rookieSeason !== L.season;
+}
 function carExtMake(L) {
-  const p = carP(L), C = carInit(L), t = L.teams[p.team]; if (!canExtend(L, p)) return null; if (C.ext && C.ext.s === L.season) return C.ext;
+  const p = carP(L), C = carInit(L), t = L.teams[p.team]; if (!carExtOK(L, p)) return null; if (C.ext && C.ext.s === L.season) return C.ext;
   const want = rotationOf(L, t).some(x => x.id === p.id) || (p.age <= 24 && p.scout >= 72);
   let amt = Math.min(maxForTeam(L, p, t.id), r1(Math.max(MINSAL, (p.mval || MINSAL) * (p.age >= 30 ? Math.max(0.85, 1 - 0.03 * (p.age - 29)) : 1) * (t.mode === 'contend' && p.ovr >= 70 ? 1.05 : 1))));
   if (amt < 1.5) amt = MINSAL; let g = 0; while (amt > MINSAL && !canFit(L, t, amt, false, 'extension') && g++ < 12) amt = r1(amt * 0.93);
@@ -579,7 +621,7 @@ function carExtMake(L) {
   C.ext = { s: L.season, st: 'open', tid: t.id, amt, amt0: amt, yrs: clamp(yrsFor(p, amt), 2, 5), ask: false, shown: false, msg: '' };
   carLog(L, `${t.abbr} offer an extension: ${money(amt)} a year for ${C.ext.yrs} years.`); return C.ext;
 }
-function carExtLive(L) { const p = carP(L), C = carInit(L), x = C.ext; return !!(x && x.s === L.season && x.st === 'open' && p.team === x.tid && canExtend(L, p)); }
+function carExtLive(L) { const p = carP(L), C = carInit(L), x = C.ext; return !!(x && x.s === L.season && x.st === 'open' && p.team === x.tid && carExtOK(L, p)); }
 function carExtChance(L) {
   const p = carP(L), C = carInit(L), a = agentOf(L, p), k = a ? (a.style === 'tough' ? 0.06 : a.style === 'loyal' ? -0.04 : 0) + (a.kind === 'power' ? 0.06 : 0) : 0;
   return clamp(0.28 + (p.ovr - 62) / 70 + (p.fame || 0) / 500 + (C.trust - 50) / 300 + (p.age <= 25 ? 0.04 : 0) + k, 0.1, 0.8);
@@ -652,7 +694,7 @@ function carDayLife(L, p) {
   if (L.phase === 'regular' && p.team != null) {
     const wk = L.season * 1000 + Math.floor(L.day / 7); if (C.wk !== wk) { C.wk = wk; carWeek(L, p); }
     if (p.tradeReq === L.season && inTradeWindow(L) && R() < 0.35) carTradeTry(L, 24);
-    if (p.team != null) { if (canExtend(L, p)) { if (!(C.ext && C.ext.s === L.season)) carExtMake(L); } else if (C.ext && C.ext.s === L.season && C.ext.st === 'open' && !p.ext) { C.ext.st = 'expired'; carLog(L, 'The extension window closed.'); } }
+    if (p.team != null) { if (carExtOK(L, p)) { if (!(C.ext && C.ext.s === L.season)) carExtMake(L); } else if (C.ext && C.ext.s === L.season && C.ext.st === 'open' && !p.ext) { C.ext.st = 'expired'; carLog(L, 'The extension window closed.'); } }
   }
   carTeamCheck(L);
 }
@@ -759,7 +801,7 @@ if (typeof window !== 'undefined') window.CAR = (function () {
       const sched = pre ? `<section class="panel"><h3>${esc(pipeTeamName(C.lg, C.team))} schedule</h3><div class="tblwrap"><table class="car-sched"><thead><tr><th>#</th><th class="l">Date</th><th class="l">Opponent</th><th>Result</th><th class="l">Your line</th><th>Grade</th><th>XP</th></tr></thead><tbody>${C.games.map(g => `<tr class="${g.play ? 'car-big' : ''}"><td>${g.i + 1}</td><td class="l">${esc(dayLbl(g.day))}</td><td class="l">${g.home ? 'vs' : 'at'} ${esc(pipeTeam(C.lg, g.opp).abbr)}${g.play ? ' ★' : ''}</td><td>${g.done ? `<span class="${g.win ? 'w' : 'lo'}">${g.win ? 'W' : 'L'}</span> ${g.us}-${g.them}` : ''}</td><td class="l">${g.done ? gline(g.line) : ''}</td><td>${g.done ? CAR_GRADES[g.gr] : ''}</td><td>${g.done ? '+' + g.xp : ''}</td></tr>`).join('')}</tbody></table></div>${sl ? `<p class="muted">Averages: ${sl.pts} pts, ${sl.reb} reb, ${sl.ast} ast, ${sl.stl} stl, ${sl.blk} blk in ${sl.min} min over ${sl.gp} games. ★ = big game you play.</p>` : '<p class="muted">★ = big game you play.</p>'}</section>` : '';
       const log = `<section class="panel"><h3>Career story</h3>${C.log.slice().reverse().slice(0, 30).map(x => `<div class="leader" style="grid-template-columns:auto minmax(0,1fr)"><span class="muted">${esc(seasonName(x.s))}</span><span>${esc(x.t)}</span></div>`).join('')}</section>`;
       const life = contractPanel(p) + relPanel(p) + ivPanel(p) + newsPanel(p);
-      return `<div class="car">${head}<div class="grid2"><div class="stack">${next}${sched}${life}${statsPanel(p)}</div><div class="stack">${ups}${badgePanel(p)}${achPanel()}${log}</div></div></div>`;
+      return `<div class="car">${head}<div class="grid2"><div class="stack">${next}${pre ? stockPanel(p) : ''}${sched}${life}${statsPanel(p)}</div><div class="stack">${ups}${badgePanel(p)}${achPanel()}${log}</div></div></div>`;
     }
 
     // ----- Legend meter, badges, achievements, awards + stats -----
@@ -799,7 +841,9 @@ if (typeof window !== 'undefined') window.CAR = (function () {
         <div class="tblwrap" style="margin-top:10px"><table class="sortable" data-sid="car-stats"><thead><tr><th class="l">Season</th><th class="l">Team</th><th>GP</th><th>Min</th><th>Pts</th><th>Reb</th><th>Ast</th><th>Stl</th><th>Blk</th></tr></thead><tbody>${rows.map(r => `<tr><td class="l" data-v="${r.s}">${esc(seasonName(r.s))}${r.pre ? ' <span class="muted">(pre-draft)</span>' : ''}</td><td class="l">${esc(r.tm)}</td><td>${r.gp}</td><td>${n1(r.min)}</td><td>${n1(r.pts)}</td><td>${n1(r.reb)}</td><td>${n1(r.ast)}</td><td>${n1(r.stl)}</td><td>${n1(r.blk)}</td></tr>`).join('') || '<tr><td class="l muted" colspan="9">No games yet.</td></tr>'}</tbody>${T.gp ? `<tfoot><tr><td class="l" colspan="2"><strong>Pro career</strong></td><td>${T.gp}</td><td>${f(T.min / 60, T.gp)}</td><td>${f(T.pts, T.gp)}</td><td>${f(T.orb + T.drb, T.gp)}</td><td>${f(T.ast, T.gp)}</td><td>${f(T.stl, T.gp)}</td><td>${f(T.blk, T.gp)}</td></tr></tfoot>` : ''}</table></div><p class="muted" style="font-size:12px;margin:6px 0 0">Per game, regular season. ${T.pts ? T.pts.toLocaleString() + ' career pro points. ' : ''}Click a column to sort.</p></section>`;
     }
     function achDialog(list) {
-      dialog(`<h2>Achievement unlocked${list.length > 1 ? 's' : ''}</h2><div class="car-pop">${list.map(x => `<div class="car-popi"><strong>${x.t === 'badge' ? '🏅 ' : '🏆 '}${esc(x.n)}</strong><div class="muted">${esc(x.d || '')}${x.xp ? ' · +' + x.xp + ' XP' : ''}</div></div>`).join('')}</div><div class="row" style="margin-top:12px"><button class="primary" id="car-ok">Nice</button></div>`);
+      const aw = list.filter(x => x.t === 'award').length, ttl = aw === list.length ? (aw > 1 ? 'Awards won' : 'Award won') : aw ? 'Awards and achievements' : 'Achievement unlocked' + (list.length > 1 ? 's' : '');
+      dialog(`<h2>${ttl}</h2><div class="car-pop">${list.map(x => `<div class="car-popi"><strong>${x.t === 'badge' ? '🏅 ' : x.t === 'award' ? '⭐ ' : '🏆 '}${esc(x.n)}</strong><div class="muted">${esc(x.d || '')}${x.xp ? ' · +' + x.xp + ' XP' : ''}</div></div>`).join('')}</div><div class="row" style="margin-top:12px"><button class="primary" id="car-ok">Nice</button></div>`);
+      try { if (aw && window.FX && FX.gameResult) FX.gameResult({ title: true }); } catch (e) { }
       $('#car-ok').onclick = closeDialog;
     }
 
@@ -907,10 +951,25 @@ if (typeof window !== 'undefined') window.CAR = (function () {
       const tr = C.trust, trW = tr >= 75 ? 'Go-to guy' : tr >= 60 ? 'Trusted' : tr >= 40 ? 'Earning it' : 'On a short leash';
       return `<section class="panel"><h3>You're a pro: ${esc(tname(p.team))}</h3>
         <div class="car-stats" style="margin-bottom:8px"><div><div class="k">Coach trust</div><div class="v">${tr}</div><div class="muted" style="font-size:12px">${trW}</div></div><div><div class="k">Role</div><div class="v" style="font-size:16px">${esc(roleName(roleOf(L, p)) || '—')}</div></div></div>
-        <p class="muted" style="margin-top:0">Trust grows with good games you play. More trust = more touches and easier calls.</p>
+        ${seasonAvgs(p)}<p class="muted" style="margin-top:0">Trust grows with good games you play. More trust = more touches and easier calls.</p>
         ${t && careerPending(L) ? `<button class="primary" id="car-playnow">Today: ${t.home === false ? 'at' : 'vs'} ${esc(L.teams[t.opp].abbr)}. Play it now</button>` : ''}
         <p style="margin:10px 0 4px">Stop the sim for: ${stopBtns()}</p></section>
         ${rec.length ? `<section class="panel"><h3>Recent games</h3><div class="tblwrap"><table><thead><tr><th class="l">Opp</th><th>Result</th><th class="l">Your line</th><th>Grade</th><th>XP</th></tr></thead><tbody>${rec.map(e => `<tr class="${e.played ? 'car-big' : ''}"><td class="l">${e.home ? 'vs' : 'at'} ${esc((L.teams[e.opp] || {}).abbr || '')}${e.po ? ' (PO)' : ''}</td><td><span class="${e.win ? 'w' : 'lo'}">${e.win ? 'W' : 'L'}</span> ${e.us}-${e.them}</td><td class="l">${gline(e.line)}</td><td>${CAR_GRADES[e.gr]}</td><td>+${e.xp}</td></tr>`).join('')}</tbody></table></div><p class="muted" style="font-size:12px">Shaded = you made the calls.</p></section>` : ''}`;
+    }
+    function stockPanel(p) {
+      const st = carStock(L, p); if (!st) return '';
+      const h = (L.career.stock || []).slice(), prev = h.length > 1 ? h[h.length - 2].c : null, mv = prev == null ? 0 : prev - st.c;
+      const trend = !mv ? '<span class="muted">steady</span>' : mv > 0 ? `<span class="w">▲ up ${mv} spot${mv > 1 ? 's' : ''}</span>` : `<span class="lo">▼ down ${-mv} spot${mv < -1 ? 's' : ''}</span>`;
+      const names = ['Hoops Insider', 'The Upside Report', 'Courtside Daily'], spark = h.length > 1 ? `<div class="muted" style="font-size:12px;margin-top:6px">Recent mock rank: ${h.map(x => '#' + x.c).join(' → ')}</div>` : '';
+      return `<section class="panel" id="car-stock"><h3>Draft stock</h3><div class="car-stats"><div><div class="k">Mock draft</div><div class="v">#${st.c}</div><div class="muted" style="font-size:12px">${trend}</div></div><div><div class="k">Projection</div><div class="v" style="font-size:16px">${esc(st.tier)}</div></div><div><div class="k">Range</div><div class="v" style="font-size:16px">#${st.lo}${st.hi > st.lo ? ' to #' + st.hi : ''}</div></div></div>
+        <p class="muted" style="margin:8px 0 0;font-size:12px">${st.o.map((v, i) => esc(names[i] || '') + ' #' + v).join(' · ')}. Out of ${st.size} prospects in the ${esc(draftLabel(p.draftYear))} class. Play well and upgrade your ratings to move up the boards.</p>${spark}</section>`;
+    }
+    function seasonAvgs(p) {
+      const rs = p.stats && p.stats.rs, f = v => (Math.round(v * 10) / 10).toFixed(1);
+      if (!rs || !rs.gp) return `<div class="muted" style="margin:0 0 8px">${esc(seasonName(L.season))} averages: no games played yet.</div>`;
+      const g = rs.gp, tm = L.teams[p.team], pct = rs.fga ? Math.round(rs.fgm / rs.fga * 1000) / 10 : 0;
+      return `<div class="k" style="margin-top:4px">${esc(seasonName(L.season))} averages · ${g} GP${tm ? ` · team ${tm.w}-${tm.l}` : ''}</div>
+        <div class="car-stats" style="margin:4px 0 8px"><div><div class="k">PTS</div><div class="v">${f(rs.pts / g)}</div></div><div><div class="k">REB</div><div class="v">${f((rs.orb + rs.drb) / g)}</div></div><div><div class="k">AST</div><div class="v">${f(rs.ast / g)}</div></div><div><div class="k">STL</div><div class="v">${f(rs.stl / g)}</div></div><div><div class="k">BLK</div><div class="v">${f(rs.blk / g)}</div></div><div><div class="k">MIN</div><div class="v">${f(rs.min / 60 / g)}</div></div><div><div class="k">FG%</div><div class="v">${pct.toFixed(1)}</div></div></div>`;
     }
     function upPanel(p) {
       const C = L.career;
@@ -994,7 +1053,7 @@ if (typeof window !== 'undefined') window.CAR = (function () {
       const p = carP(L);
       if (L.career.lastRes) { const e = L.career.lastRes; L.career.lastRes = null; queueDialog(() => proResultDialog(e)); }
       if (L.phase !== 'off-draft' && L.career.draftShown !== L.season && !p.prospect && ['off-resign', 'off-fa', 'off-ready', 'off-draft'].includes(L.phase) && (p.draft ? p.draft.s === L.season : p.draftYear === L.season)) queueDialog(draftDialog);
-      else if (L.phase === 'off-draft' && L.career.draftShown !== L.season && !p.prospect) queueDialog(draftDialog);
+      else if (L.phase === 'off-draft' && L.career.draftShown !== L.season && !p.prospect && (p.draft ? p.draft.s === L.season : p.draftYear === L.season)) queueDialog(draftDialog);
       try { carLifeCheck(L); } catch (e) { console.error(e); }
       { const C = L.career, busy = !!C.cur;
         if (C.moveQ && !busy) { const m = C.moveQ; C.moveQ = null; queueDialog(() => moveDlg(m)); save(); }

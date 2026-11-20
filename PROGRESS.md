@@ -1,5 +1,15 @@
 # PBL progress
 
+## My Career fixes and tuning (Sonnet, Nov 20 2026)
+- [x] Interviews match your season: MVP talk only if you are a real MVP candidate (24+ ppg, top 6, winning team), ROY talk only if you lead rookies, "bench" and "star" questions by role. 29 new questions (59 total), repeats spaced out, and a new interview after a big award.
+- [x] Extension offers only from your 2nd pro season on, in the last year of the deal (no more day-66 rookie offers).
+- [x] Award popup for every award you win (All-Star, ROY, All-NBA, DPOY...), with confetti.
+- [x] Fixed: after your rookie year the next draft no longer says you were undrafted.
+- [x] Pro XP is 40% of before, upgrades cost 2x and more as the rating climbs. Pre-draft XP and costs unchanged.
+- [x] "You're a pro" panel shows this season's averages (PTS REB AST STL BLK MIN FG%, GP, team record).
+- [x] Draft stock panel (pre-draft): mock rank, projection, range, trend and the three outlets.
+- Test: tools/browser-career.js ALL PASS. Desktop 1.3.0, cache v16.
+
 ## My Career face builder (Sonnet, Nov 19 2026)
 - [x] Create-your-player has a look builder: 8 skin tones, 8 hair colors, head shape, hair, eyes, eyebrows, nose, mouth, facial hair, glasses, Random. Saved as L.career.face.
 - [x] "Edit look" button on the My Career hub changes it any time. The face shows everywhere the career player's picture appears (portrait() in app.js).

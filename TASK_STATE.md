@@ -682,3 +682,11 @@ Note: PROGRESS.md had no 6a entry. Box score already had MIN + pm (engine BX), b
 - [x] 7. tools/t30a.js — 29/29 pass (quick 21/21)
 - [x] 8. Existing tests run — no new real failures (see PROGRESS.md v30a line)
 - [x] 9. PROGRESS.md + README updated, pushed to main
+# TASK_STATE — My Career fixes and tuning (Sonnet) — Nov 20 2026
+Branch `claude/project-thread-a9qoug`.
+- [x] 1. Interviews: match real performance/awards, more variety (career.js carIvCheck, career-text.js)
+- [x] 2. Extension offers only when eligible (carExtMake/carExtLive)
+- [x] 3. Award popups (carCheck) + undrafted popup bug (afterRender)
+- [x] 4. Pro XP and upgrade costs tuned (pre-draft unchanged)
+- [x] 5. Season averages in "You're a pro" panel + Draft stock panel (pre-draft)
+- [ ] 6. Tests, cache bump, desktop installer bump, PR, merge, Pages check

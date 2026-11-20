@@ -1,5 +1,12 @@
 # PBL progress
 
+## Live-game coaching (Opus engine, Sonnet UI, Nov 20 2026)
+- [x] "▶ Play & coach live" (was "Sim day & watch live"): your game is played possession by possession (engine `liveGameStart`, `playGameG` generator; `playGame` runs it straight through, so league results are unchanged: tools/court-plays.js hash identical).
+- [x] Your calls (panel under the live controls): timeout (pauses the game, next 3 trips get a small boost + drawn-up play, the other coach may adjust), subs (your five holds ~4 game minutes, "Let coach sub again"), play to run every trip (any of the 11 plays, or coach decides), defense (drop, switch, hedge, blitz/trap, ice, new 2-3 zone, or coach decides). Zone is for your team only: packs the paint, gives up threes.
+- [x] At the final buzzer the rest of the day is simmed with your coached game in it (`L.preGame`, `takePre`); leaving the screen or "Sim to the final" lets your coach finish. Touching a control pauses the game.
+- Checks (60 games each, same matchup): auto 117-119, zone 118-120, all post-ups 106-116 (bad calls hurt), all spot-ups 119-120.
+- Test: tools/live-coach.js 6/6, tools/browser-coach.js ALL PASS (1300 + 390), tools/browser-p2.js 81/81, tools/browser-courtplays.js all but 1 timing-based screen check (random game). Cache v18.
+
 ## Live court acts out real plays (Opus, Nov 20 2026)
 - [x] Engine logs the play it ran each possession (entry[11]: play, ball handler, kick-out post man, defense coverage, doubled player). No new random numbers: game results identical (tools/court-plays.js hash check).
 - [x] Court dots act out the play: pick-and-roll / pop (screen, roll or pop), isolation (clear-out), post-up and kick-out (entry pass, double team), drive and kick (help defense collapses), off-screen curl, handoff, backdoor cut, horns, fast break.

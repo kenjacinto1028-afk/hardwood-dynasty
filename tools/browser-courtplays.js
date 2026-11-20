@@ -23,7 +23,7 @@ const ev = (pg, js) => pg.evaluate(js0 => { const L = window.__pbl.L, ui = windo
     for (let k = 0; k < 5 && !live; k++) {
       if (!await ev(pg, "!!document.querySelector('#simctl [data-sim=\"live\"]')")) { await pg.click('#simctl [data-sim="day"]'); await wait(pg, 3000); await close(); continue; }
       await pg.evaluate(() => { const m = document.querySelector('#simctl .sim-more'); if (m && getComputedStyle(m).display !== 'none' && !document.querySelector('#simctl.open')) m.click(); });
-      await pg.click('#simctl [data-sim="live"]'); await wait(pg, 3000); await close(); live = await ev(pg, "!!document.querySelector('#lv-board')");
+      await pg.click('#simctl [data-sim="live"]'); await wait(pg, 3000); await close(); live = await ev(pg, "!!document.querySelector('#lv-board')"); if (live && await ev(pg, '!!ui.cg')) { await pg.evaluate(() => document.querySelector('[data-lv="box"]').click()); await wait(pg, 6000); await pg.evaluate(() => { const m = document.querySelector('#modal'); if (m) m.innerHTML = ''; const u = window.__pbl.ui; u.lv.i = 0; u.lv.paused = false; document.querySelector('[data-lv="f:all"]').click(); }); await wait(pg, 1500); }   // Nov 20: coached live game: finish it, then watch the replay
     }
     ok(W + ': live game opened', live);
     if (!live) continue;

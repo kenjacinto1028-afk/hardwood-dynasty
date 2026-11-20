@@ -34,7 +34,7 @@ async function run(W, touch) {
   for (let k = 0; k < 5 && !live; k++) {
     if (!await ev(pg, "!!document.querySelector('#simctl [data-sim=\"live\"]')")) { await click('#simctl [data-sim="day"]'); await wait(pg, 3000); await closeModals(pg); continue; }
     await pg.evaluate(() => { const m = document.querySelector('#simctl .sim-more'); if (m && getComputedStyle(m).display !== 'none' && !document.querySelector('#simctl.open')) m.click(); }); await click('#simctl [data-sim="live"]'); await wait(pg, 3000); await closeModals(pg);
-    live = await ev(pg, "!!document.querySelector('#lv-board')");
+    live = await ev(pg, "!!document.querySelector('#lv-board')"); if (live && await ev(pg, '!!ui.cg')) { await pg.evaluate(() => document.querySelector('[data-lv="box"]').click()); await wait(pg, 6000); await pg.evaluate(() => { const m = document.querySelector('#modal'); if (m) m.innerHTML = ''; const u = window.__pbl.ui; u.lv.i = 0; u.lv.paused = false; document.querySelector('[data-lv="f:all"]').click(); }); await wait(pg, 1500); }   // Nov 20: coached live game: finish it, then watch the replay
   }
   ok(T + 'live game opened', live);
   if (live) {

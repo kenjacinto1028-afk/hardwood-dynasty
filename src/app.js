@@ -583,7 +583,7 @@ function userPlaysToday() {
 }
 function controls() {
   const ph = L.phase;
-  const liveB = userPlaysToday() ? [['live', '▶ Sim day & watch live']] : [];   // v25.2
+  const liveB = userPlaysToday() ? [['live', '▶ Play & coach live']] : [];   // v25.2
   if (ph === 'regular') return [['day', 'Sim day'], ...liveB, ['week', 'Sim week'], ...(L.day < deadlineDay(L) ? [['deadline', 'Sim to trade deadline']] : []), ['end', 'Sim to end of season']];
   if (ph === 'regular-done') return [['startpo', 'Start play-in']];
   if (ph === 'playoffs') return [['pday', 'Sim day'], ...liveB, ['pround', 'Sim round'], ['pend', 'Sim to end of playoffs']];
@@ -2971,7 +2971,7 @@ function nextSubs(g, si, elapsed, k) {
   return [...by.entries()].slice(0, k).map(([t, x]) => `${when(t / 10)}: ${x.i.map(nm).join(', ') || '—'} in for ${x.o.map(nm).join(', ') || '—'}`);
 }
 function vLive(g) {
-  const lv = lvState(g), log = g.pbp, n = Math.min(lv.i, log.length), last = n ? log[n - 1] : null, done = n >= log.length;
+  const lv = lvState(g), log = g.pbp, n = Math.min(lv.i, log.length), last = n ? log[n - 1] : null, done = n >= log.length && !g.live;
   const hs = last ? last[4] : 0, as = last ? last[5] : 0, q = last ? last[0] : 1, c = last ? last[1] : 720;
   const st = lvBox(g, n), qNow = q, rp = pbpReplay(g, n), onSet = new Set(rp.court);
   const elapsedNow = n ? (q <= 4 ? (q - 1) * 720 + (720 - c) : 2880 + (q - 5) * 300 + (300 - c)) : 0;   // v32d
@@ -2982,8 +2982,8 @@ function vLive(g) {
   const shown = []; for (let k = n - 1; k >= 0; k--) if (lvShow(lv.f, log[k])) shown.push(log[k]);
   const boxT = (side, tid) => { const ps = Object.keys(st).map(Number).filter(id => st[id].side === side).sort((a, b) => st[b].s[1] - st[a].s[1] || (st[b].gs || 0) - (st[a].gs || 0)); const v = (x, i) => x.s[i];
     return `<div class="tblwrap"><table class="lv-box"><thead><tr><th class="l">${esc(L.teams[tid].abbr)}</th><th>Min</th><th>Pts</th><th>Reb</th><th>Ast</th><th>Stl</th><th>Blk</th><th>TO</th><th>PF</th><th>FG</th><th>3P</th><th>FT</th><th title="Plus-minus">+/-</th></tr></thead><tbody>${ps.map(id => { const x = st[id], p = L.players[id], pmv = rp.pm[id] || 0; return `<tr class="${onSet.has(id) ? 'oncourt' : ''}"><td class="l">${onSet.has(id) ? '<span class="lv-dot" title="On the floor"></span>' : ''}${p ? esc(shortName(p)) : 'Player'}</td><td>${minTxt(rp.min[id] || 0)}</td><td><strong>${v(x, 1)}</strong></td><td>${v(x, 8) + v(x, 9)}</td><td>${v(x, 10)}</td><td>${v(x, 11)}</td><td>${v(x, 12)}</td><td>${v(x, 13)}</td><td class="${v(x, 14) >= 5 ? 'lo' : ''}">${v(x, 14)}</td><td>${v(x, 2)}-${v(x, 3)}</td><td>${v(x, 4)}-${v(x, 5)}</td><td>${v(x, 6)}-${v(x, 7)}</td><td class="${pmv > 0 ? 'w' : pmv < 0 ? 'lo' : ''}">${pmTxt(pmv)}</td></tr>`; }).join('')}</tbody></table></div>`; };
-  const ctl = `<div class="row" style="gap:6px;flex-wrap:wrap;align-items:center"><button class="sm ${lv.paused ? 'primary' : ''}" data-lv="pause" ${done ? 'disabled' : ''}>${lv.paused ? '▶ Play' : '❚❚ Pause'}</button><span class="seg">${LV_SPEED.map(([k, t]) => `<button class="sm ${lv.speed === k ? 'primary' : ''}" data-lv="sp:${k}" ${done ? 'disabled' : ''}>${t}</button>`).join('')}</span><span class="seg">${[['all', 'All'], ['score', 'Scoring plays'], ['close', 'Close & late']].map(([k, t]) => `<button class="sm ${lv.f === k ? 'primary' : ''}" data-lv="f:${k}">${t}</button>`).join('')}</span><button class="sm" data-lv="box">Final box score</button></div>`;
-  return `<div class="row" style="margin-bottom:10px"><button data-back="1">Back</button></div><section class="panel" style="margin-bottom:12px"><div class="k">${seasonName(g.season)} · ${g.playoff ? esc(g.stage) + ' · Game ' + g.gnum : dayTxt(g.day, g.season)} · Live</div>
+  const ctl = `<div class="row" style="gap:6px;flex-wrap:wrap;align-items:center"><button class="sm ${lv.paused ? 'primary' : ''}" data-lv="pause" ${done ? 'disabled' : ''}>${lv.paused ? '▶ Play' : '❚❚ Pause'}</button><span class="seg">${LV_SPEED.map(([k, t]) => `<button class="sm ${lv.speed === k ? 'primary' : ''}" data-lv="sp:${k}" ${done ? 'disabled' : ''}>${t}</button>`).join('')}</span><span class="seg">${[['all', 'All'], ['score', 'Scoring plays'], ['close', 'Close & late']].map(([k, t]) => `<button class="sm ${lv.f === k ? 'primary' : ''}" data-lv="f:${k}">${t}</button>`).join('')}</span><button class="sm" data-lv="box">${g.live ? 'Sim to the final' : 'Final box score'}</button></div>${g.live ? cgPanel(g) : ''}`;
+  return `<div class="row" style="margin-bottom:10px"><button data-back="1">Back</button></div><section class="panel" style="margin-bottom:12px"><div class="k">${seasonName(g.season)} · ${g.playoff ? esc(g.stage) + ' · Game ' + g.gnum : dayTxt(g.day, g.season)} · Live${g.live ? ' · <strong>You are coaching</strong>' : ''}</div>
   <div class="lv-board" id="lv-board">${team(1, g.away, as)}<div class="lv-clock">${done ? '<strong>Final</strong>' + (g.ot ? '/' + (g.ot > 1 ? g.ot : '') + 'OT' : '') : `<strong>${qTxt(q)}</strong><br>${clockTxt(c)}`}</div>${team(0, g.home, hs)}</div><div class="lv-stage"><div class="lv-anim"><canvas id="lv-canvas" role="img" aria-label="Animated court: dots are players, orange is the ball"></canvas><div class="lv-key muted"><span class="lv-sw" style="background:${esc(L.teams[g.away].c1 || '#888')}"></span>${esc(L.teams[g.away].abbr)} <span class="lv-sw" style="background:${esc(L.teams[g.home].c1 || '#888')}"></span>${esc(L.teams[g.home].abbr)} · numbers are jerseys</div></div>${lvTicker(g, n)}</div><div class="lv-court" id="lv-court">${courtWin(1, g.away)}${courtWin(0, g.home)}</div>${ctl}</section>
   <div class="grid2"><section class="panel"><h3>Play-by-play</h3><div class="lv-feed" id="lv-feed">${shown.slice(0, 400).map(e => lvEntryHtml(g, e)).join('') || '<p class="muted">Tip-off…</p>'}</div></section><section class="stack"><div class="panel"><h3>Box score</h3>${boxT(1, g.away)}${boxT(0, g.home)}</div></section></div>`;
 }
@@ -3059,16 +3059,77 @@ function lvTicker(g, n) {
 // Phase 1: live-game sounds for the entry just shown; buzzer + crowd at the final
 function fxLive(g, i) {
   if (!window.FX || !i) return;
-  const fin = i >= g.pbp.length, mineH = isUser(g.home), mineA = isUser(g.away);
+  const fin = i >= g.pbp.length && !g.live, mineH = isUser(g.home), mineA = isUser(g.away);
   FX.pbp(g.pbp[i - 1], i > 1 ? g.pbp[i - 2] : null, fin, fin && (mineH || mineA) ? (mineH ? g.hs > g.as : g.as > g.hs) : null);
 }
+// ===== Nov 20: live-game coaching. Your game is played possession by possession (engine liveGameStart); you call timeouts,
+// make subs, call plays and pick the defense. At the final buzzer the rest of the day is simmed with your game in it (L.preGame).
+const CG_ID = 999999;
+function cgStart() {
+  if (!L || L.user == null || L.noLog) return false;
+  let h, a, sr = null; const po = L.phase === 'playoffs';
+  if (L.phase === 'regular') { const m = (L.schedule[L.day] || []).find(([x, y]) => isUser(x) || isUser(y)); if (!m) return false; [h, a] = m; }
+  else if (po && L.po) { sr = (L.po.rounds[L.po.stage] || []).find(s => s.winner == null && (isUser(s.hi) || isUser(s.lo))); if (!sr) return false; const n = sr.games.length + 1; h = hiHome(sr, n) ? sr.hi : sr.lo; a = h === sr.hi ? sr.lo : sr.hi; }
+  else return false;
+  ui.undo = []; beforeDay(L);
+  const lg = liveGameStart(L, h, a, po); lg.step(1);
+  ui.cg = { lg, me: isUser(h) ? 0 : 1, po, stage: po ? poStages(L)[L.po.stage] : null, gnum: sr ? sr.games.length + 1 : null, g: null, msg: '' };
+  backStack.push(snapNow()); ui.game = CG_ID; ui.player = null; ui.coach = null; ui.liveMode = CG_ID; ui.lv = null; lvState(cgGame());
+  render(); window.scrollTo(0, 0); lvTick(); return true;
+}
+function cgGame() {
+  const c = ui.cg; if (!c) return null; const x = c.lg.ctx;
+  if (!c.g) { const rows = []; for (const [G, s] of [[x.H, 0], [x.A, 1]]) for (const p of G.players) { const r = [p.id, s]; for (let i = 0; i < 15; i++) r.push(0); r.push(G.court.includes(p) ? 1 : 0); rows.push(r); }
+    c.g = { id: CG_ID, live: true, home: c.lg.home, away: c.lg.away, season: L.season, day: L.day, playoff: c.po, stage: c.stage, gnum: c.gnum, pbp: x.LOG, box: rows, hs: 0, as: 0, ot: 0 }; }
+  c.g.tl = [x.H.tl || null, x.A.tl || null]; TK_CACHE.delete(CG_ID); return c.g;
+}
+function cgEnd() {
+  const c = ui.cg; if (!c || c.end) return; c.end = true; if (ui.lv) clearTimeout(ui.lv.timer);
+  L.preGame = c.lg.finish(); ui.cg = null; ui.preOK = L.day + ':' + L.season;
+  if (!c.away) { ui.liveMode = null; ui.game = null; ui.lv = null; ui.liveFrom = L.games.length; ui.liveFinal = true; }
+  if (c.po) runSteps(() => { simPlayoffDay(L); return false; }); else simRegular('day', L.day + 1);
+}
+function cgPanel(g) {
+  const c = ui.cg; if (!c) return ''; const x = c.lg.ctx, G = c.me === 0 ? x.H : x.A, st = id => G.st[id] || [];
+  const line = p => `${esc(posLabel(p))} · ${st(p.id)[IX.pts] || 0} pts · ${st(p.id)[IX.pf] || 0} PF · ${Math.round((st(p.id)[IX.min] || 0) / 60)} min`;
+  const bench = G.players.filter(p => !G.court.some(y => y && y.id === p.id) && !G.out.has(p.id) && (st(p.id)[IX.pf] || 0) < 6);
+  const five = G.court.filter(Boolean).map(p => `<div class="cg-p"><span class="cg-pn"><strong>${esc(shortName(p))}</strong> <span class="muted">${line(p)}</span></span><select data-cgsub="${p.id}" aria-label="Sub for ${esc(shortName(p))}"><option value="">Sub in…</option>${bench.map(b => `<option value="${b.id}">${esc(shortName(b))} · ${line(b)}</option>`).join('')}</select></div>`).join('');
+  const plays = [['', 'Coach decides (playbook)'], ...PLAY_KEYS.map(k => [k, PLAYS[k].n])], covs = [['auto', 'Coach decides'], ...COVS.map(k => [k, COV_LBL[k]]), ['zone', 'Zone (2-3)']];
+  const covNow = G.uCov || 'auto', covTip = k => k === 'auto' ? 'Your coach picks and adjusts during the game' : COV_TXT[k] || '';
+  return `<div class="cg-panel" aria-label="Coaching"><div class="cg-head"><h3>Your calls</h3><button class="sm primary" data-cg="to" ${G.tos > 0 ? '' : 'disabled'}>✋ Timeout (${G.tos} left)</button>${G.uLock ? `<button class="sm" data-cg="auto" title="Your five stays on for about 4 game minutes after a sub">Let coach sub again</button>` : ''}</div>
+  ${c.msg ? `<p class="cg-msg">${esc(c.msg)}</p>` : ''}
+  <div class="cg-grid"><label>Offense: play to run<select data-cgplay="1">${plays.map(([k, t]) => `<option value="${k}" ${(G.uPlay || '') === k ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></label>
+  <label>Defense<select data-cgcov="1">${covs.map(([k, t]) => `<option value="${k}" ${covNow === k ? 'selected' : ''} title="${esc(covTip(k))}">${esc(t)}</option>`).join('')}</select></label></div>
+  <p class="muted cg-tip">${esc(covTip(G.uCov || 'auto'))}${G.uCov ? '' : ` (now: ${esc(COV_LBL[G.cov] || G.cov)})`}</p>
+  <div class="k" style="margin-top:6px">On the floor${G.uLock ? ' · your lineup' : ''}</div>${five}
+  <p class="muted cg-tip">Touching a control pauses the game; press Play to go on. A timeout gives your next 3 trips a small boost and runs a drawn-up play. Leaving this screen lets your coach finish the game.</p></div>`;
+}
+document.addEventListener('focusin', e => { if (!ui.cg || !ui.lv || ui.lv.paused || !e.target.closest('.cg-panel select')) return; ui.lv.paused = true; clearTimeout(ui.lv.timer); });
+document.addEventListener('change', e => {
+  const s = e.target.closest('[data-cgsub],[data-cgplay],[data-cgcov]'); if (!s || !ui.cg) return;
+  const c = ui.cg, x = c.lg.ctx, P = id => { const p = L.players[id]; return p ? shortName(p) : 'Player'; }; let r;
+  if (s.dataset.cgsub) { if (!s.value) return; r = x.cmd({ k: 'sub', side: c.me, out: +s.dataset.cgsub, in: +s.value }); c.msg = r || `${P(+s.value)} in for ${P(+s.dataset.cgsub)}.`; }
+  else if (s.dataset.cgplay) { r = x.cmd({ k: 'play', side: c.me, v: s.value }); c.msg = r || (s.value ? `Running ${PLAYS[s.value].n.toLowerCase()} every trip down (fast breaks still happen).` : 'Your coach calls the plays again.'); }
+  else { r = x.cmd({ k: 'cov', side: c.me, v: s.value }); c.msg = r || (s.value === 'auto' ? 'Your coach picks the defense again.' : `Defense: ${s.value === 'zone' ? '2-3 zone' : COV_LBL[s.value]}.`); }
+  if (ui.lv) { ui.lv.paused = true; clearTimeout(ui.lv.timer); }
+  const y = window.scrollY; render(); window.scrollTo(0, y);
+});
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-cg]'); if (!b || !ui.cg) return;
+  const c = ui.cg, x = c.lg.ctx;
+  if (b.dataset.cg === 'to') { const r = x.cmd({ k: 'to', side: c.me }); c.msg = r || 'Timeout! The game is paused: make your changes, then press Play.'; if (ui.lv) { ui.lv.paused = true; clearTimeout(ui.lv.timer); } if (!r && window.FX) try { FX.sfx('whistle'); } catch (er) { } }
+  else if (b.dataset.cg === 'auto') { x.cmd({ k: 'auto', side: c.me }); c.msg = 'Your coach handles subs again.'; }
+  const y = window.scrollY; render(); window.scrollTo(0, y);
+});
 function lvTick() {
   const lv = ui.lv; if (!lv) return; clearTimeout(lv.timer); lv.timer = null;
-  const g = L && L.games.find(x => x.id === lv.gid);
+  const g = lv.gid === CG_ID ? cgGame() : L && L.games.find(x => x.id === lv.gid);
   if (!g || ui.game !== lv.gid || ui.liveMode !== lv.gid || !g.pbp) return;
+  if (g.live && !lv.paused && lv.i >= g.pbp.length && ui.cg.lg.step(lv.i + 1) && lv.i >= g.pbp.length) { cgEnd(); return; }   // Nov 20: coached game, play the next possession
   if (window.COURT) { const sp0 = LV_SPEED.find(x => x[0] === lv.speed) || LV_SPEED[2]; COURT.live(g, Math.min(lv.i, g.pbp.length), lv.paused ? 0 : sp0[2]); }   // Phase 2: animated court
   if (lv.paused || lv.i >= g.pbp.length) return;
   const sp = LV_SPEED.find(x => x[0] === lv.speed) || LV_SPEED[2];
+  if (!sp[2] && g.live) { cgEnd(); return; }
   if (!sp[2]) { lv.i = g.pbp.length; render(); fxLive(g, lv.i); if (window.COURT) COURT.live(g, lv.i, 0); return; }
   lv.timer = setTimeout(() => { if (ui.lv !== lv || ui.liveMode !== lv.gid) return; lv.i++; const y = window.scrollY; render(); window.scrollTo(0, y); fxLive(g, lv.i); lvTick(); }, sp[2]);
 }
@@ -3093,6 +3154,7 @@ document.addEventListener('click', e => {
   const b = e.target.closest('[data-lv],#b-live'); if (!b || !L) return;
   if (b.id === 'b-live') { const gid = +b.dataset.gid; ui.liveMode = gid; ui.lv = null; lvState(L.games.find(x => x.id === gid)); render(); lvTick(); return; }
   const lv = ui.lv; if (!lv) return; const v = b.dataset.lv;
+  if (v === 'box' && ui.cg && lv.gid === CG_ID) { cgEnd(); return; }
   if (v === 'pause') lv.paused = !lv.paused; else if (v.startsWith('sp:')) { lv.speed = v.slice(3); lv.paused = false; } else if (v.startsWith('f:')) lv.f = v.slice(2); else if (v === 'box') { ui.liveMode = null; clearTimeout(lv.timer); render(); return; }
   render(); lvTick();
 });
@@ -4984,6 +5046,7 @@ document.addEventListener('click', e => {
 }, true);
 function render() {
   closeRM();
+  if (ui.cg && !ui.cg.end && ui.liveMode !== CG_ID) { ui.cg.away = true; setTimeout(cgEnd, 0); }   // Nov 20: left the coached game: the coach finishes it
   if (ui.setupOpen && L) { ui.prevL = L; }
   if (!L || ui.setupOpen) { $('#fchip').hidden = true; $('#brand').classList.remove('fm'); $('#tabs').innerHTML = ''; $('#subtabs').innerHTML = ''; $('#subrow').hidden = true; $('#simctl').innerHTML = ''; $('#simctl').dataset.k = ''; $('#when').textContent = ''; $('#main').innerHTML = vSetup(ui.setupNote); return; }
   try { watchScan(L); } catch (e) { }
@@ -4992,7 +5055,7 @@ function render() {
   let html;
   if (ui.gm != null && findGM(L, ui.gm)) html = vGM(findGM(L, ui.gm));
   else if (ui.coach != null && findCoach(L, ui.coach)) html = vCoach(findCoach(L, ui.coach));
-  else if (ui.game != null) html = vGame(L.games.find(g => g.id === ui.game));
+  else if (ui.game != null) html = vGame(ui.game === CG_ID ? cgGame() : L.games.find(g => g.id === ui.game));
   else if (ui.player != null && L.players[ui.player]) html = vPlayer(L.players[ui.player]);
   else {
     const v = ui.view;
@@ -5531,7 +5594,7 @@ function afterRun(ph0) {
   try { todoStopNotice(); } catch (e) { console.error(e); }
   if (ui.liveFrom != null) {   // v25.2: open your game on the live screen
     const g = L.games.slice(ui.liveFrom).find(x => x.pbp && (isUser(x.home) || isUser(x.away))); ui.liveFrom = null;
-    if (g) { backStack.push(snapNow()); ui.game = g.id; ui.player = null; ui.coach = null; ui.liveMode = g.id; ui.lv = null; lvState(g); render(); window.scrollTo(0, 0); lvTick(); }
+    if (g) { const fin = ui.liveFinal; ui.liveFinal = false; if (!fin) backStack.push(snapNow()); ui.game = g.id; ui.player = null; ui.coach = null; ui.liveMode = g.id; ui.lv = null; const lv = lvState(g); if (fin) lv.i = g.pbp.length; render(); if (!fin) window.scrollTo(0, 0); if (fin) fxLive(g, lv.i); lvTick(); }
   }
   { const P = pressActive(); if (P && L.pausePress !== false && ui.pressSeen !== P.id) { ui.pressSeen = P.id; queueDialog(pressDialog); } }
   const k = interruptKind();
@@ -5639,6 +5702,8 @@ $('#simctl').addEventListener('click', e => {
   if (k === 'multi') { runDialog(multiDialog); return; }
   if (k === 'autostop') { ui.autoStop = true; return; }
   const T = L.schedule.length;
+  if (ui.cg) { ui.cg.away = true; cgEnd(); return; }   // Nov 20: a sim button during your coached game finishes it first
+  if (k === 'live') { if (interruptKind() || (window.CAR && L.career && CAR.pending())) { afterRun(L.phase); return; } if (cgStart()) return; }
   if (k === 'live') { ui.liveFrom = L.games.length; ui.preOK = L.day + ':' + L.season; k = L.phase === 'playoffs' ? 'pday' : 'day'; }   // v25.2: sim the day, then open your game live
   if (k === 'day' || k === 'week' || k === 'end' || k === 'deadline') {
     // Sim day / week stop at the trade deadline (70% mark) if it falls in between; Sim to trade deadline goes right to it

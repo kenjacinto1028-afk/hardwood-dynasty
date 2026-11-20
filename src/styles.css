@@ -1091,3 +1091,11 @@ body.p3-phone #pb-err { bottom: 76px; }
 .cf-sw button { flex: none; width: 26px; height: 26px; padding: 0; border-radius: 50%; border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--line); }
 .cf-sw button.on { box-shadow: 0 0 0 2px var(--accent); }
 @media (max-width: 600px) { .cf { grid-template-columns: minmax(0, 1fr); justify-items: center; } .cf-rows { width: 100%; } }
+/* Nov 20: live-game coaching panel */
+.cg-panel { margin-top: 12px; padding: 12px; border: 1px solid var(--line, #ddd); border-radius: 12px; background: var(--panel2, rgba(127,127,127,.06)); }
+.cg-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; } .cg-head h3 { margin: 0 auto 0 0; }
+.cg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; } .cg-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.cg-p { display: grid; grid-template-columns: minmax(0, 1fr) minmax(120px, 220px); gap: 8px; align-items: center; padding: 4px 0; border-top: 1px solid var(--line, #eee); font-size: 13px; }
+.cg-pn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .cg-p select, .cg-grid select { min-height: 34px; max-width: 100%; }
+.cg-msg { margin: 8px 0 0; font-weight: 600; } .cg-tip { font-size: 12px; margin: 6px 0 0; }
+@media (max-width: 700px) { .cg-grid, .cg-p { grid-template-columns: 1fr; } .cg-pn { white-space: normal; } }

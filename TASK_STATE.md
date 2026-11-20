@@ -1,9 +1,18 @@
+# TASK_STATE — Live-game coaching (Opus engine, Sonnet UI) — Nov 20 2026
+Branch `claude/project-thread-1t1i21`.
+- [ ] 1. engine.js: playGame0 -> generator playGameG (yield per possession); playGame runs it to the end; sim hash unchanged
+- [ ] 2. engine.js: coaching hooks (timeout, sub lock, play call, coverage incl. zone) + simDay/simPlayoffDay use L.preGame
+- [ ] 3. app.js: Coach live flow (partial game on live screen, finish -> sim day), coaching panel UI
+- [ ] 4. Tests: hash unchanged, coaching changes results, browser check
+- [ ] 5. PROGRESS.md, PR, merge, Pages check
+
+---
 # TASK_STATE — Court dots act out real plays (Opus) — Nov 20 2026
 Branch `claude/project-thread-1ou2as`.
 - [x] 1. engine.js logE: entry[11] = [play, handler, kick-out post man, coverage, doubled id]; sim hash unchanged (tools/court-plays.js)
 - [x] 2. court.js choreo()/actOut(): plays, screens, coverage, trails, banner; app.js ½x speed
 - [x] 3. Tests: hash identical; tools/browser-courtplays.js ALL PASS; browser-p2 81/81
-- [ ] 4. PROGRESS.md, PR, merge, Pages check
+- [x] 4. PROGRESS.md, PR #32 merged
 
 ---
 # TASK_STATE — My Career face builder (Sonnet) — Nov 19 2026
@@ -40,7 +49,7 @@ Branch `claude/project-thread-dhek1n`. Only history single-game lists (NBA_HX.re
 - [x] 1. Research real lists online: tools/rec-game/*.csv (Basketball-Reference leaders pages) + *_pre.csv (Wikipedia, pre-1983-84 REB/AST/STL)
 - [x] 2. tools/rec-game/merge.py merged into src/nba-history.js (100 per stat, ORB added); app.js records note
 - [x] 3. tools/browser-recgame.js ALL PASS (1280 + 390); opponents fixed from Wikipedia / cross-stat lookup
-- [ ] 4. PROGRESS.md, PR, merge, Pages check
+- [x] 4. PROGRESS.md, PR #32 merged
 
 ---
 # TASK_STATE — My Career mode (Opus) — Nov 19 2026

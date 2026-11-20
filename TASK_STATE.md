@@ -4,7 +4,7 @@ Branch `claude/project-thread-gyg68h`.
 - [x] 2. engine.js: friends/duos on court add chemistry
 - [x] 3. app.js: Friends panel on player page, bonds on team chemistry panel, Rules text
 - [x] 4. Tests: unit sim (friends form, FA pull), browser check
-- [ ] 5. PROGRESS.md, PR, merge, Pages check
+- [x] 5. PROGRESS.md, PR #35 merged
 
 ---
 # TASK_STATE — Live-game coaching (Opus engine, Sonnet UI) — Nov 20 2026

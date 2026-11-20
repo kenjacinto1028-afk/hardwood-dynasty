@@ -354,9 +354,9 @@ td.l > .injx:first-child { margin-left: 0; }
 .lv-box tr.oncourt td { background: var(--th); }
 .lv-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); margin-right: 5px; }
 .lv-court { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 6px 0 10px; }
-.lv-cp { display: grid; grid-template-columns: minmax(0, 1fr) 34px 52px 40px 38px; gap: 6px; font-size: 12px; padding: 2px 0; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.lv-cp { display: grid; grid-template-columns: minmax(0, 1fr) 40px 30px 30px 30px 40px 30px 26px 34px; gap: 6px; font-size: 12px; padding: 2px 0; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
 .lv-cpn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-@media (max-width: 700px) { .lv-court { grid-template-columns: 1fr; } .lv-cp { grid-template-columns: minmax(0, 1fr) 30px 46px 36px 34px; } .lv-row { grid-template-columns: 58px 38px minmax(0, 1fr); } .lv-sc { display: none; } .lv-pts { font-size: 28px; } }
+@media (max-width: 700px) { .lv-court { grid-template-columns: 1fr; } .lv-cp { grid-template-columns: minmax(0, 1fr) 0 26px 26px 26px 36px 26px 22px 30px; gap: 3px; } .lv-cp > span:nth-child(2) { visibility: hidden; } .lv-row { grid-template-columns: 58px 38px minmax(0, 1fr); } .lv-sc { display: none; } .lv-pts { font-size: 28px; } }
 
 /* v25.5: tabbed windows */
 .twin .twbody > .panel { border: 0; box-shadow: none; padding: 0; margin: 0 !important; background: none; }
@@ -1099,3 +1099,4 @@ body.p3-phone #pb-err { bottom: 76px; }
 .cg-pn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .cg-p select, .cg-grid select { min-height: 34px; max-width: 100%; }
 .cg-msg { margin: 8px 0 0; font-weight: 600; } .cg-tip { font-size: 12px; margin: 6px 0 0; }
 @media (max-width: 700px) { .cg-grid, .cg-p { grid-template-columns: 1fr; } .cg-pn { white-space: normal; } }
+.lv-cph { font-size: 10px; font-weight: 700; border-bottom: 1px solid var(--line); } .lv-cp > span:nth-child(n+3) { text-align: right; }

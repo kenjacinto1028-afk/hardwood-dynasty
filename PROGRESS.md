@@ -1,6 +1,7 @@
 # PBL progress
 
 ## Live-game coaching (Opus engine, Sonnet UI, Nov 20 2026)
+- [x] On-the-floor windows show PTS, REB, AST, FG, MIN, PF, +/- with a header row; coaching lineup lines add reb, ast, FG. Cache v19.
 - [x] "▶ Play & coach live" (was "Sim day & watch live"): your game is played possession by possession (engine `liveGameStart`, `playGameG` generator; `playGame` runs it straight through, so league results are unchanged: tools/court-plays.js hash identical).
 - [x] Your calls (panel under the live controls): timeout (pauses the game, next 3 trips get a small boost + drawn-up play, the other coach may adjust), subs (your five holds ~4 game minutes, "Let coach sub again"), play to run every trip (any of the 11 plays, or coach decides), defense (drop, switch, hedge, blitz/trap, ice, new 2-3 zone, or coach decides). Zone is for your team only: packs the paint, gives up threes.
 - [x] At the final buzzer the rest of the day is simmed with your coached game in it (`L.preGame`, `takePre`); leaving the screen or "Sim to the final" lets your coach finish. Touching a control pauses the game.

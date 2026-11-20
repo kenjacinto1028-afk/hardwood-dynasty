@@ -42,9 +42,22 @@ const P3 = (function () { with (window.PBL) {   // eslint-disable-line no-with
   const isHof = p => !!(L.hof || []).some(h => h.pid === p.id);
   const pgOf = r => { const g = r.gp || 1; return [r.pts / g, (r.orb + r.drb) / g, r.ast / g]; };
   const r1 = x => Math.round(x * 10) / 10;
-  // every pro season with games: { s, tid, age, ovr, rs, po }
+  // real NBA history (NBA leagues): team from a real abbreviation, a rating from a real season line (PER, else box score)
+  const OLDAB = { NJN: 'BKN', BRK: 'BKN', SEA: 'OKC', VAN: 'MEM', NOH: 'NOP', NOK: 'NOP', CHH: 'CHA', CHO: 'CHA', WSB: 'WAS', SDC: 'LAC', KCK: 'SAC', PHO: 'PHX', GOS: 'GSW', SFW: 'GSW', PHW: 'GSW', NYN: 'BKN', BUF: 'LAC', CIN: 'SAC', ROC: 'SAC', STL: 'ATL', MLH: 'ATL', SYR: 'PHI', MNL: 'LAL', FTW: 'DET', BAL: 'WAS', CAP: 'WAS', CHZ: 'WAS', CHP: 'WAS', NOJ: 'UTA', SDR: 'HOU', KCO: 'SAC', NYA: 'BKN' };
+  let abMap = null, abL = null;
+  const teamOfAb = ab => { if (abL !== L) { abL = L; abMap = {}; for (const t of L.teams) abMap[typeof nbaAbOf === 'function' ? nbaAbOf(t) : t.abbr] = t; } return abMap[ab] || abMap[OLDAB[ab]] || null; };
+  const realOvr = r => { const g = r.gp || 1; const v = r.per != null ? 42 + r.per * 1.45 : 48 + ((r.pts || 0) + 0.7 * ((r.orb || 0) + (r.drb || 0)) + 0.7 * (r.ast || 0)) / g * 0.9; return Math.max(40, Math.min(97, Math.round(v))); };
+  const rowSt = r => ({ gp: r.gp || 0, pts: r.pts || 0, orb: r.orb || 0, drb: r.drb || 0, ast: r.ast || 0 });
+  const realOn = p => !!(L.nba && p.real && typeof nbaPastRows === 'function');
+  // every pro season with games: { s, tid, age, ovr, rs, po } (real NBA seasons first, flag real)
   function seasonsOf(p) {
     const out = (p.hist || []).filter(h => h.rs && h.rs.gp).map(h => ({ s: h.s, tid: h.tid, age: h.age, ovr: h.ovr, rs: h.rs, po: h.po && h.po.gp ? h.po : null }));
+    if (realOn(p)) {
+      let po = []; try { po = typeof nbaPoRows === 'function' ? nbaPoRows(p) : []; } catch (e) { }
+      const byS = {}; for (const r of nbaPastRows(p)) if (!r.est && r.gp && !out.some(h => h.s === r.s)) { const o = byS[r.s]; if (!o || r.gp > o.gp) byS[r.s] = r; }   // traded mid-season: keep the season total row
+      for (const k in byS) { const r = byS[k], t = r.team && !/TOT|TM$/.test(r.team) ? teamOfAb(r.team) : null, pr = po.find(x => x.s === r.s && x.gp);
+        out.push({ s: r.s, tid: t ? t.id : null, ab: r.team, age: p.age - (L.season - r.s), ovr: realOvr(r), rs: rowSt(r), po: pr ? rowSt(pr) : null, real: 1 }); }
+    }
     if (p.stats && p.stats.rs && p.stats.rs.gp && !out.some(h => h.s === L.season)) out.push({ s: L.season, tid: p.team, age: p.age, ovr: p.ovr, rs: p.stats.rs, po: p.stats.po && p.stats.po.gp ? p.stats.po : null, cur: 1 });
     return out.sort((a, b) => a.s - b.s);
   }
@@ -83,17 +96,25 @@ const P3 = (function () { with (window.PBL) {   // eslint-disable-line no-with
     let r = bump(rarOf(o), tg.b + (k === 'rookie' ? 0 : 0)), rb = tg.tag;
     if (k === 'rookie') rb = tg.aw.includes('Rookie of the Year') ? 'Rookie of the Year' : 'Rookie card';
     if (k === 'title') { rb = tg.aw.includes('Finals MVP') ? 'Finals MVP title run' : 'Title run'; r = bump(rarOf(o), Math.max(1, tg.b)); }
-    return Object.assign({ id: p.id, nat: p.nat, n: p.name, o: String(o), ps: posLabel(p), a: h.age, num: p.num != null ? p.num : '', s: seasonName(h.s), st: pgOf(row).map(r1), r, aw: k === 'title' ? (h.po ? 'Playoffs' : '') : topAw(tg.aw), lg: lgTag(), k, sv: h.s, rb: (seasonName(h.s) + ' · ' + (rb || 'Season')).toUpperCase(), ft: tg.tag || (first ? 'Rookie season' : '') }, teamBits(t));
+    return Object.assign({ id: p.id, nat: p.nat, n: p.name, o: String(o), ps: posLabel(p), a: h.age, num: p.num != null ? p.num : '', s: seasonName(h.s), st: pgOf(row).map(r1), r, aw: k === 'title' ? (h.po ? 'Playoffs' : '') : topAw(tg.aw), lg: lgTag(), k, sv: h.s, rb: (seasonName(h.s) + ' · ' + (rb || 'Season')).toUpperCase(), ft: tg.tag || (first ? 'Rookie season' : ''), real: h.real ? 1 : 0 }, teamBits(t), !t && h.ab ? { tc: h.ab, ab: h.ab } : {});
   }
   // whole-career card (Hall of Famers get the gold Hall of Fame frame)
   function careerCard(p) {
     const all = seasonsOf(p); if (!all.length) return null;
     const tot = { gp: 0, pts: 0, orb: 0, drb: 0, ast: 0 }, tc = {};
     for (const h of all) { for (const x in tot) tot[x] += h.rs[x] || 0; tc[h.tid] = (tc[h.tid] || 0) + h.rs.gp; }
-    const tid = +Object.entries(tc).sort((a, b) => b[1] - a[1])[0][0], peak = Math.max(...all.map(h => h.ovr || 0), p.retired ? 0 : p.ovr);
+    const tk = Object.entries(tc).filter(x => x[0] !== 'null').sort((a, b) => b[1] - a[1])[0], tid = tk ? +tk[0] : null, peak = Math.max(...all.map(h => h.ovr || 0), p.retired ? 0 : p.ovr);
     const aw = (p.awards || []).map(a => a.a), n = x => aw.filter(a => a === x).length, hof = isHof(p);
     const r = hof ? 'hof' : bump(rarOf(peak), (n('MVP') ? 1 : 0) + (n('Champion') >= 2 || n('Finals MVP') ? 1 : 0));
-    return Object.assign({ id: p.id, nat: p.nat, n: p.name, o: String(peak), ps: posLabel(p), a: p.age, num: p.num != null ? p.num : '', s: all.length + ' season' + (all.length === 1 ? '' : 's'), st: pgOf(tot).map(r1), r, aw: topAw(aw), lg: lgTag(), k: 'career', rb: (hof ? 'Hall of Fame · career' : 'Career · ' + seasonName(all[0].s) + ' to ' + (p.retired ? seasonName(all[all.length - 1].s) : 'now')).toUpperCase(), ft: hof ? 'Hall of Fame' : 'Career' }, teamBits(L.teams[tid]));
+    return Object.assign({ id: p.id, nat: p.nat, n: p.name, o: String(peak), ps: posLabel(p), a: p.age, num: p.num != null ? p.num : '', s: all.length + ' season' + (all.length === 1 ? '' : 's'), st: pgOf(tot).map(r1), r, aw: topAw(aw), lg: lgTag(), k: 'career', rb: (hof ? 'Hall of Fame · career' : 'Career · ' + seasonName(all[0].s) + ' to ' + (p.retired ? seasonName(all[all.length - 1].s) : 'now')).toUpperCase(), ft: hof ? 'Hall of Fame' : 'Career' }, teamBits(tid != null ? L.teams[tid] : null));
+  }
+  // retired NBA legends (NBA leagues): career card from real career totals (no face: silhouette)
+  const legendsOn = () => !!(L.nba && typeof nbaLegends === 'function' && nbaLegends().length);
+  function legendCard(i) {
+    const g = nbaLegends()[i]; if (!g) return null; const r = g.rs, aw = g.aw || {}, t = (g.teams || []).map(teamOfAb).find(Boolean) || null;
+    const o = realOvr(r), n = k => aw[k] || 0, ac = [['MVP', 'MVP'], ['Champion', 'Champ'], ['Finals MVP', 'Finals MVP'], ['DPOY', 'DPOY']].filter(([k]) => n(k)).slice(0, 2).map(([k, l]) => (n(k) > 1 ? n(k) + '× ' : '') + l).join(' · ');
+    const yrs = String(g.from).slice(0, 4) + '–' + String(g.to).slice(0, 4);
+    return Object.assign({ id: 100000 + i, li: i, n: g.name, o: String(o), ps: g.pos, a: 0, num: '', s: yrs, st: pgOf({ gp: r.gp, pts: r.pts, orb: (r.orb || 0) + (r.drb || 0) ? r.orb : (r.trb || 0), drb: (r.orb || 0) + (r.drb || 0) ? r.drb : 0, ast: r.ast }).map(r1), r: g.hof ? 'hof' : bump(rarOf(o), (n('MVP') ? 1 : 0) + (n('Champion') >= 2 ? 1 : 0)), aw: ac, lg: 'NBA', k: 'legend', rb: (g.hof ? 'Legend · Hall of Fame ' + g.hof : 'Legend · ' + yrs).toUpperCase(), ft: n('MVP') ? 'Legend MVP' : 'Legend', real: 1 }, teamBits(t), { tc: (g.teams || []).join(' · ') || 'NBA' });
   }
   // head coach card: career wins, losses, titles
   const coachById = id => { for (const t of L.teams) if (t.coach && t.coach.id === id) return t.coach; return (Array.isArray(L.coachPool) ? L.coachPool : Object.values(L.coachPool || {})).find(c => c && c.id === id) || null; };
@@ -122,6 +143,8 @@ const P3 = (function () { with (window.PBL) {   // eslint-disable-line no-with
     'All-Star season': ['A night with the stars.', 'All-Star, and earned it.'],
     'Hall of Fame': ['Enshrined. Immortal.', 'A career for the ages.', 'Bronze bust, golden legacy.'],
     'Career': ['A body of work.', 'Year after year, he showed up.', 'The whole story on one card.'],
+    'Legend MVP': ['They still measure MVPs against him.', 'Changed how the game is played.', 'A name every fan knows.'],
+    'Legend': ['From the old days, built to last.', 'History in sneakers.', 'The game remembers.'],
     'Champion coach': ['Built a winner and kept it.', 'Clipboard, ring, respect.'],
     'Head coach': ['Draws it up. Lives with it.', 'Sideline general.', 'Every timeout, a plan.'],
     '': ['Another chapter in the book.', 'A season on the record.', 'Punching the clock, every night.']
@@ -170,6 +193,7 @@ ${sparkle}</svg>`;
   const vParse = s => { const [k, x] = String(s || 'now').split(':'); return { k, s: x != null && x !== '' ? +x : null }; };
   function cardOf(p, v) {
     const k = v && v.k || 'now';
+    if (k === 'legend') { const d = legendCard(v.s != null ? v.s : p); return { d, svg: cardSvg(d, '', d.tid != null ? logo(d.tid, 46) : '') }; }
     if (k === 'coach') { const d = coachCard(p); return { d, svg: cardSvg(d, portrait('c', p.id, p.nat, d.tid), d.tid != null ? logo(d.tid, 46) : '') }; }
     const d = (k === 'career' ? careerCard(p) : k === 'now' ? null : seasonCard(p, k, v.s)) || cardData(p);
     return { d, svg: cardSvg(d, portrait('p', p.id, p.nat, d.tid), d.tid != null ? logo(d.tid, 46) : '') };
@@ -198,17 +222,17 @@ ${sparkle}</svg>`;
   }
   // card popup. list = cards to page through: ids, or [id, "kind:season"] pairs from the binder
   function cardDialog(pid, list, v) {
-    v = v || { k: 'now' }; const coach = v.k === 'coach', p = coach ? coachById(pid) : L.players[pid]; if (!p) return;
+    v = v || { k: 'now' }; const coach = v.k === 'coach', leg = v.k === 'legend', p = leg ? pid : coach ? coachById(pid) : L.players[pid]; if (p == null || (leg && !legendCard(pid))) return;
     const { d, svg } = cardOf(p, v);
     const items = (list || []).map(x => Array.isArray(x) ? x : [x, null]), i0 = items.findIndex(x => x[0] === pid && (x[1] == null || x[1] === vKey(v))), i = i0 >= 0 ? i0 : items.findIndex(x => x[0] === pid);
-    const nb = j => { const x = items[(j + items.length) % items.length]; return `data-p3cn="${x[0]}" data-p3cv="${x[1] || vKey(coach ? v : { k: v.k === 'title' ? 'now' : v.k })}"`; };
+    const nb = j => { const x = items[(j + items.length) % items.length]; return `data-p3cn="${x[0]}" data-p3cv="${x[1] || vKey(coach || leg ? v : { k: v.k === 'title' ? 'now' : v.k })}"`; };
     const nav = i >= 0 && items.length > 1 ? `<button class="sm" ${nb(i - 1)} aria-label="Previous card">←</button><span class="muted">${i + 1} / ${items.length}</span><button class="sm" ${nb(i + 1)} aria-label="Next card">→</button>` : '';
-    const V = coach ? null : variantsOf(p), cur = vKey(d.k === 'now' ? { k: 'now' } : { k: d.k, s: d.k === 'career' || d.k === 'rookie' ? null : d.sv });
+    const V = coach || leg ? null : variantsOf(p), cur = vKey(d.k === 'now' ? { k: 'now' } : { k: d.k, s: d.k === 'career' || d.k === 'rookie' ? null : d.sv });
     const pick = V ? `<div class="p3-vpick" role="group" aria-label="Card type">${V.chips.map(c => `<button class="sm chipbtn ${vKey(c) === cur ? 'primary' : ''}" data-p3v="${vKey(c)}">${esc(c.l)}</button>`).join('')}${V.seasons.length ? `<select id="p3-vseason" aria-label="Season card"><option value="">Season card…</option>${V.seasons.slice().reverse().map(x => `<option value="season:${x.s}" ${cur === 'season:' + x.s ? 'selected' : ''}>${esc(x.l)}</option>`).join('')}</select>` : ''}</div>` : '';
-    dialog(`<h2>${coach ? 'Coach card' : 'Player card'}</h2>${pick}<div class="p3-cardstage">${cardBox(d, svg, noAnim() ? '' : 'p3-flip')}</div>
+    dialog(`<h2>${coach ? 'Coach card' : leg ? 'Legend card' : 'Player card'}</h2>${pick}<div class="p3-cardstage">${cardBox(d, svg, noAnim() ? '' : 'p3-flip')}</div>
       <p class="p3-flavor">“${esc(flavorOf(d))}” <span class="p3-chip rar-${d.r}">${esc(RAR[d.r].n)}</span></p>
       <div class="row p3-cardnav" style="justify-content:center;margin:8px 0">${nav}</div>
-      <div class="row" style="justify-content:center;flex-wrap:wrap;gap:8px"><button class="primary" id="p3c-save">Save image</button><button id="p3c-share">Share</button><button id="p3c-link">Copy link</button>${coach ? `<button data-coach="${p.id}" id="p3c-open">Coach page</button>` : `<button data-player="${p.id}" class="lk-btn" id="p3c-open">Player page</button>`}<button id="x-close">Close</button></div>
+      <div class="row" style="justify-content:center;flex-wrap:wrap;gap:8px"><button class="primary" id="p3c-save">Save image</button><button id="p3c-share">Share</button><button id="p3c-link">Copy link</button>${leg ? '<span id="p3c-open" hidden></span>' : coach ? `<button data-coach="${p.id}" id="p3c-open">Coach page</button>` : `<button data-player="${p.id}" class="lk-btn" id="p3c-open">Player page</button>`}<button id="x-close">Close</button></div>
       <p class="muted" id="p3c-msg" style="text-align:center;min-height:18px;margin:8px 0 0"></p>`, 'p3-carddlg');
     sfx('page');
     const msg = t => { const m = $('#p3c-msg'); if (m) m.textContent = t; };
@@ -239,10 +263,10 @@ ${sparkle}</svg>`;
   }
   window.addEventListener('hashchange', () => { cardHashCheck(); });
   // Cards view: a team's binder, by card type; plus league-wide Hall of Fame and coach binders
-  const SHOW = [['now', 'Current'], ['best', 'Best season'], ['career', 'Career'], ['rookie', 'Rookie'], ['special', 'Specials'], ['coach', 'Coaches'], ['hof', 'Hall of Fame']];
+  const SHOW = [['now', 'Current'], ['best', 'Best season'], ['career', 'Career'], ['rookie', 'Rookie'], ['special', 'Specials'], ['coach', 'Coaches'], ['hof', 'Hall of Fame'], ['legend', 'Legends']];
   const RSORT = { hof: 6, leg: 5, epic: 4, rare: 3, unc: 2, com: 1 };
   P3V.cards = function () {
-    const tid = ui.p3cardT != null && L.teams[ui.p3cardT] ? ui.p3cardT : L.user != null ? L.user : 0, show = SHOW.some(x => x[0] === ui.p3show) ? ui.p3show : 'now';
+    const tid = ui.p3cardT != null && L.teams[ui.p3cardT] ? ui.p3cardT : L.user != null ? L.user : 0, SH = SHOW.filter(x => x[0] !== 'legend' || legendsOn()), show = SH.some(x => x[0] === ui.p3show) ? ui.p3show : 'now';
     const ovrN = p => parseInt(stripTags(ovrTxt(p)), 10) || p.ovr;
     const ps = rosterOf(L, L.teams[tid]).slice().sort((a, b) => ovrN(b) - ovrN(a));
     let cards = [];
@@ -253,16 +277,17 @@ ${sparkle}</svg>`;
     else if (show === 'rookie') ps.forEach(p => add(p, { k: 'rookie' }));
     else if (show === 'special') ps.forEach(p => seasonsOf(p).forEach((h, i) => { const tg = seasonTag(p, h.s, i === 0); if (tg.aw.includes('Champion')) add(p, { k: 'title', s: h.s }); if (tg.b >= 1) add(p, { k: 'season', s: h.s }); }));
     else if (show === 'coach') L.teams.map(t => t.coach).filter(Boolean).forEach(c => add(c, { k: 'coach' }));
+    else if (show === 'legend') nbaLegends().forEach((g, i) => { const d = legendCard(i); cards.push({ p: { id: i, name: g.name }, v: { k: 'legend' }, d, svg: cardSvg(d, '', d.tid != null ? logo(d.tid, 46) : '') }); });
     else if (show === 'hof') (L.hof || []).map(h => L.players[h.pid]).filter(Boolean).forEach(p => add(p, { k: 'career' }));
     if (show !== 'now') cards.sort((a, b) => (RSORT[b.d.r] - RSORT[a.d.r]) || (+b.d.o - +a.d.o));
     const cnt = {}; for (const c of cards) cnt[c.d.r] = (cnt[c.d.r] || 0) + 1;
     const chips = ['hof', 'leg', 'epic', 'rare', 'unc', 'com'].filter(k => cnt[k]).map(k => `<span class="p3-chip rar-${k}">${cnt[k]} ${RAR[k].n}</span>`).join('');
-    const league = show === 'coach' || show === 'hof';
+    const league = show === 'coach' || show === 'hof' || show === 'legend';
     const opts = L.teams.map(t => `<option value="${t.id}" ${t.id === tid ? 'selected' : ''}>${esc(t.city + ' ' + t.name)}${isUser(t.id) ? ' (you)' : ''}</option>`).join('');
     const empty = { best: 'No pro seasons yet.', career: 'No pro seasons yet.', rookie: 'No pro seasons yet.', special: 'No special cards on this team yet. Awards and titles make them: MVP, DPOY, Rookie of the Year, title runs and more.', hof: 'No Hall of Famers yet.' }[show] || 'No cards.';
     return `<section class="panel"><div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px"><h2 style="margin:0">Cards</h2>${league ? '' : `<label class="row" style="gap:6px">Team <select id="p3-cardteam" aria-label="Team">${opts}</select></label>`}</div>
-      <div class="p3-show" role="tablist" aria-label="Card type">${SHOW.map(([k, n]) => `<button class="sm chipbtn ${k === show ? 'primary' : ''}" role="tab" aria-selected="${k === show}" data-p3show="${k}">${n}</button>`).join('')}</div>
-      <p class="muted" style="margin:6px 0 10px">Tap a card to flip it up, switch to any season, save it or share it. Rarity: Common, Uncommon 55+, Rare 60+, Epic 70+, Legendary 80+ (big awards and titles move a card up), Hall of Fame.</p>
+      <div class="p3-show" role="tablist" aria-label="Card type">${SH.map(([k, n]) => `<button class="sm chipbtn ${k === show ? 'primary' : ''}" role="tab" aria-selected="${k === show}" data-p3show="${k}">${n}</button>`).join('')}</div>
+      <p class="muted" style="margin:6px 0 10px">Tap a card to flip it up, switch to any season, save it or share it. Rarity: Common, Uncommon 55+, Rare 60+, Epic 70+, Legendary 80+ (big awards and titles move a card up), Hall of Fame.${L.nba ? ' Real NBA players also have cards for their real past seasons; the big number on those is a rating from that season’s real stats.' : ''}</p>
       <div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:12px">${chips}</div>
       ${cards.length ? `<div class="p3-binder">${cards.map(c => `<button class="p3-slot" data-p3card="${c.p.id}" data-p3cv="${vKey(c.v)}" aria-label="${esc(c.p.name)} card">${cardBox(c.d, c.svg)}</button>`).join('')}</div>` : `<p class="muted">${empty}</p>`}</section>`;
   };
@@ -271,8 +296,8 @@ ${sparkle}</svg>`;
     const sh = e.target.closest('[data-p3show]'); if (sh && L) { ui.p3show = sh.dataset.p3show; render(); return; }
     const b = e.target.closest('[data-p3card]'); if (!b || !L) return;
     e.preventDefault(); e.stopPropagation();
-    const pid = +b.dataset.p3card, v = vParse(b.dataset.p3cv), p = v.k === 'coach' ? coachById(pid) : L.players[pid]; if (!p) return;
-    const list = b.closest('.p3-binder') ? [...document.querySelectorAll('.p3-binder [data-p3card]')].map(x => [+x.dataset.p3card, x.dataset.p3cv]) : p.team != null && v.k !== 'coach' ? rosterOf(L, L.teams[p.team]).map(x => x.id) : null;
+    const pid = +b.dataset.p3card, v = vParse(b.dataset.p3cv), p = v.k === 'legend' ? pid : v.k === 'coach' ? coachById(pid) : L.players[pid]; if (p == null) return;
+    const list = b.closest('.p3-binder') ? [...document.querySelectorAll('.p3-binder [data-p3card]')].map(x => [+x.dataset.p3card, x.dataset.p3cv]) : p.team != null && v.k !== 'coach' && v.k !== 'legend' ? rosterOf(L, L.teams[p.team]).map(x => x.id) : null;
     cardDialog(pid, list, v);
   }, true);
 
@@ -674,6 +699,6 @@ ${sparkle}</svg>`;
   }
   setTimeout(hashCheck, 400);
 
-  return { get _clock() { return dclock; }, swipeTab, phoneLayout, afterRender, savesExtra, dialogArt, readLeagueFile, leagueBlob, teamLink, teamLinkData, openSharedTeam, storyOf, art, draftWatch, cardData, cardSvg, cardDialog, cardLink, openSharedCard, ceremony: (k, once) => once ? ceremonyOnce(k) : ceremony(k), closeCer, teamTrophies, saveBlob, shareFile, copyText, b64e, b64d, svgToPng, rarOf, cardOf, variantsOf, seasonsOf, careerCard, seasonCard, coachCard, flavorOf };
+  return { get _clock() { return dclock; }, swipeTab, phoneLayout, afterRender, savesExtra, dialogArt, readLeagueFile, leagueBlob, teamLink, teamLinkData, openSharedTeam, storyOf, art, draftWatch, cardData, cardSvg, cardDialog, cardLink, openSharedCard, ceremony: (k, once) => once ? ceremonyOnce(k) : ceremony(k), closeCer, teamTrophies, saveBlob, shareFile, copyText, b64e, b64d, svgToPng, rarOf, cardOf, variantsOf, seasonsOf, careerCard, seasonCard, coachCard, legendCard, flavorOf };
 } })();
 window.P3 = P3;

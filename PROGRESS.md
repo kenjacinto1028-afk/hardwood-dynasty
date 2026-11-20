@@ -1,5 +1,10 @@
 # PBL progress
 
+## Real-history cards (Sonnet, Nov 20 2026)
+- [x] Real NBA players get cards for their real past seasons (e.g. LeBron's 2003-04 Rookie of the Year card), with real teams and real awards; their Career card adds real seasons to league seasons. Rating on a real season comes from that season's PER (or box score).
+- [x] Legends binder (NBA leagues): 77 retired greats (Kareem, Jordan, Wilt, Magic, Bird...) from real career totals, Hall of Fame gold frame, silhouette face.
+- Test: tools/browser-cards.js ALL PASS (1300 + 390). Cache v23.
+
 ## Card variety and rarities (Sonnet UI, Haiku flavor text, Nov 20 2026)
 - [x] New card types on top of the existing player cards: Season card (any one year, e.g. "2026-27 · MVP season"), Rookie card, Title run card (playoff numbers), Career card (whole career in this league; Hall of Famers get the gold Hall of Fame frame), Coach card (wins, losses, titles, win%).
 - [x] Rarity tiers: Common, Uncommon 55+ (new, green), Rare 60+, Epic 70+, Legendary 80+, Hall of Fame. Big awards and titles move a season card up one or two tiers (MVP, Finals MVP +2; title, DPOY, ROY, scoring title and more +1).

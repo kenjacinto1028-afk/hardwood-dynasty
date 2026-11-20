@@ -1,9 +1,16 @@
+# TASK_STATE — Real-history cards (Sonnet) — Nov 20 2026
+Branch `claude/project-thread-ld9xl2`.
+- [x] 1. p3.js: real past seasons in seasonsOf (NBA leagues), legendCard + Legends binder
+- [x] 2. tools/browser-cards.js ALL PASS
+- [ ] 3. PROGRESS.md, PR, merge, Pages check
+
+---
 # TASK_STATE — Card variety and rarities (Sonnet UI, Haiku flavor text) — Nov 20 2026
 Branch `claude/project-thread-ld9xl2`.
 - [x] 1. p3.js: card kinds (now, season, rookie, title run, career, Hall of Fame), Uncommon tier, ribbon tag, award-boosted rarity, coach cards, flavor lines
 - [x] 2. p3.js: card popup variant picker + binder "Show" filter (current, best season, career, rookie, specials, coach, Hall of Fame list); styles
 - [x] 3. Tests: tools/browser-cards.js ALL PASS (1300 + 390), browser-p3 98/100 (draft fixture missing, unrelated)
-- [ ] 4. PROGRESS.md, PR, merge, Pages check
+- [x] 4. PROGRESS.md, PR #37 merged
 
 ---
 # TASK_STATE — All-Star Weekend contests (Opus logic, Sonnet UI, Haiku text) — Nov 20 2026

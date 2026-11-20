@@ -135,9 +135,12 @@
       sc.drawn = {};
       const ids = Object.keys(sc.dots);
       for (const id of ids) { const d = sc.dots[id], p = at(d.kf, t); if (!p) continue; sc.drawn[id] = [p[1], p[2]]; }
+      if (sc.trails) for (const id of sc.trails) { const d = sc.dots[id]; if (d && t > 0.2 && t < 0.75) drawTrail(g, v, d.kf, t, d.col.fill === '#ffffff' ? d.col.line : d.col.fill); }
+      if (sc.screens) for (const s of sc.screens) if (t >= s.t0 && t <= s.t1 + 0.04 && sc.drawn[s.id] && sc.drawn[s.user]) drawScreen(g, v, sc.drawn[s.id], sc.drawn[s.user]);
       for (const id of ids) { const d = sc.dots[id], p = sc.drawn[id]; if (p) drawDot(g, v, p[0], p[1], d.col, d.num, sc.hi === +id && t > (sc.hiFrom || 0)); }
       if (sc.ball) { const b = at(sc.ball, t); if (b) { sc.drawn.ball = [b[1], b[2]]; drawBall(g, v, b[1], b[2], Math.max(0, (b[3] || 0) + (b[5] || 0))); } }
       if (sc.tag && t >= (sc.tag.from || 0)) { const p = sc.drawn[sc.tag.id]; if (p) drawTag(g, v, p[0], p[1], sc.tag.text, sc.tag.col); }
+      if (sc.banner && t < 0.97) drawBanner(g, v, sc.banner, sc.bannerR);
       if (sc.pop && t >= sc.pop.at) drawPop(g, v, sc.pop.x, sc.pop.y, sc.pop.text, (t - sc.pop.at) / (1 - sc.pop.at + 0.0001), sc.pop.col);
       if (sc.onShot && !sc.sfxDone && t >= sc.onShotAt) { sc.sfxDone = true; try { sc.onShot(); } catch (e) { } }
     }
@@ -161,6 +164,195 @@
     return r;
   }
   const SIDE_OF = (court, id) => court.indexOf(id) < 5 ? 0 : 1;
+
+  // ---------- Nov 20 2026: plays. The engine logs the play it ran (entry[11]); the dots act it out ----------
+  // Spots in half-court chart units (basket at 250, 52; y = distance from the baseline). "S" = strong side (where the shot ends up), "W" = weak side.
+  const SP = { TOP: [250, 305], SLOT_S: [330, 285], SLOT_W: [170, 285], WING_S: [425, 215], WING_W: [75, 215], CORNER_S: [468, 40], CORNER_W: [32, 40],
+    ELBOW_S: [322, 200], ELBOW_W: [178, 200], BLOCK_S: [300, 90], BLOCK_W: [200, 90], DUNK_S: [335, 50], DUNK_W: [165, 50], RIM: [262, 72], LANE: [275, 150] };
+  const TS = 0.18, TR = 0.62;   // the set is in place at TS; the shot leaves the hand at TR
+  const PLAY_N = { pnr: 'Pick-and-roll', roll: 'Pick-and-roll', pop: 'Pick-and-pop', iso: 'Isolation', post: 'Post-up', spot: 'Drive and kick', screen: 'Off-screen', dho: 'Handoff', cut: 'Backdoor cut', horns: 'Horns', kick: 'Post kick-out', trans: 'Fast break' };
+  const COV_N = { drop: 'Drop', switch: 'Switch', hedge: 'Hedge', blitz: 'Blitz', ice: 'Ice' };
+  function pInfo(id) {
+    const p = (CX().L && CX().L.players[id]) || {}, a = p.arch && p.arch[0] ? p.arch[0].n || '' : '';
+    return { pos: p.pos == null ? 2 : p.pos, tp: p.tp || 45, fin: p.fin || 50, hnd: p.hnd || 50, arch: a, xo: p.xo || '' };
+  }
+  // put the four players who are not the ball handler on the floor where their game says they belong (shooters in the corners, non-shooting bigs on the dunker spot)
+  function baseSpots(ids) {
+    const spots = ['CORNER_S', 'CORNER_W', 'WING_S', 'WING_W', 'DUNK_W'], inf = ids.map(pInfo);
+    const fit = (k, s) => { const p = inf[k], big = p.pos >= 3, shoot = p.tp >= 60 || /sniper|Spot-up|Stretch|3-and-D|shooter/i.test(p.arch);
+      if (s.startsWith('CORNER')) return (shoot ? 40 : 0) + p.tp * 0.5 - (big && !shoot ? 40 : 0);
+      if (s.startsWith('WING')) return 30 + (p.pos <= 2 ? 10 : 0) + p.hnd * 0.1;
+      return (big ? 45 : -30) + (60 - p.tp) * 0.8 + p.fin * 0.2; };
+    let best = null, bs = -1e9;
+    const go = (k, used, acc, sc) => { if (k === ids.length) { if (sc > bs) { bs = sc; best = acc.slice(); } return; } for (let j = 0; j < spots.length; j++) if (!used[j]) { used[j] = 1; acc.push(spots[j]); go(k + 1, used, acc, sc + fit(k, spots[j])); acc.pop(); used[j] = 0; } };
+    go(0, [], [], 0);
+    const out = {}; ids.forEach((id, k) => { out[id] = best ? best[k] : spots[k]; }); return out;
+  }
+  // plan: { path: { id: [[t, sx, sy]] } in chart units (canonical: strong side to the right, mirrored by sgn), hold: [[t, id]] who has the ball from t,
+  //         screens: [{ id, user, t0, t1 }], ov: defense overrides, trails: ids, label }
+  function choreo(pl, off5, def5, r, shooter, spotC, seed) {
+    const rnd = CX().scRng ? CX().scRng(seed) : Math.random, j = (a) => (rnd() - 0.5) * a;
+    const play = pl[0], cov = pl[3] || 'drop', sgn = spotC ? (spotC[0] >= 250 ? 1 : -1) : (rnd() < 0.5 ? 1 : -1);
+    const M = q => [sgn > 0 ? q[0] : 500 - q[0], q[1]];   // canonical -> real chart side
+    const S = k => M(SP[k]);
+    let h = off5.includes(pl[1]) ? pl[1] : off5[0];
+    const sh = shooter != null && off5.includes(shooter) ? shooter : null;
+    const others = off5.filter(id => id !== h), base = baseSpots(others), path = {}, hold = [], screens = [], ov = [], trails = [];
+    const bigOf = (ex) => off5.filter(id => !ex.includes(id)).sort((a, b) => { const A = pInfo(a), B = pInfo(b); return (B.pos - A.pos) || (A.tp - B.tp); })[0];
+    const guardOf = (ex) => off5.filter(id => !ex.includes(id)).sort((a, b) => pInfo(a).pos - pInfo(b).pos || pInfo(b).hnd - pInfo(a).hnd)[0];
+    const mv = (id, t, q, jit) => { if (id == null) return; (path[id] || (path[id] = [])).push([t, q[0] + j(jit == null ? 24 : jit), q[1] + j(jit == null ? 16 : jit)]); };
+    const posOf = (id, t) => { const p = path[id]; if (!p || !p.length) return S('TOP'); let a = p[0]; for (const k of p) { if (k[0] <= t) a = k; else { const f = (t - a[0]) / Math.max(0.001, k[0] - a[0]); return [a[1] + (k[1] - a[1]) * f, a[2] + (k[2] - a[2]) * f]; } } return [a[1], a[2]]; };
+    // the set: handler up top, the rest in their spots
+    mv(h, TS, S('TOP'), 30); for (const id of others) mv(id, TS, S(base[id]));
+    hold.push([0, h]);
+    const spot = spotC || S('ELBOW_S'), rim = spotC && spotC[1] < 110 && Math.abs(spotC[0] - 250) < 70;
+    const finish = (id, t) => mv(id, t == null ? TR : t, spot, 0);
+    const passTo = (t, id) => { if (id != null && hold[hold.length - 1][1] !== id) hold.push([t, id]); };
+    const away = (id, t) => { const k = base[id] || 'WING_W'; mv(id, t, S(k.endsWith('_S') ? k.replace('_S', '_W') : k)); };
+    let label = PLAY_N[play] || '';
+    const screenFor = (scr, user, t0, t1) => screens.push({ id: scr, user, t0, t1 });
+    if (play === 'pnr' || play === 'roll' || play === 'pop' || play === 'horns') {
+      // the screener comes up to the ball, the handler turns the corner, the screener rolls (or pops)
+      let scr = play === 'roll' || play === 'pop' ? (sh != null && sh !== h ? sh : bigOf([h])) : bigOf([h, sh]);
+      if (scr == null) scr = others[0];
+      const popper = play === 'pop' || (play !== 'roll' && (pInfo(scr).tp >= 62 || /Stretch|Pick-and-pop/i.test(pInfo(scr).arch)));
+      if (play === 'horns') { const b2 = bigOf([h, scr, sh]) || others.find(x => x !== scr); mv(scr, TS, S('ELBOW_S'), 10); if (b2 != null && b2 !== sh) mv(b2, TS, S('ELBOW_W'), 10); label = 'Horns'; }
+      const scrSpot = M([SP.TOP[0] + 30, SP.TOP[1] - 22]);
+      mv(scr, 0.3, scrSpot, 6); screenFor(scr, h, 0.28, 0.42);
+      mv(h, 0.27, M([SP.TOP[0] - 10, SP.TOP[1] + 6]), 6);
+      mv(h, 0.44, M([360, 230]), 10); trails.push(h);
+      if (popper) mv(scr, 0.52, sh === scr ? spot : M([200, 290]), sh === scr ? 0 : 20); else { mv(scr, 0.52, sh === scr ? spot : S('RIM'), sh === scr ? 0 : 8); }
+      trails.push(scr);
+      if (sh === h) { mv(h, 0.54, rim ? M([330, 150]) : spot, rim ? 8 : 0); finish(h); }
+      else if (sh != null) { if (sh !== scr) { finish(sh, 0.5); } passTo(0.5, sh); finish(sh); }
+      if (play === 'pnr') label = popper ? 'Pick-and-pop' : 'Pick-and-roll';
+    } else if (play === 'iso') {
+      // the scorer gets it on his side, everyone else clears out to the other side
+      const iso = sh != null ? sh : h;
+      if (iso !== h) { mv(iso, TS, S('WING_S'), 10); passTo(0.24, iso); }
+      for (const id of off5) if (id !== iso) { const k = base[id] || 'WING_W'; mv(id, 0.32, id === h ? S('SLOT_W') : S(k.startsWith('DUNK') ? 'DUNK_W' : k.startsWith('CORNER') ? 'CORNER_W' : 'WING_W'), 20); }
+      const q = posOf(iso, 0.3); mv(iso, 0.36, [q[0] + j(18), q[1] + j(10)], 0); mv(iso, 0.42, [q[0] + j(26), q[1] + j(14)], 0);   // sizing him up
+      if (/Slasher|Rim|athlet/i.test(pInfo(iso).arch) && !rim) mv(iso, 0.5, M([300, 170]), 10);
+      finish(iso); trails.push(iso);
+    } else if (play === 'post' || play === 'kick') {
+      // feed the post: a big seals on the block, the ball goes in from the wing; on a kick-out the double comes and he passes out
+      const pm = play === 'kick' ? (off5.includes(pl[2]) ? pl[2] : bigOf([h, sh])) : (sh != null ? sh : bigOf([h]));
+      const feeder = h !== pm ? h : guardOf([pm]);
+      if (feeder != null) { mv(feeder, 0.3, S('WING_S'), 14); passTo(0.36, pm); }
+      mv(pm, 0.3, S('BLOCK_S'), 8); trails.push(pm);
+      if (play === 'post') { mv(pm, 0.48, M([290, 110]), 12); finish(pm); }
+      else { mv(pm, 0.5, S('BLOCK_S'), 6); if (sh != null && sh !== pm) { finish(sh, 0.48); passTo(0.52, sh); } label = 'Post-up, kick-out'; }
+      if (pl[4] && pl[4] === pm) ov.push({ kind: 'double', on: pm, t0: 0.38, t1: TR });
+    } else if (play === 'spot' || play === 'trans') {
+      if (play === 'trans') { mv(h, TS, M([250, 360]), 20); for (const id of others) mv(id, TS, S(base[id]), 30); }
+      // the handler attacks the paint, the help comes, he sprays it out to the open shooter
+      mv(h, 0.36, M([300, 230]), 12); mv(h, 0.48, M([285, 140]), 10); trails.push(h);
+      if (sh === h) finish(h); else if (sh != null) { finish(sh, 0.44); passTo(0.52, sh); }
+      ov.push({ kind: 'help', t0: 0.4, t1: 0.56 });
+    } else if (play === 'screen') {
+      // a big sets a down screen, the shooter curls off it to his spot
+      const tgt = sh != null && sh !== h ? sh : guardOf([h]), scr = bigOf([h, tgt]);
+      mv(tgt, TS, S('BLOCK_W'), 10); if (scr != null) { mv(scr, TS, M([300, 140]), 10); mv(scr, 0.32, M([330, 150]), 6); screenFor(scr, tgt, 0.3, 0.46); }
+      mv(tgt, 0.38, M([320, 120]), 8); finish(tgt, 0.52); trails.push(tgt);
+      passTo(0.52, tgt); if (sh === h) { passTo(0.56, h); finish(h); }
+    } else if (play === 'dho') {
+      // the big brings it up, a guard runs at him, takes the handoff and goes
+      const giver = pInfo(h).pos >= 3 ? h : (bigOf([h, sh]) || others[0]), recv = sh != null && sh !== giver ? sh : (h !== giver ? h : guardOf([giver]));
+      mv(giver, 0.26, M([300, 260]), 8); if (giver !== h) passTo(0.24, giver);
+      mv(recv, 0.26, S('WING_W'), 12); mv(recv, 0.38, M([300, 255]), 4); screenFor(giver, recv, 0.36, 0.46); passTo(0.38, recv);
+      mv(recv, 0.48, M([360, 200]), 10); trails.push(recv);
+      if (sh === giver) { mv(giver, 0.5, S('RIM'), 8); passTo(0.54, giver); finish(giver); } else if (sh != null) finish(sh);
+    } else if (play === 'cut') {
+      // the cutter fakes out to the wing, then cuts behind his man to the rim
+      const cutter = sh != null && sh !== h ? sh : guardOf([h]);
+      mv(cutter, 0.3, S('WING_S'), 8); mv(cutter, 0.36, M([440, 235]), 4); mv(cutter, 0.5, M([300, 100]), 8); finish(cutter); trails.push(cutter);
+      if (h !== cutter) mv(h, 0.34, S('SLOT_S'), 10); passTo(0.52, cutter);
+      ov.push({ kind: 'beat', on: cutter, t0: 0.38, t1: TR });
+    } else if (sh != null) finish(sh, 0.5);
+    if (sh != null && hold[hold.length - 1][1] !== sh && sh !== h) passTo(0.52, sh);
+    // weak-side players drift a little so the floor never freezes
+    for (const id of off5) { const p = path[id]; if (p && p[p.length - 1][0] < 0.5 && id !== sh) { const q = p[p.length - 1]; mv(id, 0.58, [q[1], q[2]], 18); } }
+    return { path, hold, screens, ov, trails, label: label ? label + (/pnr|roll|pop|horns|dho|screen/.test(play) && COV_N[cov] ? ' · vs ' + COV_N[cov] : '') : '', cov, posOf, sgn, M, h };
+  }
+  // turn a plan into keyframes: offense from the plan, defense guarding its man (lag, sag, help, screens, coverage), the ball from holder to holder.
+  // Returns the ball keyframes up to tEnd (the release, or the turnover).
+  function actOut(plan, off5, def5, right, B, place, dotsRef, was, shooter, tEnd, r) {
+    const C = q => toCourt(q[0], q[1], right), okf = {};
+    for (const id of off5) {
+      const p = (plan.path[id] || []).filter(k => k[0] <= tEnd + 0.001).sort((a, b) => a[0] - b[0]), kf = [];
+      for (const k of p) { const c = C([k[1], k[2]]); if (kf.length && Math.abs(kf[kf.length - 1][0] - k[0]) < 0.005) kf[kf.length - 1] = [k[0], c[0], c[1]]; else kf.push([k[0], c[0], c[1]]); }
+      okf[id] = kf; place(id, kf);
+    }
+    const dotsKf = id => (dotsRef[id] || {}).kf;
+    const oPos = (id, t) => { const p = at(dotsKf(id), Math.max(0, t)); return p ? [p[1], p[2]] : B; };
+    const hold = plan.hold.slice().sort((a, b) => a[0] - b[0]);
+    const holderAt = t => { let h = hold[0][1]; for (const x of hold) if (x[0] <= t) h = x[1]; return h; };
+    // who guards whom (switches change it)
+    const man = {}; def5.forEach((d, k) => { man[d] = off5[k]; });
+    const swaps = [];
+    for (const s of plan.screens) if (plan.cov === 'switch') { const du = def5.find(d => man[d] === s.user), ds = def5.find(d => man[d] === s.id); if (du != null && ds != null) swaps.push([s.t0 + 0.06, du, ds, s.user, s.id]); }
+    const manAt = (d, t) => { let m = man[d]; for (const w of swaps) if (t >= w[0]) { if (d === w[1]) m = w[4]; else if (d === w[2]) m = w[3]; } return m; };
+    const help = plan.ov.find(o => o.kind === 'help'), dbl = plan.ov.find(o => o.kind === 'double'), beat = plan.ov.find(o => o.kind === 'beat');
+    let dblBy = null;
+    if (dbl) { const pm0 = oPos(dbl.on, dbl.t0); dblBy = def5.filter(d => man[d] !== dbl.on).sort((a, b) => { const pa = oPos(man[a], dbl.t0), pb = oPos(man[b], dbl.t0); return Math.hypot(pa[0] - pm0[0], pa[1] - pm0[1]) - Math.hypot(pb[0] - pm0[0], pb[1] - pm0[1]); })[0]; }
+    const toward = (a, b, f) => [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f];
+    const unit = (a, b, len) => { const dx = b[0] - a[0], dy = b[1] - a[1], L0 = Math.hypot(dx, dy) || 1; return [dx / L0 * len, dy / L0 * len]; };
+    const dPos = (d, t) => {
+      const m = manAt(d, t), lag = beat && m === beat.on && t >= beat.t0 ? 0.1 : 0.035, mp = oPos(m, t - lag), hid = holderAt(t), bp = oPos(hid, t);
+      const inPaint = Math.abs(bp[0] - B[0]) < 16 && Math.abs(bp[1] - 25) < 9;
+      let f = hid === m ? 0.14 : 0.3 + (help && t >= help.t0 && t <= help.t1 ? 0.2 : 0) + (inPaint ? 0.12 : 0);
+      let q = toward(mp, B, f); if (hid !== m) q = toward(q, bp, 0.1);
+      for (const s of plan.screens) {
+        if (t < s.t0 || t > s.t1 + 0.08) continue;
+        const sp = oPos(s.id, t), up = oPos(s.user, t);
+        if (m === s.user && !swaps.length) { const u = unit(up, sp, 2.2); q = [sp[0] + u[0], sp[1] + u[1]]; }   // caught on the screen
+        if (m === s.id && !swaps.length) {
+          if (plan.cov === 'drop' || plan.cov === 'ice') q = toward(B, up, 0.33);
+          else if (plan.cov === 'hedge' && t <= s.t0 + 0.12) { const u = unit(up, B, 2); q = [up[0] + u[0] + 1, up[1] + u[1]]; }
+          else if (plan.cov === 'blitz') { const u = unit(up, B, 1.6); q = [up[0] + u[0] - 1.2, up[1] + u[1] + 1.2]; }
+        }
+      }
+      if (dbl && d === dblBy && t >= dbl.t0 && t <= dbl.t1) { const pp = oPos(dbl.on, t), u = unit(pp, [pp[0] + (right ? -10 : 10), 25 + (pp[1] > 25 ? -4 : 4)], 2.2); q = [pp[0] + u[0], pp[1] + u[1]]; }
+      return q;
+    };
+    const ts = [0.1, TS, 0.24, 0.3, 0.36, 0.42, 0.48, 0.54, 0.58].filter(t => t <= tEnd);
+    for (const d of def5) {
+      const contest = shooter != null && (d === r.blk || (r.blk == null && manAt(d, TR) === shooter));
+      const kf = ts.map(t => { const q = dPos(d, t); return [t, q[0], q[1]]; });
+      if (contest) { const sp = oPos(shooter, TR); kf.push([0.6, sp[0] + (B[0] - sp[0]) * 0.12, sp[1] + (B[1] - sp[1]) * 0.12 + 0.8]); }
+      else if (tEnd >= TR) { const q = dPos(d, TR); kf.push([TR, q[0], q[1]]); }
+      place(d, kf);
+    }
+    // the ball: dribbled by the holder, passed (low and quick) to the next one
+    const ball = [], h0 = oPos(hold[0][1], 0);
+    ball.push([0, ...(was.ball || h0), 0]);
+    for (let i = 0; i < hold.length; i++) {
+      const [t0, id] = hold[i], t1 = i + 1 < hold.length ? Math.min(tEnd, hold[i + 1][0]) : tEnd;
+      if (i > 0) { const q = oPos(id, t0); ball.push([t0, q[0], q[1], 4, 'lin']); }
+      for (let t = Math.max(t0 + 0.06, 0.06); t < t1 - 0.07; t += 0.06) { const q = oPos(id, t); ball.push([t, q[0], q[1], (Math.round(t * 50) % 2) ? 3 : 1]); }
+      if (t1 >= tEnd) break;
+      const q = oPos(id, t1 - 0.06); ball.push([t1 - 0.06, q[0], q[1], 4]);
+    }
+    return { ball, oPos };
+  }
+  // a screen: a short bar on the screener's side facing the defender
+  function drawScreen(g, v, sp, up) {
+    const dx = up[0] - sp[0], dy = up[1] - sp[1], L0 = Math.hypot(dx, dy) || 1, nx = -dy / L0, ny = dx / L0, ox = sp[0] - dx / L0 * 1.6, oy = sp[1] - dy / L0 * 1.6;
+    const a = v.P(ox + nx * 1.6, oy + ny * 1.6), b = v.P(ox - nx * 1.6, oy - ny * 1.6);
+    g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineWidth = Math.max(2.5, v.s * 0.45); g.lineCap = 'round'; g.strokeStyle = 'rgba(255,255,255,.95)'; g.stroke(); g.lineCap = 'butt';
+  }
+  function drawTrail(g, v, kf, t, col) {
+    const pts = []; for (let k = 0; k <= 10; k++) { const tt = Math.max(0, t - 0.22 + k * 0.022); const p = at(kf, tt); if (p) pts.push(v.P(p[1], p[2])); }
+    if (pts.length < 2) return;
+    g.save(); g.setLineDash([v.s * 0.6, v.s * 0.5]); g.lineWidth = Math.max(1.5, v.s * 0.22); g.strokeStyle = col; g.globalAlpha = 0.55; poly(g, pts); g.stroke(); g.restore();
+  }
+  function drawBanner(g, v, text, atRight) {
+    if (!text) return;
+    const fs = Math.round(Math.max(11 * v.dpr, Math.min(15 * v.dpr, v.s * 1.35))); g.font = `700 ${fs}px system-ui,sans-serif`;
+    const w = g.measureText(text).width + fs * 1.1, x = atRight ? v.w * v.dpr - w - 8 * v.dpr : 8 * v.dpr, y = 8 * v.dpr;
+    g.fillStyle = 'rgba(20,20,24,.78)'; g.beginPath(); if (g.roundRect) g.roundRect(x, y, w, fs * 1.6, fs * 0.5); else g.rect(x, y, w, fs * 1.6); g.fill();
+    g.fillStyle = '#ffd76a'; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText(text, x + fs * 0.55, y + fs * 0.82);
+  }
 
   // ---------- live game ----------
   let liveKey = null, liveCols = null;
@@ -197,6 +389,8 @@
     const place = (id, kfs) => { dots[id] = { kf: [start(id, benchSpot(id)), ...kfs], col: colOf(id), num: num(id) }; };
     const posAt = (id, t) => { const d = dots[id]; const p = d ? at(d.kf, t) : null; return p ? [p[1], p[2]] : B; };
     const fl = r.fl;
+    const pl = Array.isArray(e[11]) && e[11][0] ? e[11] : null;   // Nov 20: the play the engine ran
+    sc.bannerR = !right;   // the banner sits in the empty backcourt
     if (fl.includes('q') || fl.includes('t')) {   // quarter break or timeout: everyone walks to the bench side
       T.forEach((id, k) => { const s = SIDE_OF(court, id), i = k % 5; place(id, [[0.8, (s === 0 ? 38 : 56) + (i - 2) * 1.6 * (s === 0 ? -1 : 1), 6 + (i % 2) * 2.5]]); });
       sc.ball = [[0, ...(was.ball || [47, 25]), 0], [0.8, 47, 25, 0]];
@@ -205,16 +399,26 @@
     }
     if (r.shooter != null || (r.fta != null && r.pts >= 0 && r.tov == null)) {
       const shooter = r.shooter != null ? r.shooter : r.fta, ftOnly = r.shooter == null;
-      const spot = ftOnly ? [right ? FT_W - 19 : 19, 25] : r.type <= 1 ? [B[0] + (right ? -2.2 : 2.2), 25 + ((n % 5) - 2) * 0.6] : zoneSpot(r.zone, g.id * 7919 + n, right);
+      let spot = ftOnly ? [right ? FT_W - 19 : 19, 25] : r.type <= 1 ? [B[0] + (right ? -2.2 : 2.2), 25 + ((n % 5) - 2) * 0.6] : zoneSpot(r.zone, g.id * 7919 + n, right);
       const passer = r.ast != null && r.ast !== shooter ? r.ast : null;
       const handler = passer || off5[0] || shooter;
-      for (const id of off5) {
+      let act = null;
+      if (pl && !ftOnly) {   // act out the play: set, action, pass, shot
+        const chart = r.type <= 1 ? [250 + (n % 2 ? 14 : -14), 68] : (CX().scSpot ? CX().scSpot(clamp(r.zone, 0, 13), CX().scRng(g.id * 7919 + n)) : [250, 150]);
+        spot = toCourt(chart[0], chart[1], right);
+        const plan = choreo(pl, off5, def5, r, shooter, chart, g.id * 131 + n);
+        act = actOut(plan, off5, def5, right, B, place, dots, was, shooter, TR, r);
+        for (const id of off5) { const d = dots[id], k = d.kf[d.kf.length - 1]; if (id !== shooter) d.kf.push([1, k[1] + (B[0] - k[1]) * 0.06, k[2]]); }
+        sc.banner = plan.label; sc.screens = plan.screens; sc.trails = plan.trails;
+      }
+      if (pl && ftOnly && PLAY_N[pl[0]]) sc.banner = PLAY_N[pl[0]] + ' · shooting foul';
+      if (!act) for (const id of off5) {
         const home = F.o[id] || B;
         if (id === shooter) place(id, ftOnly ? [[0.4, spot[0], spot[1]]] : r.type <= 1 ? [[0.25, home[0], home[1]], [0.55, spot[0] + (right ? -5 : 5), spot[1] + 3], [0.62, spot[0], spot[1]]] : [[0.3, home[0], home[1]], [0.48, spot[0], spot[1]]]);
         else if (ftOnly) { const k = off5.indexOf(id); place(id, [[0.4, right ? FT_W - 23 - k * 2 : 23 + k * 2, 25 + (k % 2 ? 12 : -12)]]); }
         else place(id, [[0.4, home[0], home[1]], [1, home[0] + (B[0] - home[0]) * 0.05, home[1]]]);
       }
-      for (const id of def5) {
+      if (!act) for (const id of def5) {
         const k = def5.indexOf(id), guard = F.d[id] || B;
         if (ftOnly) { place(id, [[0.4, right ? FT_W - 9 - (k % 3) * 3 : 9 + (k % 3) * 3, 25 + (k % 2 ? 8 : -8)]]); continue; }
         const contest = id === r.blk || (r.blk == null && off5.indexOf(shooter) === k);
@@ -226,6 +430,9 @@
       // ball: with the handler, pass, release, flight, result
       const sp = posAt(shooter, 0.62), rel = [sp[0], sp[1], 7], ball = [];
       if (ftOnly) { const s0 = posAt(shooter, 0.4); ball.push([0, ...(was.ball || s0), 0], [0.4, s0[0], s0[1], 3], [0.55, s0[0], s0[1], 7], [0.85, B[0], B[1], 10, 'arc', 5]); }
+      else if (act) { ball.push(...act.ball); ball.push([0.62, rel[0], rel[1], rel[2]]); const peak = r.type <= 1 ? 2 : r.type === 4 ? 9 : 6;
+        if (r.blk != null) { const bp = posAt(r.blk, 0.66); ball.push([0.68, bp[0], bp[1], 9, 'lin'], [1, bp[0] + (bp[0] - sp[0]) * 1.4 + (right ? -3 : 3), bp[1] + (bp[1] - sp[1]) * 1.4 + 4, 0]); }
+        else ball.push([0.84, B[0], B[1], 10, 'arc', peak]); }
       else {
         const h0 = posAt(handler, 0), h1 = posAt(handler, 0.3);
         ball.push([0, ...(was.ball || h0), 0], [0.3, h1[0], h1[1], 3]);
@@ -249,10 +456,19 @@
       scenes.live = sc; kick(); return;
     }
     if (r.tov != null) {   // turnover: the ball goes the other way (to the stealer, or out of bounds)
-      for (const id of off5) { const h = F.o[id] || B; place(id, [[0.45, h[0], h[1]], [1, h[0] + (right ? -6 : 6), h[1]]]); }
-      for (const id of def5) { const h = F.d[id] || B; place(id, [[0.45, h[0], h[1]], [1, h[0] + (right ? -9 : 9), h[1]]]); }
+      let act = null;
+      if (pl && off5.includes(r.tov)) {   // the play starts, then the ball is lost
+        const plan = choreo(pl, off5, def5, r, null, null, g.id * 131 + n), lh = plan.hold[plan.hold.length - 1];
+        plan.hold = plan.hold.filter(x => x[0] < 0.36); if (plan.hold[plan.hold.length - 1][1] !== r.tov) plan.hold.push([0.36, r.tov]); void lh;
+        act = actOut(plan, off5, def5, right, B, place, dots, was, null, 0.45, r);
+        for (const id of [...off5, ...def5]) { const d = dots[id], k = d.kf[d.kf.length - 1]; d.kf.push([1, k[1] + (right ? -1 : 1) * (off5.includes(id) ? 6 : 9), k[2]]); }
+        sc.banner = plan.label; sc.screens = plan.screens.filter(x => x.t0 < 0.45); sc.trails = plan.trails;
+      } else {
+        for (const id of off5) { const h = F.o[id] || B; place(id, [[0.45, h[0], h[1]], [1, h[0] + (right ? -6 : 6), h[1]]]); }
+        for (const id of def5) { const h = F.d[id] || B; place(id, [[0.45, h[0], h[1]], [1, h[0] + (right ? -9 : 9), h[1]]]); }
+      }
       const h0 = posAt(r.tov, 0), h1 = posAt(r.tov, 0.45);
-      const ball = [[0, ...(was.ball || h0), 0], [0.45, h1[0], h1[1], 3]];
+      const ball = act ? [...act.ball, [0.45, h1[0], h1[1], 3]] : [[0, ...(was.ball || h0), 0], [0.45, h1[0], h1[1], 3]];
       if (r.stl != null && dots[r.stl]) { const d = dots[r.stl]; const p = at(d.kf, 0.55); d.kf = d.kf.filter(x => x[0] < 0.5); d.kf.push([0.55, (p[1] + h1[0]) / 2, (p[2] + h1[1]) / 2], [1, p[1] + (right ? -12 : 12), p[2]]); const s5 = posAt(r.stl, 0.6), s1 = posAt(r.stl, 1); ball.push([0.6, s5[0], s5[1], 3, 'lin'], [1, s1[0], s1[1], 2]); sc.tag = { id: r.stl, text: 'Steal: ' + name(r.stl), from: 0.55, col: '#ffd76a' }; sc.hi = +r.stl; sc.hiFrom = 0.55; }
       else { ball.push([1, h1[0], h1[1] < 25 ? -0.5 : 50.5, 0]); sc.tag = { id: r.tov, text: 'Turnover', from: 0.4, col: '#ffb3a8' }; }
       sc.ball = ball; scenes.live = sc; kick(); return;

@@ -2934,7 +2934,7 @@ function negotiatePanel(p) {
 }
 // ===== v25.2: live play-by-play. Your team's games keep a log (this season only); the live screen replays it at 1x-16x or instantly,
 // with a running scoreboard, box score, team fouls and timeouts. Same result as the normal sim (it is the same game).
-const LV_SPEED = [['1', '1x', 1200], ['2', '2x', 600], ['4', '4x', 300], ['16', '16x', 75], ['inst', 'Instant', 0]];
+const LV_SPEED = [['h', '½x', 2400], ['1', '1x', 1200], ['2', '2x', 600], ['4', '4x', 300], ['16', '16x', 75], ['inst', 'Instant', 0]];
 const clockTxt = c => Math.floor(c / 60) + ':' + String(c % 60).padStart(2, '0');
 const qTxt = q => q <= 4 ? 'Q' + q : 'OT' + (q > 5 ? q - 4 : '');
 function lvState(g) { if (!ui.lv || ui.lv.gid !== g.id) ui.lv = { gid: g.id, i: 0, speed: '2', paused: false, f: 'all', timer: null }; return ui.lv; }
@@ -3066,9 +3066,9 @@ function lvTick() {
   const lv = ui.lv; if (!lv) return; clearTimeout(lv.timer); lv.timer = null;
   const g = L && L.games.find(x => x.id === lv.gid);
   if (!g || ui.game !== lv.gid || ui.liveMode !== lv.gid || !g.pbp) return;
-  if (window.COURT) { const sp0 = LV_SPEED.find(x => x[0] === lv.speed) || LV_SPEED[1]; COURT.live(g, Math.min(lv.i, g.pbp.length), lv.paused ? 0 : sp0[2]); }   // Phase 2: animated court
+  if (window.COURT) { const sp0 = LV_SPEED.find(x => x[0] === lv.speed) || LV_SPEED[2]; COURT.live(g, Math.min(lv.i, g.pbp.length), lv.paused ? 0 : sp0[2]); }   // Phase 2: animated court
   if (lv.paused || lv.i >= g.pbp.length) return;
-  const sp = LV_SPEED.find(x => x[0] === lv.speed) || LV_SPEED[1];
+  const sp = LV_SPEED.find(x => x[0] === lv.speed) || LV_SPEED[2];
   if (!sp[2]) { lv.i = g.pbp.length; render(); fxLive(g, lv.i); if (window.COURT) COURT.live(g, lv.i, 0); return; }
   lv.timer = setTimeout(() => { if (ui.lv !== lv || ui.liveMode !== lv.gid) return; lv.i++; const y = window.scrollY; render(); window.scrollTo(0, y); fxLive(g, lv.i); lvTick(); }, sp[2]);
 }

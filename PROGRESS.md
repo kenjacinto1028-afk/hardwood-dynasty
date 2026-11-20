@@ -1,5 +1,13 @@
 # PBL progress
 
+## Live court acts out real plays (Opus, Nov 20 2026)
+- [x] Engine logs the play it ran each possession (entry[11]: play, ball handler, kick-out post man, defense coverage, doubled player). No new random numbers: game results identical (tools/court-plays.js hash check).
+- [x] Court dots act out the play: pick-and-roll / pop (screen, roll or pop), isolation (clear-out), post-up and kick-out (entry pass, double team), drive and kick (help defense collapses), off-screen curl, handoff, backdoor cut, horns, fast break.
+- [x] Players go to spots that fit their game (shooters in corners, non-shooting bigs on the dunker spot); stretch bigs pop instead of roll.
+- [x] Defense: man lag, screens catch the on-ball defender, coverage shows (drop sags, hedge jumps out, blitz traps, switch swaps men), help on drives.
+- [x] Screen bars, motion trails, play banner ("Pick-and-roll · vs Drop") in the backcourt; new ½x live speed.
+- Test: tools/browser-courtplays.js ALL PASS (1300 + 390), tools/browser-p2.js 81/81. Cache v17.
+
 ## My Career fixes and tuning (Sonnet, Nov 20 2026)
 - [x] Interviews match your season: MVP talk only if you are a real MVP candidate (24+ ppg, top 6, winning team), ROY talk only if you lead rookies, "bench" and "star" questions by role. 29 new questions (59 total), repeats spaced out, and a new interview after a big award.
 - [x] Extension offers only from your 2nd pro season on, in the last year of the deal (no more day-66 rookie offers).

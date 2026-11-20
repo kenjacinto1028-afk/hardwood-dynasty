@@ -1,3 +1,11 @@
+# TASK_STATE — Court dots act out real plays (Opus) — Nov 20 2026
+Branch `claude/project-thread-1ou2as`.
+- [x] 1. engine.js logE: entry[11] = [play, handler, kick-out post man, coverage, doubled id]; sim hash unchanged (tools/court-plays.js)
+- [x] 2. court.js choreo()/actOut(): plays, screens, coverage, trails, banner; app.js ½x speed
+- [x] 3. Tests: hash identical; tools/browser-courtplays.js ALL PASS; browser-p2 81/81
+- [ ] 4. PROGRESS.md, PR, merge, Pages check
+
+---
 # TASK_STATE — My Career face builder (Sonnet) — Nov 19 2026
 Branch `claude/project-thread-w2yrv1`.
 - [x] 1. app.js faceCustom + portrait hook; career.js builder, Edit look; CSS fix for hub avatar

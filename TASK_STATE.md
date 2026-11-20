@@ -1,3 +1,11 @@
+# TASK_STATE — Team logos for PBL + pipeline teams (Sonnet) — Nov 20 2026
+Branch `claude/project-thread-q71sj0`.
+- [x] 1. app.js: emblemTile + PIPE_EMB nickname map + 8 new EMB art (snake, dragon, tiger, scorpion, peach, arrow, mug, armadillo); PBL motifs now in emblem tiles with wordmark
+- [x] 2. tools/browser-logos.js ALL PASS (56 logos, 40 unique pipeline). browser-xp.js already failing before this change (stale test)
+- [x] 3a. PROGRESS.md updated, sw cache v27
+- [ ] 3b. PR, merge, Pages check
+
+---
 # TASK_STATE — Draft combine (Opus logic, Sonnet UI) — Nov 20 2026
 Branch `claude/project-thread-cg3tyi`.
 - [x] 1. src/combine.js logic: runCombine after lottery (measurements + drills, deterministic), boost to mocks/boards, tighter athletic reads, news; league.js hooks; node test — tools/combine.js 8/8 PASS

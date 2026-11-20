@@ -98,6 +98,15 @@ const EMB = {
   raptor: (f, g) => `<path d="M8 74 Q12 42 40 30 Q66 20 92 40 L94 52 L62 54 L68 64 L58 66 L52 58 Q36 60 30 76Z"/><circle cx="52" cy="38" r="4" fill="${g}"/><path d="M64 54 L68 48 L72 54 L76 48 L80 54 L84 48 L88 54" fill="none" stroke="${g}" stroke-width="2.5"/>`,
   skyline: (f, g) => `<rect x="6" y="58" width="18" height="34"/><rect x="26" y="40" width="18" height="52"/><path d="M48 92 V32 L56 6 L64 32 V92Z"/><rect x="66" y="46" width="16" height="46"/><rect x="84" y="66" width="10" height="26"/><path d="M32 50 H38 M32 62 H38 M32 74 H38 M10 68 H20 M10 80 H20 M70 56 H78 M70 68 H78 M70 80 H78 M54 44 H58 M54 56 H58 M54 68 H58 M54 80 H58" stroke="${g}" stroke-width="3" fill="none"/>`,
   note: (f, g) => `<ellipse cx="32" cy="74" rx="16" ry="12" transform="rotate(-20 32 74)"/><ellipse cx="72" cy="64" rx="16" ry="12" transform="rotate(-20 72 64)"/><rect x="42" y="22" width="7" height="52"/><rect x="82" y="12" width="7" height="52"/><path d="M42 20 L89 8 V24 L42 36Z"/>`,
+  // v41: extra emblems for the college / overseas teams
+  snake: (f, g) => `<path d="M26 88 Q8 80 18 66 Q28 54 50 58 Q72 62 74 48 Q76 34 56 32 Q40 30 42 18 Q44 6 62 8 L80 4 L70 14 Q58 14 58 20 Q60 24 66 24 Q90 26 88 50 Q86 74 54 74 Q34 72 30 78 Q28 84 40 86Z"/><circle cx="66" cy="12" r="2.4" fill="${g}"/>`,
+  dragon: (f, g) => `<path d="M14 84 Q20 58 40 50 L30 34 L46 42 L44 22 L56 38 L62 18 L66 40 Q82 36 90 22 Q94 42 78 52 Q88 60 84 74 L72 66 Q64 80 50 76 Q36 74 28 90Z"/><path d="M40 50 L4 44 L22 58 L8 70 L34 64Z"/><circle cx="80" cy="34" r="2.6" fill="${g}"/>`,
+  tiger: (f, g) => `<path d="M14 18 L32 28 Q50 20 68 28 L86 18 L84 44 Q92 62 78 78 Q66 92 50 92 Q34 92 22 78 Q8 62 16 44Z"/><path d="M32 46 L44 52 L34 56Z M68 46 L56 52 L66 56Z M44 70 H56 L50 78Z M50 30 V44 M38 32 L42 42 M62 32 L58 42 M18 60 L32 64 M82 60 L68 64 M20 70 L32 70 M80 70 L68 70" fill="${g}" stroke="${g}" stroke-width="3"/>`,
+  scorpion: (f, g) => `<ellipse cx="50" cy="66" rx="14" ry="20"/><path d="M50 48 Q50 26 62 18 Q76 10 78 24 L70 30 L72 22 Q64 22 60 34 Q58 42 58 50Z"/><path d="M38 56 L18 44 L10 52 M38 66 L14 66 M38 76 L16 86 M62 76 L84 86 M62 66 L86 66 M42 50 L28 30 L16 34 L20 22" fill="none" stroke="${f}" stroke-width="5" stroke-linecap="round"/><path d="M44 60 H56 M44 70 H56 M45 80 H55" stroke="${g}" stroke-width="3"/>`,
+  peach: (f, g) => `<path d="M50 30 Q20 18 12 50 Q8 84 50 92 Q92 84 88 50 Q80 18 50 30Z"/><path d="M50 32 Q42 56 50 90" fill="none" stroke="${g}" stroke-width="4"/><path d="M50 30 Q56 8 80 8 Q74 28 50 30Z"/><rect x="47" y="12" width="5" height="20" rx="2"/>`,
+  arrow: (f, g) => `<path d="M14 86 L74 26" stroke="${f}" stroke-width="8" stroke-linecap="round"/><path d="M92 8 L84 42 L72 30 L60 18Z"/><path d="M14 86 L6 70 L20 66 L24 78Z M14 86 L30 94 L34 80 L22 76Z"/><circle cx="50" cy="50" r="38" fill="none" stroke="${f}" stroke-width="4"/>`,
+  mug: (f, g) => `<rect x="18" y="26" width="48" height="64" rx="6"/><path d="M66 38 H78 Q90 38 90 52 V60 Q90 74 78 74 H66" fill="none" stroke="${f}" stroke-width="8"/><path d="M14 30 Q14 12 32 16 Q40 6 52 14 Q68 10 70 28Z"/><path d="M30 44 V80 M42 44 V80 M54 44 V80" stroke="${g}" stroke-width="4"/>`,
+  armadillo: (f, g) => `<path d="M8 74 Q10 34 50 30 Q84 30 88 60 L96 70 L86 74Z"/><path d="M30 34 Q26 54 28 74 M44 30 Q42 52 44 74 M58 30 Q58 52 60 74 M72 36 Q74 54 74 72" fill="none" stroke="${g}" stroke-width="4"/><path d="M14 72 L12 86 H22 L24 74Z M70 74 L70 86 H80 L80 74Z"/><circle cx="88" cy="64" r="2" fill="${g}"/>`,
 };
 // v30 G: NBA logo = emblem (team colors) on a rounded tile; wordmark band on large sizes. No emblem entry -> initials badge (nbaLogoBody).
 function nbaEmblemLogo(t, small, size) {
@@ -120,14 +129,36 @@ function nbaLogoBody(t, st, sh) {
   if (st === 'C') { const cid = 'nc' + t.id; return `<defs><clipPath id="${cid}"><path d="${LOGO_OUT.shield}"/></clipPath></defs><g clip-path="url(#${cid})"><rect width="100" height="100" fill="${c1}"/><path d="M0 14 L100 0 L100 18 L0 32 Z" fill="${c2}"/></g><path d="${LOGO_OUT.shield}" fill="none" stroke="${c2}" stroke-width="5"/>${txt(50, 64, ink)}`; }
   return `<path d="${LOGO_OUT[sh]}" fill="${c2}"/><path d="${LOGO_IN[sh]}" fill="${c1}"/>${sh === 'diamond' ? txt(50, 60, ink, ab.length >= 3 ? 24 : 28, ab.length >= 3 ? 40 : 34) : txt(50, 62, ink)}`;
 }
+// v41: emblem tile shared by PBL teams (their motif), pipeline teams (nickname emblem) and NBA mode. Frame shape varies per team.
+const EMB_WORD = { 'Southern Cross': 'S. CROSS', 'Mayon Express': 'EXPRESS', 'Dinagyang Warriors': 'WARRIORS', 'Harbour Junks': 'JUNKS', 'Gold Rush': 'GOLD RUSH' };
+function emblemTile(t, art, small, size, shape) {
+  const c1 = t.c1, dark = hexLum(c1) < 0.5, c2 = hexContrast(c1, t.c2) >= 2.2 ? t.c2 : (dark ? '#ffffff' : '#111111');
+  const nm = String(t.name || ''), word = !small && (size || 0) >= 40 ? (EMB_WORD[nm] || nm.toUpperCase()) : '';
+  const sh = shape || 'tile', frame = sh === 'tile' ? `<rect x="4" y="4" width="92" height="92" rx="20" fill="${c1}" stroke="${c2}" stroke-width="4"/>` : `<path d="${LOGO_OUT[sh]}" fill="${c2}"/><path d="${LOGO_IN[sh]}" fill="${c1}"/>`;
+  const fit = sh === 'tile' ? 1 : sh === 'circle' ? .86 : sh === 'diamond' ? .66 : sh === 'shield' ? .78 : .9, oy = sh === 'shield' ? -4 : 0;
+  const tr = (sc, x0, y0) => { const k = sc * fit; return `translate(${(50 - 50 * k + (x0 || 0)).toFixed(1)} ${(50 - 50 * k + oy + (y0 || 0)).toFixed(1)}) scale(${k.toFixed(3)})`; };
+  if (!word || sh === 'diamond') return `${frame}<g fill="${c2}" transform="${tr(small ? .76 : .7)}">${art(c2, c1)}</g>`;
+  const ink = hexContrast(c2, '#ffffff') >= hexContrast(c2, '#111111') ? '#ffffff' : '#111111', w = Math.min(sh === 'tile' ? 72 : 60, 7.4 * word.length);
+  return `${frame}<g fill="${c2}" transform="${tr(.54, 0, -10)}">${art(c2, c1)}</g><rect x="${sh === 'tile' ? 11 : 19}" y="${sh === 'shield' ? 60 : 66}" width="${sh === 'tile' ? 78 : 62}" height="17" rx="5" fill="${c2}"/><text x="50" y="${sh === 'shield' ? 73 : 79}" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="12" fill="${ink}" textLength="${w}" lengthAdjust="spacingAndGlyphs">${esc(word)}</text>`;
+}
+// PBL motifs are drawn in a 24 box: scale up into the 100 box
+const motifArt = m => () => `<g transform="scale(4.1667)">${m}</g>`;
+// Pipeline (college / overseas) nickname -> emblem; anything not listed falls back to a keyword guess, then a stable pick
+const PIPE_EMB = { Monarchs: 'crown', Matadors: 'bull', 'Lumière': 'sun', Ironworks: 'hammer', Vipers: 'snake', Titans: 'shield', Bosphorus: 'wave', Wolves: 'wolf', Brewers: 'mug', Dragons: 'dragon', Foresters: 'tree', Maccabees: 'flame',
+  Shoguns: 'sun', Islanders: 'ship', Tigers: 'tiger', Harbourmen: 'ship', Skyhawks: 'hawk', 'Southern Cross': 'star', Emperors: 'crown', Garudas: 'eagle', Kiwis: 'bird', Merlions: 'wave', Thunder: 'bolt', Samurai: 'sword',
+  Harborhawks: 'hawk', Liberty: 'flame', Stingers: 'bee', Peaches: 'peach', Wind: 'wave', Motormen: 'gear', Pilots: 'rocket', Loons: 'bird', Wranglers: 'horse', Armadillos: 'armadillo', Troubadours: 'note', Archers: 'arrow', Cascades: 'tree', Summit: 'mountain', Scorpions: 'scorpion', Surfers: 'wave' };
+const EMB_KEYS = [['hawk', 'hawk'], ['eagle', 'eagle'], ['falcon', 'hawk'], ['king', 'crown'], ['royal', 'crown'], ['queen', 'crown'], ['bull', 'bull'], ['wolf', 'wolf'], ['wolves', 'wolf'], ['tiger', 'tiger'], ['lion', 'tiger'], ['dragon', 'dragon'], ['snake', 'snake'], ['viper', 'snake'], ['cobra', 'snake'], ['bee', 'bee'], ['sting', 'bee'], ['star', 'star'], ['sun', 'sun'], ['fire', 'flame'], ['flame', 'flame'], ['heat', 'flame'], ['bolt', 'bolt'], ['thunder', 'bolt'], ['storm', 'bolt'], ['wave', 'wave'], ['sea', 'wave'], ['ship', 'ship'], ['sail', 'ship'], ['mountain', 'mountain'], ['peak', 'mountain'], ['tree', 'tree'], ['forest', 'tree'], ['pine', 'tree'], ['horse', 'horse'], ['stallion', 'horse'], ['ram', 'ram'], ['knight', 'sword'], ['sword', 'sword'], ['warrior', 'sword'], ['rocket', 'rocket'], ['jet', 'rocket'], ['gem', 'gem'], ['diamond', 'gem'], ['gear', 'gear'], ['iron', 'hammer'], ['steel', 'hammer'], ['bird', 'bird'], ['music', 'note'], ['jazz', 'note'], ['buck', 'buck'], ['deer', 'buck'], ['archer', 'arrow']];
+const EMB_POOL = ['star', 'shield', 'bolt', 'flame', 'gem', 'sun', 'crown', 'wave', 'mountain', 'ball'];
+function embFor(name) {
+  if (PIPE_EMB[name]) return PIPE_EMB[name];
+  const n = String(name || '').toLowerCase(), k = EMB_KEYS.find(x => n.includes(x[0]));
+  if (k) return k[1];
+  let h = 0; for (const c of n) h = (h * 31 + c.charCodeAt(0)) >>> 0; return EMB_POOL[h % EMB_POOL.length];
+}
 function logoBody(t, small, size) {
   const st = t.logoStyle || 'ABC'[t.id % 3], sh = t.logoShape || ['shield', 'circle', 'diamond', 'square'][t.id % 4], m = MOTIF[t.logo] || '', c1 = t.c1, c2 = t.c2;
   if (L && L.nba && !t.logo) return nbaEmblemLogo(t, small, size) || nbaLogoBody(t, st, sh);
-  const txt = (x, y, fs, fill, extra) => `<text x="${x}" y="${y}" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="${fs}" fill="${fill}" ${extra || ''}>${esc(t.abbr)}</text>`;
-  if (st === 'B') return `<rect x="4" y="4" width="92" height="92" rx="22" fill="${c1}"/>${small ? `<g transform="translate(14 14) scale(3)" fill="${c2}">${m}</g>` : `<path d="M4 70 H96 V74 Q96 96 74 96 H26 Q4 96 4 74 Z" fill="${c2}"/><g transform="translate(30 8) scale(1.65)" fill="${c2}">${m}</g>${txt(50, 91, 19, c1)}`}`;
-  if (st === 'C') { const cid = 'lc' + t.id; return `<defs><clipPath id="${cid}"><path d="${LOGO_OUT.shield}"/></clipPath></defs><g clip-path="url(#${cid})"><rect width="100" height="100" fill="${c1}"/><path d="M0 30 L100 0 L100 14 L0 44 Z" fill="${c2}"/></g><path d="${LOGO_OUT.shield}" fill="none" stroke="${c2}" stroke-width="5"/><g transform="translate(${small ? '22 30) scale(2.3' : '29 34) scale(1.75'})" fill="${c2}">${m}</g>${small ? '' : txt(50, 27, 13, c1, 'transform="rotate(-16.7 50 22)"')}`; }
-  const ty = sh === 'shield' ? 76 : sh === 'diamond' ? 72 : 82, fs = sh === 'diamond' ? 12 : 15;
-  return `<path d="${LOGO_OUT[sh]}" fill="${c2}"/><path d="${LOGO_IN[sh]}" fill="${c1}"/>${small ? `<g transform="translate(20 20) scale(2.5)" fill="${c2}">${m}</g>` : `<g transform="translate(${sh === 'diamond' ? '29 20) scale(1.75' : '26 14) scale(2'})" fill="${c2}">${m}</g>${txt(50, ty, fs, c2)}`}`;
+  return emblemTile(t, MOTIF[t.logo] ? motifArt(m) : EMB[embFor(t.name)], small, size, st === 'B' ? 'tile' : st === 'C' ? 'shield' : sh);   // v41
 }
 const tplain = (id, full) => `${logo(id)}${esc(full ? tname(id) : L.teams[id].abbr)}`;
 const tlabel = (id, full) => `<a class="lk tl" data-team="${id}">${tplain(id, full)}</a>`;
@@ -4557,8 +4588,8 @@ const PIPE_TABS = [['ALL', 'Overview'], ['NCHF', 'College (NCHF)'], ['EABL', 'In
 function pipeLogo(lg, i, size) {
   size = size || 18; const k = lg + i + '-' + size; if (pipeLogoCache[k]) return pipeLogoCache[k];
   const t = pipeTeam(lg, i); if (!t) return '';
-  const o = { id: 'p' + lg + i, abbr: t.abbr, c1: pipeHex(t.c1), c2: pipeHex(t.c2) };
-  return pipeLogoCache[k] = `<svg class="logo" width="${size}" height="${size}" viewBox="0 0 100 100" role="img" aria-label="${esc(t.full)} logo">${nbaLogoBody(o, 'ABC'[i % 3], PIPE_SHAPES[i % 4])}</svg>`;
+  const o = { id: 'p' + lg + i, abbr: t.abbr, name: t.name, c1: pipeHex(t.c1), c2: pipeHex(t.c2) };
+  return pipeLogoCache[k] = `<svg class="logo" width="${size}" height="${size}" viewBox="0 0 100 100" role="img" aria-label="${esc(t.full)} logo">${emblemTile(o, EMB[embFor(t.name)], size <= 26, size, ['tile', 'shield', 'circle', 'tile'][i % 4])}</svg>`;   // v41: nickname emblem (was initials)
 }
 function pipeChip(lg, i, title) {
   const t = pipeTeam(lg, i); if (!t) return ''; const c1 = pipeHex(t.c1), c2 = pipeHex(t.c2), ink = hexContrast(c1, '#ffffff') >= hexContrast(c1, '#111111') ? '#ffffff' : '#111111';

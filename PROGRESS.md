@@ -1,5 +1,9 @@
 # PBL progress
 
+## Hall of Fame legend portraits (Sonnet, Nov 20 2026)
+- [x] The 71 Hall of Fame legends on Legend cards get a cartoon face (hand-picked skin, hair, facial hair, glasses per player, e.g. Kareem's goggles, Wilt's beard; rest of the face from the name). Non-Hall of Fame legends keep the silhouette. src/p3.js `LOOK`, `legendFace`.
+- Test: tools/browser-cards.js ALL PASS (1300 + 390). Cache v24.
+
 ## Draft combine (Opus logic, Sonnet UI, Nov 20 2026)
 - [x] Right after the draft lottery, this year's class goes to the combine: height without shoes, wingspan, standing reach, weight, body fat; drills (max and standing vertical, lane agility, shuttle, 3/4 court sprint, bench reps, spot-up shooting). Results follow the real ratings plus a little noise. Some top-5 prospects (30%) and a few others (5%) are measured only.
 - [x] A combine grade (A+ to D vs the class) moves the three mock drafts and every team's board up to ~4 points (a few spots); the drills also tighten everyone's read on athleticism. News: combine opens, top vertical, longest arms, biggest riser and faller.

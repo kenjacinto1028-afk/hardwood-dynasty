@@ -1,3 +1,11 @@
+# TASK_STATE — Fantasy league mode (Opus scoring/AI, Sonnet UI, Haiku text) — Nov 20 2026
+Branch `claude/project-thread-u47orl`.
+- [x] 1. src/fantasy.js logic (FAN): draft, weekly scoring, AI waivers, playoffs, champion — tools/fantasy.js 11/11 PASS, sim results unchanged
+- [ ] 2. src/fantasy.js UI: Fantasy tab (Draft / Matchup / Standings / My roster + waivers / History), wire into app.js + index + sw cache
+- [ ] 3. Tests: tools/fantasy.js (node), tools/browser-fantasy.js (1300 + 390)
+- [ ] 4. PROGRESS.md, PR, merge, Pages check
+
+---
 # TASK_STATE — Card variety and rarities (Sonnet UI, Haiku flavor text) — Nov 20 2026
 Branch `claude/project-thread-ld9xl2`.
 - [x] 1. p3.js: card kinds (now, season, rookie, title run, career, Hall of Fame), Uncommon tier, ribbon tag, award-boosted rarity, coach cards, flavor lines

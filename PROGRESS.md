@@ -806,6 +806,7 @@ Effort: **S** = 1 session, **M** = 1-2 Opus sessions + Sonnet, **L** = 3-4 sessi
 - v30 G: Haiku part done. `src/nba-text.js` has `NBA_TEXT.emblem` (30 teams: motif, alt, word).
 - [x] v30 P (compact philosophy window) — **Sonnet** (Nov 13): README "v30 P + G". browser-v30 44/44, t27 71/71, t29 quick 19/19.
 - [x] v30 G NBA mode (29 original emblems + wordmark, initials fallback, PBL / pipeline logos untouched) — **Sonnet** (Nov 13). Still open for G: PBL + 40 pipeline team emblem logos (nickname → emblem map).
+- [x] v30 G finished: PBL teams (their motif in an emblem tile + nickname wordmark) and all 40 college / overseas teams (nickname emblems, 8 new: snake, dragon, tiger, scorpion, peach, arrow, mug, armadillo; no more initials). Custom expansion teams use the same style. `emblemTile`, `PIPE_EMB`, `embFor` in app.js; test tools/browser-logos.js ALL PASS — **Sonnet** (Nov 20).
 - [x] Knicks logo no longer the Kings crown: new `skyline` emblem (`EMB.skyline` in app.js, `NYK` motif in `NBA_TEXT.emblem`) — **Sonnet** (Nov 13). Only NYK uses it.
 
 ### v30 T Season to-do list (franchise / team mode only)

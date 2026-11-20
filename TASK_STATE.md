@@ -1,3 +1,12 @@
+# TASK_STATE — Friendships and duos (Opus logic, Sonnet panel, Haiku text) — Nov 20 2026
+Branch `claude/project-thread-gyg68h`.
+- [ ] 1. league.js: L.fr friendships + duos (seedFriends at season end, news), FA appeal + morale + negotiation tag
+- [ ] 2. engine.js: friends/duos on court add chemistry
+- [ ] 3. app.js: Friends panel on player page, bonds on team chemistry panel, Rules text
+- [ ] 4. Tests: unit sim (friends form, FA pull), browser check
+- [ ] 5. PROGRESS.md, PR, merge, Pages check
+
+---
 # TASK_STATE — Live-game coaching (Opus engine, Sonnet UI) — Nov 20 2026
 Branch `claude/project-thread-1t1i21`.
 - [x] 1. engine.js: playGame0 -> generator playGameG (yield per possession); playGame runs it to the end; sim hash unchanged

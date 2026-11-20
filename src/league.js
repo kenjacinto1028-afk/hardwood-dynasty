@@ -2825,6 +2825,7 @@ function moraleParts(L, p) {
   parts.fit = clamp((fit(p, t.coach) - 60) * 0.15, -4, 3);
   const ts = tradeStatus(L, p); if (ts && ts.k === 'block' && !p.tradeReq) parts.shopped = -8;
   if (familyOn(L, p, t)) parts.family = 4;
+  if (friendOn(L, p, t)) parts.friend = FR.morale;   // v37
   if (p.career && L.career && L.career.chem != null) parts.chem = clamp((L.career.chem - 50) / 12, -4, 4);   // My Career: locker-room chemistry
   if (p.mentor != null && t.coach && t.coach.id === p.mentor && (p.svc || 0) >= 3) parts.mentor = 3;
   if ((p.friction || []).includes(t.coach.id)) parts.friction = -4;
@@ -3777,6 +3778,70 @@ function teamDuos(L, t) {
   const avg = out.length ? out.reduce((s, x) => s + x.n, 0) / out.length : 0;
   return { avg, best: out.filter(x => x.n > 0).sort((x, y) => y.n - x.n).slice(0, 3) };
 }
+// ---------- v37: friendships and duos ----------
+// L.fr[duoKey(a,b)] = { since, why, duo }. Teammates who stick together become friends; two starting stars who are friends become a duo.
+// Friends (or a duo) on the floor together add a little chemistry, a friend on a team pulls a free agent there, and he is happier with a friend beside him.
+const FR = { max: 3, yrs: 2, chance: 0.22, mentor: 0.35, duoOvr: 70, duoYrs: 2, appeal: 0.06, appealDuo: 0.10, morale: 3, chem: 0.0015, chemDuo: 0.003 };
+const FR_WHY = ['years as teammates', 'road roommates', 'same workout group in the summer', 'grew close in the locker room', 'pregame handshake partners', 'share a love of cards on team flights', 'neighbors in the same building', 'came up on the second unit together'];
+const FR_NEWS = ['{a} and {b} are now close friends ({why}).', 'Locker room bond: {a} and {b} have become good friends ({why}).', '{a} calls {b} his best friend on the team ({why}).'];
+const DUO_NEWS = ['Dynamic duo: {a} and {b} ({t}) are a pair the league has to plan for.', '{a} and {b} ({t}) are the new duo everyone is talking about.', 'Friends on and off the floor: {a} and {b} have become {t}\'s go-to duo.'];
+const DUO_SPLIT = ['The duo is split up: {a} and {b} are no longer teammates, but stay friends.', '{a} and {b} won\'t share a floor anymore. The friendship stays, the duo is over.'];
+function frGet(L, a, b) { return L.fr ? L.fr[duoKey(a, b)] || null : null; }
+function friendsOf(L, p) {
+  const out = []; if (!L.fr || !p) return out;
+  for (const k in L.fr) { const [x, y] = k.split('-').map(Number); if (x !== p.id && y !== p.id) continue; const q = L.players[x === p.id ? y : x]; if (q && !q.retired) out.push({ f: L.fr[k], other: q }); }
+  return out.sort((x, y) => (y.f.duo ? 1 : 0) - (x.f.duo ? 1 : 0) || x.f.since - y.f.since);
+}
+// a friend on team t (the best: a duo partner first). Used by free agency, morale and the signing tags.
+function friendOn(L, p, t) { if (!L || !t) return null; return friendsOf(L, p).find(x => x.other.team === t.id && x.other.id !== p.id) || null; }
+function frFill(s, a, b, why, t) { return s.replace('{a}', a.name).replace('{b}', b.name).replace('{why}', why || '').replace('{t}', t ? t.abbr : ''); }
+function addFriend(L, a, b, why) {
+  if (!a || !b || a.id === b.id || a.retired || b.retired) return null;
+  L.fr = L.fr || {}; const k = duoKey(a.id, b.id); if (L.fr[k]) return L.fr[k];
+  if (friendsOf(L, a).length >= FR.max || friendsOf(L, b).length >= FR.max) return null;
+  try { if (rivalsOf(L, a).some(r => r.other.id === b.id)) return null; } catch (e) { }
+  const f = L.fr[k] = { since: gameSeason(L), why };
+  if (a.ovr >= 68 || b.ovr >= 68 || a.team === L.user) logNews(L, frFill(FR_NEWS[Math.floor(R() * FR_NEWS.length)], a, b, why), a.team === L.user ? a.team : null, 'league');
+  return f;
+}
+// once a season, after updateDuos: new friendships between long-time teammates (and mentors with young players), duos made and split
+function seedFriends(L) {
+  L.fr = L.fr || {};
+  for (const k in L.fr) { const [x, y] = k.split('-').map(Number); const a = L.players[x], b = L.players[y]; if (!a || !b || a.retired || b.retired) delete L.fr[k]; }
+  for (const t of L.teams) {
+    const rot = rotationOf(L, t).slice(0, 9), top5 = new Set(rot.slice(0, 5).map(p => p.id));
+    for (let i = 0; i < rot.length; i++) for (let j = i + 1; j < rot.length; j++) {
+      const a = rot[i], b = rot[j], f = frGet(L, a.id, b.id);
+      if (!f) {
+        const yrs = duoYears(L, a.id, b.id), men = (a.pers === 'Mentor' && b.age <= 23) || (b.pers === 'Mentor' && a.age <= 23);
+        if (men && yrs >= 1 && R() < FR.mentor) addFriend(L, a, b, a.pers === 'Mentor' ? `${a.name.split(' ').pop()} took him under his wing` : `${b.name.split(' ').pop()} took him under his wing`);
+        else if (yrs >= FR.yrs && R() < FR.chance * (a.pers === 'Loyal' || b.pers === 'Loyal' ? 1.4 : 1)) addFriend(L, a, b, FR_WHY[Math.floor(R() * FR_WHY.length)]);
+      }
+      const g = frGet(L, a.id, b.id);
+      if (g && !g.duo && top5.has(a.id) && top5.has(b.id) && a.ovr >= FR.duoOvr && b.ovr >= FR.duoOvr && duoYears(L, a.id, b.id) >= FR.duoYrs) {
+        g.duo = gameSeason(L); g.tid = t.id; logNews(L, frFill(DUO_NEWS[Math.floor(R() * DUO_NEWS.length)], a, b, '', t), t.id === L.user ? t.id : null, 'league');
+      }
+    }
+  }
+  for (const k in L.fr) { const f = L.fr[k]; if (!f.duo) continue; const [x, y] = k.split('-').map(Number); const a = L.players[x], b = L.players[y];
+    if (a.team == null || a.team !== b.team) { delete f.duo; delete f.tid; if (a.ovr >= 70 || b.ovr >= 70) logNews(L, frFill(DUO_SPLIT[Math.floor(R() * DUO_SPLIT.length)], a, b), [a.team, b.team].includes(L.user) ? L.user : null, 'league'); } }
+}
+// new league: a few real-feeling bonds right away (teammates with the most seasons together)
+function setupFriends(L) {
+  if (L.fr) return; L.fr = {};
+  for (const t of L.teams) {
+    const rot = rotationOf(L, t).slice(0, 9), top = new Set(rot.slice(0, 5).map(p => p.id)), pairs = [];
+    for (let i = 0; i < rot.length; i++) for (let j = i + 1; j < rot.length; j++) pairs.push([rot[i], rot[j], duoYears(L, rot[i].id, rot[j].id) + R()]);
+    pairs.sort((x, y) => y[2] - x[2]); let n = 0;
+    for (const [a, b, w] of pairs) {
+      if (n >= 2) break; if (w < 1 || friendsOf(L, a).length >= FR.max || friendsOf(L, b).length >= FR.max) continue;
+      const f = L.fr[duoKey(a.id, b.id)] = { since: gameSeason(L) - 1, why: w >= 2 ? 'years as teammates' : FR_WHY[1 + Math.floor(R() * (FR_WHY.length - 1))] }; n++;
+      if (top.has(a.id) && top.has(b.id) && a.ovr >= 74 && b.ovr >= 74) { f.duo = gameSeason(L); f.tid = t.id; }
+    }
+  }
+}
+// engine: chemistry from friends sharing the floor (index by id for speed)
+function frChem(L, five) { if (!L.fr) return { v: 0, n: 0, duo: 0 }; let v = 0, n = 0, d = 0; for (let i = 0; i < five.length; i++) for (let j = i + 1; j < five.length; j++) { const f = L.fr[duoKey(five[i].id, five[j].id)]; if (f) { n++; if (f.duo) { d++; v += FR.chemDuo; } else v += FR.chem; } } return { v, n, duo: d }; }
 // ---------- Achievements for players, teams and coaches (GM ones are in ACH) ----------
 const ACH_P = { iron: 'Iron man: every game for 6 straight seasons', journey: 'Journeyman: played for 8+ teams', oneteam: 'One-team man: 13+ seasons with one team', late: 'Late bloomer: first All-Star at 31+', tdm: 'Triple-double machine: 10 in a season', fifty: '55-point game', sniper: 'Sniper: 12 threes in a game', brick: 'Brick layer: 0-for-12 or worse', ghost: 'Ghost: 36+ minutes, 0 points on 5+ shots', blocks10: 'Swat team: 10 blocks in a game', dimes20: 'Dime store: 20 assists in a game', thousand: '1,000 career games', p10k: '15,000 career points' };
 const ACH_T = { home: 'Perfect at home', w2f: 'Worst to first', comeback: 'Comeback kids: won after trailing by 30+', triot: 'Marathon: triple-overtime game', streak15: 'Hot streak: 18 straight wins', cold12: 'Cold streak: 18 straight losses', hundred: 'Lockdown: held a team under 68', blowout: 'Statement win: by 45+' };
@@ -5024,6 +5089,7 @@ function startOffseason(L) {
   updateDuos(L);
   archiveSeason(L);
   try { refreshPoRivals(L); } catch (e) { }
+  try { seedFriends(L); } catch (e) { console.error('seedFriends', e); }   // v37
   try { seedRivals(L); } catch (e) { }   // v18 fix: after the season is archived, so this year's playoff series count
   try { seasonAch(L); } catch (e) { }
   // v21: replaced by multi-season status plans (t.plan) in computeModes
@@ -5589,6 +5655,7 @@ function negAppeal(p, t, type, L) {
   if (type === 're-sign' || type === 'extension' || p.lastTeam === t.id) a += 0.1 * Math.min(1.3, twp(p, 'loy'));
   if (L && grudgeVs(L, p, t.id)) a -= 0.15;   // v17: still bitter
   if (L && familyOn(L, p, t)) a += 0.08;     // wants to play with his brother or for his father
+  if (L) { const fo = friendOn(L, p, t); if (fo) a += fo.f.duo ? FR.appealDuo : FR.appeal; }   // v37: wants to join his friend
   if (L && p.pers === 'Mentor' && (wantsMentor(L, t) || (p.team === t.id && youngTeam(L, t)))) a += 0.13;   // v16: mentors take less to lead a young team
   if (L) a *= agentAppeal(L, p, t);   // v25.1: agent type
   return a;
@@ -6674,6 +6741,7 @@ function migrateLeague(L) {
   L.gmPool = L.gmPool || []; L.openings = L.openings || []; L.jobOffers = L.jobOffers || [];
   if (L.teams.some(t => t.id !== L.user && !t.tstat)) refreshTradeStatus(L);
   if (L.nba && (L.legV || 0) < 37 && typeof nbaLegBaseAll === 'function') nbaLegBaseAll(L);   // v37b: real playoffs + role players' real seasons in legacy
+  if (!L.fr && L.teams && L.teams.length && Object.keys(L.players).length > 100) { try { setupFriends(L); } catch (e) { L.fr = {}; } }   // v37: friendships for old saves and new leagues
   return L;
 }
 
@@ -9464,7 +9532,7 @@ Object.assign(FLAVOR, {
   'pp.callup': ['The {team} call up {name} from the {club} ({lg}): {buy}.', 'The {team} call up {name} from the {club} ({lg}), {buy}.', '{name} is called up by the {team} from the {club} ({lg}): {buy}.', 'The {team} bring in {name} from the {club} ({lg}): {buy}.'],
   'fd.pipe.award': ['{award} goes to {name} of the {team}. Keep an eye on him.', '{award} goes to {name} of the {team} ({lg}).', 'The {team}\'s {name} wins the {award} in the {lg}.', 'Honor: {name} of the {team} is the {award}. Keep an eye on him.']
 });
-if (typeof module !== 'undefined') module.exports = { PIPE_LGS, PIPE_LG, PIPE_CONF, PIPE_TEAMS, PIPE_AW, PIPE_ACH, PIPE_FX, PIPE_CNT, PIPE_YR_LABEL, pipeTeam, pipeTeamName, pipeLabel, pipeYear, pipeAssignClass, pipeBuild, pipeSeason, pipeStock, pipeRosters, pipeBuyout, pipeOnClub, pipeLeave, pipeCallable, callUp, pipeDay, pipeHofPts, preHonors, pipeAfterDraft, pipeMigrate, pipeBytes, finePlayer, fineAmt, fineStr, suspend, suspendPlayer, isSusp, suspGames, discOf, temperOf, lr2Game, posWeek, POS_KINDS, POS_FX, conductPick, drChoicesFor, drSuspGames, IV_OUTLETS, IV_Q, IV_STAGES, ivOpen, ivTrigger, ivText, ivAnswers, ivAnswer, ivExpire, claimsSettle, MTG_OPTS, meetPlayer, mtgOpen, mtgOptions, mtgAnswer, mtgRequests, mtgExpire, mkPromise, hasPromise, promiseLabel, promiseList, checkGmPromises, gmTrustOf, lr2Day, lr2SeasonEnd, lr2Auto, lr2Morale, discLeaders, LR2_FX, LR2_FINE, LR2_CNT, dramaWeek, answerDrama, dramaOpen, dramaList, drMorale, lrOf, lrLabel, DR_FX, DR_CNT, DR_CHOICES, DR_HINT, dynSeasons, dynasties, dynCore, dynWatch, dynEras, autoBegin, autoStep, autoEnd, autoDone, autoRestore, autoRow, AUTO_FX, coachEvolve, coachTree, coachNew, caExQueue, CA_FX, CA_CNT, gmOffseason, gmCareer, gmTakeOver, gmLeave, findGM, GM_FX, GM_CNT, dayDate, MON, NBA_CAL, setSeasonLen, devRole, devRoleBoost, devUsage, sysFocus, SKILL_FOCUS, faLeak, faReason, faDecision, noteNearDeal, RUMOR_REAL, RUMOR_CNT, repAppeal, repTrustWeek, publicUnhappy, pubStar, pubReady, hotSeat, hotSeatWeek, storyGame, raceWeek, retireTribute, jerseyTribute, fanMood, fanMoodWeek, realismWeek, gmReset, foPersona, foTraits, foSummary, FO_TRAIT, planYears, blendStatus, RISE_CNT, RISING_MAX, statusNews, risingOK, risingKeepsPick, statusMinBoost, FEED_MAX, FEED_AUTH, addPost, postText, feedList, feedKey, playerTone, mediaRep, mediaTone, gameReactions, bigGame, rxText, rxWho, mediaGame, feedTrade, feedSign, feedInjury, feedAward, feedMilestone, feedPromise, feedHoldout, mediaSeries, PRESS_CHOICES, PRESS_LABEL, PRESS_GOOD, PRESS_CNT, pressOpen, pressTrigger, pressText, pressChoices, pressEffects, answerPress, rumorWeek, beatReport, prBlurbs, prBlurb, featureWeek, mediaDay, migrateV265, isWatched, ptagOf, watchList, toggleWatch, setPtag, watchScan, WATCH_MAX, PTAGS, rivalsOf, activeRivals, isRivalry, rivalKind, rivalKinds, rivalOpps, rivalPairs, setupRivals, refreshPoRivals, RIV_LABEL, tradeTempo, payIncentives, holdoutCheck, resolveHoldout, holdoutTerms, agentOf, AGENT_STYLE, NTC_ELIGIBLE, incLikely, INC_LABEL, storyStart, storyEnd, storyTitle, storyStatus, familyTies, relatives, teamDuos, updateDuos, gameAch, seasonAch, ACH_P, ACH_T, ACH_C, scoutRecs, scoutReport, interview, interviewsLeft, setAssign, assignReady, signTwoWay, decideSecondRounder, convertTwoWay, releaseTwoWay, twPoDay, twCutCands, decideTeamOption, releaseBlock, twEligible, twOf, coachDevReport, SC_BIAS, TW_GAMES, ASSIGN_MAX, INTERVIEW_MAX, tradeGrades, treadmillCheck, ACH, ownerSales, yearbookStart, updateFame, runAllStar, allStarVotes, jerseysFor, recentWinner, dirFlags, contenderBuy, genClass, CLASS_TYPES, mockSet, mockRanksOf, OUTLETS, coachTargets, positionRead, foOf, FO_STYLE, dealView, sideValue, withCtx, tradeSides, afterTradeOK, CASH_MAX, CASH_PTS, cashRoom, cashTV, cashCheck, coreOf, setCore, keptSpots, CORE_MAX, TARGET_TABS, pickProj, pickRange, pickPtsNow, pickTier, bundleSum, PICK_PTS, protOpts, protN, protEv, pickKV, protCheck, resolveProtections, aiProt, manageMoods, dirSd, sponsorValue, staffRoom, canAffordStaff, makeInterim, fireCoach, starPower, closeSeasonFinance, ownerReview, seasonProjection, taxFor, faRoom, salaryDump, takeJob, gmRep, marketPrice, updateMorale, moraleParts, teamPotEst, draftBoard, sntOffers, doSignAndTrade, tradeRestricted, tradeUpOffer, raceInfo, buyoutTerms, buyout, buyoutDeadlineDay, seasonH2H, proposalsFor, tradeStatus, refreshTradeStatus, capProjection, canFireCoach, computeBPM, powerRankings, featList, renameEverywhere, signConcerns, migrateLeague, awardLadder, coachValue, inTradeWindow, deadlineDay, release, hireCoach, newLeague, simDay, startPlayoffs, simPlayoffDay, startOffseason, runLottery, aiDraftPick, draftPlayer, startResign, startFA, faDay, startNewSeason, finalizeRosters, payroll, capHit, archLabel, posLabel, MODE_LABEL, CAP, money, evaluateUserTrade, DEAL_CNT, addWhy, executeTrade, negotiate, userRosterProblem, autoFillUser, seedOrder };
+if (typeof module !== 'undefined') module.exports = { PIPE_LGS, PIPE_LG, PIPE_CONF, PIPE_TEAMS, PIPE_AW, PIPE_ACH, PIPE_FX, PIPE_CNT, PIPE_YR_LABEL, pipeTeam, pipeTeamName, pipeLabel, pipeYear, pipeAssignClass, pipeBuild, pipeSeason, pipeStock, pipeRosters, pipeBuyout, pipeOnClub, pipeLeave, pipeCallable, callUp, pipeDay, pipeHofPts, preHonors, pipeAfterDraft, pipeMigrate, pipeBytes, finePlayer, fineAmt, fineStr, suspend, suspendPlayer, isSusp, suspGames, discOf, temperOf, lr2Game, posWeek, POS_KINDS, POS_FX, conductPick, drChoicesFor, drSuspGames, IV_OUTLETS, IV_Q, IV_STAGES, ivOpen, ivTrigger, ivText, ivAnswers, ivAnswer, ivExpire, claimsSettle, MTG_OPTS, meetPlayer, mtgOpen, mtgOptions, mtgAnswer, mtgRequests, mtgExpire, mkPromise, hasPromise, promiseLabel, promiseList, checkGmPromises, gmTrustOf, lr2Day, lr2SeasonEnd, lr2Auto, lr2Morale, discLeaders, LR2_FX, LR2_FINE, LR2_CNT, dramaWeek, answerDrama, dramaOpen, dramaList, drMorale, lrOf, lrLabel, DR_FX, DR_CNT, DR_CHOICES, DR_HINT, dynSeasons, dynasties, dynCore, dynWatch, dynEras, autoBegin, autoStep, autoEnd, autoDone, autoRestore, autoRow, AUTO_FX, coachEvolve, coachTree, coachNew, caExQueue, CA_FX, CA_CNT, gmOffseason, gmCareer, gmTakeOver, gmLeave, findGM, GM_FX, GM_CNT, dayDate, MON, NBA_CAL, setSeasonLen, devRole, devRoleBoost, devUsage, sysFocus, SKILL_FOCUS, faLeak, faReason, faDecision, noteNearDeal, RUMOR_REAL, RUMOR_CNT, repAppeal, repTrustWeek, publicUnhappy, pubStar, pubReady, hotSeat, hotSeatWeek, storyGame, raceWeek, retireTribute, jerseyTribute, fanMood, fanMoodWeek, realismWeek, gmReset, foPersona, foTraits, foSummary, FO_TRAIT, planYears, blendStatus, RISE_CNT, RISING_MAX, statusNews, risingOK, risingKeepsPick, statusMinBoost, FEED_MAX, FEED_AUTH, addPost, postText, feedList, feedKey, playerTone, mediaRep, mediaTone, gameReactions, bigGame, rxText, rxWho, mediaGame, feedTrade, feedSign, feedInjury, feedAward, feedMilestone, feedPromise, feedHoldout, mediaSeries, PRESS_CHOICES, PRESS_LABEL, PRESS_GOOD, PRESS_CNT, pressOpen, pressTrigger, pressText, pressChoices, pressEffects, answerPress, rumorWeek, beatReport, prBlurbs, prBlurb, featureWeek, mediaDay, migrateV265, isWatched, ptagOf, watchList, toggleWatch, setPtag, watchScan, WATCH_MAX, PTAGS, rivalsOf, activeRivals, friendsOf, friendOn, frGet, addFriend, seedFriends, setupFriends, frChem, FR, isRivalry, rivalKind, rivalKinds, rivalOpps, rivalPairs, setupRivals, refreshPoRivals, RIV_LABEL, tradeTempo, payIncentives, holdoutCheck, resolveHoldout, holdoutTerms, agentOf, AGENT_STYLE, NTC_ELIGIBLE, incLikely, INC_LABEL, storyStart, storyEnd, storyTitle, storyStatus, familyTies, relatives, teamDuos, updateDuos, gameAch, seasonAch, ACH_P, ACH_T, ACH_C, scoutRecs, scoutReport, interview, interviewsLeft, setAssign, assignReady, signTwoWay, decideSecondRounder, convertTwoWay, releaseTwoWay, twPoDay, twCutCands, decideTeamOption, releaseBlock, twEligible, twOf, coachDevReport, SC_BIAS, TW_GAMES, ASSIGN_MAX, INTERVIEW_MAX, tradeGrades, treadmillCheck, ACH, ownerSales, yearbookStart, updateFame, runAllStar, allStarVotes, jerseysFor, recentWinner, dirFlags, contenderBuy, genClass, CLASS_TYPES, mockSet, mockRanksOf, OUTLETS, coachTargets, positionRead, foOf, FO_STYLE, dealView, sideValue, withCtx, tradeSides, afterTradeOK, CASH_MAX, CASH_PTS, cashRoom, cashTV, cashCheck, coreOf, setCore, keptSpots, CORE_MAX, TARGET_TABS, pickProj, pickRange, pickPtsNow, pickTier, bundleSum, PICK_PTS, protOpts, protN, protEv, pickKV, protCheck, resolveProtections, aiProt, manageMoods, dirSd, sponsorValue, staffRoom, canAffordStaff, makeInterim, fireCoach, starPower, closeSeasonFinance, ownerReview, seasonProjection, taxFor, faRoom, salaryDump, takeJob, gmRep, marketPrice, updateMorale, moraleParts, teamPotEst, draftBoard, sntOffers, doSignAndTrade, tradeRestricted, tradeUpOffer, raceInfo, buyoutTerms, buyout, buyoutDeadlineDay, seasonH2H, proposalsFor, tradeStatus, refreshTradeStatus, capProjection, canFireCoach, computeBPM, powerRankings, featList, renameEverywhere, signConcerns, migrateLeague, awardLadder, coachValue, inTradeWindow, deadlineDay, release, hireCoach, newLeague, simDay, startPlayoffs, simPlayoffDay, startOffseason, runLottery, aiDraftPick, draftPlayer, startResign, startFA, faDay, startNewSeason, finalizeRosters, payroll, capHit, archLabel, posLabel, MODE_LABEL, CAP, money, evaluateUserTrade, DEAL_CNT, addWhy, executeTrade, negotiate, userRosterProblem, autoFillUser, seedOrder };
 
 // ---------- v30c #5: per-team write-ups for trades, signings and releases ----------
 // L.mv = recent moves, newest first: { n, s, ph, day, kind: 'trade'|'sign'|'resign'|'release', tids, pid?, name?, amt?, yrs?, wu: [ { tid, k, text, fit: [before, after] | null, ovr: [before, after] | null } ] }

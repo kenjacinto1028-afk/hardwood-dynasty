@@ -1152,6 +1152,7 @@ ul.fan-list { list-style: none; padding-left: 0; }
 .fan-note { font-size: 13px; margin: 8px 0; }
 .fan-msg { font-weight: 600; color: var(--accent); }
 .fan-tbl td, .fan-tbl th { white-space: nowrap; }
+.fan-tbl td:not(.num), .fan-tbl th:not(.num), .fan-mini td:first-child, table[data-sid=fanhist] td, table[data-sid=fanhist] th { text-align: left; }
 tr.fan-me td { background: var(--accent-soft); }
 tr.fan-sel td { background: color-mix(in srgb, var(--loss) 12%, transparent); }
 tr.fan-cut td { border-bottom: 2px dashed var(--accent); }

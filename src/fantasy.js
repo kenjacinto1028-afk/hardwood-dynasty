@@ -196,7 +196,7 @@ const FANUI = (function () {
   const f1 = x => (Math.round(x * 10) / 10).toFixed(1);
   const tab = (k, n, cur, attr) => `<button class="sm ${cur === k ? 'primary' : ''}" data-${attr}="${k}">${n}</button>`;
   const abbr = L => tid => tid != null && L.teams[tid] ? L.teams[tid].abbr : 'FA';
-  const inj = p => p.injury > 0 ? ` <span class="pill inj" title="Out about ${p.injury} games">Out ${p.injury}g</span>` : '';
+  const inj = p => p.injury > 0 ? ` <span class="pill inj" title="Out about ${Math.ceil(p.injury)} games">Out ${Math.ceil(p.injury)}g</span>` : '';
   const tName = (F, i) => `<span class="fan-tn${i === 0 ? ' you' : ''}">${esc(F.teams[i].n)}</span>`;
   const lastFp = (L, p) => { const h = (p.hist || []).filter(x => x.s < L.season && x.rs && x.rs.gp >= 10).slice(-1)[0]; return h ? FAN.fpTot(h.rs) / h.rs.gp : null; };
   const curFp = p => p.stats && p.stats.rs && p.stats.rs.gp ? FAN.fpTot(p.stats.rs) / p.stats.rs.gp : null;

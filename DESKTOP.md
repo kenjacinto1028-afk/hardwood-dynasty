@@ -4,7 +4,7 @@ The desktop app is the same game in its own window. It doesn't need a browser an
 
 ## Get the installers (no coding)
 1. On GitHub, open the repo, go to **Actions**, pick **Build desktop app**, then click **Run workflow**. It takes about 15-25 minutes.
-2. Go to **Releases**. A release called "Hardwood Dynasty v1.2.0" holds the installers:
+2. Go to **Releases**. A release called "Hardwood Dynasty v1.3.0" holds the installers:
    - Windows: `.exe` (or `.msi`)
    - Mac: `.dmg` (works on Intel and Apple chips)
    - Linux: `.AppImage` or `.deb`

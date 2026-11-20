@@ -37,12 +37,12 @@ const CAR_TEXT = {
       { t: "We knew we were the better team, and we went out and proved it.", tone: 'confident', fx: { fame: 2, trust: 0, chem: 0 } },
       { t: "Their coach talked a lot before the game, and we let our play do the answering.", tone: 'fiery', fx: { fame: 3, trust: -1, chem: -1 } }
     ] },
-    { k: 'win_pts', when: 'win', q: "You put up {pts} points tonight. Did you see that kind of game coming?", a: [
+    { k: 'win_pts', when: 'win', req: 'good', q: "You put up {pts} points tonight. Did you see that kind of game coming?", a: [
       { t: "Not really, but my teammates kept finding me in the right spots all night.", tone: 'humble', fx: { fame: 0, trust: 1, chem: 2 } },
       { t: "I have been preparing for nights like this, so it did not surprise me at all.", tone: 'confident', fx: { fame: 3, trust: 0, chem: 0 } },
       { t: "Tonight was a reminder of what I can do when nobody can stop me.", tone: 'fiery', fx: { fame: 3, trust: 0, chem: -2 } }
     ] },
-    { k: 'win_coach', when: 'win', q: "Coach {coach} says you made the difference. How do you respond?", a: [
+    { k: 'win_coach', when: 'win', req: 'good', q: "Coach {coach} says you made the difference. How do you respond?", a: [
       { t: "Coach put us in position to win, and I just tried to finish what we started.", tone: 'humble', fx: { fame: 0, trust: 3, chem: 2 } },
       { t: "I appreciate the praise, but I expect to be the difference every time I step on the floor.", tone: 'confident', fx: { fame: 2, trust: 1, chem: -1 } },
       { t: "The coach is right, and some people in this building should be saying the same thing.", tone: 'fiery', fx: { fame: 2, trust: -1, chem: -2 } }
@@ -59,7 +59,7 @@ const CAR_TEXT = {
       { t: "We got outplayed in the fourth, and we are going to fix it before the next game.", tone: 'confident', fx: { fame: 1, trust: 1, chem: 0 } },
       { t: "Somebody on that bench needs to answer for the way we played down the stretch.", tone: 'fiery', fx: { fame: 3, trust: -2, chem: -3 } }
     ] },
-    { k: 'loss_you', when: 'loss', q: "You scored {pts} and the team still lost. Is that on you?", a: [
+    { k: 'loss_you', when: 'loss', req: 'good', q: "You scored {pts} and the team still lost. Is that on you?", a: [
       { t: "Scoring does not matter if we lose, so I have to find ways to help more than that.", tone: 'humble', fx: { fame: 0, trust: 2, chem: 2 } },
       { t: "I did my part, and the rest of the guys have to pick up their share too.", tone: 'confident', fx: { fame: 2, trust: -1, chem: -2 } },
       { t: "I played well enough to win, so the blame belongs to the guys who did not show up.", tone: 'fiery', fx: { fame: 2, trust: -2, chem: -3 } }
@@ -76,7 +76,7 @@ const CAR_TEXT = {
       { t: "Shots not falling is part of the game, and they will start falling again soon.", tone: 'confident', fx: { fame: 1, trust: 1, chem: 0 } },
       { t: "People love to talk about my slump, but they forget I have been the best in this league before.", tone: 'fiery', fx: { fame: 3, trust: -1, chem: -2 } }
     ] },
-    { k: 'slump_fans', when: 'slump', q: "Some fans want you on the bench. How do you answer them?", a: [
+    { k: 'slump_fans', when: 'slump', req: 'bench', q: "Some fans want you on the bench. How do you answer them?", a: [
       { t: "I understand the frustration, and I am going to keep working until I earn their trust back.", tone: 'humble', fx: { fame: 0, trust: 3, chem: 1 } },
       { t: "I am still a starter for a reason, and I will prove it in the next few games.", tone: 'confident', fx: { fame: 2, trust: 0, chem: 0 } },
       { t: "Those fans can sit down themselves, because I am not going anywhere.", tone: 'fiery', fx: { fame: 3, trust: -2, chem: -1 } }
@@ -88,12 +88,12 @@ const CAR_TEXT = {
     ] },
 
     // Hot streaks
-    { k: 'hot_streak', when: 'hot', q: "You have been unstoppable lately. Do you feel it?", a: [
+    { k: 'hot_streak', when: 'hot', req: 'star', q: "You have been unstoppable lately. Do you feel it?", a: [
       { t: "I feel good, but I am staying focused on the next game and not the last one.", tone: 'humble', fx: { fame: 0, trust: 2, chem: 1 } },
       { t: "Yeah, I feel it. When I am rolling like this, I know I can take over a game.", tone: 'confident', fx: { fame: 3, trust: 0, chem: 0 } },
       { t: "Unstoppable is right. Anybody who tries to guard me is going to have a long night.", tone: 'fiery', fx: { fame: 3, trust: -1, chem: -2 } }
     ] },
-    { k: 'hot_mvp', when: 'hot', q: "People are already talking MVP. Are you listening to that?", a: [
+    { k: 'hot_mvp', when: 'hot', req: 'mvp', q: "People are already talking MVP. Are you listening to that?", a: [
       { t: "I do not pay attention to that stuff. I just want to help this team win.", tone: 'humble', fx: { fame: 0, trust: 2, chem: 2 } },
       { t: "I hear it, and I think I belong in that conversation if I keep this up.", tone: 'confident', fx: { fame: 3, trust: 0, chem: -1 } },
       { t: "MVP talk is fine, but the voters better be watching, because I am not slowing down.", tone: 'fiery', fx: { fame: 3, trust: -1, chem: -1 } }
@@ -115,7 +115,7 @@ const CAR_TEXT = {
       { t: "They showed me how to act like a pro, and I am already doing the things they do.", tone: 'confident', fx: { fame: 1, trust: 1, chem: 1 } },
       { t: "Honestly, I am the one teaching some of them a thing or two about today's game.", tone: 'fiery', fx: { fame: 2, trust: -1, chem: -2 } }
     ] },
-    { k: 'rook_hype', when: 'rookie', q: "Your draft class is getting a lot of hype. Does that add pressure?", a: [
+    { k: 'rook_hype', when: 'rookie', req: 'hyped', q: "Your draft class is getting a lot of hype. Does that add pressure?", a: [
       { t: "A little, but I try to focus on my own game and let the rest take care of itself.", tone: 'humble', fx: { fame: 0, trust: 2, chem: 1 } },
       { t: "I do not feel pressure. I expected this kind of attention since I was a kid.", tone: 'confident', fx: { fame: 3, trust: 0, chem: 0 } },
       { t: "The hype is for other guys. I am the one who is going to show up and deliver.", tone: 'fiery', fx: { fame: 3, trust: -1, chem: -2 } }
@@ -132,7 +132,7 @@ const CAR_TEXT = {
       { t: "I want to be here for the long haul, and I think we can build something special together.", tone: 'confident', fx: { fame: 2, trust: 1, chem: 1 } },
       { t: "That depends on whether this organization wants to win, because I am not waiting around forever.", tone: 'fiery', fx: { fame: 3, trust: -2, chem: -2 } }
     ] },
-    { k: 'con_value', when: 'contract', q: "Some folks say you are underpaid. Do you agree?", a: [
+    { k: 'con_value', when: 'contract', req: 'star', q: "Some folks say you are underpaid. Do you agree?", a: [
       { t: "I am grateful for what I have, and I will keep working to justify it.", tone: 'humble', fx: { fame: 0, trust: 2, chem: 1 } },
       { t: "I think I am one of the best values in the league, and the numbers back that up.", tone: 'confident', fx: { fame: 3, trust: 0, chem: -1 } },
       { t: "Underpaid is an understatement. Anybody who has watched me play knows that.", tone: 'fiery', fx: { fame: 3, trust: -1, chem: -1 } }
@@ -306,5 +306,41 @@ const CAR_TEXT = {
     ]
   }
 };
+
+// More questions, written in a short form: Q(key, when, question, humble, confident, fiery, requirement).
+// A question with a requirement is only asked when it is true (see carIvTags in career.js): mvp, star, roy, hyped, bench, good.
+(function () {
+  const FX = { humble: { fame: 0, trust: 2, chem: 1 }, confident: { fame: 2, trust: 0, chem: 0 }, fiery: { fame: 3, trust: -1, chem: -1 } };
+  const Q = (k, when, q, h, c, f, req) => { const o = { k, when, q, a: [{ t: h, tone: 'humble', fx: { ...FX.humble } }, { t: c, tone: 'confident', fx: { ...FX.confident } }, { t: f, tone: 'fiery', fx: { ...FX.fiery } }] }; if (req) o.req = req; CAR_TEXT.iv.push(o); };
+  Q('any_pressure', 'any', "How do you handle the pressure of playing in this league?", "I lean on my teammates and my family. Nobody gets through this alone.", "Pressure is a privilege. I have been getting ready for this my whole life.", "Pressure? The people feeling it are the ones who have to guard me.");
+  Q('any_fans', 'any', "What do you say to the {team} fans who show up every night?", "Thank you. Their energy gets me through the long stretches of the season.", "They are going to see something special from me, and soon.", "Tell them to keep making noise. We are going to give them a reason to.");
+  Q('any_mentor', 'any', "Who has helped you the most since you got here?", "Everybody on this roster has taught me something. I am just trying to listen.", "I learn fast, so I took a little from everyone and made it my own.", "Nobody handed me anything. I figured most of it out by competing.");
+  Q('any_social', 'any', "Fans are very loud about you online. Do you read it?", "I try to stay off my phone. My job is in the gym, not in the comments.", "Some of it is fun. The rest just motivates me.", "I read all of it, and I remember every word.");
+  Q('any_rival', 'any', "Is there a player in this league you really want to go up against?", "All of them. Every night is a test, and I want to pass it.", "The best ones, because that is how you find out who you are.", "I have a list. I am working through it one game at a time.");
+  Q('any_role', 'any', "You have a smaller role right now. How do you stay ready?", "I stay ready by working hard in practice. My minutes will come.", "I know my role is growing. I am preparing for the bigger one.", "I should be playing more, and I think everyone on this team knows it.", 'bench');
+  Q('any_target', 'any', "Defenses are game-planning for you now. How do you adjust?", "I watch film, make the right read, and trust my teammates to hit the open shot.", "They can plan all they want. I have counters for everything they throw at me.", "Send two defenders. Send three. It will not change the result.", 'star');
+  Q('win_defense', 'win', "That was a big defensive night for {team}. What changed?", "We locked in and trusted each other. Defense is all about the five guys together.", "When I commit to the defensive end, the whole team follows my lead.", "Nobody scores on us when we play like that, and we should do it every night.");
+  Q('win_bench', 'win', "How important was the bench in that win?", "Our bench was huge tonight. I am proud of every guy who checked in.", "Depth wins in this league, and we have a lot of it.", "People keep sleeping on this group, and they keep paying for it.");
+  Q('win_clutch', 'win', "{team} closed it out strong against {opp}. Walk me through the finish.", "Coach drew up a great play, and the guys executed it. That is all of it.", "I wanted the ball in that moment and I would want it again.", "Give me the ball with the game on the line every single time.");
+  Q('win_road', 'win', "{team} picked up a good one tonight. Does this change how you see the season?", "It is one game. We have to keep stacking wins and stay humble.", "This group is better than people think, and tonight showed it.", "We are not a surprise anymore. We are coming for everybody.");
+  Q('loss_effort', 'loss', "Some people say {team} did not play with enough energy. Fair?", "Maybe. We have to look in the mirror and bring more every possession.", "We will fix it. A bad night does not change who we are.", "Questioning our effort is lazy. {opp} made shots, that is all.");
+  Q('loss_coach', 'loss', "Coach {coach} looked frustrated after that one. What did he tell the team?", "He told us the truth, and we needed to hear it.", "He asked for more from everyone, including me, and I will deliver.", "We heard him. What happens in that room stays in that room.");
+  Q('loss_next', 'loss', "How do you bounce back after a loss like that?", "Watch the film, learn from it, and get back to work tomorrow.", "I do not dwell. The next game is the only one that matters.", "I am already thinking about the next game, and somebody is going to pay for this one.");
+  Q('slump_confidence', 'slump', "Is your confidence taking a hit during this stretch?", "A little. I am leaning on my teammates and my routine to get it back.", "Not at all. The shots will fall, and when they do, watch out.", "Slumps do not last, and neither does the talk about this one.");
+  Q('slump_minutes', 'slump', "Do you think your minutes should be cut while you struggle?", "That is Coach's call. I will do whatever helps the team.", "I earned my minutes, and I plan to keep them.", "Sit me and see what happens. I will be back stronger.");
+  Q('hot_teammates', 'hot', "How much of this run comes from your teammates?", "Honestly, most of it. They find me and make this easy.", "They set me up, but I am the one finishing the plays.", "They know who to give the ball to, and I make them look smart.");
+  Q('hot_sustain', 'hot', "Can you keep this up for the rest of the season?", "I will try. Hot streaks end, so I focus on the process, not the numbers.", "This is the level I expect from myself every night.", "You are asking the wrong question. Ask whether anyone can stop it.", 'star');
+  Q('rook_wall', 'rookie', "Rookies talk about hitting a wall around midseason. Are you feeling it?", "A little. Everyone says it is a grind, and they are right. I am taking it a day at a time.", "I do not believe in walls. My body is ready for this schedule.", "I will go through the wall if I have to.");
+  Q('rook_role', 'rookie', "What kind of role do you see yourself having as a rookie?", "Whatever Coach needs. I want to earn my minutes and stay out of the way of the vets.", "I want to be a real part of the rotation and grow from there.", "I plan to take the starting job. I did not come here to sit.");
+  Q('rook_roy', 'rookie', "You are in the Rookie of the Year conversation. How does that feel?", "It is an honor. There are some great rookies this year, and I am just trying to improve every night.", "I think I deserve to be in that conversation, and I want to win it.", "I want that award. Nobody in this class should be ahead of me.", 'roy');
+  Q('con_loyal', 'contract', "Would you take less to stay with {team}?", "I love it here. I want to make something work if it is fair to both sides.", "I know my value. I will listen, but I want a deal that matches it.", "I earned what I earned. I am not taking a discount from anybody.");
+  Q('con_agent', 'contract', "Has your agent talked to {team} about your future?", "My agent handles that. I just play basketball and trust the process.", "My agent and I have a plan, and the team knows where I stand.", "My agent will make it clear what I am worth. Ask {team}.");
+  Q('trade_loyal', 'trade', "Would a trade change how you feel about the {team} organization?", "I am thankful for everything {team} did for me, whatever happens.", "It is a business. I will be ready wherever I land.", "If they want to move me, they better make it worth it for both sides.");
+  Q('po_first', 'playoffs', "Does it feel different than the regular season?", "Everything is faster and louder. I love it, but I am staying calm.", "This is the stage I have been waiting for.", "The regular season was practice. Now it is real.");
+  Q('po_exp', 'playoffs', "What have the veterans told you about the playoffs?", "To stay patient and take it one possession at a time. I am listening.", "That every possession counts. I plan to make mine count.", "That it comes down to who wants it more. That is easy: me.");
+  Q('aw_win', 'award', "Congratulations on {award}. What does this one mean to you?", "It belongs to everyone who helped me get here, from my family to my teammates.", "It is nice to be recognized. It also makes me want more.", "I am happy, but I did not come here for one trophy.");
+  Q('aw_next', 'award', "You just earned {award}. What is next for you?", "Keep working and keep helping my team win.", "More awards, and a lot more wins.", "Everything. I am only getting started.");
+  Q('aw_thanks', 'award', "Who do you want to thank for {award}?", "My family, my coaches and every teammate who pushed me. This is theirs too.", "Everyone who doubted me gave me fuel. Thanks to my team, too.", "Everyone who said I could not do it. I am looking at you.");
+})();
 
 if (typeof module !== 'undefined') module.exports = { CAR_TEXT };

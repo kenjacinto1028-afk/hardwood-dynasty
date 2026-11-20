@@ -41,7 +41,7 @@ const ev = (pg, js) => pg.evaluate(js0 => { const L = window.__pbl.L, ui = windo
     await pg.selectOption(`[data-cgsub="${sub[0]}"]`, sub[1]); await wait(pg, 300);
     ok(W + ': calls applied', await ev(pg, `(() => { const c = ui.cg, G = c.me === 0 ? c.lg.ctx.H : c.lg.ctx.A; return G.uCov === 'zone' && G.uPlay === 'spot' && G.court.some(p => p.id === ${sub[1]}) && G.uLock > 0; })()`));
     if (W < 500) ok(W + ': no side scroll', await ev(pg, 'document.documentElement.scrollWidth <= innerWidth + 1'), await ev(pg, 'document.documentElement.scrollWidth'));
-    await pg.screenshot({ path: path.join(ROOT, 'tools', `_coach-${W}.png`), fullPage: false });
+    await ev(pg, "document.getElementById('lv-court').scrollIntoView()"); await pg.screenshot({ path: path.join(ROOT, 'tools', `_coach-${W}.png`), fullPage: false });
     await pg.click('[data-lv="pause"]'); await pg.click('[data-lv="sp:16"]'); await wait(pg, 4000);
     ok(W + ': game moves on', await ev(pg, 'ui.cg && ui.lv.i > 20'), await ev(pg, 'ui.lv && ui.lv.i'));
     await pg.evaluate(() => document.querySelector('[data-lv="box"]').click()); await wait(pg, 6000); await close();

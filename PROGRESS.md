@@ -1,5 +1,12 @@
 # PBL progress
 
+## Friendships and duos (Opus logic, Sonnet panel, Haiku text, Nov 20 2026)
+- [x] Teammates in the same rotation for 2+ seasons can become friends (10% a pair a season, more with a Loyal player; at most 2 new per team a season); a Mentor often befriends a young teammate. Max 3 friends a player. Old saves and new leagues start with up to 2 bonds per team (`setupFriends`). Data: `L.fr` (league.js `seedFriends`, `friendsOf`, `friendOn`).
+- [x] Duo: two friends who both start, are 70+ and have 2+ seasons together. A duo splits (news) when they stop being teammates; the friendship stays.
+- [x] Effects: friends in the starting five add chemistry (+0.0015 each pair, duo +0.003; engine `frChem`), morale +3 with a friend on the team, free agents lean toward a team with a friend (+0.08, duo partner +0.12) and the signing screen shows "Friend here: name".
+- [x] Screens: Friends panel on the player page, Friendships list in the team's Team chemistry panel, morale line, Rules section; news lines for new friendships and duos.
+- Test: tools/friends.js 6/6 (2 seasons: 133 friendships, 9 duos, 31 news lines, 5 of 192 signings joined a friend), tools/browser-friends.js ALL PASS (1300 + 390). Cache v19.
+
 ## Live-game coaching (Opus engine, Sonnet UI, Nov 20 2026)
 - [x] "▶ Play & coach live" (was "Sim day & watch live"): your game is played possession by possession (engine `liveGameStart`, `playGameG` generator; `playGame` runs it straight through, so league results are unchanged: tools/court-plays.js hash identical).
 - [x] Your calls (panel under the live controls): timeout (pauses the game, next 3 trips get a small boost + drawn-up play, the other coach may adjust), subs (your five holds ~4 game minutes, "Let coach sub again"), play to run every trip (any of the 11 plays, or coach decides), defense (drop, switch, hedge, blitz/trap, ice, new 2-3 zone, or coach decides). Zone is for your team only: packs the paint, gives up threes.

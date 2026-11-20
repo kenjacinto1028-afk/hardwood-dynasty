@@ -1,6 +1,6 @@
 # TASK_STATE — Draft combine (Opus logic, Sonnet UI) — Nov 20 2026
 Branch `claude/project-thread-cg3tyi`.
-- [ ] 1. src/combine.js logic: runCombine after lottery (measurements + drills, deterministic), boost to mocks/boards, tighter athletic reads, news; league.js hooks; node test
+- [x] 1. src/combine.js logic: runCombine after lottery (measurements + drills, deterministic), boost to mocks/boards, tighter athletic reads, news; league.js hooks; node test — tools/combine.js 8/8 PASS
 - [ ] 2. UI: Draft > Combine page (sortable, filterable table, mock moves), combine block on prospect page; file lists, sw cache
 - [ ] 3. Browser test
 - [ ] 4. PROGRESS.md, PR, merge, Pages check

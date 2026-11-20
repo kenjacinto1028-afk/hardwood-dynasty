@@ -3123,7 +3123,8 @@ function readSd(L, tid, p) { const sc = tid != null && L.teams[tid] ? L.teams[ti
 function readErr(L, tid, p) {
   const sc = tid != null && L.teams[tid] ? L.teams[tid].scout : null, s = tid == null ? 5 : readSd(L, tid, p), k = tid == null ? 7771 : tid * 977 + (sc ? sc.id : 0) * 7 + 13;
   const sh = hgauss(p.id, k) * s;
-  return READ_GROUPS.map((g, i) => clamp(0.8 * sh + 0.6 * hgauss(p.id, k + (i + 1) * 31) * s, -READ_MAX, READ_MAX));
+  const ak = typeof cmbAthK === 'function' ? cmbAthK(p) : 1;   // combine: tighter athletic read
+  return READ_GROUPS.map((g, i) => clamp((0.8 * sh + 0.6 * hgauss(p.id, k + (i + 1) * 31) * s) * (i === 3 ? ak : 1), -READ_MAX, READ_MAX));
 }
 function ovrRead(L, tid, p) { if (!hiddenFor(L, p)) return p.ovr; const e = readErr(L, tid, p); return clamp(Math.round(p.ovr + e.reduce((a, b) => a + b, 0) / e.length), 25, 99); }
 function attrRead(L, tid, p, k) {
@@ -3163,7 +3164,7 @@ function draftBoard(L, tid, d) {
   const t = L.teams[tid], needs = teamNeeds(L, t);
   const potW = t.mode === 'tank' || t.mode === 'rebuild' ? 0.65 : 0.5;
   const pros = (L.classes[d] || []).map(id => L.players[id]).filter(Boolean);
-  const sc = p => { const fl = dirFlags(L, tid, p); return potW * teamPotEst(L, tid, p).est + (1 - potW) * ovrRead(L, tid, p) + (needMult(L, t, p, needs) - 1) * 6 + youthB(L, p, 1.2) + (fl === 'bust' ? -3 : fl === 'bloom' ? 2 : 0); };
+  const sc = p => { const fl = dirFlags(L, tid, p); return potW * teamPotEst(L, tid, p).est + (1 - potW) * ovrRead(L, tid, p) + (needMult(L, t, p, needs) - 1) * 6 + youthB(L, p, 1.2) + (fl === 'bust' ? -3 : fl === 'bloom' ? 2 : 0) + (typeof cmbBoost === 'function' ? cmbBoost(L, p) : 0); };
   let board = pros.sort((a, b) => sc(b) - sc(a));
   const mine = tid === L.user && L.myBoard && L.myBoard[d];
   if (mine) { const pos = new Map(mine.map((id, i) => [id, i])); board = board.slice().sort((a, b) => (pos.has(a.id) ? pos.get(a.id) : 999) - (pos.has(b.id) ? pos.get(b.id) : 999)); }
@@ -5315,6 +5316,7 @@ function runLottery(L) {
   const d0 = L.draftOrder[0];
   logNews(L, `Draft lottery: ${L.teams[d0.owner].abbr} win the #1 pick${d0.owner !== d0.orig ? ' (via ' + L.teams[d0.orig].abbr + ')' : ''}${d0.preRank > 1 ? ', jumping from the #' + d0.preRank + ' spot' : ''}`, d0.owner, 'draft');
   L.phase = 'off-lottery';
+  try { if (typeof runCombine === 'function') runCombine(L, S); } catch (e) { console.error('combine', e); }   // draft combine (combine.js)
 }
 // v27: NBA 2026-27 first-round scale (year 1, 120% of scale as signed), interpolated
 const NBA_RSCALE = [[1, 14.75], [2, 13.2], [3, 11.85], [4, 10.65], [5, 9.6], [6, 8.7], [7, 8.0], [10, 6.4], [12, 5.8], [16, 4.7], [20, 3.9], [22, 3.6], [26, 3.08], [30, 2.93]];
@@ -6459,18 +6461,19 @@ function projTeamOrder(L, d) {
 }
 function mockSet(L, d) {
   const ids = (L.classes[d] || []).filter(id => L.players[id]);
-  const bucket = mockBucket(L), key = `${d}|${L.season}|${L.phase}|${bucket}|${ids.length}|${L.draftIdx || 0}`;
+  const bucket = mockBucket(L), key = `${d}|${L.season}|${L.phase}|${bucket}|${ids.length}|${L.draftIdx || 0}|${L.combine && L.combine[d] ? 1 : 0}`;
   let m = MOCK_CACHE.get(L); if (!m) { m = new Map(); MOCK_CACHE.set(L, m); }
   if (m.has(key)) return m.get(key);
   if (m.size > 40) m.clear();
   const ps = ids.map(id => L.players[id]);
   const k = Math.max(0, d - capSeason(L) + 1), sd = [1.2, 2, 3.2, 4.5, 5][Math.min(4, k)];
   const noise = (p, i) => (0.75 * hgauss(p.id, 7001 * (i + 1) + d * 13) + 0.66 * hgauss(p.id, 7001 * (i + 1) + d * 13 + 97 * (bucket + 1) + L.season * 1009)) * sd;
+  const cb = typeof cmbBoost === 'function' ? p => cmbBoost(L, p) : () => 0;   // draft combine
   const mo = p => ovrRead(L, null, p);
-  const hi = ps.map(p => [p, 0.5 * p.scout + 0.5 * mo(p) + youthB(L, p, 0.8) + noise(p, 0)]).sort((a, b) => b[1] - a[1]).map(x => x[0].id);
-  const ur = ps.map(p => [p, 0.8 * p.scout + 0.2 * mo(p) + youthB(L, p, 1.5) + noise(p, 1)]).sort((a, b) => b[1] - a[1]).map(x => x[0].id);
+  const hi = ps.map(p => [p, 0.5 * p.scout + 0.5 * mo(p) + youthB(L, p, 0.8) + noise(p, 0) + cb(p)]).sort((a, b) => b[1] - a[1]).map(x => x[0].id);
+  const ur = ps.map(p => [p, 0.8 * p.scout + 0.2 * mo(p) + youthB(L, p, 1.5) + noise(p, 1) + cb(p)]).sort((a, b) => b[1] - a[1]).map(x => x[0].id);
   // Courtside Daily: walk the projected order, each team taking the best player for its needs
-  const base = new Map(ps.map(p => [p.id, 0.65 * p.scout + 0.35 * mo(p) + youthB(L, p, 1.0) + noise(p, 2)]));
+  const base = new Map(ps.map(p => [p.id, 0.65 * p.scout + 0.35 * mo(p) + youthB(L, p, 1.0) + noise(p, 2) + cb(p)]));
   const left = new Set(ps.map(p => p.id)), cd = [], needsOf = {};
   for (const tid of projTeamOrder(L, d)) {
     if (!left.size) break;

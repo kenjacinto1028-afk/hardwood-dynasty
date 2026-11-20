@@ -1,7 +1,7 @@
 # TASK_STATE — Team logos for PBL + pipeline teams (Sonnet) — Nov 20 2026
 Branch `claude/project-thread-q71sj0`.
-- [ ] 1. app.js: emblem tile for PBL teams (motif + wordmark) and 40 pipeline teams (nickname map + new EMB art)
-- [ ] 2. Build + browser check (screenshots)
+- [x] 1. app.js: emblemTile + PIPE_EMB nickname map + 8 new EMB art (snake, dragon, tiger, scorpion, peach, arrow, mug, armadillo); PBL motifs now in emblem tiles with wordmark
+- [x] 2. tools/browser-logos.js ALL PASS (56 logos, 40 unique pipeline). browser-xp.js already failing before this change (stale test)
 - [ ] 3. PROGRESS.md, sw cache bump, PR, merge, Pages check
 
 ---

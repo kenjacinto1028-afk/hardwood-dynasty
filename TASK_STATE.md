@@ -3,7 +3,7 @@ Branch `claude/project-thread-1t1i21`.
 - [x] 1. engine.js: playGame0 -> generator playGameG (yield per possession); playGame runs it to the end; sim hash unchanged
 - [x] 2. engine.js: coaching hooks (timeout, sub lock, play call, coverage incl. zone) + simDay/simPlayoffDay use L.preGame — done: liveGameStart, ctx.cmd, takePre; tools/live-coach.js 6/6 PASS; hash unchanged
 - [x] 3. app.js: Coach live flow (partial game on live screen, finish -> sim day), coaching panel UI — done: cgStart/cgGame/cgEnd/cgPanel, styles .cg-*; tools/browser-coach.js ALL PASS
-- [ ] 4. Tests: hash unchanged, coaching changes results, browser check
+- [x] 4. Tests: hash unchanged, coaching changes results, browser check — done (see PROGRESS.md)
 - [ ] 5. PROGRESS.md, PR, merge, Pages check
 
 ---

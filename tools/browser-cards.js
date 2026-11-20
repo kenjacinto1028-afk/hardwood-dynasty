@@ -50,6 +50,8 @@ async function run(W, touch) {
   ok(T + 'legend card (real career totals)', kar[0] === 'Kareem Abdul-Jabbar' && kar[1] === 'hof' && kar[3][0] > 20, kar);
   const wilt = await ev(pg, "(()=>{const i=nbaLegends().findIndex(g=>g.name==='Wilt Chamberlain');return P3.legendCard(i).st})()");
   ok(T + 'old-era legend rebounds (total rebounds only)', wilt[1] > 15, wilt);
+  const lf = await ev(pg, "(()=>{const G=nbaLegends();return [G.filter(g=>g.hof&&P3.legendFace(g,null)).length,G.filter(g=>g.hof).length,G.filter(g=>!g.hof&&P3.legendFace(g,null)).length]})()");
+  ok(T + 'every Hall of Fame legend has a face, others stay silhouettes', lf[0] === lf[1] && lf[0] > 60 && lf[2] === 0, lf);
   await click('[data-p3show="legend"]'); await wait(pg, 500); await click('.p3-binder .p3-slot'); await wait(pg, 700);
   ok(T + 'legend card popup', await ev(pg, "document.querySelector('#modal h2').textContent==='Legend card'&&/LEGEND/.test(document.querySelector('#modal .p3-card svg').textContent)"));
   await shot(pg, 'legend-' + W); await closeModals(pg);

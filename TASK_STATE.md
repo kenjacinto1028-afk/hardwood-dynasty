@@ -1,3 +1,9 @@
+# TASK_STATE — Hall of Fame legend portraits (Sonnet) — Nov 20 2026
+Branch `claude/project-thread-ld9xl2`.
+- [x] 1. p3.js LOOK table + legendFace; tools/browser-cards.js ALL PASS
+- [ ] 2. PROGRESS.md, PR, merge
+
+---
 # TASK_STATE — Team logos for PBL + pipeline teams (Sonnet) — Nov 20 2026
 Branch `claude/project-thread-q71sj0`.
 - [x] 1. app.js: emblemTile + PIPE_EMB nickname map + 8 new EMB art (snake, dragon, tiger, scorpion, peach, arrow, mug, armadillo); PBL motifs now in emblem tiles with wordmark
@@ -32,7 +38,7 @@ Branch `claude/project-thread-u47orl`.
 Branch `claude/project-thread-ld9xl2`.
 - [x] 1. p3.js: real past seasons in seasonsOf (NBA leagues), legendCard + Legends binder
 - [x] 2. tools/browser-cards.js ALL PASS
-- [ ] 3. PROGRESS.md, PR, merge, Pages check
+- [x] 3. PROGRESS.md, PR #38 merged
 
 ---
 # TASK_STATE — Card variety and rarities (Sonnet UI, Haiku flavor text) — Nov 20 2026

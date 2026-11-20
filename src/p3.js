@@ -116,6 +116,89 @@ const P3 = (function () { with (window.PBL) {   // eslint-disable-line no-with
     const yrs = String(g.from).slice(0, 4) + '–' + String(g.to).slice(0, 4);
     return Object.assign({ id: 100000 + i, li: i, n: g.name, o: String(o), ps: g.pos, a: 0, num: '', s: yrs, st: pgOf({ gp: r.gp, pts: r.pts, orb: (r.orb || 0) + (r.drb || 0) ? r.orb : (r.trb || 0), drb: (r.orb || 0) + (r.drb || 0) ? r.drb : 0, ast: r.ast }).map(r1), r: g.hof ? 'hof' : bump(rarOf(o), (n('MVP') ? 1 : 0) + (n('Champion') >= 2 ? 1 : 0)), aw: ac, lg: 'NBA', k: 'legend', rb: (g.hof ? 'Legend · Hall of Fame ' + g.hof : 'Legend · ' + yrs).toUpperCase(), ft: n('MVP') ? 'Legend MVP' : 'Legend', real: 1 }, teamBits(t), { tc: (g.teams || []).join(' · ') || 'NBA' });
   }
+  // Hall of Fame legends get a cartoon look: skin (0-7), hair, facial hair, hair color (0-7), glasses; the rest of the face comes from the name
+  const LOOK = {
+    "Kareem Abdul-Jabbar": '6,short-bald,none,0,glasses2-black',
+    "Ray Allen": '4,bald,none,0',
+    "Carmelo Anthony": '4,crop-fade,goatee-thin,0',
+    "Paul Arizin": '0,parted,none,1',
+    "Charles Barkley": '6,bald,none,0',
+    "Rick Barry": '0,shaggy1,none,3',
+    "Elgin Baylor": '6,short,mustache-thin,0',
+    "Dave Bing": '5,short,mustache-thin,0',
+    "Larry Bird": '0,messy,mustache1,4',
+    "Kobe Bryant": '5,bald,none,0',
+    "Wilt Chamberlain": '7,short-bald,wilt,0',
+    "Bob Cousy": '0,parted,none,0',
+    "Dave Cowens": '0,messy,none,6',
+    "Billy Cunningham": '0,parted,none,1',
+    "Dave DeBusschere": '0,short,none,1',
+    "Clyde Drexler": '5,short,mustache-thin,0',
+    "Tim Duncan": '6,short-fade,none,0',
+    "Julius Erving": '5,afro,goatee1-stache,0',
+    "Patrick Ewing": '7,crop-fade,none,0',
+    "Walt Frazier": '5,afro2,muttonStache,0',
+    "George Gervin": '6,afro,mustache1,0',
+    "Hal Greer": '6,short,none,0',
+    "John Havlicek": '0,crop,none,2',
+    "Elvin Hayes": '6,afro,mustache-thin,0',
+    "Allen Iverson": '5,cornrows,goatee-thin,0',
+    "Magic Johnson": '6,short-fade,none,0',
+    "Sam Jones": '6,short,none,0',
+    "Michael Jordan": '6,bald,none,0',
+    "Jason Kidd": '4,short-bald,none,0',
+    "Bob Lanier": '6,afro,beard1,0',
+    "Jerry Lucas": '0,crop,none,1',
+    "Karl Malone": '6,short-bald,none,0',
+    "Moses Malone": '7,afro,mustache-thin,0',
+    "Pete Maravich": '0,shaggy1,none,2',
+    "Bob McAdoo": '6,afro,mustache1,0',
+    "Kevin McHale": '0,messy-short,none,0',
+    "George Mikan": '0,parted,none,1,glasses1-secondary',
+    "Reggie Miller": '4,short-bald,none,0',
+    "Earl Monroe": '6,afro,goatee1-stache,0',
+    "Steve Nash": '0,shaggy1,none,1',
+    "Dirk Nowitzki": '0,messy,none,4',
+    "Hakeem Olajuwon": '7,short-fade,beard2,0',
+    "Shaquille O'Neal": '6,bald,goatee-thin,0',
+    "Robert Parish": '7,short,mustache-thin,0',
+    "Gary Payton": '6,short-fade,mustache-thin,0',
+    "Bob Pettit": '0,crop,none,1',
+    "Paul Pierce": '4,short-bald,goatee-thin,0',
+    "Scottie Pippen": '6,short-fade,none,0',
+    "Willis Reed": '7,short,none,0',
+    "Oscar Robertson": '6,short-bald,none,0',
+    "David Robinson": '6,short-bald,mustache-thin,0',
+    "Dennis Rodman": '6,short-fade,none,7',
+    "Bill Russell": '7,short-bald,fullgoatee,0',
+    "Dolph Schayes": '0,parted,none,0',
+    "Bill Sharman": '0,crop,none,1',
+    "John Stockton": '0,short,none,1',
+    "Isiah Thomas": '5,short,mustache-thin,0',
+    "Nate Thurmond": '7,short,none,0',
+    "Wes Unseld": '7,short,none,0',
+    "Dwyane Wade": '5,crop-fade,goatee-thin,0',
+    "Bill Walton": '0,curly,beard3,6',
+    "Jerry West": '0,parted,none,1',
+    "Lenny Wilkens": '5,short,none,0',
+    "Dominique Wilkins": '6,crop-fade,mustache-thin,0',
+    "James Worthy": '6,short-fade,none,0,glasses2-black',
+    "Chauncey Billups": '5,short-bald,goatee-thin,0',
+    "Dennis Johnson": '6,afro,mustache1,0',
+    "Joe Dumars": '6,short-fade,mustache-thin,0',
+    "Tony Parker": '3,short-fade,none,0',
+    "Jo Jo White": '6,short,mustache-thin,0',
+    "Kevin Garnett": '6,short-bald,goatee-thin,0'
+  };
+  const LK_SKIN = ['#f2d3b8', '#e0b48c', '#c68e63', '#aa816f', '#8d5a3c', '#74453d', '#5a3226', '#3e2219'], LK_HC = ['#272421', '#3b2a1d', '#6b4423', '#a9753a', '#d9b46a', '#8c8c8c', '#b5412b', '#d9c25a'];
+  const LK_F = { head: ['head1', 'head2', 'head3', 'head4', 'head5', 'head6', 'head8', 'head10', 'head12'], eye: ['eye2', 'eye4', 'eye6', 'eye9', 'eye10', 'eye11', 'eye16', 'eye18', 'eye19'], eyebrow: ['eyebrow2', 'eyebrow3', 'eyebrow4', 'eyebrow5', 'eyebrow9', 'eyebrow13', 'eyebrow14', 'eyebrow16'], nose: ['nose1', 'nose2', 'nose3', 'nose5', 'nose9', 'nose10', 'nose11', 'small'], mouth: ['mouth', 'mouth2', 'straight', 'smile-closed', 'closed'] };
+  const nameHash = n => { let h = 2166136261; for (let i = 0; i < n.length; i++) h = Math.imul(h ^ n.charCodeAt(i), 16777619) >>> 0; return h; };
+  function legendFace(g, tid) {
+    const lk = g && g.hof && LOOK[g.name]; if (!lk || typeof faceCustom !== 'function') return '';
+    const [sk, hair, fh, hc, gl] = lk.split(','), h = nameHash(g.name), pk = (a, k) => a[(h >>> k) % a.length];
+    return faceCustom({ skin: LK_SKIN[+sk] || LK_SKIN[4], hairColor: LK_HC[+hc] || LK_HC[0], head: pk(LK_F.head, 0), hair, eye: pk(LK_F.eye, 4), eyebrow: pk(LK_F.eyebrow, 8), nose: pk(LK_F.nose, 12), mouth: pk(LK_F.mouth, 16), facialHair: fh, glasses: gl || 'none' }, '', tid);
+  }
+  const legendSvg = d => cardSvg(d, legendFace(nbaLegends()[d.li], d.tid), d.tid != null ? logo(d.tid, 46) : '');
   // head coach card: career wins, losses, titles
   const coachById = id => { for (const t of L.teams) if (t.coach && t.coach.id === id) return t.coach; return (Array.isArray(L.coachPool) ? L.coachPool : Object.values(L.coachPool || {})).find(c => c && c.id === id) || null; };
   const coachTeam = c => L.teams.find(t => t.coach === c) || null;
@@ -193,7 +276,7 @@ ${sparkle}</svg>`;
   const vParse = s => { const [k, x] = String(s || 'now').split(':'); return { k, s: x != null && x !== '' ? +x : null }; };
   function cardOf(p, v) {
     const k = v && v.k || 'now';
-    if (k === 'legend') { const d = legendCard(v.s != null ? v.s : p); return { d, svg: cardSvg(d, '', d.tid != null ? logo(d.tid, 46) : '') }; }
+    if (k === 'legend') { const d = legendCard(v.s != null ? v.s : p); return { d, svg: legendSvg(d) }; }
     if (k === 'coach') { const d = coachCard(p); return { d, svg: cardSvg(d, portrait('c', p.id, p.nat, d.tid), d.tid != null ? logo(d.tid, 46) : '') }; }
     const d = (k === 'career' ? careerCard(p) : k === 'now' ? null : seasonCard(p, k, v.s)) || cardData(p);
     return { d, svg: cardSvg(d, portrait('p', p.id, p.nat, d.tid), d.tid != null ? logo(d.tid, 46) : '') };
@@ -277,7 +360,7 @@ ${sparkle}</svg>`;
     else if (show === 'rookie') ps.forEach(p => add(p, { k: 'rookie' }));
     else if (show === 'special') ps.forEach(p => seasonsOf(p).forEach((h, i) => { const tg = seasonTag(p, h.s, i === 0); if (tg.aw.includes('Champion')) add(p, { k: 'title', s: h.s }); if (tg.b >= 1) add(p, { k: 'season', s: h.s }); }));
     else if (show === 'coach') L.teams.map(t => t.coach).filter(Boolean).forEach(c => add(c, { k: 'coach' }));
-    else if (show === 'legend') nbaLegends().forEach((g, i) => { const d = legendCard(i); cards.push({ p: { id: i, name: g.name }, v: { k: 'legend' }, d, svg: cardSvg(d, '', d.tid != null ? logo(d.tid, 46) : '') }); });
+    else if (show === 'legend') nbaLegends().forEach((g, i) => { const d = legendCard(i); cards.push({ p: { id: i, name: g.name }, v: { k: 'legend' }, d, svg: legendSvg(d) }); });
     else if (show === 'hof') (L.hof || []).map(h => L.players[h.pid]).filter(Boolean).forEach(p => add(p, { k: 'career' }));
     if (show !== 'now') cards.sort((a, b) => (RSORT[b.d.r] - RSORT[a.d.r]) || (+b.d.o - +a.d.o));
     const cnt = {}; for (const c of cards) cnt[c.d.r] = (cnt[c.d.r] || 0) + 1;
@@ -699,6 +782,6 @@ ${sparkle}</svg>`;
   }
   setTimeout(hashCheck, 400);
 
-  return { get _clock() { return dclock; }, swipeTab, phoneLayout, afterRender, savesExtra, dialogArt, readLeagueFile, leagueBlob, teamLink, teamLinkData, openSharedTeam, storyOf, art, draftWatch, cardData, cardSvg, cardDialog, cardLink, openSharedCard, ceremony: (k, once) => once ? ceremonyOnce(k) : ceremony(k), closeCer, teamTrophies, saveBlob, shareFile, copyText, b64e, b64d, svgToPng, rarOf, cardOf, variantsOf, seasonsOf, careerCard, seasonCard, coachCard, legendCard, flavorOf };
+  return { get _clock() { return dclock; }, swipeTab, phoneLayout, afterRender, savesExtra, dialogArt, readLeagueFile, leagueBlob, teamLink, teamLinkData, openSharedTeam, storyOf, art, draftWatch, cardData, cardSvg, cardDialog, cardLink, openSharedCard, ceremony: (k, once) => once ? ceremonyOnce(k) : ceremony(k), closeCer, teamTrophies, saveBlob, shareFile, copyText, b64e, b64d, svgToPng, rarOf, cardOf, variantsOf, seasonsOf, careerCard, seasonCard, coachCard, legendCard, legendFace, flavorOf };
 } })();
 window.P3 = P3;

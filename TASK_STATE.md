@@ -3,7 +3,7 @@ Branch `claude/project-thread-u47orl`.
 - [x] 1. src/fantasy.js logic (FAN): draft, weekly scoring, AI waivers, playoffs, champion — tools/fantasy.js 11/11 PASS, sim results unchanged
 - [x] 2. UI: Fantasy tab under My team (setup, draft room, matchup, standings+bracket, roster+waivers, all teams, history); app.js NAME/VIEWS/groups, index.html, sw v23, build.py, styles .fan-*
 - [x] 3. Tests: tools/fantasy.js 11/11, tools/browser-fantasy.js ALL PASS (1300 + 390)
-- [ ] 4. PROGRESS.md, PR, merge, Pages check
+- [x] 4. PROGRESS.md, PR #39, merge main (cache v24), browser test re-run ALL PASS
 # TASK_STATE — Real-history cards (Sonnet) — Nov 20 2026
 Branch `claude/project-thread-ld9xl2`.
 - [x] 1. p3.js: real past seasons in seasonsOf (NBA leagues), legendCard + Legends binder

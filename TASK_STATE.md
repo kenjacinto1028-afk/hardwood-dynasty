@@ -1,3 +1,11 @@
+# TASK_STATE — Play as coach mode (Opus logic, Sonnet UI, Haiku text) — Nov 20 2026
+Branch `claude/project-thread-wky5hn`.
+- [x] 1. src/coach-mode.js logic: start as coach, AI GM runs roster (L.user swap wrapper), job security, firing, job offers; small league/engine patches; node test
+- [x] 2. UI: setup option, Coach tab (security meter, GM, contract, history, offers), GM-action blocker, header chip; file lists, sw cache
+- [x] 3. Browser test: tools/browser-coach-mode.js ALL PASS, tools/coach-mode.js 12/12
+- [ ] 4. PROGRESS.md, PR, merge, Pages check
+
+---
 # TASK_STATE — Fantasy league mode (Opus scoring/AI, Sonnet UI, Haiku text) — Nov 20 2026
 Branch `claude/project-thread-u47orl`.
 - [x] 1. src/fantasy.js logic (FAN): draft, weekly scoring, AI waivers, playoffs, champion — tools/fantasy.js 11/11 PASS, sim results unchanged

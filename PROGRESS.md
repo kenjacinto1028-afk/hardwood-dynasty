@@ -1,5 +1,13 @@
 # PBL progress
 
+## Play as coach mode (Opus logic, Sonnet UI, Haiku text, Nov 20 2026)
+- New-league option **Head Coach**: pick a team and your name. You coach (lineup, minutes, playbook, sliders, live games); an AI general manager makes the trades, signings, re-signs and draft picks.
+- How: `src/coach-mode.js` wraps the league step functions (simDay, draft, free agency, offseason...) so each step runs with `L.user = null` (your team is AI-run for roster moves); `lgU()` in engine.js keeps your lineup and playbook in games. State `L.mode = 'coach'`, `L.cm`; your coach has `c.user` (AI teams never hire him from the pool).
+- Job security meter 0-100 (Secure / Stable / Hot seat / On thin ice) from record vs the GM's expected wins, past seasons, grace year, titles, contract years left, a new GM. GM warnings at Hot seat / Thin ice; firing at season end (the league's normal coach review), mid-season (existing check, plus a GM who runs out of patience under 15).
+- Fired: "Between jobs", popup; offseason job offers from teams that changed coaches (better teams need a better reputation; a jobless coach always gets one). Good coaches also get offers from better teams while employed. Take job / No thanks. Autopilot takes the best offer.
+- My job page (My team › My job): job security, GM panel, team plan + expected wins, offers (cards), coaching career table and timeline. GM-only buttons (trade, sign, release, draft, hire...) show a note instead.
+- Tests: `tools/coach-mode.js` (2 seasons + firing + offers + autopilot, node), `tools/browser-coach-mode.js` ALL PASS (1300 + 390). Cache v25.
+
 ## Fantasy league (Opus scoring + AI managers, Sonnet UI, Haiku text, Nov 20 2026)
 - [x] New Fantasy tab (My team group). Start any time in the regular season with 5+ weeks left: 8 teams (you + 7 AI managers with their own styles), 10 players each, snake draft (Draft, Auto-pick, Auto-draft the rest).
 - [x] Weekly head-to-head matchups scored from the sim's real box scores: point 1, rebound 1.2, assist 1.5, steal 3, block 3, three made +0.5, turnover -1. Live score during the week, week-by-week navigation, other matchups.

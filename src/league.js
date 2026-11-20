@@ -6574,7 +6574,7 @@ function makeInterim(L, t) {
 }
 // Best coach a team can afford; falls back to an interim if dead money leaves no room
 function affordableCoach(L, t, excludeId) {
-  const yrs = 2, ok = L.coachPool.filter(c => c.id !== excludeId && !c.interim && canAffordStaff(L, t, 'coach', coachAmtFor(L, c, t, yrs)));
+  const yrs = 2, ok = L.coachPool.filter(c => c.id !== excludeId && !c.user && !c.interim && canAffordStaff(L, t, 'coach', coachAmtFor(L, c, t, yrs)));
   return ok.sort((a, b) => (b.ovr + coachFitScore(L, t, b) * 0.3) - (a.ovr + coachFitScore(L, t, a) * 0.3))[0] || null;
 }
 // AI patience: results below expectations (not just a better coach on the market), a grace season for new coaches,
@@ -6602,12 +6602,12 @@ function coachOffseason(L) {
     }
     coachDerive(c);
   }
-  for (const t of L.teams) if (t.id !== L.user) { const m = coachEvolve(L, t.coach, t); if (m) notes.push(m); }   // v27 S1 (your coach's sliders stay yours)
-  for (const c of L.coachPool) coachEvolve(L, c, null);
-  L.coachPool = L.coachPool.filter(c => { const gone = c.age >= 68 || (c.age >= 63 && R() < 0.25); if (gone && c.stints.length) { c.retired = L.season; (L.coachArchive = L.coachArchive || []).push(c); } return !gone; });
+  for (const t of L.teams) if (t.id !== L.user && !t.coach.user) { const m = coachEvolve(L, t.coach, t); if (m) notes.push(m); }   // v27 S1 (your coach's sliders stay yours)
+  for (const c of L.coachPool) if (!c.user) coachEvolve(L, c, null);
+  L.coachPool = L.coachPool.filter(c => { const gone = !c.user && c.age >= 68 || (c.age >= 63 && R() < 0.25); if (gone && c.stints.length) { c.retired = L.season; (L.coachArchive = L.coachArchive || []).push(c); } return !gone; });
   for (const t of L.teams) {
     const c = t.coach;
-    const retiring = c.age >= 68 || (c.age >= 64 && R() < 0.2);
+    const retiring = !c.user && (c.age >= 68 || (c.age >= 64 && R() < 0.2));
     const expiring = !c.contract || c.contract.exp <= L.season;
     if (t.id === L.user && !retiring) {
       // your coach: an expiring deal is renewed at his current value (you can still fire him any time outside the playoffs)
@@ -6661,7 +6661,7 @@ function inSeasonCoachCheck(L) {
   }
 }
 function coachFitScore(L, t, c) { const ps = rosterOf(L, t).sort((a, b) => b.ovr - a.ovr).slice(0, 8); return ps.reduce((a, p) => a + fit(p, c), 0) / Math.max(1, ps.length); }
-function pickCoachFor(L, t, excludeId) { return L.coachPool.filter(c => c.id !== excludeId).sort((a, b) => (b.ovr + coachFitScore(L, t, b) * 0.3) - (a.ovr + coachFitScore(L, t, a) * 0.3))[0]; }
+function pickCoachFor(L, t, excludeId) { return L.coachPool.filter(c => c.id !== excludeId && !c.user).sort((a, b) => (b.ovr + coachFitScore(L, t, b) * 0.3) - (a.ovr + coachFitScore(L, t, a) * 0.3))[0]; }
 function findCoach(L, id) { for (const t of L.teams) if (t.coach.id === id) return t.coach; return L.coachPool.find(c => c.id === id) || (L.coachArchive || []).find(c => c.id === id) || null; }
 // silent = the old coach was already removed (AI moves); otherwise this fires the current coach first (your moves)
 function hireCoach(L, tid, coachId, silent, yrs) {

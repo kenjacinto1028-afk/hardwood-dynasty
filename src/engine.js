@@ -989,6 +989,8 @@ function syncIds(L) {
   for (const c of all) { if (seen.has(c.id) && seen.get(c.id) !== c) { c.id = COACH_ID++; fixed++; } else seen.set(c.id, c); }
   return fixed;
 }
+// coach mode: while the AI GM runs a league step (L.user = null), the engine still uses your lineup and playbook
+function lgU(league) { return league.user != null ? league.user : league.cm && league.cm.ai && !league.cm.jobless ? league.cm.tid : null; }
 function genCoach(used, young) {
   const age = young ? rint(32, 42) : rint(36, 62);
   const base = young ? gauss(52, 6) : gauss(60, 8);
@@ -1246,7 +1248,7 @@ function teamRoles(league, t, extra) {
   for (const p of ps) {
     const c = p.contract, pr = c && c.role ? (ROLE_BY[c.role.k] ? c.role.k : c.role.k === 'starter' ? 'starter' : null) : null;   // a role promise is a floor
     if (pr && p.team === t.id && roleRank(pr) < roleRank(out.get(p.id))) out.set(p.id, pr);
-    const us = league.user === t.id && t.roleSet && t.roleSet[p.id];   // your own call (data only for now; S4 adds the editor)
+    const us = lgU(league) === t.id && t.roleSet && t.roleSet[p.id];   // your own call (data only for now; S4 adds the editor)
     if (us && ROLE_BY[us] && p.team === t.id) out.set(p.id, us);
   }
   return out;
@@ -1420,7 +1422,7 @@ function chartPlan(league, g) {
   return { plan, subs };
 }
 function rotSetup(league, g, playoff) {
-  const cp = league.user === g.t.id ? chartPlan(league, g) : { bad: null };
+  const cp = lgU(league) === g.t.id ? chartPlan(league, g) : { bad: null };
   if (cp.plan) {
     g.plan = cp.plan; g.planSrc = 'chart'; if (cp.subs && cp.subs.length) g.chartSubs = cp.subs.map(x => { const a = league.players[x.out], b = league.players[x.in]; return `${a ? a.name : 'A player'} out: ${b ? b.name : 'a teammate'} took his ${x.n} block${x.n > 1 ? 's' : ''}`; });
     const mins = {}; for (const row of cp.plan) for (const p of row) mins[p.id] = (mins[p.id] || 0) + 1;
@@ -1509,7 +1511,7 @@ function tlReplay(tl, total) {
 const TL_KEEP = 30;   // league games (not yours) that keep their timeline
 function tlPrune(league) {
   const G = league.games; let n = 0;
-  for (let i = G.length - 1; i >= 0; i--) { const g = G[i]; if (!g.tl) continue; if (league.user != null && (g.home === league.user || g.away === league.user)) continue; if (++n > TL_KEEP) { delete g.tl; break; } }
+  for (let i = G.length - 1; i >= 0; i--) { const g = G[i]; if (!g.tl) continue; if (lgU(league) != null && (g.home === lgU(league) || g.away === lgU(league))) continue; if (++n > TL_KEEP) { delete g.tl; break; } }
 }
 function buildSide(league, tid, isHome, playoff) {
   const t = league.teams[tid], coach = t.coach;
@@ -1521,7 +1523,7 @@ function buildSide(league, tid, isHome, playoff) {
   // heavy minutes last night sit more; tanking teams rest the most. AI teams stop resting in the last ~2 weeks unless they're tanking.
   // Your team: t.loadMgmt 0 = off, 1 = players 30+ (true in old saves), 2 = the whole rotation.
   if (!playoff && playedYesterday(league, tid)) {
-    const mine = league.user === tid, lvl = mine ? (t.loadMgmt === true ? 1 : +t.loadMgmt || 0) : 2;
+    const mine = lgU(league) === tid, lvl = mine ? (t.loadMgmt === true ? 1 : +t.loadMgmt || 0) : 2;
     const late = league.day >= league.schedule.length - 14 && t.mode !== 'tank';
     if (lvl && !(late && !mine)) {
       const modeK = mine ? 1 : ({ tank: 1.6, rebuild: 1.25, hopeful: 0.9, push: 0.85, contend: 1, allin: 0.9 })[t.mode] || 1;
@@ -1534,7 +1536,7 @@ function buildSide(league, tid, isHome, playoff) {
       if (cands.length && avail.length - cands.length >= 9) { avail = avail.filter(p => !cands.includes(p)); for (const p of cands) p.rested = (p.rested || 0) + 1; }
     }
   }
-  if (!playoff && t.twoWay && t.twoWay.length) { const healthy = avail.length; for (const id of t.twoWay) { const p = league.players[id]; if (p && p.tw && p.tw.games < 20 && p.injury <= 0 && !(p.susp && p.susp.g > 0) && (p.tw.active || healthy < 12 || (league.user !== tid && t.roster.length <= 13))) avail.push(p); } }
+  if (!playoff && t.twoWay && t.twoWay.length) { const healthy = avail.length; for (const id of t.twoWay) { const p = league.players[id]; if (p && p.tw && p.tw.games < 20 && p.injury <= 0 && !(p.susp && p.susp.g > 0) && (p.tw.active || healthy < 12 || (lgU(league) !== tid && t.roster.length <= 13))) avail.push(p); } }
   const g = { t, coach, isHome, players: avail, st: {}, zs: {}, dz: {}, zsOpp: new Array(ZONES * 2).fill(0), form: {}, slotOf: {}, court: [null, null, null, null, null], target: {}, fouled: new Set(), out: new Set(), qFouls: 0, pts: 0, hurt };
   for (const id of [...hurt]) if (!avail.some(p => p.id === id)) hurt.delete(id);   // rested after all
   for (const p of avail) {
@@ -1558,7 +1560,7 @@ function buildSide(league, tid, isHome, playoff) {
   if (!playoff && typeof NBA_ON !== 'undefined' && NBA_ON && ENG.teamNight) { const tn = gauss(0, ENG.teamNight); for (const p of avail) { g.form[p.id].o += tn; g.form[p.id].d += tn * 0.6; } }
   // Starting five: greedy on value at each slot
   const usedP = new Set();
-  const manual = league.user === tid && t.manual ? t.manual : null;
+  const manual = lgU(league) === tid && t.manual ? t.manual : null;
   if (manual) manual.starters.forEach((id, s) => { const p = avail.find(x => x.id === id); if (p && !usedP.has(p.id)) { g.court[s] = p; usedP.add(p.id); } });
   const pairs = [];
   const yb = (!manual && t.yb) || {};   // v20: young teams give their rookies a bigger role early
@@ -1719,7 +1721,7 @@ const PF = {
 const PF_REF = { pnr: 2.7, roll: 1.2, pop: 0.75, iso: 3.3, post: 1.4, spot: 2.1, screen: 2.0, dho: 1.65, cut: 1.8, horns: 1, kick: 2.1 };   // a typical team's best two
 function playbookOf(league, g) {
   const sys = PB_SYS[g.coach.off] || PB_SYS.motion, rot = g.players.filter(p => (g.target[p.id] || 0) > 0);
-  const adj = league.user === g.t.id && g.t.pbAdj ? g.t.pbAdj : null, w = {};
+  const adj = lgU(league) === g.t.id && g.t.pbAdj ? g.t.pbAdj : null, w = {};
   for (const k of PLAY_KEYS) {
     const f = rot.map(p => PF[k](p)).sort((a, b) => b - a), top = ((f[0] || 0) + (f[1] || 0)) / 2;
     w[k] = sys[k] * clamp(Math.pow(top / PF_REF[k], 0.6), 0.55, 1.6) * (adj && adj[k] != null ? PB_ADJ[adj[k]] : 1);
@@ -1745,7 +1747,7 @@ const COV_FX = {
 const COV_OFF = { switch: { post: 1.3, iso: 1.25, screen: 0.8 }, blitz: { roll: 1.35, pop: 1.3, pnr: 0.85 }, drop: { pop: 1.2, pnr: 1.1 }, hedge: { roll: 1.15 }, ice: {}, zone: { spot: 1.35, kick: 1.3, pop: 1.15, screen: 1.1, iso: 0.8, post: 0.75, cut: 0.8 } };
 function coachCov(c) { if (c && c.cov && COVS.includes(c.cov)) return c.cov; const h = (((((c && c.id) || 1) * 2246822519) >>> 0) ^ 0x27d4eb2d) >>> 0, r = (h % 100) / 100;
   return c && c.def === 'switch' ? (r < 0.7 ? 'switch' : 'hedge') : c && c.def === 'pressure' ? (r < 0.5 ? 'blitz' : 'hedge') : (r < 0.75 ? 'drop' : 'ice'); }
-function covOf(league, t) { return league.user === t.id && t.cov && COVS.includes(t.cov) ? t.cov : coachCov(t.coach); }
+function covOf(league, t) { return lgU(league) === t.id && t.cov && COVS.includes(t.cov) ? t.cov : coachCov(t.coach); }
 const coachAdj = c => clamp(((c.rd || 60) * 0.6 + (c.ovr || 60) * 0.4 - 50) / 35, 0, 1);   // 0 slow / overreacts ... 1 sharp
 function pickPlay(off, def) {
   if (off.uPlay) return off.uPlay;   // Nov 20: your live play call
@@ -1753,7 +1755,7 @@ function pickPlay(off, def) {
   for (const p of PLAY_KEYS) { let w = off.pb[p]; if (cm[p]) w *= 1 + (cm[p] - 1) * k; if (def.dbl != null && off.court.some(x => x && x.id === def.dbl)) { if (p === 'post') w *= 0.8; else if (p === 'kick') w *= 1.3; } ks.push(p); ws.push(w); }
   return wpick(ks, ws);
 }
-function lateOf(league, t) { const base = coachLate(t.coach); return league.user === t.id && t.late ? Object.assign(base, t.late) : base; }
+function lateOf(league, t) { const base = coachLate(t.coach); return lgU(league) === t.id && t.late ? Object.assign(base, t.late) : base; }
 const uLocked = g => !!g.uLock && g.court.every(p => p && !g.out.has(p.id) && g.st[p.id][IX.pf] < 6);
 function lateSubs(g, need) {
   if (uLocked(g)) return;
@@ -1889,7 +1891,7 @@ function isDTD(p) { return !!p && p.injury > 0 && p.injury <= DTD_MAX && !p.injS
 // Does he play tonight? Your players follow your call (p.hurtPlan: 'play' / 'sit'); otherwise the coach decides:
 // less likely the more it hurts, much more likely in the playoffs and for contenders late in the season, rarely for tanking teams or young players.
 function dtdPlays(league, t, p, playoff) {
-  const plan = league.user === t.id ? p.hurtPlan || 'auto' : 'auto';
+  const plan = lgU(league) === t.id ? p.hurtPlan || 'auto' : 'auto';
   if (plan === 'sit') return false; if (plan === 'play') return true;
   let c = 0.75 - 0.2 * p.injury;
   if (playoff) c += 0.3;
@@ -1936,11 +1938,11 @@ function* playGameG(league, homeId, awayId, playoff, LIVE) {
   // play-by-play log (your team's games only)
   const series = playoff && league.po ? (league.po.rounds[league.po.stage] || []).find(sr => (sr.hi === homeId && sr.lo === awayId) || (sr.lo === homeId && sr.hi === awayId)) : null;
   for (const [g, o] of [[H, A], [A, H]]) {
-    playbookOf(league, g); g.cov = covOf(league, g.t); g.cov0 = g.cov; g.covFixed = league.user === g.t.id && !!g.t.covHold; g.seen = {}; g.ppt = {}; g.pptP = {}; g.dbl = null; g.lock = null; g.hk = { on: false, left: 0, tgt: null, n: 0 };
+    playbookOf(league, g); g.cov = covOf(league, g.t); g.cov0 = g.cov; g.covFixed = lgU(league) === g.t.id && !!g.t.covHold; g.seen = {}; g.ppt = {}; g.pptP = {}; g.dbl = null; g.lock = null; g.hk = { on: false, left: 0, tgt: null, n: 0 };
     const ad = series && series.adj && series.adj[g.t.id];
     if (ad && !g.covFixed) { if (COVS.includes(ad.cov)) g.cov = ad.cov; if (ad.dbl != null && o.players.some(p => p.id === ad.dbl)) g.dbl = ad.dbl; if (ad.lock != null && o.players.some(p => p.id === ad.lock)) g.lock = ad.lock; }
   }
-  const LOG = league.user != null && (league.user === homeId || league.user === awayId) && !league.noLog ? [] : null;
+  const LOG = lgU(league) != null && (lgU(league) === homeId || lgU(league) === awayId) && !league.noLog ? [] : null;
   const nm = p => p ? (p.last || splitName(p.name)[1]) : '';
   let lastCourt = '';   // v30b: entry[8] = the ten on-court ids (home 5, then away 5) when the lineup changed since the last logged play, else 0; entry[9] = seconds the play used (minutes + plus-minus replay)
   const logE = (q, clock, side, text, flags, ev, ct, secs, sx, pl) => { if (LOG) { const e = [q, Math.max(0, Math.round(clock)), side, text, H.pts, A.pts, flags || '', ev || 0]; if (ct) { const k = ct.join(); e.push(k === lastCourt ? 0 : ct, secs || 0); lastCourt = k; if (sx != null || pl) e.push(sx == null ? null : sx); if (pl) e.push(pl); } LOG.push(e); } };   // Nov 20: entry[11] = [play, handler id, post man id (kick-outs) or 0, defense coverage, doubled player id or 0] for the court animation   // Phase 2: entry[10] = shot code zone * 10 + type (0 dunk, 1 layup, 2 paint, 3 mid, 4 three) for the live court
@@ -2010,7 +2012,7 @@ function* playGameG(league, homeId, awayId, playoff, LIVE) {
       g.court = g.court.slice(); g.court[s] = p; g.slotOf = {}; g.court.forEach((y, i) => { if (y) g.slotOf[y.id] = i; }); g.uLock = x.elapsed + 240; subLog(q, ck); return null; }
     if (c.k === 'auto') { g.uLock = 0; return null; }
     if (c.k === 'play') { g.uPlay = c.v && PLAYS[c.v] && c.v !== 'trans' ? c.v : null; return null; }
-    if (c.k === 'cov') { if (!c.v || c.v === 'auto') { g.covFixed = league.user === g.t.id && !!g.t.covHold; g.uCov = null; return null; }
+    if (c.k === 'cov') { if (!c.v || c.v === 'auto') { g.covFixed = lgU(league) === g.t.id && !!g.t.covHold; g.uCov = null; return null; }
       if (!COV_FX[c.v]) return 'Unknown defense'; if (g.cov !== c.v) logE(q, ck, c.side, `${g.t.abbr} ${c.v === 'zone' ? 'goes to a 2-3 zone' : c.v === 'switch' ? 'starts switching' : 'switches to ' + COV_LBL[c.v].toLowerCase() + ' coverage'}`, 'a');
       g.cov = c.v; g.covFixed = true; g.uCov = c.v; return null; }
     return 'Unknown call';

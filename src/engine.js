@@ -268,7 +268,14 @@ const FLAVOR = {
   'fd.retire.nat.calm': ['After {yrs} seasons, {name} is calling it a career.', '{name} retires after {yrs} seasons. A career worth remembering.', 'Hang up the sneakers: {name} retires after {yrs} years in the league.', '{name} retires after {yrs} seasons. What a career.'],
   'fd.retire.team.hype': ['Thank you, {name}. Forever a {team} legend.', 'Retirement day for {name}. The {team} will always remember him.', 'Congrats on a great career, {name}. You will always be part of the {team}.', 'Thank you, {name}. A {team} legend.'],
   'fd.jersey.team.hype': ['Retiring number {num}: {name} is a {team} legend forever!', 'Number {num} is up in the rafters. {name} gave the {team} everything.', 'The {team} honor {name} with the retired number {num}. Forever.', 'Number {num} goes to the rafters. {name}, forever a {team} legend.'],
-  'pbp.steal': ['Turnover: {name} (stolen by {stealer})', 'Turnover: {stealer} steals it from {name}', 'Turnover: {name} picked off by {stealer}', 'Turnover: {stealer} jumps the pass from {name}']
+  'pbp.steal': ['Turnover: {name} (stolen by {stealer})', 'Turnover: {stealer} steals it from {name}', 'Turnover: {name} picked off by {stealer}', 'Turnover: {stealer} jumps the pass from {name}'],
+  // v38 All-Star Weekend contests (league.js runContests; seed = season * 7 + kind)
+  'asw.three': ['{name} ({team}) wins the Three-Point Contest with {pts} in the final', '{name} ({team}) is your Three-Point Contest champion: {pts} points in the final round', 'Splash: {name} ({team}) takes the Three-Point Contest, {pts} in the final', '{name} ({team}) catches fire and wins the Three-Point Contest ({pts} in the final)'],
+  'asw.dunk': ['{name} ({team}) wins the Slam Dunk Contest with the {dunk}', '{name} ({team}) takes the Slam Dunk title; the {dunk} sealed it', 'Dunk Contest champion: {name} ({team}), finishing with the {dunk}', '{name} ({team}) brings the crowd to its feet and wins the Dunk Contest with the {dunk}'],
+  'asw.skills': ['{name} ({team}) wins the Skills Challenge in {time} seconds', '{name} ({team}) races through the Skills Challenge course in {time} seconds to win', 'Skills Challenge: {name} ({team}) is the champion ({time} seconds in the final)', '{name} ({team}) wins the Skills Challenge, {time} seconds flat in the final'],
+  'asw.threeCall': ['Money ball after money ball!', 'He can not miss right now.', 'Pure net, rack after rack.', 'The crowd counts every make.', 'Ice in his veins from deep.'],
+  'asw.dunkCall': ['The building erupts!', 'Judges are out of their seats!', 'Did that just happen?', 'He hung in the air forever.', 'Perfect tens across the board!'],
+  'asw.skillsCall': ['Flawless run!', 'He flew through the course.', 'Every pass on target.', 'Drained the three on the first try.', 'Nobody touches that time.'],
 };
 function flHash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
 function fl(key, vars, seed) {

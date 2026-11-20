@@ -1104,3 +1104,24 @@ body.p3-phone #pb-err { bottom: 76px; }
 .fr-tag{display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;background:color-mix(in srgb,var(--accent,#3b82f6) 14%,transparent);color:var(--accent,#3b82f6);margin-right:4px;vertical-align:1px}
 .fr-tag.duo{background:color-mix(in srgb,#f59e0b 20%,transparent);color:#d97706}
 .lv-cph { font-size: 10px; font-weight: 700; border-bottom: 1px solid var(--line); } .lv-cp > span:nth-child(n+3) { text-align: right; }
+/* v38 All-Star Weekend contests */
+.asw-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 900px) { .asw-grid { grid-template-columns: minmax(0, 1fr); } }
+.asw-card { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: var(--surface-2); min-width: 0; }
+.asw-hd { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
+.asw-ic { font-size: 26px; line-height: 1; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 10px; background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.asw-win { font-size: 16px; font-weight: 700; }
+.asw-call { font-size: 12px; font-style: italic; }
+.asw-tbl td, .asw-tbl th { padding: 3px 6px; }
+.asw-card details { margin-top: 6px; font-size: 13px; }
+.asw-card summary { cursor: pointer; font-weight: 600; }
+.asw-line { display: grid; grid-template-columns: minmax(0, 7em) minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--line); }
+.asw-line > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.asw-racks { display: flex; gap: 6px; flex-wrap: wrap; }
+.asw-rack { display: inline-flex; gap: 2px; }
+.asw-b { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--muted, #888); display: inline-block; }
+.asw-b.mk { background: var(--accent); border-color: var(--accent); }
+.asw-b.money { border-color: #d9a400; }
+.asw-b.mk.money { background: #f2c230; border-color: #d9a400; }
+.asw-key { font-size: 11px; margin: 6px 0 0; }
+.asw-yours { padding: 10px 12px; margin: 0 0 10px; border-radius: 10px; font-weight: 700; background: color-mix(in srgb, #f2c230 22%, transparent); border: 1px solid #d9a400; }

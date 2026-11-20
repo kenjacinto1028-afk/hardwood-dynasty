@@ -442,7 +442,7 @@ function accBoost(p, now) {
   return Math.min(0.35, b);
 }
 // ---------- Fame: built mostly from accolades (fading with time), a little from scoring, plus an established star's name at league start ----------
-const FAME_W = { 'MVP': 32, 'Finals MVP': 20, 'Defensive Player of the Year': 14, 'All-League 1st Team': 16, 'All-League 2nd Team': 9, 'All-League 3rd Team': 4, 'Clutch Player of the Year': 6, 'Conference Finals MVP': 5, 'All-Defense 1st Team': 6, 'All-Defense 2nd Team': 3, 'All-Star': 7, 'All-Star MVP': 4, 'Rookie of the Year': 6, 'Sixth Man of the Year': 5, 'Most Improved Player': 3, 'Scoring title': 6, 'Rebounding title': 2, 'Assists title': 2, 'Steals title': 1, 'Blocks title': 1, 'Champion': 5 };
+const FAME_W = { 'MVP': 32, 'Finals MVP': 20, 'Defensive Player of the Year': 14, 'All-League 1st Team': 16, 'All-League 2nd Team': 9, 'All-League 3rd Team': 4, 'Clutch Player of the Year': 6, 'Conference Finals MVP': 5, 'All-Defense 1st Team': 6, 'All-Defense 2nd Team': 3, 'All-Star': 7, 'All-Star MVP': 4, 'Three-Point Contest champion': 3, 'Slam Dunk Contest champion': 4, 'Skills Challenge champion': 2, 'Rookie of the Year': 6, 'Sixth Man of the Year': 5, 'Most Improved Player': 3, 'Scoring title': 6, 'Rebounding title': 2, 'Assists title': 2, 'Steals title': 1, 'Blocks title': 1, 'Champion': 5 };
 function fameOf(L, p) {
   let a = 0; for (const x of p.awards || []) { const w = FAME_W[x.a]; if (w) a += w * Math.max(0.3, 1 - 0.12 * Math.max(0, L.season - x.s)); }
   const s = p.stats && p.stats.rs && p.stats.rs.gp >= 10 ? p.stats.rs : (p.hist.length ? p.hist[p.hist.length - 1].rs : null);
@@ -4259,6 +4259,7 @@ function runAllStar(L) {
   for (const c of confs) R2[c] = pickAllStars(L, c);
   for (const c of confs) for (const id of [...R2[c].starters, ...R2[c].reserves]) L.players[id].awards.push({ s: S, a: 'All-Star' });
   const AS = L.allStar = { s: S, day: L.day, rosters: R2, votes: { North: allStarVotes(L, 'North').slice(0, 12), South: allStarVotes(L, 'South').slice(0, 12) } };
+  try { AS.contests = runContests(L); } catch (err) { AS.contests = null; }   // v38 All-Star Weekend
   try {
     const best = c => L.teams.filter(t => t.conf === c).sort((a, b) => b.w - a.w)[0];
     const mk = (id, c) => { const b = best(c); return { ...b, id, roster: [...R2[c].starters, ...R2[c].reserves], coach: b.coach, manual: null, name: c, abbr: c.slice(0, 3).toUpperCase() }; };
@@ -4271,8 +4272,86 @@ function runAllStar(L) {
     if (mvp) L.players[mvp.pid].awards.push({ s: S, a: 'All-Star MVP' });
     logNews(L, `All-Star Game: ${confName(g.hs > g.as ? 'North' : 'South', L)} won ${Math.max(g.hs, g.as)}-${Math.min(g.hs, g.as)}${mvp ? `; MVP ${L.players[mvp.pid].name} (${mvp.pts} pts, ${mvp.reb} reb, ${mvp.ast} ast)` : ''}`, null, 'award');
   } catch (err) { AS.game = null; }
-  (L.allStarHist = L.allStarHist || {})[S] = { rosters: R2, game: AS.game ? { north: AS.game.north, south: AS.game.south, mvp: AS.game.mvp } : null };
+  (L.allStarHist = L.allStarHist || {})[S] = { rosters: R2, contests: AS.contests || null, game: AS.game ? { north: AS.game.north, south: AS.game.south, mvp: AS.game.mvp } : null };
   updateFame(L);
+}
+
+// ---------- v38 All-Star Weekend contests: Three-Point Contest, Slam Dunk Contest, Skills Challenge ----------
+// Own seeded dice (hrand), never R(): the rest of the league sim is unchanged.
+const ASW_AW = { three: 'Three-Point Contest champion', dunk: 'Slam Dunk Contest champion', skills: 'Skills Challenge champion' };
+// Dunk book: name, difficulty 1-5, needs a prop/teammate. Bigger dunks score more but miss more.
+const ASW_DUNKS = [['two-hand power jam', 1], ['tomahawk', 1], ['reverse jam', 2], ['360 slam', 2], ['windmill', 2], ['alley-oop off the backboard', 3], ['cradle dunk', 3], ['between-the-legs jam', 4], ['360 windmill', 4], ['free-throw-line dunk', 4], ['leap over a teammate', 4], ['between-the-legs off the bounce', 5], ['eastbay over a seated teammate', 5], ['540 reverse', 5]];
+function aswRng(L, kind) { let i = 0; const k = { three: 3, dunk: 5, skills: 7 }[kind] || 1; return () => hrand(L.season * 7 + k, (L.teams.length * 131 + (L.y0 || 0)) | 0, i++); }
+function aswPool(L) { return L.teams.flatMap(t => rosterOf(L, t)).filter(p => p.injury <= 0 && !p.prospect); }
+function aswScore(L, kind, p) {
+  const s = p.stats && p.stats.rs, n = (hgauss(p.id, L.season * 7 + kind.length) || 0);
+  if (kind === 'three') { const pct = s && s.tpa >= 25 ? s.tpm / s.tpa : null; return p.tp + (p.t3 || 50) * 0.2 + (pct != null ? (pct - 0.36) * 60 : 0) + (p.fame || 0) * 0.03 + n * 2.5; }
+  if (kind === 'dunk') return 0.35 * p.vrt + 0.25 * p.fin + 0.2 * p.spd + 0.2 * p.agi - Math.max(0, p.age - 27) * 2.5 - (p.ovr >= 85 ? 6 : 0) + n * 4;
+  return 0.3 * p.hnd + 0.25 * p.pas + 0.2 * p.spd + 0.15 * p.tp + 0.1 * p.agi + (p.fame || 0) * 0.02 + n * 2.5;
+}
+function aswPick(L, kind) {
+  const pool = aswPool(L).sort((a, b) => aswScore(L, kind, b) - aswScore(L, kind, a));
+  if (kind === 'skills') { const g = pool.filter(p => p.pos <= 2).slice(0, 4), big = pool.filter(p => p.pos >= 3).slice(0, 2); return [...g, ...big]; }
+  return pool.slice(0, kind === 'three' ? 8 : 4);
+}
+// Three-Point Contest: 5 racks of 5, last ball of each rack is a money ball (2), plus one all-money rack of the shooter's choice. Max 34.
+function aswThreeRound(p, rnd) {
+  const base = clamp(0.2 + (p.tp - 50) * 0.0125 + (p.t3 - 50) * 0.001, 0.2, 0.74), moneyRack = Math.floor(rnd() * 5);
+  let pts = 0; const racks = [];
+  for (let r = 0; r < 5; r++) { let row = ''; let hot = 0; for (let b = 0; b < 5; b++) { const money = b === 4 || r === moneyRack, pr = clamp(base + hot * 0.03 - (money ? 0.02 : 0), 0.1, 0.85); const m = rnd() < pr; hot = m ? Math.min(hot + 1, 3) : 0; if (m) pts += money ? 2 : 1; row += m ? (money ? 'M' : 'x') : (money ? 'm' : 'o'); } racks.push(row); }
+  return { pts, racks };
+}
+function aswThree(L) {
+  const ent = aswPick(L, 'three'); if (ent.length < 3) return null; const rnd = aswRng(L, 'three');
+  const r1 = ent.map(p => ({ pid: p.id, ...aswThreeRound(p, rnd) })).sort((a, b) => b.pts - a.pts || L.players[b.pid].tp - L.players[a.pid].tp);
+  const fin = r1.slice(0, 3).map(x => ({ pid: x.pid, ...aswThreeRound(L.players[x.pid], rnd) })).sort((a, b) => b.pts - a.pts);
+  let off = null; if (fin[0].pts === fin[1].pts) { const tied = fin.filter(x => x.pts === fin[0].pts); for (let k = 0; k < 6; k++) { off = tied.map(x => ({ pid: x.pid, ...aswThreeRound(L.players[x.pid], rnd) })).sort((a, b) => b.pts - a.pts); if (off[0].pts > off[1].pts) break; } if (off[0].pts === off[1].pts) off[0].pts++; }
+  return { kind: 'three', r1, fin, off, win: (off || fin)[0].pid };
+}
+// Slam Dunk Contest: 4 dunkers, 2 dunks each in round 1, top 2 meet in the final (2 dunks). Five judges score 6-10 each (30-50). Up to 3 tries per dunk.
+function aswDunkOne(p, rnd, need) {
+  const sk = 0.35 * p.vrt + 0.25 * p.fin + 0.2 * p.spd + 0.2 * p.agi, maxD = clamp(Math.round(1 + (sk - 55) / 8 + (need ? 1 : 0)), 1, 5);
+  const opts = ASW_DUNKS.filter(d => d[1] <= maxD && d[1] >= maxD - 1), d = opts[Math.floor(rnd() * opts.length)];
+  let tries = 0, made = false; while (tries < 3 && !made) { tries++; made = rnd() < clamp(0.92 - d[1] * 0.09 + (sk - 65) * 0.012, 0.25, 0.97); }
+  if (!made) return { dunk: d[0], tries, made: false, sc: 30 + Math.floor(rnd() * 4) };
+  let sc = 0; for (let j = 0; j < 5; j++) sc += clamp(Math.round(5.6 + d[1] * 0.75 + (sk - 65) * 0.03 - (tries - 1) * 0.8 + (rnd() - 0.5) * 2.2), 6, 10);
+  return { dunk: d[0], tries, made: true, sc };
+}
+function aswDunk(L) {
+  const ent = aswPick(L, 'dunk'); if (ent.length < 2) return null; const rnd = aswRng(L, 'dunk');
+  const r1 = ent.map(p => { const a = aswDunkOne(p, rnd, false), b = aswDunkOne(p, rnd, false); return { pid: p.id, d: [a, b], pts: a.sc + b.sc }; }).sort((a, b) => b.pts - a.pts);
+  const fin = r1.slice(0, 2).map(x => { const p = L.players[x.pid], a = aswDunkOne(p, rnd, true), b = aswDunkOne(p, rnd, true); return { pid: p.id, d: [a, b], pts: a.sc + b.sc }; }).sort((a, b) => b.pts - a.pts);
+  let off = null; for (let k = 0; k < 5 && (off || fin)[0].pts === (off || fin)[1].pts; k++) off = fin.map(x => { const a = aswDunkOne(L.players[x.pid], rnd, true); return { pid: x.pid, d: [a], pts: a.sc }; }).sort((a, b) => b.pts - a.pts);
+  if (off && off[0].pts === off[1].pts) off[0].pts++;
+  const w = (off || fin)[0], best = w.d.filter(x => x.made).sort((a, b) => b.sc - a.sc)[0] || w.d[0];
+  return { kind: 'dunk', r1, fin, off, win: w.pid, best: best.dunk };
+}
+// Skills Challenge: 4 guards/wings + 2 bigs run the course (dribble, chest pass, layup, top-of-key three). Fastest 2 meet in the final.
+function aswSkillsRun(p, rnd) {
+  let t = 10.5 - (p.spd + p.hnd - 120) * 0.045 + (rnd() - 0.5) * 1.6; let misses = { pass: 0, lay: 0, three: 0 };
+  for (let k = 0; k < 3; k++) { let pr = clamp(0.5 + (p.pas - 50) * 0.011, 0.35, 0.92); while (rnd() > pr && misses.pass < 8) { misses.pass++; t += 1.5; } t += 1.6; }
+  while (rnd() > clamp(0.82 + (p.fin - 50) * 0.004, 0.75, 0.97) && misses.lay < 4) { misses.lay++; t += 2; } t += 2.6;
+  while (rnd() > clamp(0.22 + (p.tp - 50) * 0.011, 0.12, 0.7) && misses.three < 10) { misses.three++; t += 2.3; } t += 3.2;
+  return { time: Math.round(t * 10) / 10, misses };
+}
+function aswSkills(L) {
+  const ent = aswPick(L, 'skills'); if (ent.length < 2) return null; const rnd = aswRng(L, 'skills');
+  const r1 = ent.map(p => ({ pid: p.id, big: p.pos >= 3, ...aswSkillsRun(p, rnd) })).sort((a, b) => a.time - b.time);
+  const fin = r1.slice(0, 2).map(x => ({ pid: x.pid, big: x.big, ...aswSkillsRun(L.players[x.pid], rnd) })).sort((a, b) => a.time - b.time);
+  if (fin[0].time === fin[1].time) fin[0].time = Math.round((fin[0].time - 0.1) * 10) / 10;
+  return { kind: 'skills', r1, fin, win: fin[0].pid };
+}
+function runContests(L) {
+  const S = L.season, out = {};
+  for (const [k, f] of [['three', aswThree], ['dunk', aswDunk], ['skills', aswSkills]]) {
+    let c = null; try { c = f(L); } catch (e) { c = null; } if (!c) continue; out[k] = c;
+    const w = L.players[c.win]; if (!w) continue; w.awards.push({ s: S, a: ASW_AW[k] });
+    const team = w.team != null ? L.teams[w.team].name : 'free agent', last = (c.off || c.fin)[0];
+    const v = { name: w.name, team, pts: (c.fin[0] || {}).pts, dunk: c.best, time: last.time != null ? last.time.toFixed(1) : '' };
+    logNews(L, fl('asw.' + k, v, S * 7 + k.length), w.team, 'award');
+    c.call = fl('asw.' + k + 'Call', {}, S * 13 + c.win);
+  }
+  return out;
 }
 
 // ---------- Daily hooks ----------

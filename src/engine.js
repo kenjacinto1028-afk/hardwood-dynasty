@@ -1921,7 +1921,7 @@ function playGame0(league, homeId, awayId, playoff) {
   const LOG = league.user != null && (league.user === homeId || league.user === awayId) && !league.noLog ? [] : null;
   const nm = p => p ? (p.last || splitName(p.name)[1]) : '';
   let lastCourt = '';   // v30b: entry[8] = the ten on-court ids (home 5, then away 5) when the lineup changed since the last logged play, else 0; entry[9] = seconds the play used (minutes + plus-minus replay)
-  const logE = (q, clock, side, text, flags, ev, ct, secs, sx) => { if (LOG) { const e = [q, Math.max(0, Math.round(clock)), side, text, H.pts, A.pts, flags || '', ev || 0]; if (ct) { const k = ct.join(); e.push(k === lastCourt ? 0 : ct, secs || 0); lastCourt = k; if (sx != null) e.push(sx); } LOG.push(e); } };   // Phase 2: entry[10] = shot code zone * 10 + type (0 dunk, 1 layup, 2 paint, 3 mid, 4 three) for the live court
+  const logE = (q, clock, side, text, flags, ev, ct, secs, sx, pl) => { if (LOG) { const e = [q, Math.max(0, Math.round(clock)), side, text, H.pts, A.pts, flags || '', ev || 0]; if (ct) { const k = ct.join(); e.push(k === lastCourt ? 0 : ct, secs || 0); lastCourt = k; if (sx != null || pl) e.push(sx == null ? null : sx); if (pl) e.push(pl); } LOG.push(e); } };   // Nov 20: entry[11] = [play, handler id, post man id (kick-outs) or 0, defense coverage, doubled player id or 0] for the court animation   // Phase 2: entry[10] = shot code zone * 10 + type (0 dunk, 1 layup, 2 paint, 3 mid, 4 three) for the live court
   // Phase 2: top plays of every game (not only yours): [score, kind, player, side 0 home / 1 away, q, clock, home pts, away pts, zone, type, assist, other]; no random numbers used, so results don't change
   const HL = []; let hlGo = null;
   const hlAdd = x => { HL.push(x); HL.sort((a, b) => b[0] - a[0]); if (HL.length > 4) HL.length = 4; };
@@ -2086,7 +2086,7 @@ function playGame0(league, homeId, awayId, playoff) {
       { const bd = slD(off.coach).ball; if (bd) { const avg = dom.reduce((a, b) => a + b, 0) / dom.length, k = clamp(SL_FX.ball.dom * bd, -0.6, 0.6); for (let i = 0; i < dom.length; i++) dom[i] = Math.max(0.01, dom[i] + (avg - dom[i]) * k); } }   // v27 K2: motion spreads it, iso concentrates
       let handler = wpick(offC, dom);
       // v25.2: the play, and late-game sets (need a 3, after-timeout plays, closer isolation, last shot)
-      let play = null, setN = null, forceShooter = null, forceType = null, usedBy = null, desc = '', shotX = null;
+      let play = null, setN = null, forceShooter = null, forceType = null, usedBy = null, desc = '', shotX = null, kickFrom = 0;
       const snapE = LOG ? [...onH.map(p => [p.id, H]), ...onA.map(p => [p.id, A])].map(([id, g]) => [id, g, g.st[id].slice(1, 15)]) : null;
       if (!special && !shotClockViolation) {
         if (transition) play = 'trans';
@@ -2160,7 +2160,7 @@ function playGame0(league, homeId, awayId, playoff) {
             // v36a: a player already past ENG.shareCap of his team's shots tonight gives up some of them to a teammate (top usage ran 40-46%, PER 40+)
             if (!forceShooter && ENG.shareCap) { let tf = 0; for (const id in off.st) tf += off.st[id][IX.fga]; if (tf >= 12) { const sh = off.st[shooter.id][IX.fga] / tf; if (sh > ENG.shareCap && R() < Math.min(0.6, (sh - ENG.shareCap) * ENG.shareK)) { const ms = offC.filter(p => p.id !== shooter.id); shooter = wpick(ms, ms.map(p => weights[offC.indexOf(p)])); self = false; } } }
             // a doubled post scorer kicks it out about a third of the time
-            if (play === 'post' && def.dbl === shooter.id && R() < 0.35) { const post = shooter, outs = offC.filter(p => p.id !== post.id); shooter = wpick(outs, outs.map(p => PF.kick(p))); self = false; play = 'kick'; setN = `Double on ${nm(post)} → kick-out`; }
+            if (play === 'post' && def.dbl === shooter.id && R() < 0.35) { const post = shooter, outs = offC.filter(p => p.id !== post.id); kickFrom = post.id; shooter = wpick(outs, outs.map(p => PF.kick(p))); self = false; play = 'kick'; setN = `Double on ${nm(post)} → kick-out`; }
             // putback: right after an offensive rebound, the rebounder often goes straight back up
             let putback = false;
             if (fromOreb && off.putback != null) { const rb = offC.find(p => p.id === off.putback); if (rb && R() < 0.38) { shooter = rb; putback = true; } }
@@ -2292,7 +2292,7 @@ function playGame0(league, homeId, awayId, playoff) {
         const z = def.seen[play] || (def.seen[play] = [0, 0, null]); z[0]++; z[1] += gained; z[2] = usedBy.id; }
       if (LOG && desc) { const ev = []; for (const [id, g, a0] of snapE) { const a1 = g.st[id]; for (let i = 0; i < 14; i++) { const d = a1[i + 1] - a0[i]; if (d) ev.push(id, i + 1, d); } }
         const sc = (off.pts - (off === H ? pmH : pmA)) > 0, cl = quarter >= 4 && clock <= 300 && Math.abs(H.pts - A.pts) <= 5;
-        logE(quarter, clock, off === H ? 0 : 1, desc, (sc ? 's' : '') + (cl ? 'c' : ''), ev.length ? ev : 0, LOG ? [...onH.map(p => p.id), ...onA.map(p => p.id)] : null, secs, shotX); }
+        logE(quarter, clock, off === H ? 0 : 1, desc, (sc ? 's' : '') + (cl ? 'c' : ''), ev.length ? ev : 0, LOG ? [...onH.map(p => p.id), ...onA.map(p => p.id)] : null, secs, shotX, play ? [play, handler ? handler.id : 0, kickFrom, def.cov || '', def.dbl != null ? def.dbl : 0] : null); }
       injuryCheck(off, involved); injuryCheck(def, involved);
       if (switchPoss) poss = 1 - poss;
     }

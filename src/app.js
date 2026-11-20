@@ -2869,7 +2869,7 @@ function negLabels(p, t, type) {
   if (p.pers === 'Mentor' && (wantsMentor(L, t) || (p.team === t.id && youngTeam(L, t)))) out.push(['Young team to mentor', -1]);
   if (p.pers === 'Loyal' && (type !== 'signing' || p.lastTeam === t.id)) out.push(['Hometown discount', -1]);
   if (familyOn(L, p, t)) out.push(['Family here', -1]);
-  { const fo = typeof friendOn === 'function' ? friendOn(L, p, t) : null; if (fo) out.push([`${fo.f.duo ? 'Duo partner' : 'Friend'} here: ${fo.other.name}`, -1]); }   // v37
+  { const fo = typeof friendOn === 'function' ? friendOn(L, p, t) : null; if (fo) out.push([`${fo.duo ? 'Duo partner' : 'Friend'} here: ${fo.other.name}`, -1]); }   // v37
   if (grudgeVs(L, p, t.id)) out.push(['Holds a grudge', 1]);
   for (const n of signConcerns(L, p, t, type).notes) { if (/minutes|bigger role/i.test(n)) out.push(['Wants minutes', 1]); else if (/Happy here/.test(n)) out.push(['Happy here', -1]); else if (/Unhappy/.test(n)) out.push(['Unhappy here', 1]); else if (/contend/i.test(n) && p.pers !== 'Winner') out.push(['Veteran wants to contend', 1]); }
   if (p.prefY) out.push([`Prefers ${p.prefY} yr`, 0]);
@@ -4272,7 +4272,7 @@ function cmpTeamStats(a, b, adv) {
 // v37: friendships and duos
 function friendPanel(p) {
   const fs = typeof friendsOf === 'function' ? friendsOf(L, p) : []; if (!fs.length) return '';
-  return `<section class="panel" style="margin-bottom:16px"><h3>Friends</h3>${fs.map(x => { const mate = x.other.team != null && x.other.team === p.team; return `<div class="leader" style="grid-template-columns:minmax(0,1fr) auto"><span>${x.f.duo ? '<span class="fr-tag duo">Duo</span>' : '<span class="fr-tag">Friend</span>'} ${plink(x.other)} ${x.other.team != null ? '· ' + tlabel(x.other.team) : '· free agent'} <span class="muted">(${esc(x.f.why)}, since ${seasonName(x.f.since)})</span></span><span class="muted">${mate ? (x.f.duo ? 'Teammates · big chemistry boost' : 'Teammates · chemistry boost') : 'Would like to team up again'}</span></div>`; }).join('')}<p class="muted" style="font-size:12px;margin:6px 0 0">Friends starting together lift the team's chemistry (a duo twice as much). He is happier with a friend on the team, and in free agency he leans toward a team where a friend plays.</p></section>`;
+  return `<section class="panel" style="margin-bottom:16px"><h3>Friends</h3>${fs.map(x => { const mate = x.other.team != null && x.other.team === p.team; return `<div class="leader" style="grid-template-columns:minmax(0,1fr) auto"><span>${x.duo ? '<span class="fr-tag duo">Duo</span>' : '<span class="fr-tag">Friend</span>'} ${plink(x.other)} ${x.other.team != null ? '· ' + tlabel(x.other.team) : '· free agent'} <span class="muted">(${esc(x.f.why)}, since ${seasonName(x.f.since)})</span></span><span class="muted">${mate ? (x.duo ? 'Teammates · big chemistry boost' : 'Teammates · chemistry boost') : 'Would like to team up again'}</span></div>`; }).join('')}<p class="muted" style="font-size:12px;margin:6px 0 0">Friends starting together lift the team's chemistry (a duo twice as much). He is happier with a friend on the team, and in free agency he leans toward a team where a friend plays.</p></section>`;
 }
 function feudPanel(p) {
   const gs = (p.grudge || []).filter(g => g.until >= gameSeason(L) && L.teams[g.tid]), rs = rivalsOf(L, p);

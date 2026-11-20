@@ -3781,7 +3781,7 @@ function teamDuos(L, t) {
 // ---------- v37: friendships and duos ----------
 // L.fr[duoKey(a,b)] = { since, why, duo }. Teammates who stick together become friends; two starting stars who are friends become a duo.
 // Friends (or a duo) on the floor together add a little chemistry, a friend on a team pulls a free agent there, and he is happier with a friend beside him.
-const FR = { max: 3, yrs: 2, chance: 0.22, mentor: 0.35, duoOvr: 70, duoYrs: 2, appeal: 0.06, appealDuo: 0.10, morale: 3, chem: 0.0015, chemDuo: 0.003 };
+const FR = { max: 3, yrs: 2, chance: 0.10, mentor: 0.30, perTeam: 2, duoOvr: 70, duoYrs: 2, appeal: 0.08, appealDuo: 0.12, morale: 3, chem: 0.0015, chemDuo: 0.003 };
 const FR_WHY = ['years as teammates', 'road roommates', 'same workout group in the summer', 'grew close in the locker room', 'pregame handshake partners', 'share a love of cards on team flights', 'neighbors in the same building', 'came up on the second unit together'];
 const FR_NEWS = ['{a} and {b} are now close friends ({why}).', 'Locker room bond: {a} and {b} have become good friends ({why}).', '{a} calls {b} his best friend on the team ({why}).'];
 const DUO_NEWS = ['Dynamic duo: {a} and {b} ({t}) are a pair the league has to plan for.', '{a} and {b} ({t}) are the new duo everyone is talking about.', 'Friends on and off the floor: {a} and {b} have become {t}\'s go-to duo.'];
@@ -3789,8 +3789,8 @@ const DUO_SPLIT = ['The duo is split up: {a} and {b} are no longer teammates, bu
 function frGet(L, a, b) { return L.fr ? L.fr[duoKey(a, b)] || null : null; }
 function friendsOf(L, p) {
   const out = []; if (!L.fr || !p) return out;
-  for (const k in L.fr) { const [x, y] = k.split('-').map(Number); if (x !== p.id && y !== p.id) continue; const q = L.players[x === p.id ? y : x]; if (q && !q.retired) out.push({ f: L.fr[k], other: q }); }
-  return out.sort((x, y) => (y.f.duo ? 1 : 0) - (x.f.duo ? 1 : 0) || x.f.since - y.f.since);
+  for (const k in L.fr) { const [x, y] = k.split('-').map(Number); if (x !== p.id && y !== p.id) continue; const q = L.players[x === p.id ? y : x]; if (q && !q.retired) out.push({ f: L.fr[k], other: q, duo: !!(L.fr[k].duo && p.team != null && p.team === q.team) }); }   // duo only while teammates
+  return out.sort((x, y) => (y.duo ? 1 : 0) - (x.duo ? 1 : 0) || x.f.since - y.f.since);
 }
 // a friend on team t (the best: a duo partner first). Used by free agency, morale and the signing tags.
 function friendOn(L, p, t) { if (!L || !t) return null; return friendsOf(L, p).find(x => x.other.team === t.id && x.other.id !== p.id) || null; }
@@ -3809,13 +3809,15 @@ function seedFriends(L) {
   L.fr = L.fr || {};
   for (const k in L.fr) { const [x, y] = k.split('-').map(Number); const a = L.players[x], b = L.players[y]; if (!a || !b || a.retired || b.retired) delete L.fr[k]; }
   for (const t of L.teams) {
-    const rot = rotationOf(L, t).slice(0, 9), top5 = new Set(rot.slice(0, 5).map(p => p.id));
+    const rot = rotationOf(L, t).slice(0, 9), top5 = new Set(rot.slice(0, 5).map(p => p.id)); let made = 0;
     for (let i = 0; i < rot.length; i++) for (let j = i + 1; j < rot.length; j++) {
       const a = rot[i], b = rot[j], f = frGet(L, a.id, b.id);
-      if (!f) {
+      if (!f && made < FR.perTeam) {
         const yrs = duoYears(L, a.id, b.id), men = (a.pers === 'Mentor' && b.age <= 23) || (b.pers === 'Mentor' && a.age <= 23);
+        const n0 = Object.keys(L.fr).length;
         if (men && yrs >= 1 && R() < FR.mentor) addFriend(L, a, b, a.pers === 'Mentor' ? `${a.name.split(' ').pop()} took him under his wing` : `${b.name.split(' ').pop()} took him under his wing`);
         else if (yrs >= FR.yrs && R() < FR.chance * (a.pers === 'Loyal' || b.pers === 'Loyal' ? 1.4 : 1)) addFriend(L, a, b, FR_WHY[Math.floor(R() * FR_WHY.length)]);
+        if (Object.keys(L.fr).length > n0) made++;
       }
       const g = frGet(L, a.id, b.id);
       if (g && !g.duo && top5.has(a.id) && top5.has(b.id) && a.ovr >= FR.duoOvr && b.ovr >= FR.duoOvr && duoYears(L, a.id, b.id) >= FR.duoYrs) {

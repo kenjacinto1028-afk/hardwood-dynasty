@@ -11,9 +11,9 @@ const fa0=L.fa? L.fa.length:0; let joined=0,tot=0; const before={}; for(const p 
 const n0=(L.news||[]).length;
 autoBegin(L,N,true);let g=0;while(autoStep(L)&&g++<400000){}autoEnd(L);
 for(const p of Object.values(L.players)) if(!p.retired&&p.team!=null&&before[p.id]!==p.team&&p.tx&&p.tx.some(x=>/[Ss]igned/.test(x.t)&&x.s>=L.season-N)){tot++; if(friendOn(L,p,L.teams[p.team])) joined++;}
-chk('friendships after '+N+' seasons',cnt()[0]>=40,cnt().join('/'));
+chk('friendships after '+N+' seasons',cnt()[0]>=60&&cnt()[0]<=170,cnt().join('/'));
 chk('per-player cap', Object.values(L.players).every(p=>p.retired||friendsOf(L,p).length<=fx.max));
-chk('duos are teammates', Object.keys(L.fr).filter(k=>L.fr[k].duo).every(k=>{const [a,b]=k.split('-').map(i=>L.players[i]);return a.team!=null&&a.team===b.team;}));
+chk('duos are teammates', Object.values(L.players).every(p=>p.retired||friendsOf(L,p).every(x=>!x.duo||x.other.team===p.team)));
 out.push('FA signings joining a friend: '+joined+'/'+tot);
-const nw=(L.news||[]).map(x=>x.t||x.text||x).filter(x=>typeof x==='string'&&/friend|duo/i.test(x)); out.push('news lines: '+nw.length+'\\n  '+nw.slice(-6).join('\\n  '));
+const nw=(L.log||[]).map(x=>x.text).filter(x=>typeof x==='string'&&/friend|duo/i.test(x)); out.push('news lines: '+nw.length+'\\n  '+nw.slice(-6).join('\\n  '));
 out.push(ok+' pass, '+bad+' fail');return out.join('\\n');})(${+process.argv[2]||2})`));

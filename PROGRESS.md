@@ -1,5 +1,12 @@
 # PBL progress
 
+## Draft combine (Opus logic, Sonnet UI, Nov 20 2026)
+- [x] Right after the draft lottery, this year's class goes to the combine: height without shoes, wingspan, standing reach, weight, body fat; drills (max and standing vertical, lane agility, shuttle, 3/4 court sprint, bench reps, spot-up shooting). Results follow the real ratings plus a little noise. Some top-5 prospects (30%) and a few others (5%) are measured only.
+- [x] A combine grade (A+ to D vs the class) moves the three mock drafts and every team's board up to ~4 points (a few spots); the drills also tighten everyone's read on athleticism. News: combine opens, top vertical, longest arms, biggest riser and faller.
+- [x] Draft › Combine page: leader tiles, stock up / down, sortable + filterable table (gold = best in class, mock move arrows). Prospect page: combine block with a link to full results.
+- How: logic `src/combine.js` (runCombine, cmbBoost, cmbAthK; hashed noise so the sim's random stream is untouched); hooks in league.js (runLottery, mockSet, draftBoard, readErr); UI in app.js. Older saves: combine starts with the next lottery.
+- Tests: `tools/combine.js` 8/8, `tools/browser-combine.js` ALL PASS (1300 + 390). Cache v26.
+
 ## Play as coach mode (Opus logic, Sonnet UI, Haiku text, Nov 20 2026)
 - New-league option **Head Coach**: pick a team and your name. You coach (lineup, minutes, playbook, sliders, live games); an AI general manager makes the trades, signings, re-signs and draft picks.
 - How: `src/coach-mode.js` wraps the league step functions (simDay, draft, free agency, offseason...) so each step runs with `L.user = null` (your team is AI-run for roster moves); `lgU()` in engine.js keeps your lineup and playbook in games. State `L.mode = 'coach'`, `L.cm`; your coach has `c.user` (AI teams never hire him from the pool).

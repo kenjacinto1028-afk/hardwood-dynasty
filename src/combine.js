@@ -3,6 +3,7 @@
 // shuttle, sprint, bench, spot-up shooting) come from the prospect's real ratings plus a little noise.
 // A strong or weak combine moves the mock drafts and every team's board a few spots (p.cmb.b, about -4..+4),
 // and the athletic tests tighten every read on his athleticism. Some top prospects only get measured.
+// The page and prospect block live in app.js (combine UI).
 // State: p.cmb = { s, skip, hb, hs, wing, reach, wgt, bf, sv, mv, lane, shut, spr, bench, shot, z, b, g }
 //        L.combine[d] = { pre: {pid: consensus rank before}, post: {pid: rank after}, n }
 // Noise uses hgauss (hashed), so the sim's random stream is untouched.
@@ -27,7 +28,7 @@ function cmbMeasure(L, p, top) {
   c.lane = r2c(clamp(11.3 - (p.agi - 50) * 0.028 + (p.hgt - 78) * 0.04 + g(8) * 0.18, 10.2, 13.2));
   c.shut = r2c(clamp(3.05 - (p.agi - 50) * 0.008 + (p.hgt - 78) * 0.01 + g(9) * 0.06, 2.7, 3.5));
   c.spr = r2c(clamp(3.28 - (p.spd - 50) * 0.0075 + g(10) * 0.05, 2.95, 3.65));
-  c.bench = Math.round(clamp(8 + (p.str - 50) * 0.35 + g(11) * 2.5, 0, 26));
+  c.bench = Math.round(clamp(10 + (p.str - 45) * 0.3 + g(11) * 2.5, 0, 26));
   c.shot = Math.round(clamp(25 * (0.42 + (p.tp - 50) * 0.009 + (p.mid - 50) * 0.003 + g(12) * 0.06), 3, 25));
   return c;
 }
@@ -73,45 +74,3 @@ function runCombine(L, d) {
 function cmbBoost(L, p) { return p && p.cmb && p.cmb.s === p.draftYear && p.prospect ? p.cmb.b || 0 : 0; }
 // athletic tests tighten the read on athleticism (league.js readErr)
 function cmbAthK(p) { return p && p.cmb && !p.cmb.skip && p.prospect ? 0.45 : 1; }
-
-// ---------- UI ----------
-const cmbFt = i => `${Math.floor(i / 12)}'${r1c(i % 12)}"`;
-function cmbVal(c, k) { const t = CMB_TESTS.find(x => x[0] === k); return c[k] == null ? '—' : (t[4] ? c[k].toFixed(t[4]) : c[k]) + t[2]; }
-function cmbGradeChip(c) { if (!c) return ''; const g = c.g, cls = !g || g === '—' ? '' : g[0] === 'A' ? 'cmb-a' : g[0] === 'B' ? 'cmb-b' : g[0] === 'C' ? 'cmb-c' : 'cmb-d'; return `<span class="cmb-g ${cls}" title="${c.skip ? 'Measured only, skipped the drills' : 'Combine grade against this class'}">${c.skip ? 'Measured' : g}</span>`; }
-function cmbMove(rec, p) { if (!rec || !rec.post || !rec.pre[p.id]) return { v: 0, h: '<span class="muted">—</span>' }; const m = rec.pre[p.id] - rec.post[p.id]; return { v: m, h: m > 0 ? `<span class="cmb-up">▲${m}</span>` : m < 0 ? `<span class="cmb-dn">▼${-m}</span>` : '<span class="muted">–</span>' }; }
-// Draft > Combine page
-function combineView(d) {
-  const rec = (L.combine || {})[d];
-  if (!rec) {
-    const when = d === L.season && ['off-review', 'regular', 'regular-done', 'playoffs', 'season-done'].includes(L.phase) ? 'right after this year\'s draft lottery' : d === L.season ? 'right after the lottery' : `after the ${seasonName ? seasonName(d - 1) : d - 1} season's lottery`;
-    return `<section class="panel"><h2>Draft combine · ${draftLabel(d)} class</h2><p class="muted">The combine runs ${when}. Every prospect is measured (height without shoes, wingspan, reach, weight, body fat), and most run the drills: verticals, lane agility, shuttle, sprint, bench and spot-up shooting. A strong or weak combine moves the mock drafts and every team's board a few spots.</p></section>`;
-  }
-  const ps = (L.classes[d] || []).map(id => L.players[id]).filter(p => p && p.cmb && p.cmb.s === d);
-  const ms = mockSet(L, d), tested = ps.filter(p => !p.cmb.skip);
-  const best = {}; for (const [k, , , hi] of CMB_TESTS) { const xs = tested.map(p => p.cmb[k]).filter(v => v != null); best[k] = xs.length ? (hi ? Math.max(...xs) : Math.min(...xs)) : null; }
-  const wl = ps.map(p => p.cmb.wing - p.cmb.hb); best.wd = Math.max(...wl);
-  const td = (p, k) => { const v = p.cmb[k]; return `<td data-v="${v == null ? '' : v}" class="${v != null && v === best[k] ? 'cmb-best' : ''}">${cmbVal(p.cmb, k)}</td>`; };
-  const rows = ps.slice().sort((a, b) => (ms.consRank[a.id] || 999) - (ms.consRank[b.id] || 999)).map(p => { const c = p.cmb, mv = cmbMove(rec, p), wd = r1c(c.wing - c.hb);
-    return `<tr class="click" data-player="${p.id}" ${frow(p)}><td><strong>${ms.consRank[p.id] || '—'}</strong></td><td data-v="${mv.v}">${mv.h}</td><td class="l">${esc(p.name)}</td><td class="l">${posLabel(p)}</td><td>${p.age}</td>
-    <td data-v="${c.hb}">${cmbFt(c.hb)}</td><td data-v="${c.wing}">${cmbFt(c.wing)}</td><td data-v="${wd}" class="${wd === r1c(best.wd) ? 'cmb-best' : ''}">${wd > 0 ? '+' : ''}${wd}"</td><td data-v="${c.reach}">${cmbFt(c.reach)}</td><td data-v="${c.wgt}">${c.wgt}</td><td data-v="${c.bf}">${c.bf}%</td>
-    ${CMB_TESTS.map(t => td(p, t[0])).join('')}<td data-v="${c.skip ? -9 : c.z}">${cmbGradeChip(c)}</td></tr>`; }).join('');
-  const risers = ps.map(p => ({ p, m: cmbMove(rec, p).v })).filter(x => Math.min(rec.pre[x.p.id] || 99, rec.post[x.p.id] || 99) <= 40);
-  const top3 = (arr) => arr.slice(0, 3).map(x => `<div class="leader" style="grid-template-columns:minmax(0,1fr) auto"><a class="lk" data-player="${x.p.id}">${esc(x.p.name)}</a><span>#${rec.pre[x.p.id]} → #${rec.post[x.p.id]}</span></div>`).join('') || '<p class="muted">None.</p>';
-  const leaders = [['mv', 'Max vertical'], ['spr', 'Fastest sprint'], ['lane', 'Quickest lane agility'], ['shot', 'Best shooter']].map(([k, n]) => { const hi = CMB_TESTS.find(t => t[0] === k)[3]; const p = tested.slice().sort((a, b) => hi ? b.cmb[k] - a.cmb[k] : a.cmb[k] - b.cmb[k])[0]; return p ? `<div class="cmb-tile"><div class="k">${n}</div><div class="v">${cmbVal(p.cmb, k)}</div><a class="lk" data-player="${p.id}">${esc(p.name)}</a></div>` : ''; }).join('');
-  const lw = ps.slice().sort((a, b) => (b.cmb.wing - b.cmb.hb) - (a.cmb.wing - a.cmb.hb))[0];
-  return `<section class="panel"><h2>Draft combine · ${draftLabel(d)} class</h2><p class="muted" style="margin-top:-4px">${tested.length} of ${ps.length} prospects ran the drills; the rest were measured only. Heights are without shoes. Gold marks the best in the class. "Move" is how far he moved in the consensus mock after the combine.</p>
-  <div class="cmb-tiles">${leaders}${lw ? `<div class="cmb-tile"><div class="k">Longest arms</div><div class="v">+${r1c(lw.cmb.wing - lw.cmb.hb)}"</div><a class="lk" data-player="${lw.id}">${esc(lw.name)}</a></div>` : ''}</div>
-  <div class="grid2 cmb-moves"><div><h3>Stock up</h3>${top3(risers.filter(x => x.m > 0).sort((a, b) => b.m - a.m))}</div><div><h3>Stock down</h3>${top3(risers.filter(x => x.m < 0).sort((a, b) => a.m - b.m))}</div></div></section>
-  <section class="panel">${fbar('cmb')}<div class="tblwrap"><table class="sortable cmb-tbl" data-sid="cmb" data-flist="cmb"><thead><tr><th title="Consensus mock rank now">Cons</th><th title="Moves in the consensus mock after the combine">Move</th><th class="l">Prospect</th><th class="l">Pos</th><th>Age</th><th title="Height without shoes">Height</th><th>Wingspan</th><th title="Wingspan minus height">+/-</th><th title="Standing reach">Reach</th><th title="Weight (lb)">Wt</th><th title="Body fat">Fat</th>${CMB_TESTS.map(t => `<th title="${esc(t[1])}">${esc({ mv: 'Max vert', sv: 'Std vert', lane: 'Lane', shut: 'Shuttle', spr: 'Sprint', bench: 'Bench', shot: 'Shooting' }[t[0]])}</th>`).join('')}<th title="Overall combine grade against this class">Grade</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
-}
-// combine block on a prospect's page
-function cmbCard(p) {
-  const c = p && p.cmb; if (!c || !p.prospect && !(p.draft && p.draft.s === c.s)) return '';
-  const rec = (L.combine || {})[c.s], mv = rec ? cmbMove(rec, p) : null;
-  const m = [['Height (no shoes)', cmbFt(c.hb)], ['Wingspan', `${cmbFt(c.wing)} <span class="muted">(${c.wing - c.hb >= 0 ? '+' : ''}${r1c(c.wing - c.hb)}")</span>`], ['Standing reach', cmbFt(c.reach)], ['Weight', c.wgt + ' lb'], ['Body fat', c.bf + '%']];
-  const dr = c.skip ? [] : CMB_TESTS.map(t => [t[1], cmbVal(c, t[0])]);
-  const cell = ([k, v]) => `<div><div class="k">${esc(k)}</div><div class="v">${v}</div></div>`;
-  return `<section class="panel cmb-card" style="margin-bottom:16px"><h3>${draftLabel(c.s)} draft combine ${cmbGradeChip(c)}${mv && mv.v ? ` <span style="font-size:13px">${mv.h} <span class="muted">in the mocks</span></span>` : ''}</h3>
-  <div class="cmb-grid">${m.map(cell).join('')}</div>${c.skip ? '<p class="muted" style="margin:8px 0 0">Measured only; he skipped the drills.</p>' : `<div class="cmb-grid" style="margin-top:8px">${dr.map(cell).join('')}</div>`}<p style="margin:8px 0 0"><a class="lk" data-cmbpage="${c.s}">Full combine results →</a></p></section>`;
-}
-if (typeof document !== 'undefined') document.addEventListener('click', e => { const a = e.target.closest && e.target.closest('[data-cmbpage]'); if (!a) return; ui.player = null; ui.dpage = 'cmb'; ui.cls = +a.dataset.cmbpage; location.hash = '#draft'; render(); });

@@ -1,3 +1,11 @@
+# TASK_STATE — Card variety and rarities (Sonnet UI, Haiku flavor text) — Nov 20 2026
+Branch `claude/project-thread-ld9xl2`.
+- [x] 1. p3.js: card kinds (now, season, rookie, title run, career, Hall of Fame), Uncommon tier, ribbon tag, award-boosted rarity, coach cards, flavor lines
+- [x] 2. p3.js: card popup variant picker + binder "Show" filter (current, best season, career, rookie, specials, coach, Hall of Fame list); styles
+- [x] 3. Tests: tools/browser-cards.js ALL PASS (1300 + 390), browser-p3 98/100 (draft fixture missing, unrelated)
+- [ ] 4. PROGRESS.md, PR, merge, Pages check
+
+---
 # TASK_STATE — All-Star Weekend contests (Opus logic, Sonnet UI, Haiku text) — Nov 20 2026
 Branch `claude/project-thread-p56evz`.
 - [x] 1. league.js: runContests (3-Point 8→3, Dunk 4→2, Skills 6→2), hrand dice, awards, FAME_W, news, allStarHist.contests; tools/asw.js

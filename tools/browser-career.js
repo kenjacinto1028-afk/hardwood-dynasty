@@ -59,6 +59,7 @@ const SHOTS = process.env.SHOTS;
   await ev(pg, "(() => { const L = PBL.L; startPlayoffs(L); while (L.phase === 'playoffs') simPlayoffDay(L); startOffseason(L); PBL.save(); })()"); await wait(pg, 500);
   const pre = await ev(pg, "(() => { const L = PBL.L, p = L.players[L.career.pid], ln = (p.pre || []).find(x => x.s === L.season); const sl = carSeasonLine(L); const tm = L.pipe.lg.NCHF.res.st.find(r => r[0] === L.career.team); return { ln, sl, rec: tm && [tm[1], tm[2]], w: sl.w }; })()");
   ok('college season line = his games', pre.ln && pre.ln.gp === 30 && Math.abs(pre.ln.pts - pre.sl.pts) < 0.11, pre);
+  { const r = await ev(pg, "(() => { const L = PBL.L, p = L.players[L.career.pid], st = carStock(L, p); return [!st || !st.cap || st.c >= Math.min(st.cap, 60) * 0.6 || p.scout <= p.ovr + 1, st && st.c, st && st.cap, L.career.scoutAdj, p.scout, p.ovr]; })()"); ok('draft stock follows his production (rank not far better than cap)', r[0], r); }
   ok('his team record matches his games', pre.rec && pre.rec[0] === pre.w, pre.rec);
   await ev(pg, "(() => { const L = PBL.L; runLottery(L); startDraft(L); while (L.phase === 'off-draft') aiDraftPick(L); PBL.save(); location.hash = '#career'; })()"); await wait(pg, 800);
   await ev(pg, "PBL.render()"); await wait(pg, 800);
@@ -67,6 +68,7 @@ const SHOTS = process.env.SHOTS;
   const dr = await ev(pg, "(() => { const L = PBL.L, p = L.players[L.career.pid]; return { prospect: p.prospect, draft: p.draft || null, team: p.team, ovr: p.ovr }; })()");
   ok('draft night popup', /select…|Undrafted/.test(dd), dd.slice(0, 120));
   ok('no longer a prospect', dr.prospect === false, dr);
+  await ev(pg, "(() => { const L = PBL.L, p = L.players[L.career.pid]; if (p.team == null && p.draft) { const i = L.fa.indexOf(p.id); if (i >= 0) L.fa.splice(i, 1); signSecondRounder(L, p, p.draft.tid); } })()");   // a weak prospect can fall to the 2nd round and go unsigned; sign him so the pro tests can run
   await shot('car-05-draft');
   await ev(pg, "PBL.closeDialog()"); await wait(pg, 300);
   const hub = await ev(pg, "document.querySelector('#main').textContent"); ok('hub shows pro status', /You're a pro|Free agent/.test(hub));
@@ -140,7 +142,7 @@ const SHOTS = process.env.SHOTS;
   ok('Talk to coach: outcome, trust change, story line, once a week', !!tk.talk && !!tk.res && tk.tr !== tr0 && tk.dis && tk.log, [tr0, tk]);
   // extension: offer popup, ask, accept
   ok('no extension offer in the rookie year', await ev(pg, "(() => { const L = PBL.L, p = L.players[L.career.pid]; p.contract = { amt: 4, exp: L.season, type: 'rookie', len: 3, opt: null }; p.ext = null; L.career.ext = null; return carExtMake(L) === null; })()"));
-  await ev(pg, "(() => { const L = PBL.L, p = L.players[L.career.pid]; p.rookieSeason = L.season - 1; (p.hist = p.hist || []).push({ s: L.season - 1, tid: p.team, age: p.age - 1, rs: { gp: 50, min: 50 * 1500, pts: 500, orb: 50, drb: 150, ast: 100, stl: 30, blk: 10, fgm: 200, fga: 450, tpm: 20, ftm: 80, fta: 100, tov: 60 } }); p.contract = { amt: 4, exp: L.season, type: 'rookie', len: 3, opt: null }; p.ext = null; p.mval = Math.max(p.mval || 1, 8); L.career.ext = null; carExtMake(L); PBL.render(); })()"); await wait(pg, 800);
+  await ev(pg, "(() => { const L = PBL.L, p = L.players[L.career.pid]; p.rookieSeason = L.season - 1; (p.hist = p.hist || []).push({ s: L.season - 1, tid: p.team, age: p.age - 1, rs: { gp: 50, min: 50 * 1500, pts: 500, orb: 50, drb: 150, ast: 100, stl: 30, blk: 10, fgm: 200, fga: 450, tpm: 20, ftm: 80, fta: 100, tov: 60 } }); p.contract = { amt: 4, exp: L.season, type: 'rookie', len: 3, opt: null }; p.ext = null; p.mval = Math.max(p.mval || 1, 8); p.scout = 80; L.career.ext = null; carExtMake(L); PBL.render(); })()"); await wait(pg, 800);
   let ex = ''; for (let i = 0; i < 8; i++) { ex = await modal(); if (/Contract talks/.test(ex)) break; await ev(pg, "(() => { const c = document.getElementById('p3-cer'); if (c) c.remove(); PBL.closeDialog(); })()"); await wait(pg, 500); }
   ok('extension offer popup (Accept / Ask for more / Test free agency)', /Contract talks/.test(ex) && /Accept/.test(ex) && /Ask for more/.test(ex) && /Test free agency/.test(ex), ex.slice(0, 120));
   await noOv('extension popup'); await shot('car-11-extension');

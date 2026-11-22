@@ -1,5 +1,9 @@
 # PBL progress
 
+## My Career: draft projection follows your stats (Sonnet, Nov 22 2026)
+- [x] A low-production pre-draft season now lowers your scouting grade (used by the mock drafts and the real draft): points + rebounds + assists + stocks map to the best pick they support (e.g. about 11 pts / 3 ast = late first round, not top 3). Builds up over the first 15 games; recovers if you play better. Floor is your current overall.
+- [x] Draft stock panel says which pick your stats support. Test: tools/browser-career.js ALL PASS. Cache v17. Installer not touched.
+
 ## Hall of Fame legend portraits (Sonnet, Nov 20 2026)
 - [x] The 71 Hall of Fame legends on Legend cards get a cartoon face (hand-picked skin, hair, facial hair, glasses per player, e.g. Kareem's goggles, Wilt's beard; rest of the face from the name). Non-Hall of Fame legends keep the silhouette. src/p3.js `LOOK`, `legendFace`.
 - Test: tools/browser-cards.js ALL PASS (1300 + 390). Cache v24.

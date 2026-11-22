@@ -134,9 +134,25 @@ function carStock(L, p) {
   const r = mockRanksOf(L, p), cs = r.c; if (!cs) return null;
   const n = L.teams.length, o = (r.o || []).filter(x => x), lo = o.length ? Math.min(...o) : cs, hi = o.length ? Math.max(...o) : cs;
   const tier = cs <= Math.min(14, n / 2 + 1) ? 'Lottery pick' : cs <= n ? 'First-round pick' : cs <= 2 * n ? 'Second-round pick' : 'Likely undrafted';
-  return { c: cs, lo, hi, o, n, tier, size: (L.classes[p.draftYear] || []).length };
+  const pc = carProdCap(L); return { c: cs, cap: pc ? pc.cap : null, lo, hi, o, n, tier, size: (L.classes[p.draftYear] || []).length };
+}
+// scouts also look at what he does on the court: a low-production season caps how high he can go.
+// production value (points + rebounds + assists + stocks) -> best pick that line supports
+const CAR_PRODCAP = [[26, 1], [22, 4], [19, 10], [16.5, 22], [13.5, 36], [10, 52], [7, 70], [0, 90]];
+function carProdCap(L) {
+  const sl = carSeasonLine(L); if (!sl || sl.gp < 4) return null; const v = carVal(sl), T = CAR_PRODCAP; let cap = T[T.length - 1][1];
+  if (v >= T[0][0]) cap = 1; else for (let i = 1; i < T.length; i++) if (v >= T[i][0]) { const [v1, r1] = T[i - 1], [v0, r0] = T[i]; cap = r0 + (r1 - r0) * (v - v0) / (v1 - v0); break; }
+  return { cap: Math.max(1, Math.round(cap)), w: Math.min(1, sl.gp / 15), v };
+}
+// move his scouting grade toward what his stats support (so mocks and the real draft agree); once per mock refresh
+function carProdAdj(L, p) {
+  const C = L.career, pc = carProdCap(L), key = L.season * 1000 + (typeof mockBucket === 'function' ? mockBucket(L) : 0); if (!pc || C.adjKey === key || typeof mockRanksOf !== 'function') return;
+  const c = mockRanksOf(L, p).c; if (!c) return; C.adjKey = key; C.scoutAdj = C.scoutAdj || 0;
+  const tgt = c + pc.w * (pc.cap - c), pen = c < tgt ? (tgt - c) * 0.6 : -Math.min(C.scoutAdj, (c - tgt) * 0.6);
+  if (Math.abs(pen) < 0.2) return; const d = clamp(pen, -C.scoutAdj, Math.max(0, p.scout - p.ovr)); p.scout = Math.round((p.scout - d) * 10) / 10; C.scoutAdj += d;
 }
 function carStockLog(L, p) {
+  carProdAdj(L, p);
   const C = L.career, st = carStock(L, p); if (!st) return; const h = C.stock = C.stock || [], last = h[h.length - 1], key = L.season * 1000 + Math.floor(L.day / 14);
   if (last && last.k === key) { last.c = st.c; return; } h.push({ k: key, c: st.c, s: L.season, d: L.day }); if (h.length > 14) h.shift();
 }
@@ -962,7 +978,7 @@ if (typeof window !== 'undefined') window.CAR = (function () {
       const trend = !mv ? '<span class="muted">steady</span>' : mv > 0 ? `<span class="w">▲ up ${mv} spot${mv > 1 ? 's' : ''}</span>` : `<span class="lo">▼ down ${-mv} spot${mv < -1 ? 's' : ''}</span>`;
       const names = ['Hoops Insider', 'The Upside Report', 'Courtside Daily'], spark = h.length > 1 ? `<div class="muted" style="font-size:12px;margin-top:6px">Recent mock rank: ${h.map(x => '#' + x.c).join(' → ')}</div>` : '';
       return `<section class="panel" id="car-stock"><h3>Draft stock</h3><div class="car-stats"><div><div class="k">Mock draft</div><div class="v">#${st.c}</div><div class="muted" style="font-size:12px">${trend}</div></div><div><div class="k">Projection</div><div class="v" style="font-size:16px">${esc(st.tier)}</div></div><div><div class="k">Range</div><div class="v" style="font-size:16px">#${st.lo}${st.hi > st.lo ? ' to #' + st.hi : ''}</div></div></div>
-        <p class="muted" style="margin:8px 0 0;font-size:12px">${st.o.map((v, i) => esc(names[i] || '') + ' #' + v).join(' · ')}. Out of ${st.size} prospects in the ${esc(draftLabel(p.draftYear))} class. Play well and upgrade your ratings to move up the boards.</p>${spark}</section>`;
+        <p class="muted" style="margin:8px 0 0;font-size:12px">${st.o.map((v, i) => esc(names[i] || '') + ' #' + v).join(' · ')}. Out of ${st.size} prospects in the ${esc(draftLabel(p.draftYear))} class. ${st.cap ? `Your stats (${(L.career.games.filter(g => g.done && g.line).length)} games) support a pick around #${st.cap}. ` : ''}Play well and upgrade your ratings to move up the boards.</p>${spark}</section>`;
     }
     function seasonAvgs(p) {
       const rs = p.stats && p.stats.rs, f = v => (Math.round(v * 10) / 10).toFixed(1);
@@ -1061,6 +1077,7 @@ if (typeof window !== 'undefined') window.CAR = (function () {
         if (!p.prospect && carExtLive(L) && C.ext && !C.ext.shown && !busy) { C.ext.shown = true; queueDialog(extDlg); save(); }
         if (C.hold && !C.hold.shown) { C.hold.shown = true; queueDialog(faDlg); save(); } }
       // achievements / badges earned since last time: one popup (waits while a game is waiting to be played)
+      try { if (p.prospect && L.phase !== 'off-draft') carStockLog(L, p); } catch (e) { console.error(e); }
       try { carCheck(L); } catch (e) { console.error(e); }
       const C = L.career; if (C.pop && C.pop.length && !C.cur && !careerPending(L)) { const list = C.pop.splice(0, C.pop.length); queueDialog(() => achDialog(list)); save(); }
     }

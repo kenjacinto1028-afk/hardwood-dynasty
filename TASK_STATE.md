@@ -1,3 +1,13 @@
+# TASK_STATE — My Career rework + business (Sonnet) — Nov 23 2026
+Branch `claude/project-thread-dtdff6`. No desktop installer changes.
+- [ ] 1. career-biz.js logic: brand value, endorsements, sneaker deals, social hype, agent negotiation, rivalry tracker, charity + fan rating; node test tools/career-biz.js
+- [ ] 2. Decisions rework in career.js: game plan, live score, energy, more scenes, risk tags, post-game review
+- [ ] 3. UI: My Career tabs (Overview / Skills / Life / Brand / Rivals / Story), Brand + Rivals pages, popups
+- [ ] 4. Tutorials per mode (GM, My Career, Coach, Fantasy; not Commissioner) in src/pb.js
+- [ ] 5. Sanity check PR #44 draft ranking on a mid-progress (old-style) save
+- [ ] 6. Browser tests, PROGRESS.md, README/help, sw cache, PR
+
+---
 # TASK_STATE — Hall of Fame legend portraits (Sonnet) — Nov 20 2026
 Branch `claude/project-thread-ld9xl2`.
 - [x] 1. p3.js LOOK table + legendFace; tools/browser-cards.js ALL PASS

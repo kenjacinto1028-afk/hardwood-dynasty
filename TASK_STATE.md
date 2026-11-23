@@ -776,3 +776,10 @@ Branch `claude/project-thread-a9qoug`.
 - [x] 4. Pro XP and upgrade costs tuned (pre-draft unchanged)
 - [x] 5. Season averages in "You're a pro" panel + Draft stock panel (pre-draft)
 - [ ] 6. Tests, cache bump, desktop installer bump, PR, merge, Pages check
+
+---
+# TASK_STATE — Fix early retirements (Sonnet) — Nov 23 2026
+Branch `claude/project-thread-6y9xea`.
+- [x] 1. league.js retireChance: no retirement <=27 unless 2+ long injuries; reasons shown
+- [x] 2. PROGRESS.md
+- [ ] 3. PR

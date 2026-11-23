@@ -4800,7 +4800,9 @@ function slAdapt(L, t) {
 function retireChance(L, p) {
   const a = p.age;
   const aa = NBA_ON && p.ovr >= 62 ? a - 2 : a;   // v27: NBA careers run longer for useful players
-  let pr = aa <= 29 ? 0.003 : [0.02, 0.04, 0.07, 0.12, 0.2, 0.3, 0.42, 0.55, 0.7][aa - 30] ?? 0.85;
+  const hurt = p.injuries.filter(i => i.long && i.s >= L.season - 2).length;
+  if (a <= 27 && hurt < 2) return 0;   // fix: young, healthy players don't retire
+  let pr = a <= 27 ? 0.004 : aa <= 29 ? 0.003 : [0.02, 0.04, 0.07, 0.12, 0.2, 0.3, 0.42, 0.55, 0.7][aa - 30] ?? 0.85;
   if (p.ovr < 45) pr *= 2; else if (p.ovr < 55) pr *= 1.4;
   if (NBA_ON && p.ovr >= 85) pr *= 0.2; else if (p.ovr >= 82) pr *= 0.4; else if (p.ovr >= 75) pr *= 0.55;   // v27: NBA stars play on while still elite
   if (NBA_ON && p.leg && p.leg.tid === p.team && p.leg.v >= 250 && p.ovr >= 70) pr *= 0.7;   // v27 U13: franchise icons play a little longer
@@ -5224,7 +5226,7 @@ function startOffseason(L) {
     let why = null;
     if (p.careerEnd) why = 'career-ending injury';
     else if (p.tour === L.season) why = 'farewell tour';
-    else if (R() < retireChance(L, p)) why = p.age <= 30 ? 'retired early' : 'age';
+    else if (R() < retireChance(L, p)) why = p.age > 30 ? 'age' : p.injuries.some(i => i.long && i.s >= L.season - 2) ? 'injury trouble' : p.team == null ? 'no offers' : 'lost his drive';
     if (why) {
       const played = p.real || p.hist.some(h => h.rs && h.rs.gp > 0);   // v27 N8: real players keep their real career even with no sim games
       const tm = retirePlayer(L, p, why);

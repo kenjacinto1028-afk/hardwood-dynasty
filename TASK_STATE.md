@@ -776,3 +776,12 @@ Branch `claude/project-thread-a9qoug`.
 - [x] 4. Pro XP and upgrade costs tuned (pre-draft unchanged)
 - [x] 5. Season averages in "You're a pro" panel + Draft stock panel (pre-draft)
 - [ ] 6. Tests, cache bump, desktop installer bump, PR, merge, Pages check
+
+---
+# TASK_STATE — Game mode tutorials + new-feature entries (Haiku) — Nov 23 2026
+Branch `claude/project-thread-vie062`. Tutorial = "How it works" page (src/app.js vRules). Commissioner skipped. Desktop installer not touched.
+- [x] 1. Clone and state check (repo at /home/user/hardwood-dynasty; the older TASK_STATE entries above are other tasks, left as-is)
+- [x] 2. src/app.js vRules: "Game modes: quick guide" (Franchise, Head Coach, My Career, Fantasy) + "What's new" (court view, live coaching, All-Star, combine, card rarity, logos, box scores, top plays); node --check OK
+- [ ] 3. Browser check of the How it works page (all modes), screenshot
+- [ ] 4. Re-check main for My Career endorsements/sneakers/social/agent/rivalry/charity and box-score/top-play/roster-tag threads; add entries for anything merged
+- [ ] 5. PROGRESS.md line, sw.js cache bump if convention, commit, push, PR (assignee + review request)

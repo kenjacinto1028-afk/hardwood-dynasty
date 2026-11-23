@@ -1,6 +1,6 @@
 # TASK_STATE — My Career rework + business (Sonnet) — Nov 23 2026
 Branch `claude/project-thread-dtdff6`. No desktop installer changes.
-- [ ] 1. career-biz.js logic: brand value, endorsements, sneaker deals, social hype, agent negotiation, rivalry tracker, charity + fan rating; node test tools/career-biz.js
+- [x] 1. career-biz.js logic: brand value, endorsements, sneaker deals, social hype, agent negotiation, rivalry tracker, charity + fan rating; node test tools/career-biz.js — src/career-biz.js + hooks in career.js; tools/career-biz.js ALL PASS
 - [ ] 2. Decisions rework in career.js: game plan, live score, energy, more scenes, risk tags, post-game review
 - [ ] 3. UI: My Career tabs (Overview / Skills / Life / Brand / Rivals / Story), Brand + Rivals pages, popups
 - [ ] 4. Tutorials per mode (GM, My Career, Coach, Fantasy; not Commissioner) in src/pb.js

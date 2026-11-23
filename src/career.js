@@ -103,7 +103,7 @@ function carSettle(L, g, line, mom, played) {
 }
 function carSimOne(L, g) { const p = carP(L); return carSettle(L, g, carNoise(carBase(L, p, L.career.lg), 1), 0, false); }
 // called after every sim day: games before today that were not played are simmed
-function careerDay(L, games) { if (!carOn(L)) return; if (typeof carInit === 'function') carInit(L); try { careerDay0(L, games); } finally { carCheck(L); } }
+function careerDay(L, games) { if (!carOn(L)) return; if (typeof carInit === 'function') carInit(L); try { careerDay0(L, games); } finally { carCheck(L); try { if (typeof carBizTick === 'function') carBizTick(L); } catch (e) { console.error(e); } } }
 function careerDay0(L, games) {
   const p = carP(L);
   if (p.prospect) { if (L.phase === 'regular' && p.pl) for (const g of L.career.games) if (!g.done && g.day < L.day) carSimOne(L, g); try { carStockLog(L, p); } catch (e) { } return; }
@@ -122,6 +122,7 @@ function careerDay0(L, games) {
     const e = { s: L.season, gid: g.id, po: !!g.playoff, tid, opp, home: side === 0, win, us, them, line, gr, xp, played, res: played ? fx.res : null };
     C.pro.push(e); if (C.pro.length > 40) C.pro.shift(); carTally(C, line, true, gr, win);
     try { carGameNews(L, p, e, line); carIvCheck(L, p, e, line); } catch (err) { console.error(err); }
+    try { if (typeof carBizGame === 'function') carBizGame(L, p, g, e, line, side); } catch (err) { console.error(err); }
     if (played) C.lastRes = e;
     if (gr >= 7 && line.pts >= 30) carLog(L, `${line.pts} points vs ${(L.teams[opp] || {}).abbr || ''}. A+ game.`);
   }
@@ -164,7 +165,7 @@ function carProToday(L) {
   if (L.phase === 'playoffs' && L.po) { const sr = (L.po.rounds[L.po.stage] || []).find(x => x.winner == null && (x.hi === p.team || x.lo === p.team)); if (!sr) return null; return { key: L.season + ':p:' + L.po.stage + ':' + sr.games.length, opp: sr.hi === p.team ? sr.lo : sr.hi, home: null, po: true, sr }; }
   return null;
 }
-function carBigGame(L, t) { if (t.po) return true; const p = carP(L), tm = L.teams[p.team]; try { if (isRivalry(L, p.team, t.opp)) return true; } catch (e) { } return ((tm.w + tm.l) % 5) === 0; }
+function carBigGame(L, t) { if (t.po) return true; const p = carP(L), tm = L.teams[p.team]; try { if (isRivalry(L, p.team, t.opp)) return true; } catch (e) { } try { if (typeof carBizRivalOn === 'function' && carBizRivalOn(L, t.opp)) return true; } catch (e) { } return ((tm.w + tm.l) % 5) === 0; }
 function careerProPending(L) {
   if (!carOn(L)) return null; const C = L.career, t = carProToday(L); if (!t || C.proKey === t.key) return null;
   if (C.stop === 'none') return null; if (C.stop === 'big' && !carBigGame(L, t)) return null;

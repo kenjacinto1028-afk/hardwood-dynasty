@@ -947,3 +947,7 @@ Suggested order: T (quick win) → R → G (PBL + pipeline emblems) → F, then 
 - U3: phone Notes button shows icon+label only; to-do toast moved above bottom nav.
 - U4: phone search box wider; day-1 ties sorted by preseason strength, not A-Z.
 - I3: 41 duplicate old test files removed from the top level (copies live in tools/); v30a.patch moved to patches/.
+
+## Nov 23 2026 — Team stats on box scores and live games (Sonnet)
+- Team stats panel (FG/3P/FT, eFG%, TS%, rebounds, assists, steals, blocks, TO, PF, bench points, possessions, PPP, biggest lead; live adds lead changes and ties) on result box scores and the live view. `teamStatsPanel` in `src/app.js`.
+- Help page: new "Box scores and team stats" section. Test: `node tools/browser-teamstats.js` (needs `tools/_t1.json`), ALL PASS.

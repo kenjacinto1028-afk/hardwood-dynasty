@@ -783,3 +783,9 @@ Branch `claude/project-thread-6y9xea`.
 - [x] 1. league.js retireChance: no retirement <=27 unless 2+ long injuries; reasons shown
 - [x] 2. PROGRESS.md
 - [ ] 3. PR
+# TASK_STATE — Team stats on box scores + live games (Sonnet) — Nov 23 2026
+Branch `claude/project-thread-h8z5c9`.
+- [x] 1. app.js `teamStatsPanel`/`boxTotals`: Team stats panel on result box score (vGame) and live view (vLive)
+- [x] 2. tools/browser-teamstats.js ALL PASS (1280 + 390px)
+- [x] 3. Help page: "Box scores and team stats" section
+- [x] 4. PROGRESS.md, PR

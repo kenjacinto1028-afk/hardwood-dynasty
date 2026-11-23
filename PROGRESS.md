@@ -1,5 +1,12 @@
 # PBL progress
 
+## Roster tags, expired contracts, scouting resets, tutorial (Haiku, Nov 23 2026)
+- [x] My team › Roster: Core, Shop and Untouchable buttons under each player's name (one click, same toggles as the player page; Core stays capped at 4).
+- [x] Players whose contract has expired can't be traded in the offseason until they re-sign (offseason = after the playoffs; in-season unchanged).
+- [x] Scouting director assignments no longer stay forever: regular-season assignments clear when the new season starts (a news line says so). Offseason assignments still carry into the season that follows, then clear.
+- [x] Guided tour (first-time tour, or Settings › tour again): GM, Play as coach and My Career each get their own welcome and mode step. Commissioner text unchanged.
+- Tests: `tools/hwd-roster-fixes.js` (node, ALL PASS); `tools/browser-hwd-roster.js` (1300 + 390, ALL PASS; needs `tools/_hwd-team.json`, gunzipped from `tools/snap/nba-team-s10.json.gz`). Cache v28. Installer not touched.
+
 ## My Career: draft projection follows your stats (Sonnet, Nov 22 2026)
 - [x] A low-production pre-draft season now lowers your scouting grade (used by the mock drafts and the real draft): points + rebounds + assists + stocks map to the best pick they support (e.g. about 11 pts / 3 ast = late first round, not top 3). Builds up over the first 15 games; recovers if you play better. Floor is your current overall.
 - [x] Draft stock panel says which pick your stats support. Test: tools/browser-career.js ALL PASS. Cache v17. Installer not touched.

@@ -26,19 +26,39 @@ const PB = (function () {
 
   // ---------- guided tour ----------
   const TOUR_KEY = 'pbl-tour';
+  // Tour text per game mode (Commissioner keeps the original wording)
   const steps = () => {
     const L = window.PBL && window.PBL.L, mine = L && L.user != null;
-    return [
-      { t: 'Welcome!', b: mine ? 'You run a team: sign players, make trades and win titles. This 1-minute tour shows the main buttons.' : 'You run the whole league as commissioner. This 1-minute tour shows the main buttons.' },
+    const mode = !mine ? 'commish' : L.mode === 'coach' ? 'coach' : L.career ? 'career' : 'team';
+    const WELCOME = {
+      commish: 'You run the whole league as commissioner. This 1-minute tour shows the main buttons.',
+      team: 'You run a team: sign players, make trades and win titles. This 1-minute tour shows the main buttons.',
+      coach: 'You coach your team: lineup, minutes, playbook and live games. An AI general manager makes the trades, signings and draft picks. This 1-minute tour shows the main buttons.',
+      career: 'You play one player\'s career: train him, answer interviews and climb from draft pick to star. This 1-minute tour shows the main buttons.'
+    };
+    const MODE_STEP = {
+      // Team (GM): tag players in one click
+      team: { el: () => pick('#tabs a[href="#myteam"]', '#p3-bnav a[data-v="myteam"]', '#tabs'), t: 'Roster tags', b: 'On My team › Roster, the Core, Shop and Untouchable buttons tag a player in one click. Core players are protected from coach targets. A player whose contract has expired can\'t be traded until he re-signs.' },
+      // Play as coach: lineup and job security
+      coach: { el: () => pick('#tabs a[href="#myteam"]', '#tabs'), t: 'Your job', b: 'You set the lineup, minutes, playbook and sliders, then play the live games. My team › My job shows your job security and any offers.' },
+      // My Career: one player's story
+      career: { el: () => pick('#tabs a[href="#career"]', '#tabs'), t: 'My Career', b: 'Train your player, answer interviews and decide on contract offers on the My Career page. Your draft stock and award news show up there too.' }
+    };
+    const list = [
+      { t: 'Welcome!', b: WELCOME[mode] },
       { el: () => pick('#simctl button.primary', '#simctl'), t: 'Play games', b: 'Sim day plays one day. The other sim buttons (on phones under "Sim") play a week, a month or up to the next big moment. The game stops and asks when something needs you.' },
-      { el: () => pick('#p3-bnav', '#tabs'), t: 'Pages', b: 'Everything is grouped here: ' + (mine ? 'My team' : 'Staff') + ', League, Roster moves, News & history and How it works.' },
+      { el: () => pick('#p3-bnav', '#tabs'), t: 'Pages', b: 'Everything is grouped here: ' + (mode === 'commish' ? 'Staff' : 'My team') + ', League, Roster moves, News & history and How it works.' },
       { el: () => pick('#subrow:not([hidden]) #subtabs', '#tabs a.on'), t: 'Sub pages', b: 'Each group has more pages in this row. On a phone you can also swipe left and right.' },
-      { el: () => pick('#tabs a[href="#rmoves"], #tabs a[data-v="trades"], #tabs a[data-v="fa"], #tabs a[data-v="draft"]', '#p3-bnav a[data-v="rmoves"]', '#tabs'), t: 'Roster moves', b: 'Trades, free agents and the draft. AI teams say yes or no and tell you what they would want instead.' },
+      { el: () => pick('#tabs a[href="#rmoves"], #tabs a[data-v="trades"], #tabs a[data-v="fa"], #tabs a[data-v="draft"]', '#p3-bnav a[data-v="rmoves"]', '#tabs'), t: 'Roster moves', b: 'Trades, free agents and the draft. AI teams say yes or no and tell you what they would want instead.' }
+    ];
+    if (MODE_STEP[mode]) list.push(MODE_STEP[mode]);
+    list.push(
       { el: () => pick('#gsearch'), t: 'Search', b: 'Find any player, coach or team. Every underlined name opens its page.' },
       { el: () => pick('#b-menu', '#b-more'), t: 'Saves', b: 'The game saves by itself after every step and keeps backups. Export a file here to keep your own copy or move it to another device.' },
       { el: () => pick('#b-settings', '#b-more'), t: 'Settings', b: 'Sound, music, animation speed, difficulty, when the sim should stop, and this tour again.' },
       { t: "You're ready", b: 'Press Sim day to start. The "How it works" page explains every rule if you want the details. Good luck!' }
-    ];
+    );
+    return list;
   };
   let cur = -1;
   function tourEnd(done) { cur = -1; const o = document.getElementById('pb-tour'); if (o) o.remove(); if (done) { try { localStorage.setItem(TOUR_KEY, 'done'); } catch (e) { } } }

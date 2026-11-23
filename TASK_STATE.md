@@ -1,3 +1,14 @@
+# TASK_STATE — Roster tags, expired-contract trades, scouting resets, tutorial (Haiku) — Nov 23 2026
+Branch `claude/project-thread-xiat90`.
+- [x] 1. Read code: roster rows (app.js), trade checks (league.js tradeRestricted / tradeCheck), scouting assignments (league.js setAssign / assignReady), tour (pb.js)
+- [x] 2. My Team roster: Core / Shop / Untouchable one-click buttons under each name (app.js roster rows, .qtags in styles.css)
+- [x] 3. Expired contracts: no trades in the offseason until re-signed (league.js contractUp, tradeRestricted, tradeCheck message)
+- [x] 4. Scouting assignments last one season: regular-season ones clear at the new season; offseason ones carry into it (league.js startNewSeason)
+- [x] 5. Tests: tools/hwd-roster-fixes.js (node, ALL PASS); tools/browser-hwd-roster.js (1300 + 390, ALL PASS)
+- [x] 6. Tutorial (guided tour, pb.js): GM, Play as coach and My Career get their own welcome and mode step; commissioner unchanged
+- [x] 7. sw.js cache v28; PROGRESS.md updated; desktop installer NOT touched
+- [ ] 8. Commit, push, PR (assignee + review request), report to Kenneth
+---
 # TASK_STATE — Hall of Fame legend portraits (Sonnet) — Nov 20 2026
 Branch `claude/project-thread-ld9xl2`.
 - [x] 1. p3.js LOOK table + legendFace; tools/browser-cards.js ALL PASS

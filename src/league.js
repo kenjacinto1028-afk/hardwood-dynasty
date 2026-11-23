@@ -1412,7 +1412,10 @@ function salaryBand(T, pay, after, out, inn) {
   if (inn > Math.max(out * 1.25 + 0.1, out + Math.max(0, CAP - pay)) + 1e-6) return `${T.abbr} are over the cap: they can take back at most 125% of outgoing salary (${money(out * 1.25 + 0.1)})`;
   return null;
 }
+// Expired contracts: from the end of the season until the player re-signs (or leaves), he can't be traded
+function contractUp(L, p) { return !!(p && p.team != null && p.contract && L.phase !== 'regular' && L.phase !== 'playoffs' && p.contract.exp <= L.season); }
 function tradeRestricted(L, p) {
+  if (contractUp(L, p)) return true;
   const r = p.noTrade; if (!r) return false;
   if (L.season < r.s) return true;
   if (L.season > r.s || L.phase !== 'regular') return false;
@@ -1429,6 +1432,8 @@ function tradeCheck(L, a, b, aGive, bGive) {
     if (ids.length) { const mv = {}; aGive.picks.forEach(id => mv[id] = b); bGive.picks.forEach(id => mv[id] = a); const st = stepienCheck(L, mv, [a, b]); if (st) return st; }
   }
   for (const [g, who] of [[aGive, a], [bGive, b]]) if (g.prot) for (const [id, N] of Object.entries(g.prot)) { const k = L.picks.find(x => x.id === id); if (!g.picks.includes(id) || !k) return 'A protection is on a pick that is not in the deal'; const pe = protCheck(L, who, k, N); if (pe) return pe; }   // v25.7 S6
+  const up = [...aGive.players, ...bGive.players].map(id => L.players[id]).find(p => contractUp(L, p));
+  if (up) return `${up.name}'s contract has expired, so he can't be traded until he re-signs`;
   const rp = [...aGive.players, ...bGive.players].map(id => L.players[id]).find(p => tradeRestricted(L, p));
   if (rp) return `${rp.name} signed as a free agent and can't be traded yet`;
   for (const [ids, dest] of [[aGive.players, b], [bGive.players, a]]) for (const id of ids) { const p = L.players[id]; if (p.contract && p.contract.ntc && !ntcConsent(L, p, dest)) return `${p.name} has a no-trade clause and won't approve a move to ${L.teams[dest].abbr}`; }
@@ -6276,6 +6281,12 @@ function startNewSeason(L) {
   finalizeRosters(L);
   if (L.user != null) meetPayrollFloor(L, L.teams[L.user]);
   L.season++;
+  // Scouting assignments last one season: regular-season ones expire here; ones set in the offseason before this season carry into it, then expire too
+  for (const t of L.teams) if (t.scoutAssign && t.scoutAssign.length) {
+    const before = t.scoutAssign.length;
+    t.scoutAssign = t.scoutAssign.filter(a => a.d === 1e6 && a.s === L.season - 1);
+    if (t.id === L.user && t.scoutAssign.length < before) logNews(L, `Last season's scouting assignments have expired. Set them again if you still want them.`, L.user, 'team');
+  }
   for (const t of L.teams) if (t.id !== L.user && t.coach) slAdapt(L, t);   // v27 K1: AI coaches lean their sliders toward their roster each summer
   if (L.nba && typeof nbaSchedAmt === 'function') for (const p of active(L)) { nbaSchedAmt(L, p); if (p.uf) { p.uf = 1 + (p.uf - 1) * 0.75; if (Math.abs(p.uf - 1) < 0.03) delete p.uf; } if (p.rmb) { p.rmb *= 0.75; if (Math.abs(p.rmb) < 0.5) delete p.rmb; } }   // R1: real usage fades
   L.day = 0; L.games = []; L.po = null; L.offSummary = null; L.draftOrder = null; L.faDay = null;

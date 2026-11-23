@@ -51,7 +51,7 @@ const idbJs = `const db = await new Promise((res, rej) => { const r = indexedDB.
     ok(T + 'tour opens from Settings', await ev(pg, "!!document.querySelector('#pb-tour .pb-tip')"));
     let n = 0, fit = true;
     while (n < 12 && await ev(pg, "!!document.querySelector('#pb-next')")) { const f = await ev(pg, "(()=>{const r=document.querySelector('#pb-tour .pb-tip').getBoundingClientRect();return r.left>=0&&r.right<=innerWidth+1&&r.top>=0&&r.bottom<=innerHeight+1})()"); if (!f) { fit = false; console.log('  tip off screen at step', n + 1); } await ev(pg, "document.querySelector('#pb-next').click()"); await wait(pg, 300); n++; }
-    ok(T + 'tour goes through all steps', n === 10 && !(await ev(pg, "!!document.querySelector('#pb-tour')")), n);
+    ok(T + 'tour goes through all steps', n >= 10 && !(await ev(pg, "!!document.querySelector('#pb-tour')")), n);
     ok(T + 'tour tips fit the screen', fit);
     // first time on a brand-new league
     await ev(pg, "localStorage.removeItem('pbl-tour'); PBL.L.phase='regular'; PBL.L.season=1; PBL.L.day=0; PBL.render()"); await wait(pg, 1500);

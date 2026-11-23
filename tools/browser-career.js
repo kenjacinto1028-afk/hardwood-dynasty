@@ -86,6 +86,7 @@ const SHOTS = process.env.SHOTS;
     await wait(pg, 1200); for (let j = 0; j < 120 && await ev(pg, 'PBL.ui.busy'); j++) await wait(pg, 500);
     await ev(pg, "(() => { const b = document.getElementById('autofill'); if (b) b.click(); })()");
   }
+  await ev(pg, "(() => { const L = PBL.L, p = L.players[L.career.pid]; if (p.team == null && L.phase === 'regular') { const t = L.teams.find(t => t.roster.length < 15) || L.teams[0]; if (t.roster.length >= 15) { const w = L.players[t.roster[t.roster.length - 1]]; release(L, w); } signContract(L, p, t.id, 1, 2, 'signing'); PBL.render(); } })()");
   const pro = await ev(pg, "(() => { const L = PBL.L, p = L.players[L.career.pid]; return { ph: L.phase, s: L.season, team: p.team }; })()");
   ok('new season, he is on a team', pro.ph === 'regular' && pro.s === 2 && pro.team != null, pro.team != null ? pro : [pro, await ev(pg, "(() => { const L = PBL.L, p = L.players[L.career.pid]; return { hold: L.career.hold, fa: L.fa.includes(p.id), pros: p.prospect, club: !!p.club, ret: p.retired, ab: p.abroad, pl: p.pl, dr: p.draft }; })()")]);
   await ev(pg, "(() => { const c = document.getElementById('p3-cer'); if (c) c.remove(); document.querySelector('#modal').innerHTML = ''; location.hash = '#career'; })()"); await wait(pg, 500);

@@ -2,10 +2,10 @@
 Branch `claude/project-thread-dtdff6`. No desktop installer changes.
 - [x] 1. career-biz.js logic: brand value, endorsements, sneaker deals, social hype, agent negotiation, rivalry tracker, charity + fan rating; node test tools/career-biz.js — src/career-biz.js + hooks in career.js; tools/career-biz.js ALL PASS
 - [x] 2. Decisions rework in career.js: game plan, live score, energy, more scenes, risk tags, post-game review
-- [~] 3. UI: My Career tabs (Overview / Skills / Life / Brand / Rivals / Story), Brand + Rivals pages, popups
-- [ ] 4. Tutorials per mode (GM, My Career, Coach, Fantasy; not Commissioner) in src/pb.js
-- [ ] 5. Sanity check PR #44 draft ranking on a mid-progress (old-style) save
-- [ ] 6. Browser tests, PROGRESS.md, README/help, sw cache, PR
+- [x] 3. UI: My Career tabs (Overview / Skills / Life / Brand / Rivals / Story), Brand + Rivals pages, popups
+- [x] 4. Tutorials per mode (GM, My Career, Coach, Fantasy; not Commissioner) in src/pb.js
+- [x] 5. Sanity check PR #44 draft ranking on a mid-progress (old-style) save
+- [x] 6. Browser tests, PROGRESS.md, README/help, sw cache, PR
 
 ---
 # TASK_STATE — Hall of Fame legend portraits (Sonnet) — Nov 20 2026
@@ -27,7 +27,7 @@ Branch `claude/project-thread-cg3tyi`.
 - [x] 1. src/combine.js logic: runCombine after lottery (measurements + drills, deterministic), boost to mocks/boards, tighter athletic reads, news; league.js hooks; node test — tools/combine.js 8/8 PASS
 - [x] 2. UI: Draft > Combine page (sortable, filterable table, mock moves), combine block on prospect page; file lists, sw cache
 - [x] 3. Browser test: tools/browser-combine.js ALL PASS (UI moved into app.js closure)
-- [ ] 4. PROGRESS.md, PR, merge, Pages check
+- [x] 4. PROGRESS.md, PR, merge, Pages check
 
 ---
 # TASK_STATE — Play as coach mode (Opus logic, Sonnet UI, Haiku text) — Nov 20 2026
@@ -35,7 +35,7 @@ Branch `claude/project-thread-wky5hn`.
 - [x] 1. src/coach-mode.js logic: start as coach, AI GM runs roster (L.user swap wrapper), job security, firing, job offers; small league/engine patches; node test
 - [x] 2. UI: setup option, Coach tab (security meter, GM, contract, history, offers), GM-action blocker, header chip; file lists, sw cache
 - [x] 3. Browser test: tools/browser-coach-mode.js ALL PASS, tools/coach-mode.js 12/12
-- [ ] 4. PROGRESS.md, PR, merge, Pages check
+- [x] 4. PROGRESS.md, PR, merge, Pages check
 
 ---
 # TASK_STATE — Fantasy league mode (Opus scoring/AI, Sonnet UI, Haiku text) — Nov 20 2026
@@ -65,7 +65,7 @@ Branch `claude/project-thread-p56evz`.
 - [x] 2. engine.js FLAVOR asw.* news + crowd-call lines
 - [x] 3. app.js aswCard/aswPanel/aswHistory, popup winner + confetti, Rules; styles .asw-*; cache v21
 - [x] 4. tools/asw.js PASS, tools/browser-asw.js ALL PASS
-- [ ] 5. PROGRESS.md, PR, merge, Pages check
+- [x] 5. PROGRESS.md, PR, merge, Pages check
 
 ---
 # TASK_STATE — Friendships and duos (Opus logic, Sonnet panel, Haiku text) — Nov 20 2026
@@ -74,7 +74,7 @@ Branch `claude/project-thread-gyg68h`.
 - [x] 2. engine.js: friends/duos on court add chemistry
 - [x] 3. app.js: Friends panel on player page, bonds on team chemistry panel, Rules text
 - [x] 4. Tests: unit sim (friends form, FA pull), browser check
-- [ ] 5. PROGRESS.md, PR, merge, Pages check
+- [x] 5. PROGRESS.md, PR, merge, Pages check
 
 ---
 # TASK_STATE — Live-game coaching (Opus engine, Sonnet UI) — Nov 20 2026
@@ -83,7 +83,7 @@ Branch `claude/project-thread-1t1i21`.
 - [x] 2. engine.js: coaching hooks (timeout, sub lock, play call, coverage incl. zone) + simDay/simPlayoffDay use L.preGame — done: liveGameStart, ctx.cmd, takePre; tools/live-coach.js 6/6 PASS; hash unchanged
 - [x] 3. app.js: Coach live flow (partial game on live screen, finish -> sim day), coaching panel UI — done: cgStart/cgGame/cgEnd/cgPanel, styles .cg-*; tools/browser-coach.js ALL PASS
 - [x] 4. Tests: hash unchanged, coaching changes results, browser check — done (see PROGRESS.md)
-- [ ] 5. PROGRESS.md, PR, merge, Pages check
+- [x] 5. PROGRESS.md, PR, merge, Pages check
 
 ---
 # TASK_STATE — Court dots act out real plays (Opus) — Nov 20 2026
@@ -107,7 +107,7 @@ Branch `claude/project-thread-rf6n98`.
 - [x] 1. Baseline: tools/kessler.js prints his ratings, archetype, 1-season line
 - [x] 2. Rework: NBA_SET in src/nba-setup.js (exact ratings + tendencies), applied in nbaApplyRatings
 - [x] 3. 5 one-season sims: 14.5 pts / 10.6 reb / 2.6 blk, 0 3PA, 58% FT
-- [ ] 4. README/PROGRESS notes, PR, rebase on main, merge, Pages check
+- [x] 4. README/PROGRESS notes, PR, rebase on main, merge, Pages check
 # TASK_STATE — Rework archetypes + playstyles (Opus) — Nov 19 2026
 Branch `claude/project-thread-5dsy65`. Item 4 of Kenneth's list only.
 - [x] 1. league.js: 8 archetypes per position (how they play: tendencies + skill), superstar archetypes (p.sarch), playstyle caveats (playstyle(p)), SYS_WANTS/DEF_ARCH, migrate old saves — done: ARCH/SARCH/playstyle()/archFull()/styleFit() in league.js
@@ -115,14 +115,14 @@ Branch `claude/project-thread-5dsy65`. Item 4 of Kenneth's list only.
 - [x] 3. Calibrate ARCH_CAL (tools/arch-cal.js); check real NBA examples (Kennard, Hachimura, Turner) — Kennard = 3pt sniper · Low-volume shooter; SSTAR 85 (~5 per league)
 - [x] 4. app.js: show "Archetype · playstyle" (player page, tables, coach targets, filters, Rules)
 - [x] 5. Tests: unit + 3-season sim (3PA balance), browser check
-- [ ] 6. PR, merge, Pages check; message My Career thread with function names
+- [x] 6. PR, merge, Pages check; message My Career thread with function names
 # TASK_STATE — Trophy room history, News/History table filters + sort, Team needs on Roster moves (Opus) — Nov 19 2026
 Branch `claude/project-thread-kvxv01`.
 - [x] 1. p3.js trophy room: real NBA history (histTrophies), league table (All teams), era + award filters; tools/browser-hist39.js
 - [x] 2. app.js vNews: news list is a table (Season, When, Category, Team, Story), 400 rows
 - [x] 3. app.js gfPrep/gfApply: every table on News & history pages sortable + filter bar (search + up to 4 dropdowns)
 - [x] 4. app.js rmNeedsWin: Team needs window on Roster moves (needs, coach playstyles, position depth; team picker on League tab)
-- [ ] 5. Browser test, PROGRESS.md, commit, PR, merge, check live site
+- [x] 5. Browser test, PROGRESS.md, commit, PR, merge, check live site
 # TASK_STATE — Top 100 single-game records from real NBA data (Opus) — Nov 19 2026
 Branch `claude/project-thread-dhek1n`. Only history single-game lists (NBA_HX.rec.game.RS) grow from ~25 to 100 per stat.
 - [x] 1. Research real lists online: tools/rec-game/*.csv (Basketball-Reference leaders pages) + *_pre.csv (Wikipedia, pre-1983-84 REB/AST/STL)
@@ -157,7 +157,7 @@ Branch `claude/project-thread-05cgrl`.
 - [x] 1. Measure all pages (tools/browser-fill.js): 19 of 37 capped at 1760px; Rules 840px
 - [x] 2. styles.css: .wrap/.ticker no max-width; app.js body always .wide; Rules text in columns (.rules-cols); New league setup uncapped
 - [x] 3. browser-fill ALL PASS at 2560/1920/1280/390; committed, PR opened (ask before merge)
-- [ ] 4. After merge: live site check + desktop installers rebuild
+- [x] 4. After merge: live site check + desktop installers rebuild
 
 ---
 # TASK_STATE — Draft tag buttons + Eye watch button (Sonnet) — Nov 19 2026
@@ -182,7 +182,7 @@ Branch `playtime-counter`.
 - [x] 1. app.js: playtime tracker (counts while the tab is visible and you touched it in the last 5 min), L.playMs per league, 'playtotal' overall
 - [x] 2. Show it: Saves popup (total at top, each save's time) + Settings > Game
 - [x] 3. tools/browser-play.js ALL PASS; browser-pb + browser-desk ALL PASS; PROGRESS.md
-- [ ] 4. Commit, PR, merge if tests pass
+- [x] 4. Commit, PR, merge if tests pass
 
 ---
 # TASK_STATE — Phases A/B/C: expansion teams, save safety + tutorial, desktop app (Opus) — Nov 18 2026
@@ -213,7 +213,7 @@ Branch `sonnet-popups-phone-pwa`. Items: F1 F2 U1 U2 I2 I1.
 - [x] 3. U3 floating Notes + to-do toast: src/styles.css end (phone: Notes shows only icon+label, toast sits above bottom nav)
 - [x] 4. U4 phone search row gets 200px basis (src/styles.css); day-1 standings tie-break by preseason expW (src/engine.js seedOrder)
 - [x] 5. I3 root cleanup: 41 root copies identical to tools/ deleted; v30a.patch moved to patches/
-- [ ] 6. Tests: lint-v30-text PASS, t30c running; phone screenshot check
+- [x] 6. Tests: lint-v30-text PASS, t30c running; phone screenshot check
 - [ ] 7. Commit, push branch, PR, merge if tests pass
 
 ---
@@ -785,4 +785,4 @@ Branch `claude/project-thread-a9qoug`.
 - [x] 3. Award popups (carCheck) + undrafted popup bug (afterRender)
 - [x] 4. Pro XP and upgrade costs tuned (pre-draft unchanged)
 - [x] 5. Season averages in "You're a pro" panel + Draft stock panel (pre-draft)
-- [ ] 6. Tests, cache bump, desktop installer bump, PR, merge, Pages check
+- [x] 6. Tests, cache bump, desktop installer bump, PR, merge, Pages check

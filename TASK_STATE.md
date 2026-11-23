@@ -776,3 +776,11 @@ Branch `claude/project-thread-a9qoug`.
 - [x] 4. Pro XP and upgrade costs tuned (pre-draft unchanged)
 - [x] 5. Season averages in "You're a pro" panel + Draft stock panel (pre-draft)
 - [ ] 6. Tests, cache bump, desktop installer bump, PR, merge, Pages check
+
+---
+# TASK_STATE — Team stats on box scores + live games (Sonnet) — Nov 23 2026
+Branch `claude/project-thread-h8z5c9`.
+- [x] 1. app.js `teamStatsPanel`/`boxTotals`: Team stats panel on result box score (vGame) and live view (vLive)
+- [x] 2. tools/browser-teamstats.js ALL PASS (1280 + 390px)
+- [x] 3. Help page: "Box scores and team stats" section
+- [x] 4. PROGRESS.md, PR

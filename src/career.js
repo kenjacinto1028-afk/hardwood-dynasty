@@ -119,7 +119,7 @@ function careerDay0(L, games) {
     C.xp += xp; C.xpTot += xp; C.proAvg = C.proAvg == null ? gs : C.proAvg * 0.9 + gs * 0.1;
     if (played) C.trust = clamp(C.trust + (gr >= 5 ? 2 : gr >= 3 ? 1 : gr <= 1 ? -2 : 0) + (fx.good >= 3 ? 1 : 0), 0, 100);
     const opp = side === 0 ? g.away : g.home, us = side === 0 ? g.hs : g.as, them = side === 0 ? g.as : g.hs;
-    const e = { s: L.season, gid: g.id, po: !!g.playoff, tid, opp, home: side === 0, win, us, them, line, gr, xp, played, res: played ? fx.res : null };
+    const e = { s: L.season, gid: g.id, po: !!g.playoff, tid, opp, home: side === 0, win, us, them, line, gr, xp, played, res: played ? fx.res : null, plan: played ? fx.plan : null, calls: played ? fx.calls : null };
     C.pro.push(e); if (C.pro.length > 40) C.pro.shift(); carTally(C, line, true, gr, win);
     try { carGameNews(L, p, e, line); carIvCheck(L, p, e, line); } catch (err) { console.error(err); }
     try { if (typeof carBizGame === 'function') carBizGame(L, p, g, e, line, side); } catch (err) { console.error(err); }
@@ -172,13 +172,16 @@ function careerProPending(L) {
   return t;
 }
 // decisions for a pro game: the same moments, but they change his form / usage in the real engine (L.career.proFx, read in playGame0)
-function carProStart(L) { const t = carProToday(L); if (!t) return null; const p = carP(L); L.career.cur = { pro: t.key, sc: carScenes(p), step: 0, mom: 0, add: {}, res: [], down: rint(1, 3) }; return L.career.cur; }
+function carProStart(L) { const t = carProToday(L); if (!t) return null; let rv = null; try { if (typeof carBizTopRival === 'function') { const r = carBizTopRival(L, t.opp); rv = r ? r.name : null; } } catch (e) { } L.career.cur = carMkCur(L, { pro: t.key, rv, po: !!t.po }); return L.career.cur; }
 function carProFx(L) {
   const C = L.career, cur = C.cur; if (!cur || !cur.pro) return null;
   const good = cur.res.filter(r => r.ok).length, a = cur.add, shots = (a.pts || 0) / 2, tr = (C.trust - 50) / 50;
   const fx = { key: cur.pro, pid: C.pid, good, res: cur.res.map(r => r.ok ? 1 : 0),
     o: clamp((good - 2) * 1.2 + cur.mom * 0.35 + tr, -4, 5), d: clamp(((a.stl || 0) + (a.blk || 0)) * 0.8 + cur.mom * 0.2, -3, 4),
     ub: clamp(1 + shots * 0.05 + tr * 0.05 - (a.ast || 0) * 0.02, 0.85, 1.35), tm: clamp((a.ast || 0) * 0.3 + cur.mom * 0.1, -1, 1.5) };
+  const pl = cur.plan || 'bal'; fx.o = clamp(fx.o + (pl === 'take' ? 0.7 : pl === 'bal' ? 0.15 : 0) + clamp(((cur.en != null ? cur.en : 100) - 50) / 60, -0.8, 0), -4, 5.5); fx.d = clamp(fx.d + (pl === 'lock' ? 1 : 0), -3, 5);
+  fx.ub = clamp(fx.ub * (pl === 'take' ? 1.1 : pl === 'dish' ? 0.93 : 1), 0.85, 1.4); fx.tm = clamp(fx.tm + (pl === 'dish' ? 0.45 : 0), -1, 1.9);
+  fx.plan = pl; fx.calls = cur.res.map(r => ({ l: r.l, ok: r.ok, t: r.t })); fx.en = cur.en;
   C.proFx = fx; C.proKey = cur.pro; C.cur = null; return fx;
 }
 // engine hook (buildSide): coach trust adds / takes minutes (-6..+8); a game you play gets at least 12 minutes. Others give the time back evenly.
@@ -263,36 +266,105 @@ const CAR_SCENES = [
     { l: 'Call timeout', k: ['iq'], d: -20, ok: { m: 0, t: 'Safe. Coach draws up a new play.' }, no: { m: -0.2, t: 'Ten-second violation.' } }] },
   { k: 'hustle', w: [1, 1, 1, 1, 1], t: 'A loose ball is rolling toward the sideline.', o: [
     { l: 'Dive for it', k: ['str', 'spd'], d: -2, ok: { m: 1.5, t: 'You dive, save it, and the bench goes crazy.' }, no: { m: -0.2, t: 'Just out of reach.' } },
-    { l: 'Let it go, stay ready', k: ['iq'], d: -15, ok: { m: 0, t: 'Their ball. On to the next one.' }, no: { m: -0.3, t: 'They inbound for an easy look.' } }] }
+    { l: 'Let it go, stay ready', k: ['iq'], d: -15, ok: { m: 0, t: 'Their ball. On to the next one.' }, no: { m: -0.3, t: 'They inbound for an easy look.' } }] },
+  { k: 'fast', w: [3, 2.5, 1.5, 0.5, 0.2], t: 'You grab the rebound and push. Open floor, one defender back.', o: [
+    { l: 'Attack the rim', k: ['fin', 'spd'], d: 2, ok: { pts: 2, m: 1.2, t: 'You go right through him. And-one, almost.' }, no: { tov: 1, m: -0.8, t: 'He gets his body in front and you charge.' } },
+    { l: 'Pull up for three', k: ['tp'], d: 5, ok: { pts: 3, tpm: 1, m: 1.4, t: 'Transition three. Bang.' }, no: { m: -0.4, t: 'Too early in the clock and it misses.' } },
+    { l: 'Find the trailer', k: ['pas'], d: -4, ok: { ast: 1, m: 0.7, t: 'Behind-the-back dime for the layup.' }, no: { tov: 1, m: -0.5, t: 'The trailer was not ready for it.' } }] },
+  { k: 'switch', w: [3, 3, 2, 1, 0.5], t: 'They switch a slow big man onto you at the top of the key.', o: [
+    { l: 'Attack him off the dribble', k: ['hnd', 'spd'], d: 3, ok: { pts: 2, m: 1.1, t: 'One crossover and he is gone. Easy layup.' }, no: { tov: 1, m: -0.7, t: 'He slides with you and forces a bad pass.' } },
+    { l: 'Pull up over the drop', k: ['mid', 'tp'], d: 3, ok: { pts: 2, m: 0.9, t: 'Rhythm jumper in his face. Good.' }, no: { m: -0.3, t: 'Short. He got a hand up.' } },
+    { l: 'Reset the offense', k: ['iq'], d: -10, ok: { m: 0.3, t: 'Patient possession ends in a good look.' }, no: { m: -0.2, t: 'Shot clock gets tight and it is a bad shot.' } }] },
+  { k: 'hot', w: [2, 2, 1.5, 1, 1], t: 'Your teammate just hit three in a row. The crowd is loud and the bench is up.', o: [
+    { l: 'Keep feeding him', k: ['pas', 'iq'], d: -3, ok: { ast: 1, m: 1, t: 'Four straight. He is on fire.' }, no: { m: -0.4, t: 'The defense is waiting for it and he gets denied.' } },
+    { l: 'Take the next shot yourself', k: ['best'], d: 4, ok: { pts: 2, m: 0.9, t: 'You answer with one of your own.' }, no: { m: -0.8, t: 'Forced shot, and your teammate looks annoyed.' } },
+    { l: 'Set a hard screen for him', k: ['str', 'iq'], d: -5, ok: { ast: 1, m: 0.8, t: 'Great screen. He gets all the room he needs.' }, no: { m: 0, t: 'Illegal screen. Whistle.' } }] },
+  { k: 'ref', w: [1, 1, 1, 1, 1], t: 'The ref calls a foul on you that nobody else saw. The bench is yelling.', o: [
+    { l: 'Stay quiet and get back', k: ['iq'], d: -10, ok: { m: 0.3, t: 'You keep your head. Coach nods.' }, no: { m: -0.3, t: 'You are still stewing and miss an assignment.' } },
+    { l: 'Plead your case', k: ['iq'], d: 6, ok: { m: 0.4, t: 'The ref listens, and the next call goes your way.' }, no: { tov: 1, m: -1.2, t: 'Technical foul. Coach is furious.' } },
+    { l: 'Use it as fuel', k: ['str', 'spd'], d: 2, ok: { pts: 2, m: 1.3, t: 'You come back angry and score on the next play.' }, no: { m: -0.8, t: 'You press and the shot is rushed.' } }] },
+  { k: 'foul', w: [1, 1, 1, 1.2, 1.4], t: 'Second foul in the first half. Coach is looking down the bench.', o: [
+    { l: 'Stay aggressive', k: ['per', 'agi'], d: 4, ok: { stl: 1, m: 1, t: 'You stay in his jersey without reaching. Great defense.' }, no: { m: -1, t: 'Third foul. You have to sit.' } },
+    { l: 'Play smart, no reaches', k: ['iq'], d: -6, ok: { m: 0.4, t: 'Disciplined. You stay on the floor.' }, no: { m: -0.3, t: 'He scores over you anyway.' } },
+    { l: 'Ask to stay in anyway', k: ['str'], d: 2, ok: { m: 0.6, t: 'Coach trusts you. You stay out of trouble.' }, no: { m: -0.6, t: 'Coach sits you for a stretch.' } }] },
+  { k: 'rival', need: 'rival', w: [1, 1, 1, 1, 1], t: '{rival} is talking trash every time down the floor. The crowd is into it.', o: [
+    { l: 'Answer on the court', k: ['best'], d: 4, ok: { pts: 2, m: 1.8, t: 'You hit one in his face and the arena erupts.' }, no: { m: -1.2, t: 'You force it and he has something to say about it.' } },
+    { l: 'Lock him up on defense', k: ['per', 'agi'], d: 3, ok: { stl: 1, m: 1.7, t: 'You take him out of the game for a few trips.' }, no: { m: -1, t: 'He scores on you and stares you down.' } },
+    { l: 'Ignore it, play your game', k: ['iq'], d: -12, ok: { m: 0.5, t: 'You smile and keep running the offense.' }, no: { m: -0.3, t: 'It gets in your head a little.' } }] }
 ];
-const CAR_CLUTCH = { k: 'clutch', t: 'Down {d} with 24 seconds left. Timeout. Coach looks at you.', o: [
+// what a skill is about (game plans lean on these)
+const CAR_CLS = { tp: 'sc', mid: 'sc', fin: 'sc', pst: 'sc', drw: 'sc', ft: 'sc', best: 'sc', hnd: 'pm', pas: 'pm', iq: 'pm', per: 'df', pdf: 'df', stl: 'df', blk: 'df', orb: 'rb', drb: 'rb', spd: 'at', agi: 'at', vrt: 'at', str: 'at' };
+const CAR_PLANS = {
+  take: { n: 'Take over', t: 'Hunt your shot. More scoring chances and a few more turnovers.', cls: { sc: 0.06 }, sc: 'sc' },
+  dish: { n: 'Facilitate', t: 'Set up your teammates. More assists, and they play better.', cls: { pm: 0.06 }, sc: 'pm' },
+  lock: { n: 'Lock down', t: 'Defense and rebounding first. Fewer points, tougher night for them.', cls: { df: 0.06, rb: 0.04 }, sc: 'df' },
+  fresh: { n: 'Pace yourself', t: 'Save your legs: energy drains 40% slower. No other edge.', cls: {}, en: 0.6 },
+  bal: { n: 'Read the game', t: 'No plan. A small edge on every call.', cls: { sc: 0.02, pm: 0.02, df: 0.02, rb: 0.02, at: 0.02 } }
+};
+const carOptCls = o => CAR_CLS[o.k[0]] || 'at';
+const carSceneCls = sc => { const c = {}; for (const o of sc.o) { const k = carOptCls(o); c[k] = (c[k] || 0) + 1; } return Object.keys(c).sort((a, b) => c[b] - c[a])[0]; };
+const CAR_CLUTCH = { k: 'clutch', t: '{lead} with 24 seconds left. Timeout. Coach looks at you.', o: [
   { l: 'Give me the ball', k: ['best'], d: 6, ok: { pts: 2, m: 3, t: 'You take over. Bucket! The building shakes.' }, no: { m: -2, t: 'Your shot is off. Game slips away.' } },
   { l: 'Run it for the hot hand', k: ['pas', 'iq'], d: 0, ok: { ast: 1, m: 2.2, t: 'You draw two defenders and find him. Money.' }, no: { m: -1.4, t: 'He misses the look.' } },
   { l: 'Set the screen, crash the boards', k: ['orb', 'str'], d: 2, ok: { reb: 1, pts: 2, m: 2, t: 'Miss, but you tip it in!' }, no: { m: -1.4, t: 'They secure the rebound.' } }] };
+const CAR_CLUTCH_UP = { k: 'clutch', t: 'Up {u} with 24 seconds left. Their star has the ball and a head of steam.', o: [
+  { l: 'Take away his shot', k: ['per', 'pdf'], d: 4, ok: { stl: 1, m: 3, t: 'You smother him. Bad shot, you grab the rebound.' }, no: { m: -2, t: 'He gets by you and scores. It is a one-possession game.' } },
+  { l: 'Foul before he shoots', k: ['iq'], d: -4, ok: { m: 2, t: 'Smart foul. He splits the free throws and you hold on.' }, no: { m: -1.4, t: 'You foul him on the shot. And-one.' } },
+  { l: 'Switch and contest everything', k: ['agi', 'pdf'], d: 0, ok: { blk: 1, m: 2.5, t: 'You get a hand up and the shot is short.' }, no: { m: -1.6, t: 'A late switch leaves him wide open.' } }] };
 const carRating = (p, ks) => ks[0] === 'best' ? Math.max(p.fin, p.mid, p.tp) : ks.reduce((a, k) => a + (p[k] || 50), 0) / ks.length;
-function carChance(L, p, opt) { const D = p.prospect ? (CAR_FX.diff[L.career.lg] || 50) : CAR_FX.diff.PRO + (L.career.trust - 50) / -10; return clamp(0.5 + (carRating(p, opt.k) - D - (opt.d || 0)) / 40 + carBadgeBonus(L, opt.k), 0.08, 0.92); }
-function carScenes(p) {
-  const pool = CAR_SCENES.slice(), out = [];
-  for (let i = 0; i < 3; i++) { const sc = wpick(pool, pool.map(s => s.w[p.pos] + 0.05)); out.push(sc.k); pool.splice(pool.indexOf(sc), 1); }
+// cost of an option in energy: athletic and risky plays cost more, safe plays are cheap
+const carOptCost = (o, cur) => { const c = carOptCls(o), base = c === 'at' || (o.d || 0) >= 4 ? 14 : c === 'sc' ? 10 : (o.d || 0) <= -8 ? 4 : 8, pl = CAR_PLANS[(cur && cur.plan) || 'bal']; return Math.round(base * (pl.en || 1)); };
+// chance = skill vs difficulty + badges + game plan + energy (tired legs hurt) + momentum (confidence)
+function carChance(L, p, opt, cur) {
+  cur = cur || L.career.cur; const D = p.prospect ? (CAR_FX.diff[L.career.lg] || 50) : CAR_FX.diff.PRO + (L.career.trust - 50) / -10;
+  const pl = CAR_PLANS[(cur && cur.plan) || 'bal'], bp = pl.cls[carOptCls(opt)] || 0, en = cur && cur.en != null ? cur.en : 100, em = en >= 60 ? 0 : -(60 - en) / 200, cm = cur ? clamp(cur.mom * 0.012, -0.06, 0.08) : 0;
+  return clamp(0.5 + (carRating(p, opt.k) - D - (opt.d || 0)) / 40 + carBadgeBonus(L, opt.k) + bp + em + cm, 0.08, 0.92);
+}
+const carRisk = ch => ch >= 0.65 ? 'Safe' : ch >= 0.45 ? 'Balanced' : 'Bold';
+// the chips under an option: what you can win
+function carOptReward(o) { const f = o.ok, out = []; if (f.pts) out.push('+' + f.pts + ' pts'); if (f.ast) out.push('+' + f.ast + ' ast'); if (f.reb) out.push('+' + f.reb + ' reb'); if (f.stl) out.push('+' + f.stl + ' stl'); if (f.blk) out.push('+' + f.blk + ' blk'); if (f.m >= 1.5) out.push('big swing'); else if (f.m >= 0.8) out.push('momentum'); return out; }
+// 3 scenes from the pool (weighted by position, leaning toward the plan), then the clutch moment
+function carScenes(p, plan, ctx) {
+  ctx = ctx || {}; const pc = (CAR_PLANS[plan] || CAR_PLANS.bal).sc, pool = CAR_SCENES.filter(s => !s.need || (s.need === 'rival' && (ctx.rival || ctx.rv))), out = [];
+  for (let i = 0; i < 3; i++) { const sc = wpick(pool, pool.map(s => ((s.w[p.pos] != null ? s.w[p.pos] : 1) + 0.05) * (pc && carSceneCls(s) === pc ? 1.8 : 1) * (s.k === 'rival' ? 5 : 1) * (s.k === 'foul' && i > 1 ? 0.3 : 1))); out.push(sc.k); pool.splice(pool.indexOf(sc), 1); }
   out.push('clutch'); return out;
 }
-const carScene = k => k === 'clutch' ? CAR_CLUTCH : CAR_SCENES.find(s => s.k === k);
-// start / step / finish a played game (state in L.career.cur)
-function carStart(L, g) { const p = carP(L); L.career.cur = { gi: g.i, sc: carScenes(p), step: 0, mom: 0, add: {}, res: [], down: rint(1, 3) }; return L.career.cur; }
+const carScene = (k, cur) => k === 'clutch' ? (cur && cur.lead > 0 ? CAR_CLUTCH_UP : CAR_CLUTCH) : CAR_SCENES.find(s => s.k === k);
+const carLeadTxt = d => d > 0 ? 'Up ' + d : d < 0 ? 'Down ' + -d : 'Tied';
+function carSceneText(sc, cur) { return sc.t.replace('{lead}', carLeadTxt(cur.lead || 0)).replace('{u}', Math.abs(cur.lead || 0)).replace('{d}', cur.down || 2).replace('{rival}', cur.rv || 'Their star'); }
+// start / step / finish a played game (state in L.career.cur). The plan comes first (cur.plan null), then 4 moments.
+function carMkCur(L, extra) { const p = carP(L), C = L.career, cur = Object.assign({ sc: carScenes(p, 'bal', extra), step: 0, mom: 0, add: {}, res: [], down: rint(1, 3), plan: null, tip: 0, lead: rint(-4, 4), en: 100, rest: 0 }, extra || {}); return cur; }
+function carStart(L, g) { L.career.cur = carMkCur(L, { gi: g.i }); return L.career.cur; }
+function carPlan(L, key) { const C = L.career, cur = C.cur; if (!cur || cur.step || !CAR_PLANS[key]) return null; cur.plan = key; cur.tip = 1; cur.sc = carScenes(carP(L), key, { rival: cur.rv }); return cur; }
 function carChoose(L, oi) {
-  const C = L.career, cur = C.cur, p = carP(L); if (!cur || cur.step >= cur.sc.length) return null;
-  const sc = carScene(cur.sc[cur.step]), opt = sc.o[oi]; if (!opt) return null;
-  const ch = carChance(L, p, opt), ok = R() < ch, fx = ok ? opt.ok : opt.no;
+  const C = L.career, cur = C.cur, p = carP(L); if (!cur || cur.step >= cur.sc.length) return null; if (cur.plan === null) cur.plan = 'bal';
+  const sc = carScene(cur.sc[cur.step], cur), opt = sc.o[oi]; if (!opt) return null;
+  const ch = carChance(L, p, opt, cur), ok = R() < ch, fx = ok ? opt.ok : opt.no, cost = carOptCost(opt, cur);
   for (const k in fx) if (k !== 't' && k !== 'm') cur.add[k] = (cur.add[k] || 0) + fx[k];
-  cur.mom += fx.m || 0; cur.res.push({ k: sc.k, o: oi, ok, t: fx.t }); cur.step++; if (ok) { const t = C.tot = C.tot || {}; t.ok = (t.ok || 0) + 1; }
+  cur.mom += fx.m || 0; cur.en = clamp((cur.en != null ? cur.en : 100) - cost, 0, 100);
+  cur.lead = clamp((cur.lead || 0) + Math.round((fx.pts || 0) * 0.7 + (fx.m || 0) * 1.2 + (ok ? 0.4 : -0.4)) + rint(-2, 2), -18, 18);
+  if (cur.step === cur.sc.length - 2) cur.lead = clamp(cur.lead, -6, 6);   // it is always close at the end
+  cur.res.push({ k: sc.k, o: oi, ok, t: fx.t, l: opt.l, ch: Math.round(ch * 100) }); cur.step++; cur.note = null; if (ok) { const t = C.tot = C.tot || {}; t.ok = (t.ok || 0) + 1; }
   return { ok, t: fx.t, ch };
 }
+// ask for a breather: +35 energy, the other team makes a small run. Once a game, not on the first or last moment.
+function carRest(L) {
+  const cur = L.career.cur; if (!cur || cur.rest || cur.step < 1 || cur.step >= cur.sc.length - 1) return null;
+  cur.rest = 1; cur.en = clamp((cur.en != null ? cur.en : 100) + 35, 0, 100); cur.mom -= 0.3; cur.lead = clamp((cur.lead || 0) - 2, -18, 18); cur.note = 'Coach gives you a breather. Legs back, but they went on a small run.'; return cur;
+}
+const carPlanLine = (line, pl) => {
+  if (pl === 'take') { line.pts = Math.round(line.pts * 1.12); line.tov = (line.tov || 0) + 1; }
+  else if (pl === 'dish') { line.ast = Math.round(line.ast * 1.25 + 0.4); line.pts = Math.round(line.pts * 0.92); }
+  else if (pl === 'lock') { line.stl = Math.round(line.stl * 1.3); line.blk = Math.round(line.blk * 1.25 + 0.2); line.pts = Math.round(line.pts * 0.93); }
+  if (line.tpm * 3 > line.pts) line.tpm = Math.floor(line.pts / 3); return line;
+};
 function carFinish(L) {
   const C = L.career, cur = C.cur; if (!cur) return null;
   const g = C.games[cur.gi], p = carP(L), line = carNoise(carBase(L, p, C.lg), 0.8);
   for (const k in cur.add) line[k] = (line[k] || 0) + cur.add[k];
-  const good = cur.res.filter(r => r.ok).length; line.min = Math.round(line.min + (good - 2) * 1.5);
-  carSettle(L, g, line, cur.mom, true); g.res = cur.res.map(r => r.ok ? 1 : 0); C.cur = null;
+  carPlanLine(line, cur.plan || 'bal');
+  const good = cur.res.filter(r => r.ok).length; line.min = Math.round(line.min + (good - 2) * 1.5 - (cur.en < 35 ? 2 : 0));
+  carSettle(L, g, line, cur.mom, true); g.res = cur.res.map(r => r.ok ? 1 : 0); g.plan = cur.plan || 'bal'; g.calls = cur.res.map(r => ({ l: r.l, ok: r.ok, t: r.t })); g.en = cur.en; C.cur = null;
   carCheck(L);
   if (g.gr >= 6) carLog(L, `${CAR_GRADES[g.gr]} game vs ${pipeTeam(C.lg, g.opp).abbr}: ${line.pts} pts, ${line.reb} reb, ${line.ast} ast.`);
   return g;
@@ -1000,7 +1072,7 @@ if (typeof window !== 'undefined') window.CAR = (function () {
       const me = L.teams[p.team], ot = L.teams[t.opp], vs = t.home === false ? 'at' : 'vs';
       const title = `${esc(me.abbr)} ${vs} ${esc(ot.city + ' ' + ot.name)}${t.po ? ' · ' + esc(poStages(L)[L.po.stage]) + ' game ' + (t.sr.games.length + 1) : ''}`;
       if (!C.cur || C.cur.pro !== t.key) {
-        dialog(`<h2>Game day: ${title}</h2><p>${t.po ? 'Playoff basketball. ' : carBigGame(L, t) ? 'A big one tonight. ' : ''}Coach trust ${C.trust}/100. Make the calls at four key moments (they change how you play in the real game), or let it sim.</p>
+        dialog(`<h2>Game day: ${title}</h2><p>${t.po ? 'Playoff basketball. ' : carBigGame(L, t) ? 'A big one tonight. ' : ''}Coach trust ${C.trust}/100. Pick a game plan and make the calls at four key moments (they change how you play in the real game), or let it sim.</p>
           <div class="row" style="gap:8px;margin-top:12px;flex-wrap:wrap"><button class="primary" id="car-go">Play the game</button><button id="car-sim">Sim it</button></div>
           <p class="muted" style="font-size:12px;margin-top:10px">Stop the sim for: ${stopBtns()}</p>`);
         $('#car-go').onclick = () => { carProStart(L); save(); proDialog(); };
@@ -1008,24 +1080,45 @@ if (typeof window !== 'undefined') window.CAR = (function () {
         bindStop(); return;
       }
       const cur = C.cur;
-      if (cur.step >= cur.sc.length) { carProFx(L); save(); closeDialog(); simToday(); return; }
-      momentHtml(cur, `${esc(me.abbr)} ${vs} ${esc(ot.abbr)}`, p); document.querySelectorAll('[data-carop]').forEach(b => b.onclick = () => { carChoose(L, +b.dataset.carop); save(); proDialog(); });
+      runMoments(cur, `${esc(me.abbr)} ${vs} ${esc(ot.abbr)}`, p, t.po ? 'Playoff basketball. How do you want to attack?' : 'Pick how you want to play tonight.', proDialog, () => { carProFx(L); save(); closeDialog(); simToday(); });
     }
     const STOPS = [['all', 'every game'], ['big', 'big games'], ['none', 'never']];
     const stopBtns = () => STOPS.map(([k, n]) => `<button class="sm ${L.career.stop === k ? 'on primary' : ''}" data-carstop="${k}">${n}</button>`).join(' ');
     function bindStop() { document.querySelectorAll('#modal [data-carstop]').forEach(b => b.onclick = () => { L.career.stop = b.dataset.carstop; save(); render(); proDialog(); }); }
     function simToday() { const b = document.querySelector(`#simctl [data-sim="${L.phase === 'playoffs' ? 'pday' : 'day'}"]`); if (b) { b.disabled = false; b.click(); } }
+    const QLBL = ['1st quarter', '2nd quarter', '3rd quarter', 'Crunch time'];
+    const meter = (k, v, cls) => `<div class="car-meter ${cls || ''}"><span class="k">${k}</span><span class="car-bar"><i style="width:${clamp(v, 0, 100)}%"></i></span></div>`;
+    function planHtml(cur, lbl, intro) {
+      const pl = cur.plan || 'bal';
+      dialog(`<div class="car-game"><div class="k">${lbl}</div><h2 style="margin:4px 0 2px">Game plan</h2><p class="muted" style="margin:0 0 8px">${intro} It nudges your odds on matching plays and the kind of night you have.</p>
+        <div class="car-plans">${Object.keys(CAR_PLANS).map(k => `<button class="car-plan ${k === pl ? 'on' : ''}" data-carplan="${k}"><strong>${esc(CAR_PLANS[k].n)}</strong><span class="muted">${esc(CAR_PLANS[k].t)}</span></button>`).join('')}</div>
+        ${cur.rv ? `<div class="msg" style="margin:10px 0 0">Rivalry game: <strong>${esc(cur.rv)}</strong> is on the other side tonight.</div>` : ''}
+        <div class="row" style="gap:8px;margin-top:12px"><button class="primary" id="car-tip">Tip off</button></div></div>`);
+      document.querySelectorAll('[data-carplan]').forEach(b => b.onclick = () => { cur.plan = b.dataset.carplan; planHtml(cur, lbl, intro); });
+    }
     function momentHtml(cur, lbl, p) {
-      const sc = carScene(cur.sc[cur.step]), Q = ['1st quarter', '2nd quarter', '3rd quarter', 'Crunch time'][cur.step] || '', last = cur.res[cur.res.length - 1];
-      dialog(`<div class="car-game"><div class="k">${lbl} · ${Q} · Moment ${cur.step + 1} of ${cur.sc.length}</div>
-        ${last ? `<div class="msg ${last.ok ? 'ok' : 'no'}" style="margin:8px 0">${esc(last.t)}</div>` : ''}
-        <div class="panel" style="margin:8px 0"><strong>${esc(sc.t.replace('{d}', cur.down))}</strong></div>
-        <div class="car-opts">${sc.o.map((o, i) => { const ch = carChance(L, p, o); return `<button class="car-opt" data-carop="${i}"><strong>${esc(o.l)}</strong><span class="car-bar"><i style="width:${pct(ch)}"></i></span><span class="muted">${pct(ch)} chance · ${esc(o.k.map(k => k === 'best' ? 'best scoring skill' : (LABELS[k] || k)).join(' + '))}</span></button>`; }).join('')}</div>
-        <p class="muted" style="font-size:12px">Momentum ${cur.mom >= 0 ? '+' : ''}${Math.round(cur.mom * 10) / 10}. Good calls swing the game and your grade.</p></div>`);
+      const sc = carScene(cur.sc[cur.step], cur), Q = QLBL[cur.step] || '', last = cur.res[cur.res.length - 1], pl = CAR_PLANS[cur.plan || 'bal'];
+      const dots = cur.sc.map((_, i) => i < cur.res.length ? `<i class="${cur.res[i].ok ? 'ok' : 'no'}">${cur.res[i].ok ? '✓' : '✗'}</i>` : `<i class="${i === cur.step ? 'now' : ''}">${i + 1}</i>`).join('');
+      const lead = cur.lead || 0, canRest = !cur.rest && cur.step >= 1 && cur.step < cur.sc.length - 1;
+      dialog(`<div class="car-game"><div class="car-hud"><span class="k">${lbl} · ${Q}</span><span class="car-dots">${dots}</span></div>
+        <div class="car-meters"><div class="car-lead ${lead > 0 ? 'up' : lead < 0 ? 'down' : ''}"><span class="k">Margin</span><strong>${carLeadTxt(lead)}</strong></div>${meter('Momentum', 50 + cur.mom * 7, cur.mom >= 0 ? 'good' : 'bad')}${meter('Energy', cur.en != null ? cur.en : 100, (cur.en != null ? cur.en : 100) < 40 ? 'bad' : '')}<span class="pill" title="${esc(pl.t)}">${esc(pl.n)}</span></div>
+        ${cur.note ? `<div class="msg" style="margin:8px 0">${esc(cur.note)}</div>` : last ? `<div class="msg ${last.ok ? 'ok' : 'no'}" style="margin:8px 0">${esc(last.t)}</div>` : ''}
+        <div class="panel" style="margin:8px 0"><strong>${esc(carSceneText(sc, cur))}</strong></div>
+        <div class="car-opts">${sc.o.map((o, i) => { const ch = carChance(L, p, o, cur), tag = carRisk(ch), rw = carOptReward(o), pb = pl.cls[carOptCls(o)] || 0; return `<button class="car-opt" data-carop="${i}"><span class="car-oh"><strong>${esc(o.l)}</strong><span class="car-tag ${tag.toLowerCase()}">${tag}</span></span><span class="car-bar"><i style="width:${pct(ch)}"></i></span><span class="muted">${pct(ch)} chance · ${esc(o.k.map(k => k === 'best' ? 'best scoring skill' : (LABELS[k] || k)).join(' + '))} · −${carOptCost(o, cur)} energy${pb ? ` · plan +${Math.round(pb * 100)}%` : ''}</span>${rw.length ? `<span class="car-chips">${rw.map(x => `<span class="car-chip">${esc(x)}</span>`).join('')}</span>` : ''}</button>`; }).join('')}</div>
+        ${canRest ? `<div class="row" style="margin-top:8px"><button class="sm" id="car-rest" title="Once a game. Energy +35, but they go on a small run.">Ask for a breather</button></div>` : ''}
+        <p class="muted" style="font-size:12px;margin-bottom:0">Safe plays are likely but small. Bold plays swing the game and cost more energy. Tired legs hurt every call.</p></div>`);
+    }
+    // plan screen, then the moments; shared by college and pro games
+    function runMoments(cur, lbl, p, intro, again, done) {
+      if (cur.tip === 0 && !cur.step) { planHtml(cur, lbl, intro); $('#car-tip').onclick = () => { carPlan(L, cur.plan || 'bal'); save(); again(); }; return; }
+      if (cur.step >= cur.sc.length) { done(); return; }
+      momentHtml(cur, lbl, p);
+      document.querySelectorAll('[data-carop]').forEach(b => b.onclick = () => { carChoose(L, +b.dataset.carop); save(); again(); });
+      const r = $('#car-rest'); if (r) r.onclick = () => { carRest(L); save(); again(); };
     }
     function proResultDialog(e) {
       const ot = L.teams[e.opp] || {}, l = e.line;
-      dialog(`<h2>${e.win ? 'Win' : 'Loss'} ${e.us}-${e.them} ${e.home ? 'vs' : 'at'} ${esc(ot.abbr || '')}</h2><div class="car-res"><div class="car-grade g${e.gr}">${CAR_GRADES[e.gr]}</div><div><div><strong>${gline(l)}</strong></div><div class="muted">${l.min} min · ${l.fgm}-${l.fga} FG · ${l.tpm} threes · ${l.tov} turnovers</div><div style="margin-top:6px">Your calls: ${(e.res || []).map(x => x ? '✓' : '✗').join(' ')} · +${e.xp} XP · coach trust ${L.career.trust}/100</div></div></div><div class="row" style="gap:8px;margin-top:12px"><button class="primary" id="car-ok">Continue</button><a class="btn" href="#career" id="car-up">Spend XP</a></div>`);
+      dialog(`<h2>${e.win ? 'Win' : 'Loss'} ${e.us}-${e.them} ${e.home ? 'vs' : 'at'} ${esc(ot.abbr || '')}</h2><div class="car-res"><div class="car-grade g${e.gr}">${CAR_GRADES[e.gr]}</div><div><div><strong>${gline(l)}</strong></div><div class="muted">${l.min} min · ${l.fgm}-${l.fga} FG · ${l.tpm} threes · ${l.tov} turnovers</div><div style="margin-top:6px">Your calls: ${(e.res || []).map(x => x ? '✓' : '✗').join(' ')} · +${e.xp} XP · coach trust ${L.career.trust}/100</div></div></div>${reviewHtml(e.plan, e.calls)}<div class="row" style="gap:8px;margin-top:12px"><button class="primary" id="car-ok">Continue</button><a class="btn" href="#career" id="car-up">Spend XP</a></div>`);
       $('#car-ok').onclick = closeDialog; $('#car-up').onclick = () => closeDialog();
     }
     function gameDialog() {
@@ -1034,25 +1127,22 @@ if (typeof window !== 'undefined') window.CAR = (function () {
       const g = C.cur ? C.games[C.cur.gi] : careerPending(L); if (!g) { closeDialog(); return; }
       const opp = pipeTeam(C.lg, g.opp), me = pipeTeam(C.lg, C.team);
       if (!C.cur) {
-        dialog(`<h2>Game day: ${esc(me.abbr)} ${g.home ? 'vs' : 'at'} ${esc(opp.full)}</h2><p>One of your big games this season. Make the calls at four key moments, or let it sim.</p><div class="row" style="gap:8px;margin-top:12px"><button class="primary" id="car-go">Play the game</button><button id="car-sim">Sim it</button></div>`);
+        dialog(`<h2>Game day: ${esc(me.abbr)} ${g.home ? 'vs' : 'at'} ${esc(opp.full)}</h2><p>One of your big games this season. Pick a game plan, then make the calls at four key moments, or let it sim.</p><div class="row" style="gap:8px;margin-top:12px"><button class="primary" id="car-go">Play the game</button><button id="car-sim">Sim it</button></div>`);
         $('#car-go').onclick = () => { carStart(L, g); save(); gameDialog(); };
         $('#car-sim').onclick = () => { carSimOne(L, g); save(); closeDialog(); render(); resultDialog(g); };
         return;
       }
       const cur = C.cur, p = carP(L);
-      if (cur.step >= cur.sc.length) { const done = carFinish(L); save(); closeDialog(); render(); resultDialog(done); return; }
-      const sc = carScene(cur.sc[cur.step]), Q = ['1st quarter', '2nd quarter', '3rd quarter', 'Crunch time'][cur.step] || '';
-      const last = cur.res[cur.res.length - 1];
-      dialog(`<div class="car-game"><div class="k">${esc(me.abbr)} ${g.home ? 'vs' : 'at'} ${esc(opp.abbr)} · ${Q} · Moment ${cur.step + 1} of ${cur.sc.length}</div>
-        ${last ? `<div class="msg ${last.ok ? 'ok' : 'no'}" style="margin:8px 0">${esc(last.t)}</div>` : ''}
-        <div class="panel" style="margin:8px 0"><strong>${esc(sc.t.replace('{d}', cur.down))}</strong></div>
-        <div class="car-opts">${sc.o.map((o, i) => { const ch = carChance(L, p, o); return `<button class="car-opt" data-carop="${i}"><strong>${esc(o.l)}</strong><span class="car-bar"><i style="width:${pct(ch)}"></i></span><span class="muted">${pct(ch)} chance · ${esc(o.k.map(k => k === 'best' ? 'best scoring skill' : (LABELS[k] || k)).join(' + '))}</span></button>`; }).join('')}</div>
-        <p class="muted" style="font-size:12px">Momentum ${cur.mom >= 0 ? '+' : ''}${Math.round(cur.mom * 10) / 10}. Good calls swing the game and your grade.</p></div>`);
-      document.querySelectorAll('[data-carop]').forEach(b => b.onclick = () => { carChoose(L, +b.dataset.carop); save(); gameDialog(); });
+      runMoments(cur, `${esc(me.abbr)} ${g.home ? 'vs' : 'at'} ${esc(opp.abbr)}`, p, 'Pick how you want to play tonight.', gameDialog, () => { const done = carFinish(L); save(); closeDialog(); render(); resultDialog(done); });
+    }
+    // after a game you played: the plan and each call
+    function reviewHtml(plan, calls) {
+      if (!calls || !calls.length) return '';
+      return `<div class="car-review"><div class="k">Plan: ${esc((CAR_PLANS[plan] || CAR_PLANS.bal).n)}</div>${calls.map(c => `<div class="car-rv ${c.ok ? 'ok' : 'no'}"><span>${c.ok ? '✓' : '✗'}</span><span><strong>${esc(c.l || '')}</strong> <span class="muted">${esc(c.t || '')}</span></span></div>`).join('')}</div>`;
     }
     function resultDialog(g) {
       const C = L.career, opp = pipeTeam(C.lg, g.opp);
-      dialog(`<h2>${g.win ? 'Win' : 'Loss'} ${g.us}-${g.them} ${g.home ? 'vs' : 'at'} ${esc(opp.abbr)}</h2><div class="car-res"><div class="car-grade g${g.gr}">${CAR_GRADES[g.gr]}</div><div><div><strong>${gline(g.line)}</strong></div><div class="muted">${g.line.min} min · ${g.line.tpm} threes · ${g.line.tov || 0} turnovers</div><div style="margin-top:6px">+${g.xp} XP${g.played ? '' : ' (simmed games earn less)'} · ${C.xp} XP to spend</div></div></div><div class="row" style="gap:8px;margin-top:12px"><button class="primary" id="car-ok">Continue</button><a class="btn" href="#career" id="car-up">Spend XP</a></div>`);
+      dialog(`<h2>${g.win ? 'Win' : 'Loss'} ${g.us}-${g.them} ${g.home ? 'vs' : 'at'} ${esc(opp.abbr)}</h2><div class="car-res"><div class="car-grade g${g.gr}">${CAR_GRADES[g.gr]}</div><div><div><strong>${gline(g.line)}</strong></div><div class="muted">${g.line.min} min · ${g.line.tpm} threes · ${g.line.tov || 0} turnovers</div><div style="margin-top:6px">+${g.xp} XP${g.played ? '' : ' (simmed games earn less)'} · ${C.xp} XP to spend</div></div></div>${reviewHtml(g.plan, g.calls)}<div class="row" style="gap:8px;margin-top:12px"><button class="primary" id="car-ok">Continue</button><a class="btn" href="#career" id="car-up">Spend XP</a></div>`);
       $('#car-ok').onclick = closeDialog; $('#car-up').onclick = () => closeDialog();
     }
     function draftDialog() {

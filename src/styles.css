@@ -1241,3 +1241,21 @@ tr.fan-cut td { border-bottom: 2px dashed var(--accent); }
 .cmb-g.cmb-d { background: var(--a-red); color: var(--a-on); border-color: transparent; }
 .cmb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px 14px; }
 .cmb-grid .k { font-size: 12px; color: var(--muted); } .cmb-grid .v { font-size: 16px; font-weight: 700; }
+/* My Career: game plan, meters, risk tags, review (Nov 23 2026) */
+.car-hud { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.car-dots { display: inline-flex; gap: 5px; }
+.car-dots i { font-style: normal; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; background: var(--bar-bg); color: var(--muted); }
+.car-dots i.now { background: var(--accent); color: #fff; }
+.car-dots i.ok { background: var(--win); color: #fff; } .car-dots i.no { background: var(--loss); color: #fff; }
+.car-meters { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+.car-meter { display: grid; gap: 3px; min-width: 90px; flex: 1 1 90px; }
+.car-meter.good .car-bar i { background: var(--win); } .car-meter.bad .car-bar i { background: var(--loss); }
+.car-lead { display: grid; padding: 2px 12px; border-radius: 8px; background: var(--surface-2); text-align: center; }
+.car-lead strong { font-size: 18px; } .car-lead.up strong { color: var(--win); } .car-lead.down strong { color: var(--loss); }
+.car-plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; }
+.car-plan { display: grid; gap: 4px; text-align: left; padding: 10px 12px; } .car-plan.on { border-color: var(--accent); background: var(--accent-soft); }
+.car-tag { font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 10px; background: var(--surface-2); }
+.car-tag.safe { background: var(--win); color: #fff; } .car-tag.balanced { background: var(--accent-soft); color: var(--accent); } .car-tag.bold { background: var(--loss); color: #fff; }
+.car-chips { display: flex; gap: 6px; flex-wrap: wrap; } .car-chip { font-size: 11px; padding: 1px 7px; border-radius: 10px; border: 1px solid var(--line); }
+.car-review { margin-top: 10px; display: grid; gap: 4px; font-size: 13px; }
+.car-rv { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 6px; } .car-rv.ok > span:first-child { color: var(--win); } .car-rv.no > span:first-child { color: var(--loss); }

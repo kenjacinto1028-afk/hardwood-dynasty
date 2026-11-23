@@ -776,3 +776,11 @@ Branch `claude/project-thread-a9qoug`.
 - [x] 4. Pro XP and upgrade costs tuned (pre-draft unchanged)
 - [x] 5. Season averages in "You're a pro" panel + Draft stock panel (pre-draft)
 - [ ] 6. Tests, cache bump, desktop installer bump, PR, merge, Pages check
+
+---
+# TASK_STATE — Top plays own replay (Sonnet) — Nov 23 2026
+Branch `claude/project-thread-v186g0`.
+- [x] 1. court.js reel() rewritten with per-kind staging; browser shots checked
+- [x] 2. How it works text, PROGRESS.md, sw cache v28
+- [x] 3. browser-p2 162 PASS, 0 FAIL
+- [ ] 4. PR

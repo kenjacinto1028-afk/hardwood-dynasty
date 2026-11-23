@@ -944,3 +944,9 @@ Suggested order: T (quick win) → R → G (PBL + pipeline emblems) → F, then 
 - U3: phone Notes button shows icon+label only; to-do toast moved above bottom nav.
 - U4: phone search box wider; day-1 ties sorted by preseason strength, not A-Z.
 - I3: 41 duplicate old test files removed from the top level (copies live in tools/); v30a.patch moved to patches/.
+
+## Nov 23 2026 — Top plays: each highlight has its own replay (Sonnet)
+- Cause: the reel used one generic motion for every dunk/three, so all plays looked alike.
+- `COURT.reel` (src/court.js) rewritten: staging per play type (alley-oop, cut, wing/baseline drive, fast break; drive-and-kick, curl off screen, step-back, pull-up, fadeaway, floater; putback off a miss; chase-down, help-side and closeout blocks; and-one contact + foul tag; game-winner iso with clock banner). Variation seeded by game, play and clock.
+- How it works page: new "Top plays of the night" paragraph. sw cache v28.
+- Checked in browser: 16 crafted plays all render and differ; tools/browser-p2.js run.

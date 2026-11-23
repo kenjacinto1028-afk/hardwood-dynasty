@@ -951,3 +951,8 @@ Suggested order: T (quick win) → R → G (PBL + pipeline emblems) → F, then 
 ## Nov 23 2026 — Team stats on box scores and live games (Sonnet)
 - Team stats panel (FG/3P/FT, eFG%, TS%, rebounds, assists, steals, blocks, TO, PF, bench points, possessions, PPP, biggest lead; live adds lead changes and ties) on result box scores and the live view. `teamStatsPanel` in `src/app.js`.
 - Help page: new "Box scores and team stats" section. Test: `node tools/browser-teamstats.js` (needs `tools/_t1.json`), ALL PASS.
+## Nov 23 2026 — Top plays: each highlight has its own replay (Sonnet)
+- Cause: the reel used one generic motion for every dunk/three, so all plays looked alike.
+- `COURT.reel` (src/court.js) rewritten: staging per play type (alley-oop, cut, wing/baseline drive, fast break; drive-and-kick, curl off screen, step-back, pull-up, fadeaway, floater; putback off a miss; chase-down, help-side and closeout blocks; and-one contact + foul tag; game-winner iso with clock banner). Variation seeded by game, play and clock.
+- How it works page: new "Top plays of the night" paragraph. sw cache v28.
+- Checked in browser: 16 crafted plays all render and differ; tools/browser-p2.js run.

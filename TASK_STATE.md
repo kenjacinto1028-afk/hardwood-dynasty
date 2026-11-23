@@ -789,3 +789,9 @@ Branch `claude/project-thread-h8z5c9`.
 - [x] 2. tools/browser-teamstats.js ALL PASS (1280 + 390px)
 - [x] 3. Help page: "Box scores and team stats" section
 - [x] 4. PROGRESS.md, PR
+# TASK_STATE — Top plays own replay (Sonnet) — Nov 23 2026
+Branch `claude/project-thread-v186g0`.
+- [x] 1. court.js reel() rewritten with per-kind staging; browser shots checked
+- [x] 2. How it works text, PROGRESS.md, sw cache v28
+- [x] 3. browser-p2 162 PASS, 0 FAIL
+- [ ] 4. PR

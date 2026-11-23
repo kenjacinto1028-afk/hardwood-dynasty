@@ -16,7 +16,7 @@ const idbGet = (pg, k) => pg.evaluate(new Function(`return (async () => { ${idbJ
   const pg = await ctx.newPage(), errs = []; pg.on('pageerror', e => errs.push(String(e)));
   await pg.goto(BASE + PAGE); await wait(pg, 1200);
   await pg.evaluate(new Function('f', `return (async () => { const txt = await (await fetch(f)).text(); ${idbJs} await put('league:slot-a', txt); await put('league:slot-b', txt); await put('pt:slot-b', String(2 * 3600000 + 5 * 60000)); await put('playtotal', String(3 * 3600000)); await put('slots', JSON.stringify([{ id: 'slot-a', name: 'A', mode: 'commish', season: 11, phase: 'regular', updated: Date.now() }, { id: 'slot-b', name: 'B', mode: 'commish', season: 11, phase: 'regular', updated: Date.now() - 1000 }])); await put('current', 'slot-a'); })()`), '/tools/_c16.json');
-  await pg.evaluate(() => { try { localStorage.setItem('pbl-tour', 'done'); } catch (e) { } });
+  await pg.evaluate(() => { try { ['pbl-tour','pbl-tour-career','pbl-tour-coach','pbl-tour-fantasy'].forEach(k => localStorage.setItem(k, 'done')); } catch (e) { } });
   await pg.reload(); await wait(pg, 4500); await ev(pg, "document.querySelector('#modal').innerHTML=''");
   const move = async () => { for (let i = 0; i < 4; i++) { await pg.mouse.move(100 + i * 10, 300); await wait(pg, 200); } };
   // play ~50 s with activity

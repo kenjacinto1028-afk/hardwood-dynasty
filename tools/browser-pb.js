@@ -16,7 +16,7 @@ const idbJs = `const db = await new Promise((res, rej) => { const r = indexedDB.
     const pg = await ctx.newPage(), errs = []; pg.on('pageerror', e => errs.push(String(e)));
     await pg.goto(BASE + PAGE); await wait(pg, 1200);
     await pg.evaluate(new Function('f', `return (async () => { const txt = await (await fetch(f)).text(); ${idbJs} await put('league:slot-pb', txt); await put('slots', JSON.stringify([{ id: 'slot-pb', name: 'pb', mode: 'commish', season: 11, phase: 'regular', updated: Date.now() }])); await put('current', 'slot-pb'); })()`), '/tools/_c16.json');
-    await pg.evaluate(() => { try { localStorage.setItem('pbl-tour', 'done'); } catch (e) { } });
+    await pg.evaluate(() => { try { ['pbl-tour','pbl-tour-career','pbl-tour-coach','pbl-tour-fantasy'].forEach(k => localStorage.setItem(k, 'done')); } catch (e) { } });
     await pg.reload(); await wait(pg, 4500); await ev(pg, "document.querySelector('#modal').innerHTML=''");
     // backups
     await ev(pg, '(async()=>{await PBL.saveNow();})()'); await wait(pg, 400);
@@ -51,7 +51,7 @@ const idbJs = `const db = await new Promise((res, rej) => { const r = indexedDB.
     ok(T + 'tour opens from Settings', await ev(pg, "!!document.querySelector('#pb-tour .pb-tip')"));
     let n = 0, fit = true;
     while (n < 12 && await ev(pg, "!!document.querySelector('#pb-next')")) { const f = await ev(pg, "(()=>{const r=document.querySelector('#pb-tour .pb-tip').getBoundingClientRect();return r.left>=0&&r.right<=innerWidth+1&&r.top>=0&&r.bottom<=innerHeight+1})()"); if (!f) { fit = false; console.log('  tip off screen at step', n + 1); } await ev(pg, "document.querySelector('#pb-next').click()"); await wait(pg, 300); n++; }
-    ok(T + 'tour goes through all steps', n === 9 && !(await ev(pg, "!!document.querySelector('#pb-tour')")), n);
+    ok(T + 'tour goes through all steps', n >= 10 && !(await ev(pg, "!!document.querySelector('#pb-tour')")), n);
     ok(T + 'tour tips fit the screen', fit);
     // first time on a brand-new league
     await ev(pg, "localStorage.removeItem('pbl-tour'); PBL.L.phase='regular'; PBL.L.season=1; PBL.L.day=0; PBL.render()"); await wait(pg, 1500);

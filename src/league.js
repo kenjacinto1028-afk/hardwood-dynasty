@@ -3169,7 +3169,7 @@ function draftBoard(L, tid, d) {
   const t = L.teams[tid], needs = teamNeeds(L, t);
   const potW = t.mode === 'tank' || t.mode === 'rebuild' ? 0.65 : 0.5;
   const pros = (L.classes[d] || []).map(id => L.players[id]).filter(Boolean);
-  const sc = p => { const fl = dirFlags(L, tid, p); return potW * teamPotEst(L, tid, p).est + (1 - potW) * ovrRead(L, tid, p) + (needMult(L, t, p, needs) - 1) * 6 + youthB(L, p, 1.2) + (fl === 'bust' ? -3 : fl === 'bloom' ? 2 : 0) + (typeof cmbBoost === 'function' ? cmbBoost(L, p) : 0); };
+  const sc = p => { const fl = dirFlags(L, tid, p); return potW * teamPotEst(L, tid, p).est + (1 - potW) * ovrRead(L, tid, p) + (needMult(L, t, p, needs) - 1) * 6 + youthB(L, p, 1.2) + (fl === 'bust' ? -3 : fl === 'bloom' ? 2 : 0) + (typeof cmbBoost === 'function' ? cmbBoost(L, p) : 0) - (p.career && L.career && p.scout < p.pot ? (p.pot - p.scout) * 0.5 : 0); };   // My Career: weak pre-draft stats lower his scouting grade; teams' boards follow it too (not just the mocks), so the real draft follows the mock. Works on older saves (uses scout vs pot)
   let board = pros.sort((a, b) => sc(b) - sc(a));
   const mine = tid === L.user && L.myBoard && L.myBoard[d];
   if (mine) { const pos = new Map(mine.map((id, i) => [id, i])); board = board.slice().sort((a, b) => (pos.has(a.id) ? pos.get(a.id) : 999) - (pos.has(b.id) ? pos.get(b.id) : 999)); }

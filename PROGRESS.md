@@ -944,3 +944,8 @@ Suggested order: T (quick win) → R → G (PBL + pipeline emblems) → F, then 
 - U3: phone Notes button shows icon+label only; to-do toast moved above bottom nav.
 - U4: phone search box wider; day-1 ties sorted by preseason strength, not A-Z.
 - I3: 41 duplicate old test files removed from the top level (copies live in tools/); v30a.patch moved to patches/.
+
+## Nov 23 2026 — Tutorial update (Haiku)
+- [x] How it works page (src/app.js vRules): new "Game modes: quick guide" (Franchise, Head Coach, My Career, Fantasy; Commissioner one line) and "What's new" (court view, live coaching, All-Star Weekend, draft combine, card rarity, team logos, box scores, top plays).
+- [x] Checked in the single-file build: the page renders, no page errors. Screenshot taken in scratch only.
+- [ ] Pending: My Career endorsements, sneakers, social, agent, rivalry and charity entries. Not on main yet; add once those threads merge.

@@ -882,15 +882,24 @@ if (typeof window !== 'undefined') window.CAR = (function () {
       const st = CAR_STORIES[C.story] || {}, pre = p.prospect && p.pl, sl = pre ? carSeasonLine(L) : null, nxt = pre ? C.games.find(g => !g.done) : null;
       const club = pre ? pipeTeamName(C.lg, C.team) : p.team != null ? tname(p.team) : 'Free agent';
       const head = `<section class="panel car-head"><div class="car-id">${portrait('p', p.id, p.nat, p.team)}<div><div class="k">${esc(st.n || '')} · ${posLabel(p)} · ${Math.floor(p.hgt / 12)}'${p.hgt % 12}" · Age ${p.age}</div><div class="big">${esc(p.name)} <span class="muted">#${p.num}</span></div><div>${esc(club)}${pre ? ` <span class="muted">(${C.lg})</span>` : ''} · ${esc(archLabel(p))}</div></div></div>
-        <div class="car-stats"><div><div class="k">Overall</div><div class="v">${p.ovr}</div></div><div><div class="k">XP to spend</div><div class="v">${C.xp}</div></div>${pre ? `<div><div class="k">Record</div><div class="v">${sl ? sl.w + '-' + (sl.gp - sl.w) : '0-0'}</div></div><div><div class="k">Draft</div><div class="v" style="font-size:16px">${esc(draftLabel(p.draftYear))}</div></div>` : p.draft ? `<div><div class="k">Drafted</div><div class="v" style="font-size:16px">${p.draft.rd === 1 ? '1st' : '2nd'} round, #${p.draft.no}</div></div>` : ''}</div>
+        <div class="car-stats"><div><div class="k">Overall</div><div class="v">${p.ovr}</div></div><div><div class="k">XP to spend</div><div class="v">${C.xp}</div></div>${window.CARBIZ ? CARBIZ.headStats() : ''}${pre ? `<div><div class="k">Record</div><div class="v">${sl ? sl.w + '-' + (sl.gp - sl.w) : '0-0'}</div></div><div><div class="k">Draft</div><div class="v" style="font-size:16px">${esc(draftLabel(p.draftYear))}</div></div>` : p.draft ? `<div><div class="k">Drafted</div><div class="v" style="font-size:16px">${p.draft.rd === 1 ? '1st' : '2nd'} round, #${p.draft.no}</div></div>` : ''}</div>
         <div class="row" style="gap:8px;margin-top:8px"><button class="sm" data-player="${p.id}">Full player page</button><button class="sm" id="car-look" type="button">🎨 Edit look</button></div>${legendBar()}</section>`;
       const next = nxt ? `<section class="panel"><h3>Next game</h3><p>${nxt.home ? 'vs' : 'at'} <strong>${esc(pipeTeamName(C.lg, nxt.opp))}</strong> · ${esc(dayLbl(nxt.day))}${nxt.play ? ' · <span class="pill">Big game: you make the calls</span>' : ' · simmed'}</p>${careerPending(L) ? '<button class="primary" id="car-playnow">Play it now</button>' : `<p class="muted">Use the sim buttons at the top. The sim stops on your big games.</p>`}</section>`
         : pre ? `<section class="panel"><h3>Season over</h3><p>Your ${C.lg} season is done. Sim to the end of the league season, then the playoffs, then the draft. Your name will be called… or not.</p></section>` : proNote(p);
       const ups = upPanel(p);
       const sched = pre ? `<section class="panel"><h3>${esc(pipeTeamName(C.lg, C.team))} schedule</h3><div class="tblwrap"><table class="car-sched"><thead><tr><th>#</th><th class="l">Date</th><th class="l">Opponent</th><th>Result</th><th class="l">Your line</th><th>Grade</th><th>XP</th></tr></thead><tbody>${C.games.map(g => `<tr class="${g.play ? 'car-big' : ''}"><td>${g.i + 1}</td><td class="l">${esc(dayLbl(g.day))}</td><td class="l">${g.home ? 'vs' : 'at'} ${esc(pipeTeam(C.lg, g.opp).abbr)}${g.play ? ' ★' : ''}</td><td>${g.done ? `<span class="${g.win ? 'w' : 'lo'}">${g.win ? 'W' : 'L'}</span> ${g.us}-${g.them}` : ''}</td><td class="l">${g.done ? gline(g.line) : ''}</td><td>${g.done ? CAR_GRADES[g.gr] : ''}</td><td>${g.done ? '+' + g.xp : ''}</td></tr>`).join('')}</tbody></table></div>${sl ? `<p class="muted">Averages: ${sl.pts} pts, ${sl.reb} reb, ${sl.ast} ast, ${sl.stl} stl, ${sl.blk} blk in ${sl.min} min over ${sl.gp} games. ★ = big game you play.</p>` : '<p class="muted">★ = big game you play.</p>'}</section>` : '';
       const log = `<section class="panel"><h3>Career story</h3>${C.log.slice().reverse().slice(0, 30).map(x => `<div class="leader" style="grid-template-columns:auto minmax(0,1fr)"><span class="muted">${esc(seasonName(x.s))}</span><span>${esc(x.t)}</span></div>`).join('')}</section>`;
-      const life = contractPanel(p) + relPanel(p) + ivPanel(p) + newsPanel(p);
-      return `<div class="car">${head}<div class="grid2"><div class="stack">${next}${pre ? stockPanel(p) : ''}${sched}${life}${statsPanel(p)}</div><div class="stack">${ups}${badgePanel(p)}${achPanel()}${log}</div></div></div>`;
+      const B = C.biz || {}, pend = (C.ivQ && !C.ivQ.shown ? 1 : 0) + (carExtLive(L) ? 1 : 0) + (C.hold ? 1 : 0), nOff = (B.offers || []).length;
+      const tabs = [['overview', 'Overview'], ['skills', 'Skills'], ...(!p.prospect ? [['life', 'Life', pend]] : []), ['brand', 'Brand', nOff], ...(!p.prospect ? [['rivals', 'Rivals']] : []), ['story', 'Career story']];
+      let tab = ui.carTab; if (!tabs.some(t => t[0] === tab)) tab = 'overview';
+      const lifeP = [contractPanel(p), relPanel(p), ivPanel(p), newsPanel(p)];
+      const body = tab === 'overview' ? `<div class="stack">${next}${pre ? stockPanel(p) : ''}${sched}</div>`
+        : tab === 'skills' ? `<div class="grid2"><div class="stack">${ups}</div><div class="stack">${badgePanel(p)}${achPanel()}</div></div>`
+        : tab === 'life' ? `<div class="grid2"><div class="stack">${lifeP[0]}${lifeP[1]}</div><div class="stack">${lifeP[2]}${lifeP[3]}</div></div>`
+        : tab === 'brand' ? (window.CARBIZ ? CARBIZ.brand() : '') : tab === 'rivals' ? (window.CARBIZ ? CARBIZ.rivals() : '')
+        : `<div class="grid2"><div class="stack">${statsPanel(p)}</div><div class="stack">${log}</div></div>`;
+      const bar = `<div class="row car-tabs" role="tablist" style="gap:6px;flex-wrap:nowrap;overflow-x:auto;margin:0 0 12px;padding-bottom:2px">${tabs.map(([k, n, c]) => `<button class="sm chipbtn ${tab === k ? 'primary' : ''}" role="tab" aria-selected="${tab === k}" data-cartab="${k}">${n}${c ? ` <span class="pill">${c}</span>` : ''}</button>`).join('')}</div>`;
+      return `<div class="car">${head}${bar}${body}</div>`;
     }
 
     // ----- Legend meter, badges, achievements, awards + stats -----
@@ -1162,6 +1171,7 @@ if (typeof window !== 'undefined') window.CAR = (function () {
       if (L.phase !== 'off-draft' && L.career.draftShown !== L.season && !p.prospect && ['off-resign', 'off-fa', 'off-ready', 'off-draft'].includes(L.phase) && (p.draft ? p.draft.s === L.season : p.draftYear === L.season)) queueDialog(draftDialog);
       else if (L.phase === 'off-draft' && L.career.draftShown !== L.season && !p.prospect && (p.draft ? p.draft.s === L.season : p.draftYear === L.season)) queueDialog(draftDialog);
       try { carLifeCheck(L); } catch (e) { console.error(e); }
+      try { if (window.CARBIZ) CARBIZ.afterRender(); } catch (e) { console.error(e); }
       { const C = L.career, busy = !!C.cur;
         if (C.moveQ && !busy) { const m = C.moveQ; C.moveQ = null; queueDialog(() => moveDlg(m)); save(); }
         if (C.ivQ && !C.ivQ.shown && !busy) { C.ivQ.shown = true; queueDialog(ivDlg); save(); }
@@ -1178,6 +1188,7 @@ if (typeof window !== 'undefined') window.CAR = (function () {
       if (u) { const err = carUpgrade(L, u.dataset.carup); if (!err) { save(); render(); } else { const m = document.getElementById('car-upmsg'); if (m) m.textContent = err; } return; }
       const bb = e.target.closest('[data-carbuy]');
       if (bb) { const err = carBuyBadge(L, bb.dataset.carbuy); if (!err) { carCheck(L); save(); render(); } else { const m = document.getElementById('car-badgemsg'); if (m) m.textContent = err; } return; }
+      const tb = e.target.closest('[data-cartab]'); if (tb) { ui.carTab = tb.dataset.cartab; render(); try { window.scrollTo(0, 0); } catch (er) { } return; }
       if (e.target.id === 'car-playnow') { gameDialog(); return; }
       const sb = e.target.closest('#main [data-carstop]'); if (sb) { L.career.stop = sb.dataset.carstop; save(); render(); }
     });

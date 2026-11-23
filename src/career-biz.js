@@ -146,23 +146,35 @@ function carBizAgentSwitch(L, id) {
   const old = agentOf(L, p); p.agent = a.id; B.agS = L.season; B.hist.push({ s: L.season, t: `Hired agent ${a.name}${old ? ' (left ' + old.name + ')' : ''}` }); carLog(L, `You hired ${a.name} as your new agent.`); return { ok: true };
 }
 
+// ask your shoe company for your own signature shoe
+function carBizSigAsk(L) {
+  const B = carBizInit(L), d = B.deals.find(x => x.kind === 'shoe'); if (!d) return { err: 'You need a sneaker deal first.' }; if (d.sig) return { err: 'You already have a signature shoe.' };
+  if (B.sigS === L.season) return { err: 'You already asked this season.' }; const V = carBizV(L); if (V < 68) return { err: `They want a bigger name first (brand value 68+, yours ${V}).` };
+  const co0 = BIZ_SHOE.find(c => c.k === d.co); if (d.s === L.season && !(co0 && co0.lean === 'legacy')) return { err: 'Wait until next season. You just signed.' };
+  B.sigS = L.season; const co = BIZ_SHOE.find(c => c.k === d.co), ch = clamp(0.3 + (V - 68) / 60 + (co && co.lean === 'legacy' ? 0.25 : 0) + B.hype / 400, 0.15, 0.9);
+  if (R() < ch) { d.sig = true; d.pitch = 'signature'; d.amt = bizR05(d.amt * 1.35); d.yrs = Math.max(d.yrs, 3); B.hist.push({ s: L.season, t: `${d.name} gave you a signature shoe (${bizK(d.amt)} a year)` }); B.hype = clamp(B.hype + 8, 0, 100); carBizNote(L, `${carP(L).name} gets a signature shoe from ${d.name}`, 'feat'); return { ok: true, msg: `${d.name} agreed to a signature shoe. New deal: ${bizK(d.amt)} a year.` }; }
+  return { ok: false, msg: `${d.name} is not ready yet. Keep playing well and ask again next season.` };
+}
+// shoe sales (millions of pairs a year): hype and brand value
+const carBizShoeSales = L => { const B = carBizInit(L), d = B.deals.find(x => x.kind === 'shoe'); if (!d) return 0; return Math.round((0.05 + carBizV(L) / 100 * (0.3 + B.hype / 100) * (d.sig ? 1.6 : 0.7)) * 100) / 100; };
+
 // ---------- social media ----------
 function carBizPost(L, act) {
   const B = carBizInit(L), p = carP(L), C = L.career, x = BIZ_SOC[act]; if (!x) return { err: 'Unknown post.' };
   if (B.posts <= 0) return { err: 'You posted twice this week already. Come back next week.' };
   const top = carBizTopRival(L), rv = top ? C.biz.rv[top.pid] : null; if (act === 'trash' && !rv) return { err: 'You need a rival first. Play against stars and the heat builds.' };
   if (act === 'highlight' && !(B.lastG && B.lastG.gr >= 3)) return { err: 'No highlights yet. Have a good game first.' };
-  B.posts--; B.sn.posts++; let h = bizR(x.hype[0], x.hype[1]);
+  B.posts--; B.sn.posts++; let h = bizR(x.hype[0], x.hype[1]); const slog = (t, bad) => { (B.slog = B.slog || []).unshift({ s: L.season, a: x.n, t, bad: !!bad }); if (B.slog.length > 12) B.slog.pop(); };
   if (act === 'highlight') h *= 0.6 + B.lastG.gr * 0.18; if (act === 'trash') h *= 0.9 + rv.heat / 200;
   const viral = R() < 0.05 + B.hype / 1500; if (viral) { h += 10; B.sn.viral++; }
   if (act === 'trash' && R() < x.risk) {   // backfires
     B.sn.contro++; B.hype = clamp(B.hype + h * 0.5, 0, 100); B.fans = clamp(B.fans - bizR(3, 6), 0, 100); C.trust = clamp(C.trust - 2, 0, 100); C.chem = clamp((C.chem || 50) - 3, 0, 100); rv.heat = clamp(rv.heat + x.heat, 0, 100);
     let drop = ''; const fam = B.deals.filter(d => d.kind === 'brand' && BIZ_CAT[d.cat] && BIZ_CAT[d.cat].fam); if (fam.length && R() < 0.4) { const d = pick(fam); B.deals.splice(B.deals.indexOf(d), 1); drop = ` ${d.name} dropped you over the post.`; B.hist.push({ s: L.season, t: `${d.name} dropped you after a controversy` }); }
-    const msg = `The post blew up the wrong way. Fans and your coach are not happy.${drop}`; carBizNote(L, `${p.name} apologizes after a trash talk post aimed at ${rv.name}`, 'feat'); return { ok: false, msg, bad: true };
+    const msg = `The post blew up the wrong way. Fans and your coach are not happy.${drop}`; carBizNote(L, `${p.name} apologizes after a trash talk post aimed at ${rv.name}`, 'feat'); slog(msg, 1); return { ok: false, msg, bad: true };
   }
   B.hype = clamp(B.hype + h, 0, 100); if (x.fans) B.fans = clamp(B.fans + x.fans, 0, 100); if (x.chem) C.chem = clamp((C.chem || 50) + x.chem, 0, 100); if (act === 'trash') rv.heat = clamp(rv.heat + x.heat, 0, 100);
   if (viral) carBizNote(L, `${p.name}'s post goes viral`, 'feat');
-  return { ok: true, msg: (viral ? 'It went viral! ' : '') + { highlight: 'The clip is everywhere.', bts: 'Fans love the access.', qa: 'The live chat was fun.', shout: 'Your teammate shared it right away.', trash: 'It lit up the timeline. Your rival noticed.' }[act] + ` Hype +${Math.round(h)}.`, h: Math.round(h) };
+  const okMsg = (viral ? 'It went viral! ' : '') + { highlight: 'The clip is everywhere.', bts: 'Fans love the access.', qa: 'The live chat was fun.', shout: 'Your teammate shared it right away.', trash: 'It lit up the timeline. Your rival noticed.' }[act] + ` Hype +${Math.round(h)}.`; slog(okMsg); return { ok: true, msg: okMsg, h: Math.round(h) };
 }
 
 // ---------- charity ----------
@@ -266,4 +278,120 @@ if (typeof CAR_ACH !== 'undefined') CAR_ACH.push(
   { k: 'fans90', n: 'Fan favorite', t: 'Reach a fan rating of 90', xp: 80, f: (L, p, C) => !!(C.biz && C.biz.fans >= 90) },
   { k: 'archrival', n: 'Arch-rival', t: 'Build a rivalry to the top tier', xp: 60, f: (L, p, C) => !!(C.biz && Object.values(C.biz.rv).some(r => r.heat >= 60)) }
 );
-if (typeof module !== 'undefined') module.exports = { BIZ_SHOE, BIZ_CAT, BIZ_SOC, BIZ_CHARITY, carBizInit, carBizV, carBizTick, carBizOffers, carBizAccept, carBizCounter, carBizPost, carBizCharity, carBizRivals, carBizSettle };
+
+// ===================== UI =====================
+if (typeof window !== 'undefined') window.CARBIZ = (function () {
+  if (!window.PBL) return null;
+  with (window.PBL) {   // eslint-disable-line no-with
+    const SUB = [['deals', 'Endorsements'], ['shoe', 'Sneakers'], ['social', 'Social media'], ['agent', 'Agent'], ['community', 'Community']];
+    const PITCH = { standard: 'Flat salary', incentive: 'Lower base, bonus if you make the All-Star Game', royalty: 'Lower base plus royalties that grow with your hype', signature: 'Your own signature shoe, long deal, top money' };
+    const TIER = V => V < 15 ? 'Unknown' : V < 30 ? 'Local name' : V < 50 ? 'Regional name' : V < 70 ? 'National name' : V < 88 ? 'Household name' : 'Global icon';
+    const bar = (v, cls) => `<span class="car-bar ${cls || ''}"><i style="width:${clamp(v, 0, 100)}%"></i></span>`;
+    const stat = (k, v, sub) => `<div><div class="k">${k}</div><div class="v" style="font-size:${String(v).length > 7 ? 16 : 22}px">${v}</div>${sub ? `<div class="muted" style="font-size:12px">${sub}</div>` : ''}</div>`;
+    const msgBox = () => ui.bizMsg ? `<div class="msg ${ui.bizMsg.ok === false ? 'no' : 'ok'}" style="margin-bottom:10px">${esc(ui.bizMsg.t)}</div>` : '';
+    const lockBox = () => `<section class="panel"><h3>Not yet</h3><p>Companies talk to you after you are drafted or sign a pro contract. Until then, build your name: play well, post on social media and do community work. Brand value now: <strong>${carBizV(L)}</strong> (${TIER(carBizV(L))}).</p></section>`;
+
+    // ----- Brand page -----
+    function head() {
+      const B = carBizInit(L), V = carBizV(L), fee = carBizAgentFee(L), pro = carBizPro(L);
+      return `<section class="panel"><div class="car-stats">${stat('Brand value', V, TIER(V))}${stat('Fan rating', Math.round(B.fans), B.fans >= 80 ? 'Beloved' : B.fans >= 60 ? 'Popular' : B.fans >= 40 ? 'Respected' : 'Unknown')}${stat('Hype', Math.round(B.hype), carBizFolTxt(carBizFollowers(L)) + ' followers')}${stat('Saved', bizK(B.cash), 'earned ' + bizK(B.earn))}${stat('Agent fee', Math.round(fee * 100) + '%', 'on every deal')}</div>
+        <div class="car-meter" style="margin-top:8px"><span class="k">Hype</span>${bar(B.hype)}</div></section>
+        <div class="row car-tabs sub" style="gap:6px;flex-wrap:wrap;margin:10px 0">${SUB.map(([k, n]) => `<button class="sm chipbtn ${sub() === k ? 'primary' : ''}" data-biz="sub:${k}">${n}${k === 'deals' && pro && B.offers.some(o => o.kind === 'brand') ? ' <span class="pill">' + B.offers.filter(o => o.kind === 'brand').length + '</span>' : k === 'shoe' && pro && B.offers.some(o => o.kind === 'shoe') ? ' <span class="pill">' + B.offers.filter(o => o.kind === 'shoe').length + '</span>' : ''}</button>`).join('')}</div>`;
+    }
+    const sub = () => ui.carBiz || 'deals';
+    function offerCard(o) {
+      const wk = Math.max(0, o.until - carBizInit(L).wkn), ch = carBizCounterChance(L, o), bn = o.bonus && BIZ_BONUS[o.bonus.k];
+      return `<div class="car-offer"><div class="car-oh"><strong>${esc(o.name)}</strong><span class="pill">${o.kind === 'shoe' ? 'Sneakers' : esc((BIZ_CAT[o.cat] || {}).n || '')}${o.renew ? ' · renewal' : ''}</span></div>
+        <div class="car-os"><span><span class="k">Per year</span><b>${bizK(o.amt)}</b></span><span><span class="k">Years</span><b>${o.yrs}</b></span>${bn ? `<span><span class="k">Bonus</span><b>${bizK(o.bonus.amt)}</b> <span class="muted">${esc(bn.n)}</span></span>` : ''}<span><span class="k">Offer ends</span><b>${wk ? 'in ' + wk + ' wk' : 'soon'}</b></span></div>
+        <div class="muted car-bs">${o.kind === 'shoe' ? esc(PITCH[o.pitch] || '') + '. ' + esc((BIZ_SHOE.find(c => c.k === o.co) || {}).t || '') : 'Brand deal. You are the face of the campaign.'}</div>${o.msg ? `<div class="msg ${/pulled|not move/.test(o.msg) ? 'no' : 'ok'}">${esc(o.msg)}</div>` : ''}
+        <div class="row" style="gap:8px;flex-wrap:wrap"><button class="primary sm" data-biz="acc:${o.id}">Accept</button>${o.cn ? '' : `<button class="sm" data-biz="ctr:${o.id}" title="Your agent pushes for more. Can backfire.">Agent counter (~${Math.round(ch * 100)}%)</button>`}<button class="sm" data-biz="dec:${o.id}">Decline</button></div></div>`;
+    }
+    function dealsTable(list, empty) {
+      if (!list.length) return `<p class="muted">${empty}</p>`;
+      return `<div class="tblwrap"><table class="sortable" data-sid="biz-deals"><thead><tr><th class="l">Company</th><th class="l">Type</th><th>Per year</th><th>Years left</th><th class="l">Bonus</th><th>Paid so far</th></tr></thead><tbody>${list.map(d => `<tr><td class="l"><strong>${esc(d.name)}</strong>${d.sig ? ' <span class="pill w">Signature</span>' : ''}</td><td class="l">${d.kind === 'shoe' ? 'Sneakers' : esc((BIZ_CAT[d.cat] || {}).n || '')}</td><td data-v="${d.amt}">${bizK(d.amt)}</td><td>${d.yrs}</td><td class="l">${d.bonus && BIZ_BONUS[d.bonus.k] ? esc(bizK(d.bonus.amt) + ' for ' + BIZ_BONUS[d.bonus.k].n) : '—'}</td><td data-v="${d.paid || 0}">${bizK(d.paid || 0)}</td></tr>`).join('')}</tbody></table></div>`;
+    }
+    function tabDeals() {
+      const B = carBizInit(L), p = carP(L); if (!carBizPro(L)) return lockBox();
+      const S = carBizSlots(L), act = B.deals.filter(d => d.kind === 'brand'), off = B.offers.filter(o => o.kind === 'brand'), ls = B.sn.last;
+      return `<section class="panel"><h3>Endorsements <span class="muted" style="font-weight:normal">· ${act.length} of ${S.brand} slots</span></h3>${dealsTable(act, 'No endorsements yet. Offers come as your name grows. Ask your agent to shop you around on the Agent tab.')}${ls ? `<p class="muted car-bs">Last season: ${bizK(ls.gross)} gross, ${bizK(ls.net)} after the agent. ${ls.lines.map(esc).join(' · ')}</p>` : ''}<p class="muted car-bs">Paid once a season, after the playoffs. Bonuses pay only if you hit them. Family brands (food, bank, drinks) can drop you after a scandal.</p></section>
+        <section class="panel"><h3>Offers on the table</h3>${off.length ? `<div class="car-offers">${off.map(offerCard).join('')}</div>` : '<p class="muted">No offers right now. New ones show up most weeks when your name is growing.</p>'}</section>${histPanel()}`;
+    }
+    function tabShoe() {
+      const B = carBizInit(L); if (!carBizPro(L)) return lockBox();
+      const d = B.deals.find(x => x.kind === 'shoe'), off = B.offers.filter(o => o.kind === 'shoe'), V = carBizV(L), sales = carBizShoeSales(L);
+      const cur = d ? `<section class="panel"><h3>Your sneaker deal</h3><div class="car-stats">${stat('Company', esc(d.name))}${stat('Per year', bizK(d.amt))}${stat('Years left', d.yrs)}${stat('Type', d.sig ? 'Signature' : esc({ standard: 'Standard', incentive: 'Incentive', royalty: 'Royalty' }[d.pitch] || 'Standard'))}${stat('Sales', sales + 'M', 'pairs a year')}</div>
+        <p class="muted car-bs">${esc(PITCH[d.pitch] || '')}. ${d.sig ? 'Your shoe is in stores and on the court. Hype grows every week you play well.' : `A signature shoe needs brand value 68+ (yours ${V}). ${(BIZ_SHOE.find(c => c.k === d.co) || {}).lean === 'legacy' ? 'This company fast-tracks stars.' : ''}`}</p>
+        ${d.sig ? '' : `<button class="sm primary" data-biz="sig">Ask for a signature shoe</button>`}</section>` : `<section class="panel"><h3>No sneaker deal</h3><p class="muted">Every pro wears someone's shoes. Take an offer below, or wait for a bigger one. (Brand value ${V}.)</p></section>`;
+      return `${cur}<section class="panel"><h3>Sneaker offers</h3>${off.length ? `<div class="car-offers">${off.map(offerCard).join('')}</div>` : '<p class="muted">No offers right now.</p>'}</section>
+        <section class="panel"><h3>The companies</h3><div class="car-offers">${BIZ_SHOE.map(c => `<div class="car-offer"><strong>${esc(c.n)}</strong><span class="muted car-bs">${esc(c.t)}</span></div>`).join('')}</div></section>`;
+    }
+    function tabSocial() {
+      const B = carBizInit(L), rv = carBizTopRival(L), fol = carBizFolTxt(carBizFollowers(L));
+      const why = k => { if (B.posts <= 0) return 'Posted twice this week'; if (k === 'trash' && !rv) return 'Needs a rival'; if (k === 'highlight' && !(B.lastG && B.lastG.gr >= 3)) return 'Needs a good game'; return ''; };
+      return `<section class="panel"><h3>Social media</h3><div class="car-stats">${stat('Followers', fol)}${stat('Hype', Math.round(B.hype))}${stat('Posts left', B.posts, 'this week')}${stat('Went viral', B.sn.viral)}${stat('Backfired', B.sn.contro)}</div>
+        <p class="muted car-bs">Hype fades a little every week and jumps with big games, awards and viral posts. Hype raises your brand value, so more and bigger offers.</p></section>
+        <section class="panel"><h3>Post something</h3><div class="car-offers">${Object.keys(BIZ_SOC).map(k => { const x = BIZ_SOC[k], w = why(k); return `<div class="car-offer"><div class="car-oh"><strong>${esc(x.n)}</strong>${x.risk ? '<span class="car-tag bold">Risky</span>' : ''}</div><span class="muted car-bs">${esc(x.d)}${k === 'trash' && rv ? ' Target: ' + esc(rv.name) + '.' : ''}</span><button class="sm primary" data-biz="post:${k}" ${w ? 'disabled' : ''} title="${esc(w)}">${w ? esc(w) : 'Post'}</button></div>`; }).join('')}</div></section>
+        ${B.slog && B.slog.length ? `<section class="panel"><h3>Recent posts</h3>${B.slog.map(x => `<div class="car-nrow"><span class="muted">${esc(seasonName(x.s))} · ${esc(x.a)}</span><span class="${x.bad ? 'lo' : ''}">${esc(x.t)}</span></div>`).join('')}</section>` : ''}`;
+    }
+    function tabAgent() {
+      const B = carBizInit(L), p = carP(L), ag = carAgent(L, p), pro = carBizPro(L), cands = ui.bizAg || [];
+      return `<section class="panel"><h3>Your agent</h3>${ag ? `<div class="car-stats">${stat('Agent', esc(ag.name))}${stat('Style', esc(ag.style))}${stat('Type', esc(ag.kind || ''))}${stat('Fee', Math.round(carBizAgentFee(L) * 100) + '%')}</div><p class="muted car-bs">${esc(ag.txt)}. ${ag.kind === 'power' ? 'Power brokers have leverage with every company.' : ag.kind === 'boutique' ? 'Boutique agents give you personal attention.' : ''}</p>` : '<p class="muted">No agent yet.</p>'}
+        <div class="row" style="gap:8px;flex-wrap:wrap"><button class="sm primary" data-biz="shop" ${!pro || B.shopS === L.season ? 'disabled' : ''}>Shop me around${B.shopS === L.season ? ' (done this season)' : ''}</button><button class="sm" data-biz="agents" ${B.agS === L.season ? 'disabled' : ''}>Change agent</button><button class="sm" data-cartab="life">Contract talks</button></div>
+        <p class="muted car-bs">Your agent negotiates contract extensions (Life tab) and pushes for more on every endorsement offer. A tough agent gets more but can lose a deal; a loyal one gives your team a discount.</p></section>
+        ${cands.length ? `<section class="panel"><h3>Agents who want to sign you</h3><div class="car-offers">${cands.map(a => `<div class="car-offer"><div class="car-oh"><strong>${esc(a.name)}</strong><span class="pill">${esc(a.kind || '')}</span></div><span class="muted car-bs">${esc(a.txt)}</span><button class="sm primary" data-biz="hire:${a.id}">Hire ${esc(a.name)}</button></div>`).join('')}</div><p class="muted car-bs">You can change agents once a season.</p></section>` : ''}
+        ${histPanel()}`;
+    }
+    function tabCommunity() {
+      const B = carBizInit(L), p = carP(L);
+      return `<section class="panel"><h3>Community</h3><div class="car-stats">${stat('Fan rating', Math.round(B.fans), B.fans >= 80 ? 'Beloved' : B.fans >= 60 ? 'Popular' : B.fans >= 40 ? 'Respected' : 'Unknown')}${stat('Goodwill', Math.round(B.love * 10) / 10, 'fades 8% a year')}${stat('Events', B.ch.n)}${stat('Donated', bizK(B.donated))}${stat('Saved', bizK(B.cash))}</div><div class="car-meter" style="margin-top:8px"><span class="k">Fan rating</span>${bar(B.fans, 'good')}</div>
+        <p class="muted car-bs">Fans love winners and stars, and they remember what you do for the city. Goodwill lifts your fan rating for years. One event a week. Some cost money from your savings.</p></section>
+        <section class="panel"><h3>Events</h3><div class="car-offers">${Object.keys(BIZ_CHARITY).map(k => { const x = BIZ_CHARITY[k], e = carBizCharityOK(L, k); return `<div class="car-offer"><div class="car-oh"><strong>${esc(x.n)}</strong><span class="pill">${x.cost ? bizK(x.cost) : 'Free'}</span></div><span class="muted car-bs">${esc(x.d)} Fans +${x.fans}${x.chem ? ' · teammates +' + x.chem : ''}.</span><button class="sm primary" data-biz="char:${k}" ${e ? 'disabled' : ''} title="${esc(e || '')}">${e ? esc(e) : 'Do it'}</button></div>`; }).join('')}</div></section>`;
+    }
+    function histPanel() {
+      const B = carBizInit(L), h = B.hist.slice().reverse().slice(0, 14); if (!h.length) return '';
+      return `<section class="panel"><h3>Deal history</h3>${h.map(x => `<div class="car-nrow"><span class="muted">${esc(seasonName(x.s))}</span><span>${esc(x.t)}</span></div>`).join('')}</section>`;
+    }
+    function brand() { const k = sub(); return msgBox() + head() + ({ deals: tabDeals, shoe: tabShoe, social: tabSocial, agent: tabAgent, community: tabCommunity }[k] || tabDeals)(); }
+
+    // ----- Rivals page -----
+    function rivals() {
+      const B = carBizInit(L), p = carP(L); let list = carBizRivals(L), f = ui.carRv || '';
+      if (f === 'rival') list = list.filter(r => r.heat >= 15); else if (f === 'peer') list = list.filter(r => r.peer); else if (f === 'active') list = list.filter(r => !r.q.retired);
+      const top = carBizRivals(L)[0], t = carProToday(L), tn = t ? carBizTopRival(L, t.opp) : null;
+      const hero = top && top.heat >= 8 ? `<section class="panel"><h3>${top.heat >= 15 ? 'Your top rival' : 'Someone to watch'}</h3><div class="bio" style="align-items:center;gap:14px">${portrait('p', top.q.id, top.q.nat, top.q.team)}<div style="min-width:0"><div class="big"><a href="#" data-player="${top.q.id}">${esc(top.q.name)}</a> <span class="pill">${esc(top.tier)}</span></div><div class="muted">${esc(posLabel(top.q))} · ${top.q.retired ? 'Retired' : top.q.team != null ? esc(tname(top.q.team)) : 'Free agent'} · ${top.q.ovr} ovr</div><div style="margin:6px 0">Duels: you ${top.dw}, him ${top.dl}${top.g ? ` · ${top.mp && top.g ? (Math.round(top.mp / top.g * 10) / 10) : 0} to ${Math.round(top.tp / Math.max(1, top.g) * 10) / 10} points a game` : ''}</div>${bar(top.heat, 'bad')}<div class="muted" style="font-size:12px">Heat ${Math.round(top.heat)} of 100</div></div></div>${tn ? `<div class="msg" style="margin-top:10px">Tonight: ${esc(tn.name)} is on the other side. It is a big game.</div>` : ''}</section>` : `<section class="panel"><h3>Rivalries</h3><p class="muted">No rivals yet. Rivals form when you face the same star game after game, in the playoffs, close duels, and through trash talk on social media. Your draft class peers start as soft rivals.</p></section>`;
+      const rows = list.slice(0, 40).map(r => { const q = r.q, tm = q.retired ? 'Retired' : q.team != null ? L.teams[q.team].abbr : 'FA', gp = Math.max(1, r.g); return `<tr data-player="${q.id}"><td class="l"><strong>${esc(q.name)}</strong>${r.peer ? ' <span class="pill">Draft class</span>' : ''}</td><td>${esc(posLabel(q))}</td><td>${esc(tm)}</td><td>${q.ovr}</td><td class="l"><span class="pill">${esc(r.tier)}</span></td><td data-v="${Math.round(r.heat)}">${bar(r.heat, 'bad')}<span class="muted" style="font-size:11px">${Math.round(r.heat)}</span></td><td>${r.g}</td><td data-v="${r.g ? r.w / r.g : 0}">${r.w}-${r.g - r.w}</td><td data-v="${r.dw - r.dl}">${r.dw}-${r.dl}</td><td data-v="${r.mp / gp - r.tp / gp}">${r.g ? Math.round(r.mp / gp * 10) / 10 + ' – ' + Math.round(r.tp / gp * 10) / 10 : '—'}</td></tr>`; }).join('');
+      const chips = [['', 'All'], ['rival', 'Rivals'], ['peer', 'Draft class'], ['active', 'Still playing']].map(([k, n]) => `<button class="sm chipbtn ${f === k ? 'primary' : ''}" data-biz="rvf:${k}">${n}</button>`).join('');
+      return `${hero}<section class="panel"><h3>Rivalry tracker</h3><div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:8px">${chips}</div>${rows ? `<div class="tblwrap"><table class="sortable" data-sid="biz-rv"><thead><tr><th class="l">Player</th><th>Pos</th><th>Team</th><th>Ovr</th><th class="l">Level</th><th>Heat</th><th>Games</th><th title="Your team's record in games you both played">Team W-L</th><th title="Who had the better night, game by game">Duels</th><th title="Your points a game against his">Points</th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="muted">Nobody matches this filter yet.</p>'}
+        <p class="muted car-bs">Heat builds when you meet, grows in the playoffs, against equal talent and in close duels, and fades a little every week. Rivalry games are big games: the sim stops and a rival scene can show up in your decisions. Beat a rival in a game you play and you earn extra XP and hype.</p></section>`;
+    }
+
+    function headStats() { const B = carBizInit(L); return `<div><div class="k">Fan rating</div><div class="v">${Math.round(B.fans)}</div></div><div><div class="k">Hype</div><div class="v">${Math.round(B.hype)}</div></div>`; }
+
+    // ----- popups + clicks -----
+    function offersDlg(msg) {
+      const B = carBizInit(L), list = B.offers; list.forEach(o => { o.seen = 1; });
+      dialog(`<h2>${list.length ? 'New offers' : 'Offers'}</h2>${msg ? `<div class="msg" style="margin-bottom:8px">${esc(msg)}</div>` : ''}${list.length ? `<p class="muted">Companies want you. Accept, let your agent push for more, or decline.</p><div class="car-offers">${list.map(offerCard).join('')}</div>` : '<p class="muted">Nothing left on the table.</p>'}<div class="row" style="margin-top:12px"><button id="car-ok">${list.length ? 'Decide later' : 'Close'}</button></div>`);
+      $('#car-ok').onclick = closeDialog;
+    }
+    function afterRender() {
+      if (!L || !L.career || !carBizOn(L)) return; const B = L.career.biz, C = L.career; if (!carBizPro(L) || C.cur) return;
+      if (B.offers.some(o => !o.seen)) { B.offers.forEach(o => { o.seen = 1; }); queueDialog(() => offersDlg()); save(); }
+    }
+    document.addEventListener('click', e => {
+      if (!L || !L.career || !e.target.closest) return; const T = e.target.closest('[data-biz]'); if (!T) return;
+      const [act, arg] = T.dataset.biz.split(':'), inDlg = !!T.closest('#modal'); let r = null;
+      carBizInit(L);
+      if (act === 'sub') { ui.carBiz = arg; ui.bizMsg = null; ui.bizAg = null; render(); return; }
+      if (act === 'rvf') { ui.carRv = arg; render(); return; }
+      if (act === 'acc') r = carBizAccept(L, +arg); else if (act === 'ctr') r = carBizCounter(L, +arg); else if (act === 'dec') r = carBizDecline(L, +arg);
+      else if (act === 'shop') r = carBizShop(L); else if (act === 'sig') r = carBizSigAsk(L); else if (act === 'post') r = carBizPost(L, arg); else if (act === 'char') r = carBizCharity(L, arg);
+      else if (act === 'agents') { ui.bizAg = carBizAgentList(L); render(); return; } else if (act === 'hire') { r = carBizAgentSwitch(L, +arg); ui.bizAg = null; }
+      if (!r) return; ui.bizMsg = r.err ? { ok: false, t: r.err } : { ok: r.ok !== false, t: r.msg || (act === 'acc' ? 'Deal signed.' : 'Done.') };
+      try { carCheck(L); } catch (er) { }
+      save(); render(); if (inDlg) offersDlg(ui.bizMsg.t);
+    });
+    return { brand, rivals, headStats, afterRender, offersDlg };
+  }
+})();
+
+if (typeof module !== 'undefined') module.exports = { BIZ_SHOE, BIZ_CAT, BIZ_SOC, BIZ_CHARITY, carBizInit, carBizV, carBizTick, carBizOffers, carBizAccept, carBizCounter, carBizPost, carBizSigAsk, carBizCharity, carBizRivals, carBizSettle };

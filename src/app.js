@@ -4869,6 +4869,23 @@ function vReview() {
 
 function vRules() {
   return `<section class="panel rules-cols"><h2>How ${L && L.nba ? 'the NBA 2026-27 league' : 'the Pacific Basketball League'} works</h2>
+  <h3>Game modes: quick guide</h3>
+  <p><strong>Franchise Mode:</strong> you run one team as general manager. Set lineups and rotations, trade, sign and release players, draft, and hire or fire your coach. The season to-do list on My team shows what needs doing next. Sim a day, a week or the season from the top bar, or use Watch live to see a game play out on the court.</p>
+  <p><strong>Head Coach:</strong> you coach one team's games. An AI general manager handles trades, signings and the draft. Set lineups, playbooks and sliders on My job, then coach games live: the game pauses before each possession so you can change coverages. The owner watches your job security. Get fired and other teams may send job offers.</p>
+  <p><strong>My Career:</strong> create your own player and start as a draft prospect. Play pipeline seasons where you make the calls in big moments, earn XP to upgrade your ratings, get drafted, and work toward legend status. The Trophy room and Hall of Fame track your career.</p>
+  <p><strong>Fantasy</strong> (Franchise and Head Coach): draft real players against 7 AI managers. Each week you face one manager head-to-head, scored from the real box scores. Add players from waivers and play a 2-week playoff for the title.</p>
+  <p class="muted">Commissioner mode watches the league run itself and lets you review and veto AI trades.</p>
+  <h3>What's new</h3>
+  <ul>
+  <li><strong>Court view:</strong> live games show an animated court with the ten players, passes, drives and shots.</li>
+  <li><strong>Live coaching:</strong> coach a game possession by possession and call coverages, including Zone.</li>
+  <li><strong>All-Star Weekend:</strong> the Three-Point Contest, Slam Dunk Contest and Skills Challenge. Winners appear in a popup after the weekend.</li>
+  <li><strong>Draft combine:</strong> right after the lottery, prospects are measured and run drills. A strong or weak combine moves their mock-draft spot a few places.</li>
+  <li><strong>Player card rarity:</strong> Common, Uncommon (55+), Rare (60+), Epic (70+), Legendary (80+) and Hall of Fame. Big awards and titles move a card up.</li>
+  <li><strong>Team logos:</strong> every team has its own logo, shown across the app.</li>
+  <li><strong>Box scores:</strong> open any game for the full box score, with shot charts by player.</li>
+  <li><strong>Top plays:</strong> each night's best plays (dunks, deep threes, and-ones, big blocks, game-winners), kept and replayed on the court.</li>
+  </ul>
   ${L && L.nba && typeof NBA_TEXT !== 'undefined' ? `<h3>NBA mode</h3><ul>${NBA_TEXT.how.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
   <p>${L && L.nba ? 'Thirty teams in the East and West conferences, six divisions of five. 2026-27 rosters and contracts.' : 'Sixteen teams in two conferences: North (Luzon) and South (the Visayas and Mindanao).'} Each team plays ${SEASON_GAMES} games (the season length is chosen when the league is created), mostly against its own conference. Games are simulated possession by possession with four 12-minute quarters, a 24-second shot clock and 5-minute overtimes.</p>
   <h3>Players</h3><p>Height, weight and wingspan shape athleticism, rebounding and defense. Each player has an archetype for his position (8 per position, such as Floor general PG, 3pt sniper SG or Rim runner C). The archetype is how he plays, from his shot habits as well as his skills. Next to it is his playstyle: habits and caveats such as Low-volume shooter, Below-average 3pt shooter or Shies away from the rim, because a good shooter does not always shoot a lot. Players rated 76+ can carry a second archetype, 84+ a third, and the best get an Elite version. Superstars (85+) also get a signature type of their own: Point god, Heliocentric engine, Walking bucket, Gravity shooter, Two-way superstar, Freight train, Unicorn, Point center or Dominant big. Each player also has a personality (Loyal, Money-first, Wants to win or Balanced) that shapes contract talks.</p>

@@ -971,3 +971,7 @@ Suggested order: T (quick win) → R → G (PBL + pipeline emblems) → F, then 
 - `COURT.reel` (src/court.js) rewritten: staging per play type (alley-oop, cut, wing/baseline drive, fast break; drive-and-kick, curl off screen, step-back, pull-up, fadeaway, floater; putback off a miss; chase-down, help-side and closeout blocks; and-one contact + foul tag; game-winner iso with clock banner). Variation seeded by game, play and clock.
 - How it works page: new "Top plays of the night" paragraph. sw cache v28.
 - Checked in browser: 16 crafted plays all render and differ; tools/browser-p2.js run.
+## Nov 23 2026 — Tutorial update (Haiku)
+- [x] How it works page (src/app.js vRules): new "Game modes: quick guide" (Franchise, Head Coach, My Career, Fantasy; Commissioner one line) and "What's new" (court view, live coaching, All-Star Weekend, draft combine, card rarity, team logos, box scores, top plays).
+- [x] Checked in the single-file build: the page renders, no page errors. Screenshot taken in scratch only.
+- [ ] Pending: My Career endorsements, sneakers, social, agent, rivalry and charity entries. Not on main yet; add once those threads merge.

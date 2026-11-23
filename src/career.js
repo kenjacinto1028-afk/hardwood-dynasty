@@ -1097,13 +1097,14 @@ if (typeof window !== 'undefined') window.CAR = (function () {
     function simToday() { const b = document.querySelector(`#simctl [data-sim="${L.phase === 'playoffs' ? 'pday' : 'day'}"]`); if (b) { b.disabled = false; b.click(); } }
     const QLBL = ['1st quarter', '2nd quarter', '3rd quarter', 'Crunch time'];
     const meter = (k, v, cls) => `<div class="car-meter ${cls || ''}"><span class="k">${k}</span><span class="car-bar"><i style="width:${clamp(v, 0, 100)}%"></i></span></div>`;
-    function planHtml(cur, lbl, intro) {
+    function planHtml(cur, lbl, intro, onTip) {
       const pl = cur.plan || 'bal';
       dialog(`<div class="car-game"><div class="k">${lbl}</div><h2 style="margin:4px 0 2px">Game plan</h2><p class="muted" style="margin:0 0 8px">${intro} It nudges your odds on matching plays and the kind of night you have.</p>
         <div class="car-plans">${Object.keys(CAR_PLANS).map(k => `<button class="car-plan ${k === pl ? 'on' : ''}" data-carplan="${k}"><strong>${esc(CAR_PLANS[k].n)}</strong><span class="muted">${esc(CAR_PLANS[k].t)}</span></button>`).join('')}</div>
         ${cur.rv ? `<div class="msg" style="margin:10px 0 0">Rivalry game: <strong>${esc(cur.rv)}</strong> is on the other side tonight.</div>` : ''}
         <div class="row" style="gap:8px;margin-top:12px"><button class="primary" id="car-tip">Tip off</button></div></div>`);
-      document.querySelectorAll('[data-carplan]').forEach(b => b.onclick = () => { cur.plan = b.dataset.carplan; planHtml(cur, lbl, intro); });
+      document.querySelectorAll('[data-carplan]').forEach(b => b.onclick = () => { cur.plan = b.dataset.carplan; planHtml(cur, lbl, intro, onTip); });
+      $('#car-tip').onclick = onTip;
     }
     function momentHtml(cur, lbl, p) {
       const sc = carScene(cur.sc[cur.step], cur), Q = QLBL[cur.step] || '', last = cur.res[cur.res.length - 1], pl = CAR_PLANS[cur.plan || 'bal'];
@@ -1119,7 +1120,7 @@ if (typeof window !== 'undefined') window.CAR = (function () {
     }
     // plan screen, then the moments; shared by college and pro games
     function runMoments(cur, lbl, p, intro, again, done) {
-      if (cur.tip === 0 && !cur.step) { planHtml(cur, lbl, intro); $('#car-tip').onclick = () => { carPlan(L, cur.plan || 'bal'); save(); again(); }; return; }
+      if (cur.tip === 0 && !cur.step) { planHtml(cur, lbl, intro, () => { carPlan(L, cur.plan || 'bal'); save(); again(); }); return; }
       if (cur.step >= cur.sc.length) { done(); return; }
       momentHtml(cur, lbl, p);
       document.querySelectorAll('[data-carop]').forEach(b => b.onclick = () => { carChoose(L, +b.dataset.carop); save(); again(); });

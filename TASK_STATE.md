@@ -55,7 +55,7 @@ Branch `claude/project-thread-p56evz`.
 - [x] 2. engine.js FLAVOR asw.* news + crowd-call lines
 - [x] 3. app.js aswCard/aswPanel/aswHistory, popup winner + confetti, Rules; styles .asw-*; cache v21
 - [x] 4. tools/asw.js PASS, tools/browser-asw.js ALL PASS
-- [ ] 5. PROGRESS.md updated; commit, push, PR (assignee + review request)
+- [x] 5. PROGRESS.md updated; pushed; PR #47 opened (review request refused: author cannot request own review; assignee not settable with the tools here)
 
 ---
 # TASK_STATE — Friendships and duos (Opus logic, Sonnet panel, Haiku text) — Nov 20 2026
@@ -64,7 +64,7 @@ Branch `claude/project-thread-gyg68h`.
 - [x] 2. engine.js: friends/duos on court add chemistry
 - [x] 3. app.js: Friends panel on player page, bonds on team chemistry panel, Rules text
 - [x] 4. Tests: unit sim (friends form, FA pull), browser check
-- [ ] 5. PROGRESS.md updated; commit, push, PR (assignee + review request)
+- [x] 5. PROGRESS.md updated; pushed; PR #47 opened (review request refused: author cannot request own review; assignee not settable with the tools here)
 
 ---
 # TASK_STATE — Live-game coaching (Opus engine, Sonnet UI) — Nov 20 2026
@@ -73,7 +73,7 @@ Branch `claude/project-thread-1t1i21`.
 - [x] 2. engine.js: coaching hooks (timeout, sub lock, play call, coverage incl. zone) + simDay/simPlayoffDay use L.preGame — done: liveGameStart, ctx.cmd, takePre; tools/live-coach.js 6/6 PASS; hash unchanged
 - [x] 3. app.js: Coach live flow (partial game on live screen, finish -> sim day), coaching panel UI — done: cgStart/cgGame/cgEnd/cgPanel, styles .cg-*; tools/browser-coach.js ALL PASS
 - [x] 4. Tests: hash unchanged, coaching changes results, browser check — done (see PROGRESS.md)
-- [ ] 5. PROGRESS.md updated; commit, push, PR (assignee + review request)
+- [x] 5. PROGRESS.md updated; pushed; PR #47 opened (review request refused: author cannot request own review; assignee not settable with the tools here)
 
 ---
 # TASK_STATE — Court dots act out real plays (Opus) — Nov 20 2026
@@ -784,4 +784,4 @@ Branch `claude/project-thread-vie062`. Tutorial = "How it works" page (src/app.j
 - [x] 2. src/app.js vRules: "Game modes: quick guide" (Franchise, Head Coach, My Career, Fantasy) + "What's new" (court view, live coaching, All-Star, combine, card rarity, logos, box scores, top plays); node --check OK
 - [x] 3. Browser check: How it works page renders in the single-file build, no page errors
 - [x] 4. Main re-checked (no new commits since base). My Career endorsement/sneaker/social/agent/rivalry/charity entries deferred until those threads merge
-- [ ] 5. PROGRESS.md updated; commit, push, PR (assignee + review request)
+- [x] 5. PROGRESS.md updated; pushed; PR #47 opened (review request refused: author cannot request own review; assignee not settable with the tools here)

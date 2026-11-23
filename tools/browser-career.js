@@ -11,7 +11,7 @@ const SHOTS = process.env.SHOTS;
   const ctx = await b.newContext({ viewport: { width: W, height: 900 } });
   await ctx.route(BASE + '**', r => { const f = path.join(ROOT, decodeURIComponent(new URL(r.request().url()).pathname)); if (!f.startsWith(ROOT) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) return r.fulfill({ status: 404, body: '' }); r.fulfill({ status: 200, body: fs.readFileSync(f), headers: { 'content-type': MIME[path.extname(f)] || 'application/octet-stream' } }); });
   const pg = await ctx.newPage(), errs = []; pg.on('pageerror', e => errs.push(String(e))); pg.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
-  await pg.goto(BASE + PAGE); await pg.evaluate(() => { try { localStorage.setItem('pbl-tour', 'done'); } catch (e) { } }); await pg.reload(); await wait(pg, 2500);
+  await pg.goto(BASE + PAGE); await pg.evaluate(() => { try { ['pbl-tour','pbl-tour-career','pbl-tour-coach','pbl-tour-fantasy'].forEach(k => localStorage.setItem(k, 'done')); } catch (e) { } }); await pg.reload(); await wait(pg, 2500);
   const tab = async k => { await pg.evaluate(k0 => { PBL.ui.carTab = k0; PBL.render(); }, k); await pg.waitForTimeout(250); };
   const shot = async n => { if (SHOTS) await pg.screenshot({ path: path.join(SHOTS, n + '.png') }); };
   // setup

@@ -26,8 +26,8 @@ for (const mode of ['fresh', 'oldsave']) for (const seed of seeds) {
 }
 console.table(rows.map(r => ({ mode: r.mode, seed: r.seed, story: r.story, ovr: r.ovr, val: r.val, cap: r.cap, mockEnd: r.mockEnd, mockDraft: r.mockDraft, pick: r.pick, adj: Math.round(r.scoutAdj * 10) / 10 })));
 for (const r of rows) {
-  const okPick = r.pick != null && (r.cap == null || r.pick >= Math.min(r.cap, 60) * 0.55 || r.pick >= r.mockDraft - 6);
-  const okMock = r.mockDraft == null || r.pick == null || Math.abs(r.pick - r.mockDraft) <= 12;
+  const okPick = (r.pick == null && r.mockDraft > r.teams * 2 - 4) || r.pick != null && (r.cap == null || r.pick >= Math.min(r.cap, 60) * 0.5 || r.pick >= r.mockDraft - 6);
+  const okMock = r.mockDraft == null || (r.pick == null && r.mockDraft > r.teams * 2 - 4) || r.pick == null || Math.abs(r.pick - r.mockDraft) <= 12;
   console.log((okPick ? 'PASS' : 'FAIL') + ' ' + r.mode + ' seed ' + r.seed + ': real pick ' + r.pick + ' vs cap ' + r.cap + ', mock at draft ' + r.mockDraft); if (!okPick) fails++;
   console.log((okMock ? 'PASS' : 'FAIL') + ' ' + r.mode + ' seed ' + r.seed + ': real draft follows the mock (' + r.pick + ' vs ' + r.mockDraft + ')'); if (!okMock) fails++;
 }

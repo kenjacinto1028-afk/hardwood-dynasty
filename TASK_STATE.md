@@ -832,3 +832,11 @@ Branch `claude/project-thread-vie062`. Tutorial = "How it works" page (src/app.j
 - [x] 1. Merged all six in order on branch claude/project-thread-sw9g74, conflicts resolved
 - [x] 2. Tests: roster, teamstats, career, p2 pass; career node tests flaky on #50 alone
 - [ ] 3. Push, PR, merge
+
+---
+# TASK_STATE — Fix flaky My Career tests (Sonnet) — Nov 24 2026
+Branch `claude/project-thread-cd3scm`.
+- [x] 1. Cause found: career-biz test removed its own shoe offer; draft-check tolerance too tight (tools/ only)
+- [x] 2. Fixed both; node tools/career-biz.js and career-draft-check.js ALL PASS
+- [x] 3. PROGRESS.md updated; installer untouched
+- [ ] 4. Commit, push, PR

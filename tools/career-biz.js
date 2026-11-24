@@ -23,7 +23,7 @@ r = J(`const B=carBizInit(L);B.offers=[];B.sawShoe=1;B.hype=70;L.players[L.caree
 ok('offers: at most one pending shoe offer per company, brands unique', r.sh >= 1 && r.br >= 1 && r.br <= 3, r);
 r = J(`const B=carBizInit(L);const so=B.offers.find(x=>x.kind==='shoe');const a1=so.amt;const c=carBizCounter(L,so.id);const c2=carBizCounter(L,so.id);const st=B.offers.find(x=>x.id===so.id);return {c:!!c.msg,twice:!!c2.err,up:c.up||false,amtNow:st?st.amt:null,a1};`);
 ok('agent counter works once per offer', r.c && r.twice, r);
-r = J(`const B=carBizInit(L);const so=B.offers.find(x=>x.kind==='shoe');let res={};if(so){res=carBizAccept(L,so.id);}const so2=B.offers.find(x=>x.kind==='shoe');let err2=null;if(so2)err2=carBizAccept(L,so2.id).err||null;
+r = J(`const B=carBizInit(L);if(!B.offers.find(x=>x.kind==='shoe')&&!B.deals.some(d=>d.kind==='shoe'))carBizMakeOffer(L,'shoe');const so=B.offers.find(x=>x.kind==='shoe');let res={};if(so){res=carBizAccept(L,so.id);}const so2=B.offers.find(x=>x.kind==='shoe');let err2=null;if(so2)err2=carBizAccept(L,so2.id).err||null;
 const br=B.offers.filter(x=>x.kind==='brand');let n=0;for(const b of br){if(carBizAccept(L,b.id).ok)n++;}
 return {shoe:!!res.ok,second:err2,brands:n,deals:B.deals.length};`);
 ok('accept: shoe slot is single, brand slots fill', r.shoe && (r.second == null || /already/.test(r.second)) && r.brands >= 1, r);

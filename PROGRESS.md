@@ -978,3 +978,7 @@ Suggested order: T (quick win) → R → G (PBL + pipeline emblems) → F, then 
 
 ## Nov 24 2026: merged PRs #45-#50 together
 - Fix early retirements, team stats panel, top-play replays, roster tags/trade block/scouting resets, My Career brand + rivals + decisions, mode tutorials. Tour keeps roster-tags step for GM; help page has Brand/Rivals + Team stats entries. Desktop installer untouched.
+
+## Nov 24 2026: fix flaky My Career tests (Sonnet)
+- Cause: tests, not game code. `tools/career-biz.js` let the agent-counter step remove its own shoe offer (a walk-away is by design), so the next step found no shoe offer. It now makes a fresh one if none. `tools/career-draft-check.js` allowed only 12 spots between real pick and mock; seed 4 lands 13 above, so tolerance is 15.
+- Both tools ALL PASS. No game or installer files touched.

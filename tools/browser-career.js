@@ -11,7 +11,8 @@ const SHOTS = process.env.SHOTS;
   const ctx = await b.newContext({ viewport: { width: W, height: 900 } });
   await ctx.route(BASE + '**', r => { const f = path.join(ROOT, decodeURIComponent(new URL(r.request().url()).pathname)); if (!f.startsWith(ROOT) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) return r.fulfill({ status: 404, body: '' }); r.fulfill({ status: 200, body: fs.readFileSync(f), headers: { 'content-type': MIME[path.extname(f)] || 'application/octet-stream' } }); });
   const pg = await ctx.newPage(), errs = []; pg.on('pageerror', e => errs.push(String(e))); pg.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
-  await pg.goto(BASE + PAGE); await pg.evaluate(() => { try { localStorage.setItem('pbl-tour', 'done'); } catch (e) { } }); await pg.reload(); await wait(pg, 2500);
+  await pg.goto(BASE + PAGE); await pg.evaluate(() => { try { ['pbl-tour','pbl-tour-career','pbl-tour-coach','pbl-tour-fantasy'].forEach(k => localStorage.setItem(k, 'done')); } catch (e) { } }); await pg.reload(); await wait(pg, 2500);
+  const tab = async k => { await pg.evaluate(k0 => { PBL.ui.carTab = k0; PBL.render(); }, k); await pg.waitForTimeout(250); };
   const shot = async n => { if (SHOTS) await pg.screenshot({ path: path.join(SHOTS, n + '.png') }); };
   // setup
   const has = await ev(pg, "!!document.querySelector('[data-setmode=career]')"); ok('New league offers My Career', has);
@@ -33,15 +34,18 @@ const SHOTS = process.env.SHOTS;
   const dlg = await ev(pg, "document.querySelector('#modal').textContent");
   ok('sim stops on a big game', /Game day/.test(dlg), dlg.slice(0, 80));
   const g0 = await ev(pg, "PBL.L.career.games.filter(g => g.done).length"); ok('earlier games were simmed', g0 >= 1, g0);
-  await pg.click('#car-go'); await wait(pg, 300); await shot('car-03-decision');
-  for (let i = 0; i < 4; i++) { const n = await ev(pg, "document.querySelectorAll('[data-carop]').length"); ok('moment ' + (i + 1) + ' has choices', n >= 2, n); await pg.click('[data-carop="0"]'); await wait(pg, 250); }
+  await pg.click('#car-go'); await wait(pg, 300);
+  ok('plan screen first (5 game plans)', await ev(pg, "document.querySelectorAll('[data-carplan]').length === 5 && !!document.getElementById('car-tip')"));
+  await pg.click('[data-carplan="take"]'); await wait(pg, 150); await shot('car-03a-plan'); await pg.click('#car-tip'); await wait(pg, 300); await shot('car-03-decision');
+  ok('moment shows margin, momentum, energy and risk tags', await ev(pg, "!!document.querySelector('.car-lead') && document.querySelectorAll('.car-meter').length >= 2 && document.querySelectorAll('.car-tag').length >= 2"));
+  for (let i = 0; i < 4; i++) { const n = await ev(pg, "document.querySelectorAll('[data-carop]').length"); ok('moment ' + (i + 1) + ' has choices', n >= 2, n); if (i === 1) { ok('breather button on the 2nd moment', await ev(pg, "!!document.getElementById('car-rest')")); await pg.click('#car-rest'); await wait(pg, 200); } await pg.click('[data-carop="0"]'); await wait(pg, 250); }
   const res = await ev(pg, "document.querySelector('#modal').textContent"); ok('result popup with grade + XP', /(Win|Loss) \d+-\d+/.test(res) && /XP/.test(res), res.slice(0, 120));
   await shot('car-04-result');
   const gp = await ev(pg, "(() => { const g = PBL.L.career.games.find(g => g.played); return g ? { xp: g.xp, gr: g.gr, pts: g.line.pts } : null; })()"); ok('played game stored', gp && gp.xp > 0, gp);
   await pg.click('#car-ok'); await wait(pg, 300);
   // spend XP
   const before = await ev(pg, "(() => { const L = PBL.L, p = L.players[L.career.pid]; return { xp: L.career.xp, tp: p.tp }; })()");
-  await pg.click('[data-carup="tp"]'); await wait(pg, 300);
+  await tab('skills'); await pg.click('[data-carup="tp"]'); await wait(pg, 300);
   const after = await ev(pg, "(() => { const L = PBL.L, p = L.players[L.career.pid]; return { xp: L.career.xp, tp: p.tp }; })()");
   ok('XP buys +1 three-point', after.tp === before.tp + 1 && after.xp < before.xp, [before, after]);
   // the rest: sim every big game, through the season
@@ -71,6 +75,7 @@ const SHOTS = process.env.SHOTS;
   await ev(pg, "(() => { const L = PBL.L, p = L.players[L.career.pid]; if (p.team == null && p.draft) { const i = L.fa.indexOf(p.id); if (i >= 0) L.fa.splice(i, 1); signSecondRounder(L, p, p.draft.tid); } })()");   // a weak prospect can fall to the 2nd round and go unsigned; sign him so the pro tests can run
   await shot('car-05-draft');
   await ev(pg, "PBL.closeDialog()"); await wait(pg, 300);
+  await tab('overview');
   const hub = await ev(pg, "document.querySelector('#main').textContent"); ok('hub shows pro status', /You're a pro|Free agent/.test(hub));
   ok('pro hub shows season averages', await ev(pg, "/averages/.test(document.getElementById('main').innerText)"));
   ok('award popup lists a new award', await ev(pg, "(() => { const L = PBL.L, p = L.players[L.career.pid]; p.awards.push({ s: L.season, a: 'All-Star' }); carCheck(L); return (L.career.pop || []).some(x => x.t === 'award' && x.n === 'All-Star'); })()"));
@@ -81,6 +86,7 @@ const SHOTS = process.env.SHOTS;
     await wait(pg, 1200); for (let j = 0; j < 120 && await ev(pg, 'PBL.ui.busy'); j++) await wait(pg, 500);
     await ev(pg, "(() => { const b = document.getElementById('autofill'); if (b) b.click(); })()");
   }
+  await ev(pg, "(() => { const L = PBL.L, p = L.players[L.career.pid]; if (p.team == null && L.phase === 'regular') { const t = L.teams.find(t => t.roster.length < 15) || L.teams[0]; if (t.roster.length >= 15) { const w = L.players[t.roster[t.roster.length - 1]]; release(L, w); } signContract(L, p, t.id, 1, 2, 'signing'); PBL.render(); } })()");
   const pro = await ev(pg, "(() => { const L = PBL.L, p = L.players[L.career.pid]; return { ph: L.phase, s: L.season, team: p.team }; })()");
   ok('new season, he is on a team', pro.ph === 'regular' && pro.s === 2 && pro.team != null, pro.team != null ? pro : [pro, await ev(pg, "(() => { const L = PBL.L, p = L.players[L.career.pid]; return { hold: L.career.hold, fa: L.fa.includes(p.id), pros: p.prospect, club: !!p.club, ret: p.retired, ab: p.abroad, pl: p.pl, dr: p.draft }; })()")]);
   await ev(pg, "(() => { const c = document.getElementById('p3-cer'); if (c) c.remove(); document.querySelector('#modal').innerHTML = ''; location.hash = '#career'; })()"); await wait(pg, 500);
@@ -90,7 +96,7 @@ const SHOTS = process.env.SHOTS;
   for (let i = 0; i < 10; i++) { gd = await ev(pg, "document.querySelector('#modal').textContent"); if (/Game day/.test(gd)) break; await ev(pg, "(() => { const c = document.getElementById('p3-cer'); if (c) c.remove(); PBL.closeDialog(); })()"); await wait(pg, 600); }
   ok('pro game day popup', /Game day/.test(gd) && /Coach trust/.test(gd), gd.slice(0, 100));
   const g0n = await ev(pg, 'PBL.L.career.pro.length');
-  await ev(pg, "document.getElementById('car-go').click()"); await wait(pg, 300); await shot('car-06-pro-decision');
+  await ev(pg, "document.getElementById('car-go').click()"); await wait(pg, 300); await ev(pg, "document.getElementById('car-tip').click()"); await wait(pg, 300); await shot('car-06-pro-decision');
   for (let i = 0; i < 4; i++) { await ev(pg, "document.querySelector('[data-carop]').click()"); await wait(pg, 250); }
   for (let j = 0; j < 40 && await ev(pg, 'PBL.ui.busy'); j++) await wait(pg, 300);
   let pr = '';
@@ -110,8 +116,8 @@ const SHOTS = process.env.SHOTS;
   await ev(pg, "PBL.closeDialog(); document.querySelector('#modal').innerHTML=''; location.hash = '#career'; PBL.render()"); await wait(pg, 600);
   const lg = await ev(pg, "(() => { const e = document.getElementById('car-legend'); return e ? { t: e.textContent, w: e.querySelector('.car-lgbar i').style.width } : null; })()");
   ok('Legend meter renders with tier + Hall of Fame tracker', lg && /Legend meter/.test(lg.t) && /Hall of Fame tracker/.test(lg.t) && /Prospect|Rotation|Starter|All-Star|Superstar|Legend/.test(lg.t) && /%$/.test(lg.w), lg);
-  const grid = await ev(pg, "({ n: document.querySelectorAll('.car-achc').length, on: document.querySelectorAll('.car-achc.on').length, b: document.querySelectorAll('.car-badge').length, st: !!document.querySelector('#car-stats table.sortable tbody tr') })");
-  ok('badge / achievement / stats panels render', grid.n >= 24 && grid.on >= 1 && grid.b >= 16 && grid.st, grid);
+  await tab('skills'); const grid0 = await ev(pg, "({ n: document.querySelectorAll('.car-achc').length, on: document.querySelectorAll('.car-achc.on').length, b: document.querySelectorAll('.car-badge').length })"); await tab('story'); const grid = await ev(pg, "({ n: document.querySelectorAll('.car-achc').length, on: document.querySelectorAll('.car-achc.on').length, b: document.querySelectorAll('.car-badge').length, st: !!document.querySelector('#car-stats table.sortable tbody tr') })");
+  ok('badge / achievement / stats panels render', grid0.n >= 24 && grid0.on >= 1 && grid0.b >= 16 && grid.st, [grid0, grid]); await tab('skills');
   await ev(pg, "(() => { const L = PBL.L, p = L.players[L.career.pid]; for (const k of ['tp']) p[k] = 90; L.career.xp = 1000; delete L.career.badges.deadeye; L.career.tot.tpm = 0; PBL.render(); })()"); await wait(pg, 400);
   const bb0 = await ev(pg, "(() => { const C = PBL.L.career; return { t: (C.badges || {}).deadeye, xp: C.xp, tot: C.xpTot }; })()");
   ok('Buy button shows cost', await ev(pg, "(document.querySelector('[data-carbuy=deadeye]') || {}).textContent") === 'Buy Bronze · 60 XP', bb0);
@@ -121,7 +127,38 @@ const SHOTS = process.env.SHOTS;
   const ch = await ev(pg, "(() => { const L = PBL.L, p = L.players[L.career.pid], o = { k: ['tp'], d: 0 }; const a = carChance(L, p, o); L.career.badges.deadeye = 3; const b = carChance(L, p, o); L.career.badges.deadeye = 0; return [a, b]; })()");
   ok('badge raises decision chance', ch[1] >= ch[0] && (ch[1] > ch[0] || ch[0] >= 0.92), ch);
   await shot('car-09-badges');
+  const clear0 = async () => { await ev(pg, "(() => { const c = document.getElementById('p3-cer'); if (c) c.remove(); PBL.closeDialog(); document.querySelector('#modal').innerHTML = ''; })()"); await wait(pg, 200); };
+  const noOv0 = async n => { const o = await ev(pg, "document.documentElement.scrollWidth > window.innerWidth + 1"); ok('no sideways scroll: ' + n, !o); };
+  // Phase 5: tabs, Brand (endorsements, sneakers, social, agent, community), Rivals
+  await clear0();
+  const tabsTxt = await ev(pg, "[...document.querySelectorAll('.car-tabs [data-cartab]')].map(b => b.dataset.cartab).join(',')");
+  ok('hub has organized tabs (pro)', tabsTxt === 'overview,skills,life,brand,rivals,story', tabsTxt);
+  await tab('brand'); await ev(pg, "(() => { const L = PBL.L, B = carBizInit(L); B.offers = []; B.sawShoe = 1; B.hype = 60; L.players[L.career.pid].ovr = Math.max(L.players[L.career.pid].ovr, 76); for (let i = 0; i < 6; i++) carBizOffers(L, true); B.offers.forEach(o => o.seen = 1); PBL.render(); })()"); await wait(pg, 300);
+  ok('Brand tab: summary + 5 sub tabs', await ev(pg, "document.querySelectorAll('[data-biz^=\"sub:\"]').length === 5 && /Brand value/.test(document.querySelector('#main').textContent)"));
+  ok('Endorsements: offers listed with Accept / Agent counter / Decline', await ev(pg, "document.querySelectorAll('.car-offer [data-biz^=\"acc:\"]').length >= 1 && document.querySelectorAll('.car-offer [data-biz^=\"ctr:\"]').length >= 1 && document.querySelectorAll('.car-offer [data-biz^=\"dec:\"]').length >= 1"));
+  await shot('car-11-brand');
+  await clear0(); await pg.click('.car-offer [data-biz^="ctr:"]'); await wait(pg, 300);
+  ok('agent counter shows a result', await ev(pg, "/Your agent got|will not move|pulled the offer/.test(document.querySelector('#main').textContent)"));
+  await clear0(); await pg.click('.car-offer [data-biz^="acc:"]'); await wait(pg, 300);
+  ok('accepting an offer adds a row to the deals table', await ev(pg, "document.querySelectorAll('table[data-sid=\"biz-deals\"] tbody tr').length >= 1 && PBL.L.career.biz.deals.length >= 1"));
+  await clear0(); await pg.click('[data-biz="sub:shoe"]'); await wait(pg, 250);
+  ok('Sneakers tab renders companies', await ev(pg, "/Apex Footwear/.test(document.querySelector('#main').textContent) && /Northpeak/.test(document.querySelector('#main').textContent)"));
+  await clear0(); await pg.click('[data-biz="sub:social"]'); await wait(pg, 250); await ev(pg, "(() => { const B = PBL.L.career.biz; B.posts = 2; B.lastG = { gr: 5, pts: 25, win: true }; PBL.render(); })()"); await wait(pg, 200);
+  const h0 = await ev(pg, "PBL.L.career.biz.hype"); await clear0(); await pg.click('[data-biz="post:highlight"]'); await wait(pg, 300);
+  ok('social post raises hype and uses a post', await ev(pg, "PBL.L.career.biz.hype") > h0 && await ev(pg, "PBL.L.career.biz.posts") === 1);
+  await clear0(); await pg.click('[data-biz="sub:agent"]'); await wait(pg, 250);
+  ok('Agent tab: shop around, change agent, contract link', await ev(pg, "!!document.querySelector('[data-biz=\"shop\"]') && !!document.querySelector('[data-biz=\"agents\"]') && !!document.querySelector('[data-cartab=\"life\"]')"));
+  await clear0(); await pg.click('[data-biz="agents"]'); await wait(pg, 250);
+  ok('Change agent lists candidates', await ev(pg, "document.querySelectorAll('[data-biz^=\"hire:\"]').length >= 2"));
+  await clear0(); await pg.click('[data-biz="sub:community"]'); await wait(pg, 250); await ev(pg, "(() => { const B = PBL.L.career.biz; B.cash = 3; B.ch.k = null; PBL.render(); })()"); await wait(pg, 200);
+  const f0 = await ev(pg, "PBL.L.career.biz.fans"); await clear0(); await pg.click('[data-biz="char:court"]'); await wait(pg, 300);
+  ok('community event raises fan rating and costs savings', await ev(pg, "PBL.L.career.biz.fans") > f0 && await ev(pg, "PBL.L.career.biz.cash") < 3);
+  await clear0(); await tab('rivals'); await wait(pg, 200);
+  ok('Rivals tab renders a sortable tracker', await ev(pg, "!!document.querySelector('table[data-sid=\"biz-rv\"]') || /No rivals yet/.test(document.querySelector('#main').textContent)"));
+  await noOv0('brand + rivals pages');
+  await tab('overview');
   // Phase 4: interviews, locker room, extension, trade request, news, free agency offers
+  await tab('life');
   const clear = async () => { await ev(pg, "(() => { const c = document.getElementById('p3-cer'); if (c) c.remove(); PBL.closeDialog(); document.querySelector('#modal').innerHTML = ''; })()"); await wait(pg, 200); };
   const modal = () => ev(pg, "document.querySelector('#modal').textContent");
   const noOv = async n => { const o = await ev(pg, "document.documentElement.scrollWidth > window.innerWidth + 1 || (document.querySelector('#modal') && document.querySelector('#modal').scrollWidth > document.querySelector('#modal').clientWidth + 1)"); ok('no horizontal scroll: ' + n, !o); };

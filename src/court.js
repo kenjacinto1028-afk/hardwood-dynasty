@@ -483,36 +483,158 @@
   function hexA(h, a) { const c = hexRgb(h); return `rgba(${c[0]},${c[1]},${c[2]},${a})`; }
 
   // ---------- top-plays reel: one play on the right half court, looping ----------
-  // play: { kind, pid, tid, oppTid, zone, type, ast, other, made }
+  // play: { kind D/3/A/P/B/G, pid, tid, oppTid, zone, type (0 dunk .. 4 three), ast, other, gid, k, q, c }
+  // v33f: every kind has its own staging (alley-oop, drive and slam, fast break, cut, drive and kick, curl off a screen,
+  // step-back, floater, fadeaway, putback off a miss, chase-down / help-side / closeout blocks, iso game-winner), and a
+  // seed from the game, the play and the clock picks a variation, so two dunks never look the same.
   function reel(el, p, ms) {
     const L = CX().L; if (!L || !p) return;
-    const T = L.teams[p.tid], O = L.teams[p.oppTid] || T, cols = teamCols(T, O), right = true, B = hoop(right);
-    const skip = fx().skip, dur = skip ? 0 : (ms || 2600);
-    const shotTeam = p.kind === 'B' ? 1 : 0;   // a block: the hero is on defense
-    const oc = cols[shotTeam], dc = cols[1 - shotTeam];
-    const shooterId = p.kind === 'B' ? p.other : p.pid, num = id => { const x = L.players[id]; return x && x.num != null ? x.num : ''; };
-    const spot = p.type <= 1 ? [B[0] - 2.2, 25.6] : zoneSpot(p.zone, (p.pid || 1) * 31 + (p.zone || 0), right);
-    const F = formation([1, 2, 3, 4, 5], [6, 7, 8, 9, 10], right, (p.pid || 1) * 17);
-    const dots = {}, sc = { el, half: true, t0: performance.now(), dur, dots, loop: skip ? 0 : 900, paint: hexA(T.c1 || '#888', 0.18) };
-    const offIds = [shooterId, p.ast || -2, -3, -4, -5], fp = [F.o[1], F.o[2], F.o[3], F.o[4], F.o[5]];
-    offIds.forEach((id, k) => { const h = fp[k]; dots[id] = { kf: id === shooterId ? (p.type <= 1 ? [[0, 70, 25 + (k - 2) * 4], [0.3, h[0], h[1]], [0.58, spot[0] - 5, spot[1] + 3], [0.64, spot[0], spot[1]]] : [[0, h[0] - 6, h[1]], [0.35, h[0], h[1]], [0.5, spot[0], spot[1]]]) : [[0, h[0] - 6, h[1]], [0.4, h[0], h[1]]], col: oc, num: id > 0 ? num(id) : '' }; });
-    const hero = p.kind === 'B' ? p.pid : null;
-    [hero || -6, -7, -8, -9, -10].forEach((id, k) => { const g0 = F.d[k + 6]; dots[id] = { kf: k === 0 ? [[0, g0[0] - 5, g0[1]], [0.35, g0[0], g0[1]], [0.62, spot[0] + 1.2, spot[1] + 0.6]] : [[0, g0[0] - 5, g0[1]], [0.4, g0[0], g0[1]]], col: dc, num: id > 0 ? num(id) : '' }; });
-    const ps = [...offIds].map(id => at(dots[id].kf, 0.3)), sp = at(dots[shooterId].kf, 0.64), ball = [];
-    const holder = p.ast ? p.ast : shooterId, h3 = at(dots[holder].kf, 0.35);
-    ball.push([0, h3[1] - 6, h3[2], 2], [0.35, h3[1], h3[2], 3]);
-    if (p.ast) ball.push([0.48, sp[1], sp[2], 4, 'lin']);
-    ball.push([0.64, sp[1], sp[2], p.type === 0 ? 9 : 7]);
-    if (p.kind === 'B') { const bp = at(dots[hero || -6].kf, 0.66); ball.push([0.68, bp[1], bp[2], 9, 'lin'], [1, bp[1] - 14, bp[2] + 9, 0]); }
-    else if (p.type === 0) ball.push([0.78, B[0], B[1], 10.5, 'lin'], [0.9, B[0], B[1], 4], [1, B[0] - 1, B[1] + 0.5, 0]);
-    else ball.push([0.84, B[0], B[1], 10, 'arc', p.type === 4 ? 10 : 6], [0.93, B[0], B[1], 5, 'lin'], [1, B[0] - 1, B[1] + 0.6, 0]);
-    sc.ball = ball; sc.hi = p.kind === 'B' ? (hero || -6) : shooterId; sc.hiFrom = 0.25;
-    if (p.kind !== 'B') sc.pop = { at: p.type === 0 ? 0.8 : 0.86, x: B[0], y: B[1], text: p.type === 4 ? '+3' : p.kind === 'A' ? '+2 & 1' : '+2', col: oc.fill === '#ffffff' ? oc.line : oc.fill };
-    sc.onShotAt = p.kind === 'B' ? 0.67 : p.type === 0 ? 0.8 : 0.86;
-    sc.onShot = () => { if (!window.FX) return; FX.sfx(p.kind === 'B' ? 'block' : p.type === 0 ? 'dunk' : 'swish'); };
+    const T = L.teams[p.tid], O = L.teams[p.oppTid] || T, cols = teamCols(T, O), B = hoop(true), HX = B[0];
+    const skip = fx().skip, dur = skip ? 0 : (ms || 2600), isB = p.kind === 'B';
+    const oc = cols[isB ? 1 : 0], dc = cols[isB ? 0 : 1];
+    const num = id => { const x = L.players[id]; return x && x.num != null ? x.num : ''; };
+    const nm = id => { const x = L.players[id]; return x && typeof shortName === 'function' ? shortName(x) : ''; };
+    const seed = (p.gid || 1) * 7919 + (p.k || 0) * 131 + (p.pid || 1) * 31 + (p.q || 0) * 17 + (p.c || 0);
+    const rg = CX().scRng ? CX().scRng(seed) : Math.random;
+    const sd = rg() < 0.5 ? -1 : 1, vr = Math.floor(rg() * 3);
+    const S = isB ? (p.other || -1) : p.pid, A = p.ast || -2, Hd = isB ? p.pid : -6;
+    const ty = p.type == null ? 2 : p.type, rim = ty <= 1 && p.kind !== 'P';
+    const spot = ty <= 1 ? [HX - 2, 25 + sd * 0.8] : zoneSpot(p.zone, seed, true);
+    const F = formation([1, 2, 3, 4, 5], [6, 7, 8, 9, 10], true, seed);
+    const offIds = [S, A, -3, -4, -5], defIds = [Hd, -7, -8, -9, -10];
+    const od = {}, dd = {};
+    let ball = [], banner = '', tag = null, pop = null, hitAt = 0.8, sfx = 'swish', screens = null, trails = null, hi = S;
+    const base = ty === 4 ? 3 : 2, ptxt = '+' + base + ((p.kind === 'A' || (p.kind === 'G' && p.other)) ? ' & 1' : '');
+    const arr = id => od[id] || dd[id];
+    const bp = (id, t, z) => { const q = at(arr(id), t); return [t, q[1], q[2], z]; };
+    const dribble = (id, t0, t1) => { const out = []; for (let t = t0, i = 0; t <= t1 + 1e-6; t += 0.1, i++) out.push(bp(id, t, i % 2 ? 0.8 : 2.8)); return out; };
+    const dunkEnd = t => [[t, HX, 25, 10.5, 'lin'], [t + 0.1, HX, 25, 4], [1, HX - 1, 25.5, 0]];
+    const shotEnd = (t, peak) => [[t, HX, 25, 10, 'arc', peak], [t + 0.08, HX, 25, 5, 'lin'], [1, HX - 1, 25.6, 0]];
+    const cw = spot[1] >= 25 ? 1 : -1;   // side of the floor the shot is on
+    // fillers keep their spacing out of the way of the action
+    od[-3] = [[0, 70, 25 - sd * 18], [1, 71, 25 - sd * 18]]; od[-4] = [[0, 80, 25 - sd * 21], [1, 80, 25 - sd * 21]]; od[-5] = [[0, 62, 25 - sd * 4], [1, 63, 25 - sd * 4]];
+    dd[-7] = [[0, 72, 25 - sd * 16], [1, 73, 25 - sd * 16]]; dd[-8] = [[0, 82, 25 - sd * 19], [1, 82, 25 - sd * 19]]; dd[-9] = [[0, 65, 25 - sd * 5], [1, 66, 25 - sd * 5]]; dd[-10] = [[0, 82, 25 - sd * 5], [1, 83, 25 - sd * 5]];
+
+    // ---- finish at the rim (dunks, layups, chase-down blocks) ----
+    function rimPlay(label) {
+      const lob = !isB && p.ast && p.kind === 'D' && vr < 2, cut = !isB && p.ast && !lob;
+      const rimSpot = [HX - 1.8, 25 + sd * 0.8];
+      if (lob) {   // alley-oop: passer up top, shooter cuts down the lane
+        label = 'Alley-oop';
+        od[S] = [[0, 74, 25 - sd * 15], [0.3, 78, 25 - sd * 17], [0.56, 86, 25 - sd * 6], [0.68, rimSpot[0], rimSpot[1]]];
+        dd[Hd] = [[0, 75, 25 - sd * 13], [0.3, 79, 25 - sd * 14], [0.6, 84, 25 - sd * 5], [0.68, HX - 3.2, 25 - sd * 2]];
+        od[A] = [[0, 63, 25 + sd * 6], [1, 65, 25 + sd * 4]];
+        ball = [[0, 63, 25 + sd * 6, 3], [0.34, 64, 25 + sd * 5, 4], [0.66, rimSpot[0], rimSpot[1], 11.5, 'arc', 9], ...dunkEnd(0.74)];
+        hitAt = 0.74;
+      } else if (cut) {   // catch on the cut and finish
+        label = p.kind === 'A' ? 'Cut, finish and the foul' : 'Cut and slam';
+        od[S] = [[0, 78, 25 + sd * 16], [0.35, 82, 25 + sd * 10], [0.52, 85.5, 25 + sd * 4], [0.68, rimSpot[0], rimSpot[1]]];
+        dd[Hd] = [[0, 79, 25 + sd * 13], [0.4, 82, 25 + sd * 9], [0.7, HX - 3.4, 25 + sd * 2.2]];
+        od[A] = [[0, 64, 25 - sd * 3], [0.3, 66, 25 - sd * 2], [1, 66, 25 - sd * 2]];
+        ball = [[0, 64, 25 - sd * 3, 3], [0.3, 66, 25 - sd * 2, 4], [0.5, 85.5, 25 + sd * 4, 6, 'lin'], [0.52, 85.5, 25 + sd * 4, 5], [0.6, rimSpot[0], rimSpot[1], 5], ...(p.kind === 'A' ? shotEnd(0.72, 2) : dunkEnd(0.72))];
+        hitAt = 0.72; trails = [S];
+      } else if (vr === 0) {   // wing drive
+        label = label || 'Drive to the rim';
+        od[S] = [[0, 66, 25 + sd * 17], [0.28, 70, 25 + sd * 13], [0.52, 80, 25 + sd * 6], [0.68, rimSpot[0], rimSpot[1]]];
+        dd[Hd] = [[0, 68, 25 + sd * 15], [0.28, 69, 25 + sd * 12], [0.55, 80, 25 + sd * 5.5], [0.7, HX - 3.6, 25 + sd * 2.6]];
+        dd[-10] = [[0, 82, 25 - sd * 5], [0.55, 84, 25 - sd * 4], [0.65, HX - 3.4, 25 - sd * 0.6]];
+        ball = [...dribble(S, 0, 0.5), bp(S, 0.6, 5), ...(rim && p.kind === 'D' ? dunkEnd(0.72) : shotEnd(0.76, 2))]; hitAt = 0.72; trails = [S];
+      } else if (vr === 1) {   // baseline drive
+        label = label || 'Baseline drive';
+        od[S] = [[0, 74, 25 + sd * 21], [0.36, 86, 25 + sd * 19], [0.58, HX + 1.4, 25 + sd * 8], [0.7, rimSpot[0], rimSpot[1]]];
+        dd[Hd] = [[0, 75, 25 + sd * 19], [0.38, 85, 25 + sd * 17], [0.6, HX + 1, 25 + sd * 7], [0.72, HX - 3, 25 + sd * 3.4]];
+        ball = [...dribble(S, 0, 0.5), bp(S, 0.6, 5), ...(rim && p.kind === 'D' ? dunkEnd(0.74) : shotEnd(0.78, 2))]; hitAt = 0.74; trails = [S];
+      } else {   // fast break
+        label = label || 'Fast break';
+        od[S] = [[0, 49, 25 - sd * 7], [0.34, 66, 25 - sd * 3], [0.58, 82, 25 - sd * 1.5], [0.7, rimSpot[0], rimSpot[1]]];
+        dd[Hd] = [[0, 46, 25 - sd * 11], [0.4, 62, 25 - sd * 8], [0.72, HX - 8, 25 - sd * 5]];
+        od[A] = [[0, 49, 25 + sd * 8], [0.5, 74, 25 + sd * 7], [1, 80, 25 + sd * 8]];
+        ball = [...dribble(S, 0, 0.5), bp(S, 0.6, 5), ...(rim && p.kind === 'D' ? dunkEnd(0.74) : shotEnd(0.78, 2))]; hitAt = 0.74; trails = [S];
+      }
+      banner = label;
+      if (isB) {   // the chaser (or the help defender) gets there and swats it
+        const s0 = at(od[S], 0.64);
+        if (vr === 2) dd[Hd] = [[0, HX - 10, 25 - sd * 8], [0.35, HX - 8, 25 - sd * 6], [0.64, s0[1] + 0.8, s0[2] - sd * 1.2]];
+        else dd[Hd] = [[0, 56, s0[2] + sd * 5], [0.35, 68, s0[2] + sd * 3], [0.64, s0[1] - 1.2, s0[2] + sd * 1.4]];
+        if (vr === 2) banner = 'Help-side block'; else banner = 'Chase-down block';
+        ball = [...dribble(S, 0, 0.5), bp(S, 0.58, 8), [0.64, s0[1], s0[2], 9.5], [0.7, s0[1] - 4, s0[2] + sd * 5, 8, 'lin'], [1, s0[1] - 15, s0[2] + sd * 11, 0]];
+        hitAt = 0.66; hi = Hd;
+      }
+      if (p.kind === 'A') { const s1 = at(od[S], 0.62); dd[Hd] = [[0, dd[Hd][0][1], dd[Hd][0][2]], [0.5, s1[1] - 3, s1[2] - sd * 1.5], [0.62, s1[1] - 1.4, s1[2] - sd * 0.7], [0.8, s1[1] - 2.2, s1[2] - sd * 1.5]]; tag = { id: Hd, text: 'Foul', from: 0.62, col: '#ffb3a8' }; }
+    }
+
+    // ---- jumpers (threes, mid-range, floaters, game-winners) ----
+    function jumper(label) {
+      const asst = !!p.ast, corner = ty === 4 && (p.zone === 9 || p.zone === 13 || spot[1] < 9 || spot[1] > 41), iso = p.kind === 'G';
+      const lag = ty === 4 ? 3.2 : 2.4;
+      if (asst && corner) {   // drive and kick to the corner
+        label = 'Drive and kick';
+        od[A] = [[0, 62, 25 - cw * 8], [0.36, 77, 25 - cw * 2.5], [0.5, 80, 25 - cw * 1.5], [1, 80, 25 - cw * 1.5]];
+        dd[-7] = [[0, 64, 25 - cw * 8], [0.4, 74, 25 - cw * 3.5], [0.6, 77, 25 - cw * 2]];
+        od[S] = [[0, spot[0] - 1, spot[1]], [0.45, spot[0], spot[1]], [1, spot[0], spot[1]]];
+        dd[Hd] = [[0, spot[0] - 2.5, spot[1] - cw * 3], [0.4, spot[0] - 4.5, spot[1] - cw * 7], [0.62, spot[0] - lag, spot[1] - cw * 1.3]];
+        ball = [...dribble(A, 0, 0.3), bp(A, 0.38, 3), [0.5, spot[0], spot[1], 5, 'lin'], [0.56, spot[0], spot[1], 4], [0.62, spot[0], spot[1], 7], ...shotEnd(0.84, ty === 4 ? 10 : 7)]; trails = [A];
+      } else if (asst) {   // curl off a screen, catch and shoot
+        label = ty === 4 ? 'Curl off the screen, three' : 'Off the screen, catch and shoot';
+        const s30 = [spot[0] - 4, spot[1] - cw * 8];
+        od[S] = [[0, spot[0] - 1, 25 - cw * 14], [0.2, s30[0] + 2, s30[1] - cw * 3], [0.34, s30[0], s30[1] + cw * 1], [0.54, spot[0], spot[1]], [1, spot[0], spot[1]]];
+        od[-3] = [[0, s30[0] - 1, s30[1] - cw * 2], [1, s30[0] - 1, s30[1] - cw * 2]];
+        dd[Hd] = [[0, spot[0] - 2, 25 - cw * 12], [0.24, s30[0] + 3, s30[1] - cw * 5], [0.4, s30[0] + 2, s30[1] - cw * 2], [0.62, spot[0] - lag, spot[1] - cw * 1.8]];
+        od[A] = [[0, 61, 25 + cw * 2], [1, 62, 25 + cw * 2]];
+        screens = [{ id: -3, user: S, t0: 0.2, t1: 0.42 }];
+        ball = [[0, 61, 25 + cw * 2, 3], [0.38, 61, 25 + cw * 2, 4], [0.52, spot[0], spot[1], 5, 'lin'], [0.55, spot[0], spot[1], 4], [0.62, spot[0], spot[1], 7], ...shotEnd(0.84, ty === 4 ? 10 : 7)]; trails = [S];
+      } else if (ty === 2) {   // floater in the lane
+        label = 'Floater over the big';
+        od[S] = [[0, 68, 25 - cw * 14], [0.3, 74, 25 - cw * 8], [0.54, spot[0], spot[1]], [1, spot[0] + 0.4, spot[1]]];
+        dd[Hd] = [[0, 69, 25 - cw * 11], [0.34, 75, 25 - cw * 6], [0.56, spot[0] - 2.4, spot[1] - cw * 1.2]];
+        dd[-10] = [[0, 82, 25 - cw * 4], [0.5, 84, 25 - cw * 2.5], [0.62, HX - 3.4, 25 - cw * 0.6]];
+        ball = [...dribble(S, 0, 0.4), bp(S, 0.54, 4), [0.6, spot[0], spot[1], 7], ...shotEnd(0.84, 8)]; trails = [S];
+      } else {   // off the dribble: step-back, pull-up or fadeaway
+        const fade = ty === 3 && vr === 2;
+        label = ty === 4 ? (vr === 0 ? 'Step-back three' : 'Pull-up three') : fade ? 'Fadeaway' : 'Pull-up jumper';
+        const sb = vr === 0 && ty === 4;
+        if (sb) { od[S] = [[0, spot[0] - 6, spot[1] - cw * 6], [0.32, spot[0] + 2.5, spot[1] - cw * 2.5], [0.52, spot[0] - 0.8, spot[1]], [1, spot[0] - 0.8, spot[1]]]; dd[Hd] = [[0, spot[0] - 3.5, spot[1] - cw * 5], [0.34, spot[0] + 4, spot[1] - cw * 2], [0.52, spot[0] + 1, spot[1] - cw * 1.2], [0.64, spot[0] + 0.6, spot[1] - cw * 0.9]]; }
+        else if (fade) { od[S] = [[0, spot[0] - 5, spot[1] - cw * 5], [0.46, spot[0] + 1, spot[1] - cw * 1], [0.62, spot[0] - 1.2, spot[1] + cw * 0.4], [1, spot[0] - 1.2, spot[1] + cw * 0.4]]; dd[Hd] = [[0, spot[0] - 3, spot[1] - cw * 4], [0.46, spot[0] + 3, spot[1] - cw * 1.5], [0.62, spot[0] + 1.6, spot[1] - cw * 0.8]]; }
+        else { od[S] = [[0, spot[0] - 8, 25 - cw * 5], [0.3, spot[0] - 4, spot[1] - cw * 4], [0.52, spot[0], spot[1]], [1, spot[0], spot[1]]]; dd[Hd] = [[0, spot[0] - 7, 25 - cw * 6], [0.3, spot[0] - 2, spot[1] - cw * 5], [0.52, spot[0] - 1.5, spot[1] - cw * 3.4], [0.64, spot[0] - lag, spot[1] - cw * 2.2]]; }
+        if (iso) { const q0 = od[S][1]; od[S].splice(1, 0, [0.12, q0[1] - 2, q0[2] + 4], [0.22, q0[1] - 1, q0[2] - 4]); dd[Hd].splice(1, 0, [0.12, q0[1] - 4, q0[2] + 3], [0.22, q0[1] - 3, q0[2] - 3]); }
+        ball = [...dribble(S, 0, 0.5), bp(S, 0.56, 4), bp(S, 0.62, 7), ...shotEnd(0.84, ty === 4 ? 10 : 7)]; trails = [S];
+      }
+      banner = label;
+    }
+
+    if (p.kind === 'P') {   // putback: a teammate misses, the shooter crashes in and slams it home
+      const mis = [spot[0] - 14, 25 - sd * 7], rb = [HX - 1.8, 25 + sd * 0.6];
+      od[-3] = [[0, mis[0], mis[1]], [1, mis[0], mis[1]]];
+      od[S] = [[0, 76, 25 + sd * 12], [0.36, 80, 25 + sd * 8], [0.54, rb[0], rb[1]], [1, rb[0], rb[1]]];
+      dd[Hd] = [[0, 82, 25 + sd * 4], [0.4, 84, 25 + sd * 3], [0.55, HX - 3.4, 25 + sd * 1.8]];
+      dd[-10] = [[0, 83, 25 - sd * 3], [0.4, 85, 25 - sd * 2.5], [0.58, HX - 2.6, 25 - sd * 0.5]];
+      ball = [[0, mis[0], mis[1], 3], [0.18, mis[0], mis[1], 6], [0.38, HX, 25, 10, 'arc', 9], [0.45, HX - 2.6, 25 - sd * 1.8, 12, 'lin'], [0.54, rb[0], rb[1], 11, 'arc', 3], ...dunkEnd(0.64)];
+      banner = 'Putback slam'; hitAt = 0.64; tag = { id: S, text: 'Offensive board', from: 0.45, col: '#fff' }; trails = [S];
+    } else if (isB && ty >= 2) {   // closeout block on a jumper
+      const s0 = spot;
+      od[S] = [[0, s0[0] - 3, s0[1] - cw * 5], [0.46, s0[0], s0[1]], [1, s0[0], s0[1]]];
+      dd[Hd] = [[0, s0[0] - 9, s0[1] - cw * 2], [0.35, s0[0] - 6, s0[1] - cw * 1.2], [0.6, s0[0] - 0.9, s0[1] - cw * 0.3]];
+      ball = [bp(S, 0, 3), bp(S, 0.4, 4), [0.54, s0[0], s0[1], 8], [0.62, s0[0] - 0.4, s0[1], 9.5], [0.7, s0[0] - 4, s0[1] + cw * 3, 8, 'lin'], [1, s0[0] - 14, s0[1] + cw * 8, 0]];
+      banner = ty === 4 ? 'Swats the three' : 'Rejects the jumper'; hitAt = 0.62; hi = Hd; trails = [S];
+    } else if (rim || isB || (p.kind === 'A' && ty <= 1) || (p.kind === 'G' && ty <= 1)) rimPlay(p.kind === 'G' ? 'Drive to the win' : '');
+    else jumper('');
+    if (p.kind === 'A' && ty >= 2) { const s1 = at(od[S], 0.62); dd[Hd] = [[0, dd[Hd][0][1], dd[Hd][0][2]], [0.5, s1[1] + 1, s1[2] - cw * 1.8], [0.62, s1[1] + 0.8, s1[2] - cw * 0.9], [0.8, s1[1] - 0.4, s1[2] - cw * 1.6]]; tag = { id: Hd, text: 'Foul', from: 0.62, col: '#ffb3a8' }; banner = banner + ' · and-one'; }
+    if (p.kind === 'G') {
+      const m = Math.floor((p.c || 0) / 60), s = String((p.c || 0) % 60).padStart(2, '0');
+      banner = `Game-winner · ${p.q > 4 ? 'OT' : 'Q' + p.q} ${m}:${s}`;
+      tag = { id: S, text: 'Game-winner!', from: 0.7, col: '#ffd76a' };
+    }
+    const dots = {};
+    offIds.forEach(id => { dots[id] = { kf: od[id], col: oc, num: id > 0 ? num(id) : '' }; });
+    defIds.forEach(id => { dots[id] = { kf: dd[id], col: dc, num: id > 0 ? num(id) : '' }; });
+    const sc = { el, half: true, t0: performance.now(), dur, dots, loop: skip ? 0 : 900, paint: hexA(T.c1 || '#888', 0.18) };
+    sc.ball = ball; sc.hi = hi; sc.hiFrom = 0.25; sc.banner = banner; sc.screens = screens; sc.trails = trails;
+    sc.tag = tag || (isB ? { id: Hd, text: nm(Hd), from: hitAt, col: '#ffd76a' } : null);
+    if (!isB) sc.pop = { at: hitAt + 0.02, x: B[0], y: B[1], text: ptxt, col: oc.fill === '#ffffff' ? oc.line : oc.fill };
+    sc.onShotAt = hitAt;
+    sc.onShot = () => { if (!window.FX) return; FX.sfx(isB ? 'block' : (rim || p.kind === 'P') && ty <= 1 && p.kind !== 'A' ? 'dunk' : 'swish'); };
     if (skip) { sc.t0 = performance.now() - 1; sc.onShot = null; }
     scenes[el] = sc; kick();
-    void ps;
   }
   function stop(el) { if (el) delete scenes[el]; else for (const k in scenes) delete scenes[k]; if (!el) liveKey = null; }
   window.COURT = { live, reel, stop, readEntry, get scenes() { return scenes; } };

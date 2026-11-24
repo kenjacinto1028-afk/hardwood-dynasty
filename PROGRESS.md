@@ -1,5 +1,23 @@
 # PBL progress
 
+## Early retirements fix (Sonnet, Nov 23 2026)
+- [x] Players 27 or younger no longer retire unless they had 2+ long injuries in the last 2 seasons (was a small random chance, hit Jeremiah Fears at 22). Early retirements now show a reason: injury trouble, no offers, or lost his drive. src/league.js `retireChance` + offseason retire loop. Installer not touched.
+## Roster tags, expired contracts, scouting resets, tutorial (Haiku, Nov 23 2026)
+- [x] My team › Roster: Core, Shop and Untouchable buttons under each player's name (one click, same toggles as the player page; Core stays capped at 4).
+- [x] Players whose contract has expired can't be traded in the offseason until they re-sign (offseason = after the playoffs; in-season unchanged).
+- [x] Scouting director assignments no longer stay forever: regular-season assignments clear when the new season starts (a news line says so). Offseason assignments still carry into the season that follows, then clear.
+- [x] Guided tour (first-time tour, or Settings › tour again): GM, Play as coach and My Career each get their own welcome and mode step. Commissioner text unchanged.
+- Tests: `tools/hwd-roster-fixes.js` (node, ALL PASS); `tools/browser-hwd-roster.js` (1300 + 390, ALL PASS; needs `tools/_hwd-team.json`, gunzipped from `tools/snap/nba-team-s10.json.gz`). Cache v28. Installer not touched.
+## My Career: decisions rework + business side (Sonnet, Nov 23 2026)
+Model routing (all Sonnet, no Opus): logic + UI + tests Sonnet; short texts Sonnet (Haiku would also do).
+- [x] **Decisions rework.** Game plan screen first (Take over / Facilitate / Lock down / Pace yourself / Read the game: odds bonus on matching plays, scene mix, game feel). Each call shows odds, Safe / Balanced / Bold tag, energy cost and reward chips. Energy meter (tired legs lower odds), momentum and live margin (Up 3 / Down 2) that decides how the clutch moment reads (offence when behind or tied, defence when ahead). One breather a game. 6 new scenes (fast break, switch, hot teammate, ref call, foul trouble, rival trash talk) on top of the 10. Post-game review lists the plan and each call. Works for college and pro games. `src/career.js`.
+- [x] **Brand tab** (`src/career-biz.js`, state `L.career.biz`): brand value from rating, hype, fans, legend meter, awards, market. Endorsements (up to 3, 4 for stars) with bonus clauses and renewals; one sneaker deal (standard / incentive / royalty / signature; 5 companies; ask for a signature shoe); social media (5 post types, 2 a week, viral and backfire, family brands can drop you); agent negotiations (counter once per offer, shop me around, change agent, fee 3-6%); community events (6, fan rating + goodwill, some cost savings); fan rating. Paid once a season after the playoffs.
+- [x] **Rivals tab**: heat builds from matchups (same position), playoffs, equal talent, close duels, trash talk; draft-class peers start as soft rivals. Tracker with duels, team record, points. Rival games are big games and can add a rival scene; beating a rival earns XP + hype.
+- [x] **My Career tabs**: Overview / Skills / Life / Brand / Rivals / Career story. Fan rating + hype in the header. Offers popup. 7 new achievements.
+- [x] **Tutorials per mode**: GM, My Career, Coach and Fantasy each get their own tour (own "seen" key); Commissioner unchanged. Fantasy tour starts the first time its page opens.
+- [x] **Draft check (PR #44 follow-up)**: on a mid-progress / older save the mocks followed the stats cap but the real draft did not (team boards use potential), so a weak-stats prospect could go top 10 while mocked ~40. Team boards now subtract half of the gap between his potential and his scouting grade (`draftBoard`, league.js). `tools/career-draft-check.js` (fresh and stripped-old-save runs).
+- Tests: `tools/career-biz.js`, `tools/career-decisions.js`, `tools/career-draft-check.js` (node); `tools/browser-career.js` updated (plan screen, tabs, Brand, Rivals). Cache v28. Installer not touched.
+
 ## My Career: draft projection follows your stats (Sonnet, Nov 22 2026)
 - [x] A low-production pre-draft season now lowers your scouting grade (used by the mock drafts and the real draft): points + rebounds + assists + stocks map to the best pick they support (e.g. about 11 pts / 3 ast = late first round, not top 3). Builds up over the first 15 games; recovers if you play better. Floor is your current overall.
 - [x] Draft stock panel says which pick your stats support. Test: tools/browser-career.js ALL PASS. Cache v17. Installer not touched.
@@ -944,3 +962,19 @@ Suggested order: T (quick win) → R → G (PBL + pipeline emblems) → F, then 
 - U3: phone Notes button shows icon+label only; to-do toast moved above bottom nav.
 - U4: phone search box wider; day-1 ties sorted by preseason strength, not A-Z.
 - I3: 41 duplicate old test files removed from the top level (copies live in tools/); v30a.patch moved to patches/.
+
+## Nov 23 2026 — Team stats on box scores and live games (Sonnet)
+- Team stats panel (FG/3P/FT, eFG%, TS%, rebounds, assists, steals, blocks, TO, PF, bench points, possessions, PPP, biggest lead; live adds lead changes and ties) on result box scores and the live view. `teamStatsPanel` in `src/app.js`.
+- Help page: new "Box scores and team stats" section. Test: `node tools/browser-teamstats.js` (needs `tools/_t1.json`), ALL PASS.
+## Nov 23 2026 — Top plays: each highlight has its own replay (Sonnet)
+- Cause: the reel used one generic motion for every dunk/three, so all plays looked alike.
+- `COURT.reel` (src/court.js) rewritten: staging per play type (alley-oop, cut, wing/baseline drive, fast break; drive-and-kick, curl off screen, step-back, pull-up, fadeaway, floater; putback off a miss; chase-down, help-side and closeout blocks; and-one contact + foul tag; game-winner iso with clock banner). Variation seeded by game, play and clock.
+- How it works page: new "Top plays of the night" paragraph. sw cache v28.
+- Checked in browser: 16 crafted plays all render and differ; tools/browser-p2.js run.
+## Nov 23 2026 — Tutorial update (Haiku)
+- [x] How it works page (src/app.js vRules): new "Game modes: quick guide" (Franchise, Head Coach, My Career, Fantasy; Commissioner one line) and "What's new" (court view, live coaching, All-Star Weekend, draft combine, card rarity, team logos, box scores, top plays).
+- [x] Checked in the single-file build: the page renders, no page errors. Screenshot taken in scratch only.
+- [ ] Pending: My Career endorsements, sneakers, social, agent, rivalry and charity entries. Not on main yet; add once those threads merge.
+
+## Nov 24 2026: merged PRs #45-#50 together
+- Fix early retirements, team stats panel, top-play replays, roster tags/trade block/scouting resets, My Career brand + rivals + decisions, mode tutorials. Tour keeps roster-tags step for GM; help page has Brand/Rivals + Team stats entries. Desktop installer untouched.

@@ -9,7 +9,7 @@ let fails = 0; const ok = (n, c, x) => { console.log((c ? 'PASS ' : 'FAIL ') + n
   const ctx = await b.newContext({ viewport: { width: W, height: 900 } });
   await ctx.route(BASE + '**', r => { const f = path.join(ROOT, decodeURIComponent(new URL(r.request().url()).pathname)); if (!f.startsWith(ROOT) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) return r.fulfill({ status: 404, body: '' }); r.fulfill({ status: 200, contentType: MIME[path.extname(f)] || 'application/octet-stream', body: fs.readFileSync(f) }); });
   const pg = await ctx.newPage(), errs = []; pg.on('pageerror', e => errs.push(String(e))); pg.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
-  await pg.goto(BASE + 'index.html'); await pg.evaluate(() => { try { localStorage.setItem('pbl-tour', 'done'); } catch (e) { } }); await pg.reload(); await pg.waitForTimeout(2500);
+  await pg.goto(BASE + 'index.html'); await pg.evaluate(() => { try { ['pbl-tour','pbl-tour-career','pbl-tour-coach','pbl-tour-fantasy'].forEach(k => localStorage.setItem(k, 'done')); } catch (e) { } }); await pg.reload(); await pg.waitForTimeout(2500);
   const shot = async n => { if (SHOTS) await pg.screenshot({ path: path.join(SHOTS, n + '.png') }); };
   await pg.click('[data-setsize="16"]'); await pg.click('[data-setgames="58"]'); await pg.click('[data-setmode="career"]'); await pg.waitForTimeout(300);
   ok('builder shows with a face', await pg.evaluate("!!document.querySelector('.cf .face svg') && document.querySelectorAll('.cf-row').length === 10"));

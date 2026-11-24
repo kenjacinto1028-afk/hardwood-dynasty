@@ -1412,7 +1412,10 @@ function salaryBand(T, pay, after, out, inn) {
   if (inn > Math.max(out * 1.25 + 0.1, out + Math.max(0, CAP - pay)) + 1e-6) return `${T.abbr} are over the cap: they can take back at most 125% of outgoing salary (${money(out * 1.25 + 0.1)})`;
   return null;
 }
+// Expired contracts: from the end of the season until the player re-signs (or leaves), he can't be traded
+function contractUp(L, p) { return !!(p && p.team != null && p.contract && L.phase !== 'regular' && L.phase !== 'playoffs' && p.contract.exp <= L.season); }
 function tradeRestricted(L, p) {
+  if (contractUp(L, p)) return true;
   const r = p.noTrade; if (!r) return false;
   if (L.season < r.s) return true;
   if (L.season > r.s || L.phase !== 'regular') return false;
@@ -1429,6 +1432,8 @@ function tradeCheck(L, a, b, aGive, bGive) {
     if (ids.length) { const mv = {}; aGive.picks.forEach(id => mv[id] = b); bGive.picks.forEach(id => mv[id] = a); const st = stepienCheck(L, mv, [a, b]); if (st) return st; }
   }
   for (const [g, who] of [[aGive, a], [bGive, b]]) if (g.prot) for (const [id, N] of Object.entries(g.prot)) { const k = L.picks.find(x => x.id === id); if (!g.picks.includes(id) || !k) return 'A protection is on a pick that is not in the deal'; const pe = protCheck(L, who, k, N); if (pe) return pe; }   // v25.7 S6
+  const up = [...aGive.players, ...bGive.players].map(id => L.players[id]).find(p => contractUp(L, p));
+  if (up) return `${up.name}'s contract has expired, so he can't be traded until he re-signs`;
   const rp = [...aGive.players, ...bGive.players].map(id => L.players[id]).find(p => tradeRestricted(L, p));
   if (rp) return `${rp.name} signed as a free agent and can't be traded yet`;
   for (const [ids, dest] of [[aGive.players, b], [bGive.players, a]]) for (const id of ids) { const p = L.players[id]; if (p.contract && p.contract.ntc && !ntcConsent(L, p, dest)) return `${p.name} has a no-trade clause and won't approve a move to ${L.teams[dest].abbr}`; }
@@ -3164,7 +3169,7 @@ function draftBoard(L, tid, d) {
   const t = L.teams[tid], needs = teamNeeds(L, t);
   const potW = t.mode === 'tank' || t.mode === 'rebuild' ? 0.65 : 0.5;
   const pros = (L.classes[d] || []).map(id => L.players[id]).filter(Boolean);
-  const sc = p => { const fl = dirFlags(L, tid, p); return potW * teamPotEst(L, tid, p).est + (1 - potW) * ovrRead(L, tid, p) + (needMult(L, t, p, needs) - 1) * 6 + youthB(L, p, 1.2) + (fl === 'bust' ? -3 : fl === 'bloom' ? 2 : 0) + (typeof cmbBoost === 'function' ? cmbBoost(L, p) : 0); };
+  const sc = p => { const fl = dirFlags(L, tid, p); return potW * teamPotEst(L, tid, p).est + (1 - potW) * ovrRead(L, tid, p) + (needMult(L, t, p, needs) - 1) * 6 + youthB(L, p, 1.2) + (fl === 'bust' ? -3 : fl === 'bloom' ? 2 : 0) + (typeof cmbBoost === 'function' ? cmbBoost(L, p) : 0) - (p.career && L.career && p.scout < p.pot ? (p.pot - p.scout) * 0.5 : 0); };   // My Career: weak pre-draft stats lower his scouting grade; teams' boards follow it too (not just the mocks), so the real draft follows the mock. Works on older saves (uses scout vs pot)
   let board = pros.sort((a, b) => sc(b) - sc(a));
   const mine = tid === L.user && L.myBoard && L.myBoard[d];
   if (mine) { const pos = new Map(mine.map((id, i) => [id, i])); board = board.slice().sort((a, b) => (pos.has(a.id) ? pos.get(a.id) : 999) - (pos.has(b.id) ? pos.get(b.id) : 999)); }
@@ -4800,7 +4805,9 @@ function slAdapt(L, t) {
 function retireChance(L, p) {
   const a = p.age;
   const aa = NBA_ON && p.ovr >= 62 ? a - 2 : a;   // v27: NBA careers run longer for useful players
-  let pr = aa <= 29 ? 0.003 : [0.02, 0.04, 0.07, 0.12, 0.2, 0.3, 0.42, 0.55, 0.7][aa - 30] ?? 0.85;
+  const hurt = p.injuries.filter(i => i.long && i.s >= L.season - 2).length;
+  if (a <= 27 && hurt < 2) return 0;   // fix: young, healthy players don't retire
+  let pr = a <= 27 ? 0.004 : aa <= 29 ? 0.003 : [0.02, 0.04, 0.07, 0.12, 0.2, 0.3, 0.42, 0.55, 0.7][aa - 30] ?? 0.85;
   if (p.ovr < 45) pr *= 2; else if (p.ovr < 55) pr *= 1.4;
   if (NBA_ON && p.ovr >= 85) pr *= 0.2; else if (p.ovr >= 82) pr *= 0.4; else if (p.ovr >= 75) pr *= 0.55;   // v27: NBA stars play on while still elite
   if (NBA_ON && p.leg && p.leg.tid === p.team && p.leg.v >= 250 && p.ovr >= 70) pr *= 0.7;   // v27 U13: franchise icons play a little longer
@@ -5224,7 +5231,7 @@ function startOffseason(L) {
     let why = null;
     if (p.careerEnd) why = 'career-ending injury';
     else if (p.tour === L.season) why = 'farewell tour';
-    else if (R() < retireChance(L, p)) why = p.age <= 30 ? 'retired early' : 'age';
+    else if (R() < retireChance(L, p)) why = p.age > 30 ? 'age' : p.injuries.some(i => i.long && i.s >= L.season - 2) ? 'injury trouble' : p.team == null ? 'no offers' : 'lost his drive';
     if (why) {
       const played = p.real || p.hist.some(h => h.rs && h.rs.gp > 0);   // v27 N8: real players keep their real career even with no sim games
       const tm = retirePlayer(L, p, why);
@@ -6274,6 +6281,12 @@ function startNewSeason(L) {
   finalizeRosters(L);
   if (L.user != null) meetPayrollFloor(L, L.teams[L.user]);
   L.season++;
+  // Scouting assignments last one season: regular-season ones expire here; ones set in the offseason before this season carry into it, then expire too
+  for (const t of L.teams) if (t.scoutAssign && t.scoutAssign.length) {
+    const before = t.scoutAssign.length;
+    t.scoutAssign = t.scoutAssign.filter(a => a.d === 1e6 && a.s === L.season - 1);
+    if (t.id === L.user && t.scoutAssign.length < before) logNews(L, `Last season's scouting assignments have expired. Set them again if you still want them.`, L.user, 'team');
+  }
   for (const t of L.teams) if (t.id !== L.user && t.coach) slAdapt(L, t);   // v27 K1: AI coaches lean their sliders toward their roster each summer
   if (L.nba && typeof nbaSchedAmt === 'function') for (const p of active(L)) { nbaSchedAmt(L, p); if (p.uf) { p.uf = 1 + (p.uf - 1) * 0.75; if (Math.abs(p.uf - 1) < 0.03) delete p.uf; } if (p.rmb) { p.rmb *= 0.75; if (Math.abs(p.rmb) < 0.5) delete p.rmb; } }   // R1: real usage fades
   L.day = 0; L.games = []; L.po = null; L.offSummary = null; L.draftOrder = null; L.faDay = null;

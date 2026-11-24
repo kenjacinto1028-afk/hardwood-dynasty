@@ -975,3 +975,6 @@ Suggested order: T (quick win) → R → G (PBL + pipeline emblems) → F, then 
 - [x] How it works page (src/app.js vRules): new "Game modes: quick guide" (Franchise, Head Coach, My Career, Fantasy; Commissioner one line) and "What's new" (court view, live coaching, All-Star Weekend, draft combine, card rarity, team logos, box scores, top plays).
 - [x] Checked in the single-file build: the page renders, no page errors. Screenshot taken in scratch only.
 - [ ] Pending: My Career endorsements, sneakers, social, agent, rivalry and charity entries. Not on main yet; add once those threads merge.
+
+## Nov 24 2026: merged PRs #45-#50 together
+- Fix early retirements, team stats panel, top-play replays, roster tags/trade block/scouting resets, My Career brand + rivals + decisions, mode tutorials. Tour keeps roster-tags step for GM; help page has Brand/Rivals + Team stats entries. Desktop installer untouched.

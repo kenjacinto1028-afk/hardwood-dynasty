@@ -826,3 +826,9 @@ Branch `claude/project-thread-vie062`. Tutorial = "How it works" page (src/app.j
 - [x] 3. Browser check: How it works page renders in the single-file build, no page errors
 - [x] 4. Main re-checked (no new commits since base). My Career endorsement/sneaker/social/agent/rivalry/charity entries deferred until those threads merge
 - [x] 5. PROGRESS.md updated; pushed; PR #47 opened (review request refused: author cannot request own review; assignee not settable with the tools here)
+
+---
+# TASK_STATE — Merge PRs #45-#50 — Nov 24 2026
+- [x] 1. Merged all six in order on branch claude/project-thread-sw9g74, conflicts resolved
+- [x] 2. Tests: roster, teamstats, career, p2 pass; career node tests flaky on #50 alone
+- [ ] 3. Push, PR, merge
